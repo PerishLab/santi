@@ -11,10 +11,13 @@ use crate::cli::{
 use crate::text::source::read_summary_file;
 use crate::watch::{next_sse_frame, render_watch_event};
 
+mod create;
 mod environment;
 mod send;
+pub mod tui;
 
-pub use send::{Request, Target, send};
+pub(crate) use send::{Proof, prove, uncertain};
+pub use send::{Request, Target, emit, send};
 
 const TIMEOUT: Duration = Duration::from_secs(30);
 
@@ -44,6 +47,7 @@ pub(crate) async fn run(
     let base = base_url.trim_end_matches('/').to_string();
     match command {
         Command::Health => http.get(&format!("{base}/api/v1/health")).await,
+        Command::Tui { memory } => tui::run(&client, &base, defaults, memory).await,
         Command::Errors {
             scope_kind,
             scope_id,
@@ -72,9 +76,7 @@ pub(crate) async fn run(
             )
             .await
         }
-        Command::Strand(StrandCommand::Create) => {
-            http.post(&format!("{base}/api/v1/strands"), None).await
-        }
+        Command::Strand(StrandCommand::Create) => http.create_strand(&base, defaults.soul()).await,
         Command::Strand(StrandCommand::List) => http.get(&format!("{base}/api/v1/strands")).await,
         Command::Strand(StrandCommand::Get { id }) => {
             let id = defaults.resolve_strand(id)?;

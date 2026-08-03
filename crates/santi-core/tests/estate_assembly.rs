@@ -145,13 +145,24 @@ async fn assembles_ordered_estate() {
         )
         .await
         .expect("preview");
+    let metadata = serde_json::json!({
+        "schema": "santi.compact_capsule.v1",
+        "before": { "total": 1200 },
+        "forecast": {
+            "authoritative": false,
+            "basis": "precommit_preview",
+            "after": { "total": 480 },
+            "ratio": 0.4,
+        },
+        "budget": { "bytes": 4000 },
+    });
     let preview = provider_preview(
         &store,
         "strand_test",
         santi_core::ProviderPreview {
             report: &report,
             summary: "summary",
-            metadata: &serde_json::json!({"reason": "test"}),
+            metadata: &metadata,
         },
     )
     .await
@@ -164,7 +175,8 @@ async fn assembles_ordered_estate() {
             first: "message_first",
             last: "message_last",
             summary: "summary",
-            metadata: None,
+            metadata: Some(&metadata),
+            expected: None,
             created: LATER,
         })
         .await
@@ -192,4 +204,23 @@ fn assert_compact(items: &[Item]) {
     assert_eq!(role, "system");
     assert!(content.contains("[compact projection]"));
     assert!(content.contains("<compact_summary>\nsummary\n</compact_summary>"));
+    let header = content
+        .strip_prefix("[compact projection]\n")
+        .and_then(|content| content.split_once("\n[/compact projection]"))
+        .map(|(header, _)| header)
+        .expect("compact projection header");
+    let header: serde_json::Value = serde_json::from_str(header).expect("header json");
+    assert_eq!(
+        header["schema"],
+        "santi.compact_projection.visible_header.v1"
+    );
+    let estimate = &header["context_estimate"];
+    assert_eq!(estimate["pre_total_bytes"], 1200);
+    assert_eq!(estimate["budget_input_bytes"], 4000);
+    assert!(estimate.get("post_total_bytes").is_none());
+    assert!(estimate.get("ratio").is_none());
+    assert_eq!(estimate["forecast"]["authoritative"], false);
+    assert_eq!(estimate["forecast"]["basis"], "precommit_preview");
+    assert_eq!(estimate["forecast"]["post_total_bytes"], 480);
+    assert_eq!(estimate["forecast"]["ratio"], 0.4);
 }

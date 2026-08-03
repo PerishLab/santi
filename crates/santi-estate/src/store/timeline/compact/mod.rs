@@ -12,6 +12,7 @@ pub struct CompactDraft<'a> {
     pub last: &'a str,
     pub summary: &'a str,
     pub metadata: Option<&'a serde_json::Value>,
+    pub expected: Option<&'a compact::Report>,
     pub created: &'a str,
 }
 
@@ -44,6 +45,13 @@ impl Store {
             .core
             .batch(async |tx| {
                 let plan = plan::build(tx, draft.strand, draft.first, draft.last).await?;
+                if let Some(expected) = draft.expected
+                    && (expected.compact != draft.tag || !plan.matches(expected))
+                {
+                    return Err(keel::adapt::Error::Adapt(
+                        "compact plan conflicts with its preview; retry compact".into(),
+                    ));
+                }
                 for (key, _) in &plan.absorbed {
                     tx.end("Compact", *key).await?;
                 }
@@ -134,28 +142,6 @@ impl Store {
             },
         )
         .await
-    }
-
-    pub async fn annotate_compact(
-        &self,
-        tag: &str,
-        metadata: &serde_json::Value,
-    ) -> Result<compact::Compact, String> {
-        let metadata = serde_json::to_string(metadata).map_err(|error| error.to_string())?;
-        self.core
-            .batch(async |tx| {
-                let row = tx
-                    .one(&form("Compact").when("tag", Op::Eq, tag))
-                    .await?
-                    .ok_or_else(|| keel::adapt::Error::Missing(tag.into()))?;
-                tx.set("Compact", row.key(), &[("metadata", metadata.as_str())])
-                    .await
-            })
-            .await
-            .map_err(read::error)?;
-        self.compact(tag)
-            .await?
-            .ok_or_else(|| "annotated compact missing".to_string())
     }
 
     async fn decode_compact(&self, row: &keel::Row) -> Result<compact::Compact, String> {

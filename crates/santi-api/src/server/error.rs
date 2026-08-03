@@ -60,6 +60,7 @@ const MISSING: &[Rule] = &[
 ];
 
 const CONFLICT: &[Rule] = &[
+    Rule::Contains("compact plan conflicts"),
     Rule::Starts("downstream request conflicts"),
     Rule::Starts("downstream id conflicts"),
     Rule::Starts("webhook delivery conflicts"),

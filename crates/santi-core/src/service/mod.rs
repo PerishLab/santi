@@ -42,6 +42,7 @@ pub struct Service {
     notices: notice::Bus,
     inboxes: Arc<Mutex<HashMap<String, String>>>,
     budgets: Arc<Mutex<HashMap<String, budget::Execution>>>,
+    limit: Option<budget::Execution>,
     pressure: Arc<tokio::sync::Mutex<()>>,
     closing: Arc<AtomicBool>,
     controls: Arc<Mutex<HashMap<String, interrupt::Control>>>,
@@ -110,6 +111,7 @@ impl Service {
             notices: notice::Bus::new(),
             inboxes: Arc::new(Mutex::new(HashMap::new())),
             budgets: Arc::new(Mutex::new(HashMap::new())),
+            limit: None,
             pressure: Arc::new(tokio::sync::Mutex::new(())),
             closing: Arc::new(AtomicBool::new(false)),
             controls: Arc::new(Mutex::new(HashMap::new())),
@@ -127,6 +129,12 @@ impl Service {
         self
     }
 
+    pub fn bounded(mut self, limit: budget::Execution) -> Result<Self, String> {
+        limit.validate()?;
+        self.limit = Some(limit);
+        Ok(self)
+    }
+
     pub async fn ration(&self, strand: &str, budget: budget::Execution) -> Result<(), String> {
         budget.validate()?;
         if self.store.strand(strand).await?.is_none() {
@@ -140,7 +148,12 @@ impl Service {
     }
 
     pub(in crate::service) fn rationed(&self, strand: &str) -> Option<budget::Execution> {
-        self.budgets.lock().unwrap().get(strand).cloned()
+        self.budgets
+            .lock()
+            .unwrap()
+            .get(strand)
+            .cloned()
+            .or_else(|| self.limit.clone())
     }
 
     pub fn close(&self) {

@@ -6,6 +6,9 @@ use plumb::config::Cascade;
 use santi_api::config::{Layout, Profile, env, home};
 use santi_api::runtime::{self, Runtime};
 
+mod execution;
+pub use execution::Execution;
+
 pub fn load() {
     dotenvy::dotenv().ok();
 }
@@ -50,6 +53,8 @@ pub struct Config {
     pub webhooks: Webhooks,
     #[cascade(section)]
     pub capability: Capability,
+    #[cascade(section)]
+    pub execution: Execution,
     pub environment: BTreeMap<String, String>,
     pub providers: BTreeMap<String, Profile>,
 }
@@ -64,6 +69,7 @@ impl Default for Config {
             paths: Paths::default(),
             webhooks: Webhooks::default(),
             capability: Capability::default(),
+            execution: Execution::default(),
             environment: BTreeMap::new(),
             providers: BTreeMap::new(),
         }
@@ -277,6 +283,7 @@ fn runtime(held: Config) -> Result<Runtime, String> {
             allow: held.webhooks.feishu.allow,
         },
         capability: held.capability.issuer()?,
+        execution: held.execution.budget()?,
         constitution: held.paths.charter,
     })
 }

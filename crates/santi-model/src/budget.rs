@@ -27,10 +27,13 @@ pub struct Snapshot {
     pub strand: String,
     pub estimate: Estimate,
     pub budget: Option<Cap>,
+    pub execution: Option<Execution>,
+    pub usage: Option<Usage>,
     pub incident: Option<Incident>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema, PartialEq, Eq)]
+#[schema(as = budget::Execution)]
 pub struct Execution {
     pub profile: String,
     pub rounds: usize,
@@ -63,7 +66,8 @@ impl Execution {
     }
 }
 
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, ToSchema, PartialEq, Eq)]
+#[schema(as = budget::Usage)]
 pub struct Usage {
     pub calls: usize,
     pub output: usize,

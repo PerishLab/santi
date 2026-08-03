@@ -30,6 +30,9 @@ impl Service {
         command.process_group(0);
         command.current_dir(&cwd).env_clear();
         crate::environment::allow(&mut command);
+        if let Some(bind) = self.config.bind.as_ref() {
+            command.env("SANTI_API_URL", format!("http://{bind}"));
+        }
         command
             .envs(environment)
             .env("SANTI_SOUL_MEMORY_DIR", self.soulhome(origin.soul))

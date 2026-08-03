@@ -50,4 +50,23 @@ impl<'a> Probe<'a> {
         }
         panic!("turn did not complete");
     }
+
+    pub(crate) async fn failed_turn(
+        &self,
+        strand: &str,
+        turn: &str,
+    ) -> santi_core::stream::Snapshot {
+        for _ in 0..50 {
+            let runtime = self.snapshot(strand).await;
+            if runtime
+                .turns
+                .iter()
+                .any(|held| held.id == turn && held.status == santi_core::turn::Status::Failed)
+            {
+                return runtime;
+            }
+            sleep(Duration::from_millis(20)).await;
+        }
+        panic!("turn did not fail");
+    }
 }

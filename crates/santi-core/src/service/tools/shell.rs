@@ -93,6 +93,11 @@ struct Pipe {
     truncated: bool,
 }
 
+struct Text {
+    value: String,
+    truncated: bool,
+}
+
 async fn piped(
     mut reader: impl AsyncRead + Unpin,
     remaining: Option<Arc<AtomicUsize>>,
@@ -133,12 +138,13 @@ fn captured(capture: Capture) -> Outcome {
         cwd,
         limit,
     } = capture;
-    let out = String::from_utf8_lossy(&stdout.bytes).into_owned();
-    let err = String::from_utf8_lossy(&stderr.bytes).into_owned();
+    let mut remaining = limit;
+    let stdout = normalized(stdout, remaining.as_mut());
+    let stderr = normalized(stderr, remaining.as_mut());
     let mut output = json!({
         "exit_code": status.code().unwrap_or(-1),
-        "stdout": out,
-        "stderr": err,
+        "stdout": stdout.value,
+        "stderr": stderr.value,
         "shell": sheller(),
         "cwd": cwd.display().to_string(),
     });
@@ -147,6 +153,26 @@ fn captured(capture: Capture) -> Outcome {
         output["output_limit_bytes"] = Value::from(limit);
     }
     Outcome::Captured(output)
+}
+
+fn normalized(pipe: Pipe, remaining: Option<&mut usize>) -> Text {
+    let Pipe { bytes, truncated } = pipe;
+    let value = String::from_utf8_lossy(&bytes);
+    let Some(remaining) = remaining else {
+        return Text {
+            value: value.into_owned(),
+            truncated,
+        };
+    };
+    let mut end = value.len().min(*remaining);
+    while !value.is_char_boundary(end) {
+        end -= 1;
+    }
+    *remaining -= end;
+    Text {
+        truncated: truncated || end < value.len(),
+        value: value[..end].to_string(),
+    }
 }
 
 fn reserved(remaining: &AtomicUsize, requested: usize) -> usize {
@@ -212,7 +238,7 @@ pub(super) fn shell(command: &str) -> Command {
     #[cfg(not(windows))]
     {
         let mut shell = Command::new("/bin/bash");
-        shell.arg("-lc").arg(command);
+        shell.arg("-c").arg(command);
         shell
     }
 }

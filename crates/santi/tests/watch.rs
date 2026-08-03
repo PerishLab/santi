@@ -69,6 +69,7 @@ fn renders() {
 fn snippets() {
     assert_eq!(snippet("a\n  b\t c", 20), "a b c");
     assert_eq!(snippet("abcdef", 3), "abc…");
+    assert_eq!(snippet("a\u{1b}b", 20), "a b");
 }
 
 #[test]
@@ -103,7 +104,7 @@ async fn chunks() {
         Ok(b"oad\":{\"turn\":{\"id\":\"t1\"}}}\n\n: ka\n\n".to_vec()),
     ];
     let mut stream = stream::iter(chunks);
-    let mut buffer = String::new();
+    let mut buffer = Vec::new();
     let (event, data) = next_sse_frame(&mut stream, &mut buffer)
         .await
         .unwrap()
@@ -119,4 +120,52 @@ async fn chunks() {
             .unwrap()
             .is_none()
     );
+}
+
+#[tokio::test]
+async fn unicode() {
+    use futures_util::stream;
+
+    let frame = "event: message\ndata: {\"payload\":{\"text\":\"雪\"}}\n\n".as_bytes();
+    let split = frame
+        .windows(3)
+        .position(|held| held == "雪".as_bytes())
+        .unwrap()
+        + 1;
+    let chunks: Vec<reqwest::Result<Vec<u8>>> =
+        vec![Ok(frame[..split].to_vec()), Ok(frame[split..].to_vec())];
+    let mut stream = stream::iter(chunks);
+    let mut buffer = Vec::new();
+    let (_, data) = next_sse_frame(&mut stream, &mut buffer)
+        .await
+        .expect("split UTF-8 frame")
+        .expect("message frame");
+    assert_eq!(
+        json_field(&data, &["payload", "text"]).as_deref(),
+        Some("雪")
+    );
+}
+
+#[tokio::test]
+async fn invalid() {
+    use futures_util::stream;
+
+    let chunks: Vec<reqwest::Result<Vec<u8>>> =
+        vec![Ok(b"event: message\ndata: \xff\n\n".to_vec())];
+    let error = next_sse_frame(&mut stream::iter(chunks), &mut Vec::new())
+        .await
+        .expect_err("invalid UTF-8 must fail");
+    assert!(error.to_string().contains("UTF-8"));
+
+    let chunks: Vec<reqwest::Result<Vec<u8>>> = vec![Ok(b"event: turn\ndata: {}".to_vec())];
+    let error = next_sse_frame(&mut stream::iter(chunks), &mut Vec::new())
+        .await
+        .expect_err("incomplete frame must fail");
+    assert!(error.to_string().contains("incomplete SSE frame"));
+
+    let chunks: Vec<reqwest::Result<Vec<u8>>> = vec![Ok(b"not-an-sse-field\n\n".to_vec())];
+    let error = next_sse_frame(&mut stream::iter(chunks), &mut Vec::new())
+        .await
+        .expect_err("invalid frame must fail");
+    assert!(error.to_string().contains("invalid SSE frame"));
 }

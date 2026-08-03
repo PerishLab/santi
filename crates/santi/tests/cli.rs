@@ -10,6 +10,15 @@ fn defaults(strand: Option<&str>, soul: Option<&str>) -> ClientDefaults {
 }
 
 #[test]
+fn tui() {
+    let parsed = Cli::try_parse_from(["santi", "tui", "--memory-file", "jarvis.md"]).unwrap();
+    let Command::Tui { memory } = parsed.command else {
+        panic!("expected tui command");
+    };
+    assert_eq!(memory.as_deref(), Some("jarvis.md"));
+}
+
+#[test]
 fn resolves() {
     let defaults = defaults(Some("sess_default"), None);
     assert_eq!(

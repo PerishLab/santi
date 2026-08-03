@@ -55,7 +55,9 @@ pub(super) fn urlencoding_encode(value: &str) -> String {
 }
 
 pub(super) fn build_client(bearer: Option<&str>) -> Result<reqwest::Client> {
-    let mut builder = reqwest::Client::builder();
+    let mut builder = reqwest::Client::builder()
+        .redirect(reqwest::redirect::Policy::none())
+        .retry(reqwest::retry::never());
     if let Some(token) = bearer {
         let mut headers = reqwest::header::HeaderMap::new();
         let mut value = reqwest::header::HeaderValue::from_str(&format!("Bearer {token}"))
@@ -170,7 +172,7 @@ impl Http<'_> {
                 }
             }
             WatchFormat::Filtered => {
-                let mut buffer = String::new();
+                let mut buffer = Vec::new();
                 while let Some((event, data)) = next_sse_frame(&mut stream, &mut buffer).await? {
                     print_watch_line(&mut stdout, &event, &data);
                 }

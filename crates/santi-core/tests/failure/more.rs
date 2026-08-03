@@ -1,5 +1,5 @@
 use super::*;
-use santi_core::{message, turn};
+use santi_core::{message, soul, turn};
 
 #[tokio::test]
 async fn preserves() {
@@ -9,7 +9,12 @@ async fn preserves() {
         ..FailureProvider::default()
     });
     let service = open_service(&temp, provider.clone()).await;
-    let strand = service.weave().await.expect("create strand").strand;
+    let soul = service
+        .awaken(soul::Draft { memory: None })
+        .await
+        .expect("awaken soul");
+    assert_ne!(soul.id, santi_core::GENESIS);
+    let strand = service.seat(&soul.id).await.expect("seat soul").strand;
     let response = send_text(&service, &strand.id, "trigger stream failure").await;
 
     let runtime = wait_for_aborted_output(&service, &strand.id, &turn(&response).id).await;
@@ -22,6 +27,7 @@ async fn preserves() {
         })
         .expect("aborted partial assistant message");
     assert_eq!(partial_message.text, "partial runtime output");
+    assert_eq!(partial_message.message.actor, soul.id);
     assert_no_failure_projection(&runtime);
     assert_eq!(runtime.errors.len(), 1);
     assert_eq!(runtime.errors[0].first.source.operation, "turn.stream");

@@ -39,6 +39,28 @@ pub(super) async fn weave(
 }
 
 #[utoipa::path(
+    post,
+    path = "/api/v1/souls/{soul}/strands",
+    params(("soul" = String, Path)),
+    responses(
+        (status = 200, body = strand::Created),
+        (status = 400, body = Fault),
+        (status = 404, body = Fault),
+        (status = 500, body = Fault)
+    )
+)]
+pub(super) async fn seat(
+    State(service): State<Service>,
+    Path(soul): Path<String>,
+) -> Result<Json<strand::Created>, ApiError> {
+    service
+        .seat(&soul)
+        .await
+        .map(Json)
+        .map_err(ApiError::from_service)
+}
+
+#[utoipa::path(
     get,
     path = "/api/v1/strands",
     responses((status = 200, body = [Strand]), (status = 500, body = Fault))

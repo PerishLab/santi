@@ -86,6 +86,13 @@ fn runtime_under(root: &Path, budget: Option<usize>) -> Runtime {
         github: Default::default(),
         feishu: Default::default(),
         capability: None,
+        execution: santi_core::budget::Execution {
+            profile: "test".to_string(),
+            rounds: 2,
+            calls: 2,
+            output: 1024,
+            shell: 512,
+        },
         constitution: None,
     }
 }

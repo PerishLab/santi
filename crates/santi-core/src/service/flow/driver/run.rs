@@ -124,6 +124,20 @@ impl Service {
             };
         }
 
+        let actor = match provider_try!(
+            Operation::Persistence(Persistence::Assistant),
+            self.store.strand(strand).await
+        ) {
+            Some(strand) => strand.soul,
+            None => {
+                return Err(Failure::runtime(
+                    Operation::Persistence(Persistence::Assistant),
+                    "strand not found".to_string(),
+                    &prose,
+                ));
+            }
+        };
+
         let response = loop {
             let next = round + 1;
             if let Some(error) = provider_try!(
@@ -231,7 +245,7 @@ impl Service {
                             tag: &crate::tag("msg"),
                             strand,
                             actor: crate::message::Role::Soul,
-                            actor_id: crate::GENESIS,
+                            actor_id: &actor,
                             kind: crate::message::Kind::Text,
                             content: &crate::message::Content::text(&speech),
                             state: crate::message::State::Fixed,

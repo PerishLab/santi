@@ -11,13 +11,24 @@ pub enum Admission {
 
 impl Service {
     pub async fn weave(&self) -> Result<strand::Created, String> {
+        self.seat(crate::GENESIS).await
+    }
+
+    pub async fn seat(&self, soul: &str) -> Result<strand::Created, String> {
+        let soul = soul.trim();
+        if soul.is_empty() {
+            return Err("soul must not be empty".to_string());
+        }
+        if self.store.soul(soul).await?.is_none() {
+            return Err("soul not found".to_string());
+        }
         let created = now();
         Ok(strand::Created {
             strand: self
                 .store
                 .create_strand(santi_estate::StrandDraft {
                     tag: &tag("ss"),
-                    soul: crate::GENESIS,
+                    soul,
                     label: None,
                     parent: None,
                     fork: None,
@@ -28,20 +39,10 @@ impl Service {
     }
 
     pub async fn awaken(&self, request: soul::Draft) -> Result<Soul, String> {
-        let soul = self.store.create_soul(&tag("soul"), &now()).await?;
-        if let Some(memory) = request
-            .memory
-            .as_deref()
-            .map(str::trim)
-            .filter(|m| !m.is_empty())
-        {
-            let path = self.memoir(&soul.id);
-            if let Some(parent) = path.parent() {
-                std::fs::create_dir_all(parent).map_err(|error| error.to_string())?;
-            }
-            std::fs::write(&path, memory).map_err(|error| error.to_string())?;
-        }
-        Ok(soul)
+        let soul = tag("soul");
+        let memory = request.memory.as_deref().unwrap_or_default();
+        super::publication::publish(&self.runtime(), &soul, memory.as_bytes())?;
+        self.store.create_soul(&soul, &now()).await
     }
 
     pub async fn souls(&self) -> Result<Vec<Soul>, String> {
@@ -122,10 +123,18 @@ impl Service {
         let Some(strand) = self.store.strand(strand).await? else {
             return Ok(None);
         };
+        let execution = self.rationed(&strand.id);
+        let usage = if execution.is_some() {
+            Some(self.usage(&strand.id).await?)
+        } else {
+            None
+        };
         Ok(Some(budget::Snapshot {
             strand: strand.id.clone(),
             estimate: self.estimate(&strand.id).await?,
             budget: self.budget(),
+            execution,
+            usage,
             incident: self
                 .store
                 .incident(

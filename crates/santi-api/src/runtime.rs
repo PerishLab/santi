@@ -18,6 +18,7 @@ pub struct Runtime {
     pub github: Github,
     pub feishu: Feishu,
     pub capability: Option<santi_core::capability::Issuer>,
+    pub execution: santi_core::budget::Execution,
     pub constitution: Option<PathBuf>,
 }
 

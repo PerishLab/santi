@@ -18,10 +18,17 @@ pub(super) fn condensed(compact: &compact::Compact, fallback: Range) -> String {
     let to = number(range, "end_seq");
     let collapsed = number(range, "collapsed_count");
     let before = nested(metadata, "before", "total");
-    let after = nested(metadata, "after", "total");
     let budget = nested(metadata, "budget", "bytes");
-    let ratio = metadata
-        .and_then(|metadata| metadata.get("ratio"))
+    let forecast = metadata
+        .and_then(|metadata| metadata.get("forecast"))
+        .filter(|value| value.is_object());
+    let after = nested(forecast, "after", "total");
+    let authoritative = forecast
+        .and_then(|forecast| forecast.get("authoritative"))
+        .and_then(|value| value.as_bool());
+    let basis = noted(forecast, "basis");
+    let ratio = forecast
+        .and_then(|forecast| forecast.get("ratio"))
         .and_then(|value| value.as_f64());
     let header = json!({
         "schema": "santi.compact_projection.visible_header.v1",
@@ -49,9 +56,13 @@ pub(super) fn condensed(compact: &compact::Compact, fallback: Range) -> String {
             .unwrap_or_else(|| format!("santi compact query --compact-id {}", compact.id)),
         "context_estimate": {
             "pre_total_bytes": before,
-            "post_total_bytes": after,
             "budget_input_bytes": budget,
-            "ratio": ratio,
+            "forecast": forecast.map(|_| json!({
+                "authoritative": authoritative,
+                "basis": basis,
+                "post_total_bytes": after,
+                "ratio": ratio,
+            })),
         },
     });
     let header = serde_json::to_string_pretty(&header).unwrap_or_else(|_| header.to_string());

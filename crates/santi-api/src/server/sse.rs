@@ -39,8 +39,11 @@ pub(super) async fn strand_events(
             payload: stream::Payload::Open,
         }));
 
-        while let Some(event) = receive_strand(&service, &mut receiver, &strand).await {
-            yield Ok(sse_event(event));
+        while let Some(received) = receive_strand(&service, &mut receiver, &strand).await {
+            yield Ok(match received {
+                Ok(event) => sse_event(event),
+                Err(skipped) => gap(skipped),
+            });
         }
     };
     Ok(Sse::new(stream).keep_alive(KeepAlive::default()))
@@ -57,8 +60,11 @@ pub(super) async fn transitions(
     let mut receiver = service.harken().await;
     let service = service.clone();
     let stream = async_stream::stream! {
-        while let Some(transition) = receive(&service, &mut receiver).await {
-            yield Ok(error_sse_event(transition));
+        while let Some(received) = receive(&service, &mut receiver).await {
+            yield Ok(match received {
+                Ok(transition) => error_sse_event(transition),
+                Err(skipped) => gap(skipped),
+            });
         }
     };
     Sse::new(stream).keep_alive(KeepAlive::default())
@@ -85,8 +91,11 @@ pub(super) async fn turn_event_stream(
     let mut receiver = service.listen().await;
     let service = service.clone();
     let stream = async_stream::stream! {
-        while receive_turn(&service, &mut receiver, &principal.prefix).await {
-            yield Ok(Event::default().event("turn_event_available").data("{}"));
+        while let Some(received) = receive_turn(&service, &mut receiver, &principal.prefix).await {
+            yield Ok(match received {
+                Ok(()) => Event::default().event("turn_event_available").data("{}"),
+                Err(skipped) => gap(skipped),
+            });
         }
     };
     Ok(Sse::new(stream).keep_alive(KeepAlive::default()))
@@ -96,11 +105,12 @@ async fn receive_strand(
     service: &Service,
     receiver: &mut broadcast::Receiver<stream::Event>,
     strand: &str,
-) -> Option<stream::Event> {
+) -> Option<Result<stream::Event, u64>> {
     loop {
-        let event = receive(service, receiver).await?;
-        if event.strand == strand {
-            return Some(event);
+        match receive(service, receiver).await? {
+            Ok(event) if event.strand == strand => return Some(Ok(event)),
+            Ok(_) => {}
+            Err(skipped) => return Some(Err(skipped)),
         }
     }
 }
@@ -109,22 +119,26 @@ async fn receive_turn(
     service: &Service,
     receiver: &mut broadcast::Receiver<stream::Event>,
     prefix: &str,
-) -> bool {
+) -> Option<Result<(), u64>> {
     loop {
-        let Some(event) = receive(service, receiver).await else {
-            return false;
+        let event = match receive(service, receiver).await? {
+            Ok(event) => event,
+            Err(skipped) => return Some(Err(skipped)),
         };
         if let stream::Payload::Turn(santi_core::turn::Beat::Completed {
             label: Some(label), ..
         }) = event.payload
             && label.starts_with(prefix)
         {
-            return true;
+            return Some(Ok(()));
         }
     }
 }
 
-async fn receive<T: Clone>(service: &Service, receiver: &mut broadcast::Receiver<T>) -> Option<T> {
+async fn receive<T: Clone>(
+    service: &Service,
+    receiver: &mut broadcast::Receiver<T>,
+) -> Option<Result<T, u64>> {
     loop {
         if service.closing() {
             return None;
@@ -134,11 +148,22 @@ async fn receive<T: Clone>(service: &Service, receiver: &mut broadcast::Receiver
             _ = tokio::time::sleep(std::time::Duration::from_millis(100)) => continue,
         };
         match received {
-            Ok(event) => return Some(event),
-            Err(broadcast::error::RecvError::Lagged(_)) => {}
+            Ok(event) => return Some(Ok(event)),
+            Err(broadcast::error::RecvError::Lagged(skipped)) => return Some(Err(skipped)),
             Err(broadcast::error::RecvError::Closed) => return None,
         }
     }
+}
+
+fn gap(skipped: u64) -> Event {
+    Event::default().event("gap").data(
+        serde_json::json!({"payload": {
+            "type": "gap",
+            "skipped": skipped,
+            "message": format!("event stream gap: {skipped} events were not delivered"),
+        }})
+        .to_string(),
+    )
 }
 
 fn error_sse_event(transition: Transition) -> Event {

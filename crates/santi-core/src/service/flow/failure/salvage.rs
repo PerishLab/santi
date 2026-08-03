@@ -5,6 +5,19 @@ impl Service {
         if partial.trim().is_empty() {
             return;
         }
+        let actor = match self.store.strand(&held.strand).await {
+            Ok(Some(strand)) => strand.soul,
+            Ok(None) => {
+                eprintln!(
+                    "santi: failed to resolve partial output owner for {turn}: strand missing"
+                );
+                return;
+            }
+            Err(error) => {
+                eprintln!("santi: failed to resolve partial output owner for {turn}: {error}");
+                return;
+            }
+        };
         let content = message::Content::text(partial);
         match self
             .store
@@ -12,7 +25,7 @@ impl Service {
                 tag: &crate::tag("msg"),
                 strand: &held.strand,
                 actor: message::Role::Soul,
-                actor_id: crate::GENESIS,
+                actor_id: &actor,
                 kind: message::Kind::Text,
                 content: &content,
                 state: message::State::Aborted,

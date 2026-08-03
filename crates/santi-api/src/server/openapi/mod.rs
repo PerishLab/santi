@@ -86,6 +86,7 @@ const PROPERTY_DESCRIPTIONS: [(&str, &str, &str); 13] = [
     paths(
         super::routes::health,
         super::routes::weave,
+        super::routes::seat,
         super::routes::strands,
         super::routes::awaken,
         super::routes::souls,

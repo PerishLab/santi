@@ -49,7 +49,7 @@ pub struct Cli {
     pub strand: Option<String>,
 
     #[arg(
-        help = "Default soul addressed by `strand send` and soul-owned job commands. Falls back to SANTI_SOUL_ID. Empty/absent → strand send uses the runtime default; job reads and controls require one",
+        help = "Default soul addressed by `strand create`, `strand send`, and soul-owned job commands. Falls back to SANTI_SOUL_ID. Empty/absent → strand create/send use the runtime default; job reads and controls require one",
         long,
         global = true,
         env = "SANTI_SOUL_ID"
@@ -64,6 +64,18 @@ pub struct Cli {
 pub enum Command {
     #[command(about = "GET /api/v1/health")]
     Health,
+    #[command(
+        about = "Enter an interactive terminal seat for one soul and strand",
+        long_about = "Enter an interactive terminal seat for one soul and strand. Without explicit identities, tui creates server-assigned soul and strand ids exactly once. A newly listed soul has already published the exact requested initial memory. Ambiguous creation responses report outcome=state_unknown with do-not-retry list/resume guidance; recover a listed soul without --memory-file, and preserve a known soul when strand creation is ambiguous."
+    )]
+    Tui {
+        #[arg(
+            long = "memory-file",
+            value_name = "PATH",
+            help = "Seed a newly awakened soul from this UTF-8 file; invalid when --soul already names an existing soul"
+        )]
+        memory: Option<String>,
+    },
     #[command(about = "Query canonical incidents by error scope")]
     Errors {
         #[arg(long, default_value = "runtime")]

@@ -4,7 +4,10 @@ use super::*;
 
 #[derive(Subcommand)]
 pub enum StrandCommand {
-    #[command(about = "POST /api/v1/strands")]
+    #[command(
+        about = "Create a strand for --soul/SANTI_SOUL_ID, or for the runtime default",
+        long_about = "Create exactly one strand. With --soul/SANTI_SOUL_ID, POST /api/v1/souls/{soul}/strands preserves that owner; without one, POST /api/v1/strands uses the runtime default. The client never retries. Only a contract-proven 4xx rejection reports outcome=not_created. Transport failure, an unreadable response body, 5xx or another non-client status, and an invalid success response report outcome=state_unknown with do-not-retry list/resume guidance; the client preserves a known parent soul and never invents the unknown strand id."
+    )]
     Create,
     #[command(about = "GET /api/v1/strands")]
     List,
@@ -30,7 +33,7 @@ pub enum StrandCommand {
     Drive { id: Option<String> },
     #[command(
         about = "POST /api/v1/strands/{id}/send",
-        long_about = "POST /api/v1/strands/{id}/send.\n\nPositional forms: `send <id> <text>` or `send <text>` (id then falls back to --strand/SANTI_STRAND_ID). Soul comes from --soul/SANTI_SOUL_ID."
+        long_about = "POST /api/v1/strands/{id}/send.\n\nPositional forms: `send <id> <text>` or `send <text>` (id then falls back to --strand/SANTI_STRAND_ID). Soul comes from --soul/SANTI_SOUL_ID.\n\nWith --watch, success proves only that this response's exact inbox receipt belongs to the requested strand and reached durable completed. Durable failed is an error. Pending or unavailable proof is never success: after sixty seconds without an event or ten minutes total, the command reports outcome=state_unknown, says not to resend, and provides receipt/status plus resume/redrive doors. Queued follow-on work may remain after success; --watch does not prove strand idleness."
     )]
     Send {
         #[arg(
@@ -40,7 +43,7 @@ pub enum StrandCommand {
         )]
         args: Vec<String>,
         #[arg(
-            help = "After sending, follow the stream until the strand goes idle, then exit. Robust to coalescing and silent (speechless) completions",
+            help = "Prove this accepted message's own exact durable receipt, then exit; this does not prove strand idle",
             long
         )]
         watch: bool,
@@ -56,7 +59,7 @@ pub enum StrandCommand {
         watch_format: WatchFormat,
     },
     #[command(
-        about = "GET /api/v1/strands/{id}/events — follows the SSE stream (id falls back to --strand). Runs until interrupted; use `send --watch` to stop on idle"
+        about = "GET /api/v1/strands/{id}/events — follows the SSE stream (id falls back to --strand). Runs until interrupted; `send --watch` instead stops after proving its accepted receipt"
     )]
     Events {
         id: Option<String>,

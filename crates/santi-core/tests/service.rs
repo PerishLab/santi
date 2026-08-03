@@ -1,7 +1,11 @@
 #[path = "service/basic.rs"]
 mod basic;
+#[path = "service/compact.rs"]
+mod compact;
 #[path = "service/environment.rs"]
 mod environment;
+#[path = "service/execution.rs"]
+mod execution;
 #[path = "service/intake/mod.rs"]
 mod intake;
 #[path = "service/objects.rs"]

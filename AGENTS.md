@@ -55,10 +55,15 @@ SID=$(santi strand create | jq -r .strand.id)
 SANTI_STRAND_ID=$SID santi strand send 'Reply with exactly: OK' --watch
 ```
 
-`--watch` follows the SSE stream and exits when the strand goes idle (after the
-turn completes), so it doubles as the wait — no sleep/poll dance. It stays
-robust when sends coalesce: a completed turn that spawns a follow-on is still
-awaited to full idle. By default, watch output is filtered human-readable
+`--watch` subscribes before sending and exits successfully only after the
+accepted message's matching receipt is proven to have reached durable
+`completed`. It does not prove strand idleness, and queued follow-on work may
+remain after success. Durable `failed` is an error. A pending receipt or
+unavailable proof remains `state_unknown`: after sixty seconds without an event
+or ten minutes total, do not resend the accepted message; inspect it with
+`santi receipt <inbox>` and `santi strand runtime <strand>`, then resume the
+blocking condition or explicitly redrive it with `santi strand drive <strand>`.
+Silence is never success. By default, watch output is filtered human-readable
 milestones for interactive use.
 
 For raw/debug automation, pass `--watch-format raw`; it relays event JSON (one

@@ -107,11 +107,45 @@ async fn compacts() {
             last: "message_first",
             summary: "inner",
             metadata: None,
+            expected: None,
             created: FIRST,
         })
         .await
         .expect("inner");
-    let metadata = serde_json::json!({"final": true});
+    let stale = serde_json::json!({"absorbed": preview.absorbed});
+    let error = store
+        .create_compact(CompactDraft {
+            tag: "compact_stale",
+            strand: "strand_test",
+            first: "message_first",
+            last: "message_last",
+            summary: "stale",
+            metadata: Some(&stale),
+            expected: Some(&preview),
+            created: LATER,
+        })
+        .await
+        .expect_err("plan drift must refuse stale metadata");
+    assert!(error.contains("compact plan conflicts with its preview; retry compact"));
+    assert!(
+        store
+            .compact("compact_stale")
+            .await
+            .expect("stale compact")
+            .is_none()
+    );
+    assert_eq!(store.compacts("strand_test").await.expect("inner").len(), 1);
+
+    let expected = store
+        .preview_compact(
+            "compact_outer",
+            "strand_test",
+            "message_first",
+            "message_last",
+        )
+        .await
+        .expect("fresh preview");
+    let metadata = serde_json::json!({"absorbed": expected.absorbed});
     let outer = store
         .create_compact(CompactDraft {
             tag: "compact_outer",
@@ -120,6 +154,7 @@ async fn compacts() {
             last: "message_last",
             summary: "outer",
             metadata: Some(&metadata),
+            expected: Some(&expected),
             created: LATER,
         })
         .await
@@ -144,6 +179,7 @@ async fn compacts() {
                 last: "message_last",
                 summary: "partial",
                 metadata: None,
+                expected: None,
                 created: LATER,
             })
             .await

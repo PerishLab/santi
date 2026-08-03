@@ -5,7 +5,7 @@ pub const COMPONENT_DESCRIPTIONS: [(&str, &str); 10] = [
     ),
     (
         "soul::Draft",
-        "Create a new soul (an individual). Souls are API-managed, never config.\nA soul is id-only; its identity is its memory, so the only thing to supply\nat creation is the initial `[santi-soul]` memory to seed (empty/absent → a\nblank soul that will author its own).",
+        "Create a new soul (an individual). Souls are API-managed, never config.\nA soul is id-only; its identity is its memory, so the only thing to supply\nat creation is the initial `[santi-soul]` memory to seed (empty/absent → a\nblank soul that will author its own). The exact requested UTF-8 bytes are\natomically published before the soul becomes list/get-visible. Database and\nfilesystem publication are ordered, not falsely claimed as one transaction;\na failed creation may leave unlisted filesystem residue.",
     ),
     (
         "webhook::Subscription",
@@ -20,8 +20,8 @@ pub const COMPONENT_DESCRIPTIONS: [(&str, &str); 10] = [
         "Current durable responsibility state for one accepted inbox item. A\nmechanically-recovered transition can be immediately followed by `driving`\nin the same transaction; callers inspect `transitions` for that evidence.",
     ),
     (
-        "Compact",
-        "A compact is a pure projection overlay over a strand's spine. It\nself-describes its coverage by message-id boundaries and carries the\noperator-authored summary while originals remain queryable.",
+        "compact.Compact",
+        "A compact is a pure projection overlay over a strand's spine. It\nself-describes its coverage by message-id boundaries and carries the\noperator-authored summary while originals remain queryable. Capsule metadata\nrecords precommit estimates only under `forecast`: `authoritative` is `false`\nand `basis` is `precommit_preview`. The provider-visible header keeps estimated\npost-context bytes and ratio under\n`context_estimate.forecast`; they are not exact postcommit context.",
     ),
     (
         "effect::State",

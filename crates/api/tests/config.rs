@@ -14,10 +14,31 @@ fn example() {
     let held = read(include_str!("../../../santi.example.toml"));
     assert_eq!(held.providers.len(), 3);
     assert_eq!(held.server.grace, 30);
+    assert_eq!(held.execution.budget().unwrap().rounds, 16);
     assert_eq!(
         held.jobs.retention().unwrap(),
         std::time::Duration::from_secs(604800)
     );
+}
+
+#[test]
+fn execution() {
+    let held = read(
+        r#"
+[execution]
+profile = "operator_v1"
+rounds = 8
+calls = 64
+output = 1048576
+shell = 32768
+"#,
+    );
+    let budget = held.execution.budget().unwrap();
+    assert_eq!(budget.profile, "operator_v1");
+    assert_eq!(budget.rounds, 8);
+    assert_eq!(budget.calls, 64);
+    assert_eq!(budget.output, 1048576);
+    assert_eq!(budget.shell, 32768);
 }
 
 #[test]

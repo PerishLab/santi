@@ -33,6 +33,34 @@ impl Plan {
             ratio: None,
         }
     }
+
+    pub(super) fn matches(&self, expected: &compact::Report) -> bool {
+        let absorbed = self
+            .absorbed
+            .iter()
+            .map(|(_, tag)| tag.as_str())
+            .collect::<Vec<_>>();
+        let held = expected
+            .absorbed
+            .iter()
+            .map(String::as_str)
+            .collect::<Vec<_>>();
+        (
+            self.first_tag.as_str(),
+            self.last_tag.as_str(),
+            self.from,
+            self.to,
+            absorbed,
+            self.collapsed,
+        ) == (
+            expected.first.as_str(),
+            expected.last.as_str(),
+            expected.from,
+            expected.to,
+            held,
+            expected.collapsed,
+        )
+    }
 }
 
 pub(super) async fn build(

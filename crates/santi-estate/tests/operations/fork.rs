@@ -50,6 +50,7 @@ async fn occurrences() {
             last: "message_two",
             summary: "inside",
             metadata: Some(&serde_json::json!({"source": "parent"})),
+            expected: None,
             created: FIRST,
         })
         .await
@@ -62,6 +63,7 @@ async fn occurrences() {
             last: "message_four",
             summary: "crossing",
             metadata: None,
+            expected: None,
             created: LATER,
         })
         .await

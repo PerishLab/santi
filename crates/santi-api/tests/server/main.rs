@@ -76,6 +76,10 @@ mod errors {
             StatusCode::CONFLICT
         );
         assert_eq!(
+            status("adapt: compact plan conflicts with its preview; retry compact"),
+            StatusCode::CONFLICT
+        );
+        assert_eq!(
             status("webhook secretary conflicts with an existing subscription"),
             StatusCode::CONFLICT
         );
@@ -124,6 +128,7 @@ mod openapi {
         assert!(document.contains("/api/v1/errors/{scope_kind}/{scope_id}"));
         assert!(document.contains("/api/v1/errors/events"));
         assert!(document.contains("/api/v1/strands/{strand}/drive"));
+        assert!(document.contains("/api/v1/souls/{soul}/strands"));
         assert!(document.contains("/api/v1/receipts/{inbox}"));
         assert!(document.contains("/api/v1/effects/{effect}"));
         assert!(document.contains("/api/v1/effects/{effect}/resolve"));

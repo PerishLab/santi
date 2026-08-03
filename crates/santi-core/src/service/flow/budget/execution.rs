@@ -93,7 +93,7 @@ impl Service {
         Ok(Verdict::Bounded(allotted(room, budget.shell, calls)))
     }
 
-    async fn usage(&self, strand: &str) -> Result<budget::Usage, String> {
+    pub(in crate::service) async fn usage(&self, strand: &str) -> Result<budget::Usage, String> {
         let calls = self.store.calls(strand).await?;
         let results = self.store.results(strand).await?;
         let output = results.into_iter().fold(0usize, |held, result| {

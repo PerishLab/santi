@@ -102,7 +102,7 @@ impl Provider for ShellProvider {
         };
         if round == 0 {
             let arguments = json!({
-                "command": "printf '%s|%s|%s|%s|%s|%s' \"$SHARED\" \"$STRAND_ONLY\" \"$GLOBAL_ONLY\" \"$BROKEN\" \"${SANTI_RUNTIME_CAPABILITY%%.*}\" \"${SANTI_CAPABILITY_PRIVATE_KEY-unset}\""
+                "command": "printf '%s|%s|%s|%s|%s|%s|%s|%s' \"$SHARED\" \"$STRAND_ONLY\" \"$GLOBAL_ONLY\" \"$BROKEN\" \"${SANTI_RUNTIME_CAPABILITY%%.*}\" \"${SANTI_CAPABILITY_PRIVATE_KEY-unset}\" \"$SANTI_API_URL\" \"$PATH\""
             });
             Ok(Box::pin(stream::iter(vec![
                 Ok(Event::Called(Call {
@@ -144,6 +144,7 @@ async fn cascade() {
             environment: [
                 ("SHARED".to_string(), "global".to_string()),
                 ("GLOBAL_ONLY".to_string(), "global-only".to_string()),
+                ("PATH".to_string(), "/runtime-seat".to_string()),
             ]
             .into_iter()
             .collect(),
@@ -233,7 +234,7 @@ async fn cascade() {
             item,
             Item::Output { output, .. }
                 if output.contains(
-                    "strand|strand-only|global-only|env://SANTI_TEST_REFERENCE_THAT_DOES_NOT_EXIST|santi1|unset"
+                    "strand|strand-only|global-only|env://SANTI_TEST_REFERENCE_THAT_DOES_NOT_EXIST|santi1|unset|http://127.0.0.1:0|/runtime-seat"
                 )
         )
     }));

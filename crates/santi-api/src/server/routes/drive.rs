@@ -78,6 +78,7 @@ pub(super) async fn fork(
     responses(
         (status = 200, body = compact::Report),
         (status = 400, body = Fault),
+        (status = 409, body = Fault),
         (status = 404, body = Fault),
         (status = 500, body = Fault)
     )
