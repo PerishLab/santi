@@ -1,7 +1,7 @@
 use anyhow::Result;
 use clap::{Parser, Subcommand, ValueEnum};
 
-const BASE: &str = "http://127.0.0.1:43307";
+pub const BASE: &str = "http://127.0.0.1:43307";
 
 #[derive(Parser)]
 #[command(
@@ -11,16 +11,15 @@ const BASE: &str = "http://127.0.0.1:43307";
 )]
 pub struct Cli {
     #[arg(
-        help = "Base URL of a running santi server. Falls back to SANTI_API_URL, then the local default. Only used by the HTTP client commands",
+        help = "Base URL of a running santi server. Falls back to SANTI_API_URL, then .local/secrets/santi.toml, then the local default. Only used by HTTP client commands",
         long,
         global = true,
-        env = "SANTI_API_URL",
-        default_value = BASE
+        env = "SANTI_API_URL"
     )]
-    pub base_url: String,
+    pub base_url: Option<String>,
 
     #[arg(
-        help = "Static bearer token sent on client requests. Falls back to SANTI_API_KEY. Transitional: santi itself no longer gates on this; prefer the edge-auth (authentik client_credentials) flags below to reach santi behind forward-auth",
+        help = "Static bearer token sent on client requests. Falls back to SANTI_API_KEY, then .local/secrets/santi.toml. Transitional: prefer edge auth to reach santi behind forward-auth",
         long,
         global = true,
         env = "SANTI_API_KEY"
@@ -28,7 +27,7 @@ pub struct Cli {
     pub api_key: Option<String>,
 
     #[arg(
-        help = "Edge auth via authentik client_credentials. When token-url, client-id, username AND password are all set, the client exchanges them for a short-lived JWT (cached locally, ~1h) and sends THAT as the bearer instead of --api-key — the way to reach santi behind authentik forward-auth",
+        help = "Edge auth via authentik client_credentials. Explicit flags or env override .local/secrets/santi.toml. A complete set is exchanged for a cached short-lived JWT",
         long,
         global = true,
         env = "SANTI_AUTH_TOKEN_URL"
@@ -100,6 +99,9 @@ pub enum Command {
     #[command(about = "Inspect or idempotently ensure webhook subscriptions")]
     #[command(subcommand)]
     Webhook(Webhook),
+    #[command(about = "Operate Santi's local and live delivery surfaces")]
+    #[command(subcommand)]
+    Operator(Operator),
 }
 
 #[derive(Subcommand)]
@@ -275,7 +277,9 @@ pub fn split_send_args(
 
 mod compact;
 mod job;
+pub(crate) mod operator;
 mod strand;
 pub use compact::*;
 pub use job::*;
+pub use operator::Operator;
 pub use strand::*;

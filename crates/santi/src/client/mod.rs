@@ -289,6 +289,7 @@ pub(crate) async fn run(
             )
             .await
         }
+        Command::Operator(_) => unreachable!("operator command routed before HTTP client"),
     }
 }
 

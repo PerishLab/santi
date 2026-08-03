@@ -32,7 +32,33 @@ jobs:
       - name: Guard
         run: |
           set -eu
-          deno run --allow-all --config .runseal/deno.json .runseal/wrappers/guard.ts
+          cargo fmt --all --check
+          cargo clippy --locked --workspace --all-targets -- -D warnings
+          cargo check --locked --workspace --all-targets --release
+          cargo test --locked --workspace
+          bash crates/santi/operator/ops/host/30-santi-recovery.test.sh
+          bash crates/santi/operator/ops/host/40-santi-deploy.test.sh
+          plumb doctor .
+          deno fmt --config crates/santi/operator/deno.json --check crates/santi/operator .forgejo/scripts
+          deno lint --config crates/santi/operator/deno.json crates/santi/operator
+          deno check \
+            --config crates/santi/operator/deno.json \
+            --lock crates/santi/operator/deno.lock \
+            --frozen=true \
+            crates/santi/operator/audit.ts \
+            crates/santi/operator/contract.ts \
+            crates/santi/operator/deploy.ts \
+            crates/santi/operator/dev.ts \
+            crates/santi/operator/rollback.ts \
+            crates/santi/operator/scp.ts \
+            crates/santi/operator/ssh.ts
+          deno run \
+            --allow-read \
+            --config crates/santi/operator/deno.json \
+            --lock crates/santi/operator/deno.lock \
+            --frozen=true \
+            crates/santi/operator/contract.ts
+          ectropy .
 
       - name: sccache statistics
         if: ${{ always() }}

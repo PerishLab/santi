@@ -1,14 +1,4 @@
-# runseal profile for santi — dev-plane tooling only.
-# The runtime (santi-api) stays product-unaware and runseal-unaware; this
-# profile drives local development wrappers, not the runtime itself.
-
-[deno]
-config = ".runseal/deno.json"
-lock = ".runseal/deno.lock"
-permissions = [
-  "--allow-run",
-  "--allow-read",
-  "--allow-write",
-  "--allow-env",
-  "--allow-net",
-]
+[env.vars]
+RUNSEAL_REPO_LOCAL_DIR = "local://"
+RUNSEAL_REPO_SECRETS_DIR = "local://secrets"
+RUNSEAL_REPO_TMP_DIR = "local://tmp"

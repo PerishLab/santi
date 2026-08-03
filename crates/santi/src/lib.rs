@@ -9,21 +9,39 @@ use anyhow::Result;
 use clap::Parser;
 
 use auth::{Credentials, resolve_edge_bearer};
-use cli::{Cli, ClientDefaults};
+use cli::{BASE, Cli, ClientDefaults, Command};
 pub async fn run() -> Result<()> {
     config::load();
-    let cli = Cli::parse();
-    let defaults = ClientDefaults {
-        strand: cli.strand,
-        soul: cli.soul,
-    };
+    let Cli {
+        base_url,
+        api_key,
+        auth_token_url,
+        auth_client_id,
+        auth_username,
+        auth_password,
+        strand,
+        soul,
+        command,
+    } = Cli::parse();
+    if let Command::Operator(command) = command {
+        return cli::operator::run(command);
+    }
+    let client = config::client()?;
+    let defaults = ClientDefaults { strand, soul };
     let bearer = resolve_edge_bearer(Credentials {
-        endpoint: cli.auth_token_url.as_deref(),
-        identity: cli.auth_client_id.as_deref(),
-        username: cli.auth_username.as_deref(),
-        password: cli.auth_password.as_deref(),
-        key: cli.api_key.as_deref(),
+        endpoint: auth_token_url
+            .as_deref()
+            .or(client.auth_token_url.as_deref()),
+        identity: auth_client_id
+            .as_deref()
+            .or(client.auth_client_id.as_deref()),
+        username: auth_username.as_deref().or(client.auth_username.as_deref()),
+        password: auth_password.as_deref().or(client.auth_password.as_deref()),
+        key: api_key.as_deref().or(client.api_key.as_deref()),
     })
     .await?;
-    client::run(&cli.base_url, bearer.as_deref(), &defaults, cli.command).await
+    let base = base_url
+        .or(client.base_url)
+        .unwrap_or_else(|| BASE.to_owned());
+    client::run(&base, bearer.as_deref(), &defaults, command).await
 }

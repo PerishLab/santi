@@ -20,6 +20,18 @@ fn cli() {
     let hash = format!("{:x}", Sha256::digest(text.as_bytes()));
     assert_eq!(
         hash,
-        "aa3c936ca076d79bba562b0d08d4cfbb182cfc8539024bb50d1d5b8b1c1ee7f4"
+        "b0de851e1b89294210af47e7fe215ddbc67dc316e3ae4185ae58b363283fda7b"
     );
+}
+
+#[test]
+fn template() {
+    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("operator/templates/secrets/santi.toml");
+    let client: santi::config::Client = plumb::config::load(&path).expect("operator config");
+    assert_eq!(
+        client.base_url.as_deref(),
+        Some("https://santi.liberte.top")
+    );
+    assert_eq!(client.auth_username.as_deref(), Some("santi-window-cli"));
 }

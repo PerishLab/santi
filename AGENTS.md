@@ -12,8 +12,8 @@ crates/
   santi-estate/    # Keel graph + durable ceremonies and projections
   santi-provider/  # ProviderClient boundary; keeps santi-core provider-agnostic
   santi-api/       # HTTP/SSE/OpenAPI server library over santi-core
-  santi/           # the `santi` transport-only HTTP client binary
-.runseal/ops/       # retained operator-owned host/edge artifacts
+  santi/           # HTTP client plus an external-process operator namespace
+    operator/       # retained operator-owned host/edge/deb assets and commands
 docs/integration/v1/ # versioned owner contract and exact external-delivery assets
 ```
 
@@ -25,8 +25,9 @@ docs/integration/v1/ # versioned owner contract and exact external-delivery asse
   owned here, not in `santi-core`.
 - `api` ships `santi-api`, the server entry. It owns config resolution,
   bootstrap, serving, OpenAPI export, and local runtime operations.
-- `santi` is a transport-only HTTP client. It must never depend on or call
-  `santi-api` or `santi-core` in process. HTTP stays the only way in.
+- `santi` keeps its transport-only HTTP client boundary. Its explicit `operator`
+  namespace may coordinate external binaries and owned assets, but must never
+  depend on or call `santi-api` or `santi-core` in process. HTTP stays the only way in.
 
 ## Build & checks
 
@@ -81,8 +82,8 @@ rejected, not silently created). To address a soul ad hoc without a default:
   `Cargo.toml`; crates reference them with `.workspace = true`.
 - Forgejo (`PerishFire/santi`) is the canonical write target. The public GitHub
   repository is historical and is not reverse-synchronized.
-- Santi's runtime boundary stops at its executables. Existing packaging,
-  recovery, and system-service artifacts are operator-owned and are not runtime
+- Santi's runtime boundary stops at its executables. Packaging, recovery, and
+  system-service artifacts under `crates/santi/operator` are operator-owned and are not runtime
   architecture. Infra owns only generic host, k3s, DNS, and shared middleware.
 - `docs/integration/v1/` is Santi-owned delivery truth. Its strict manifest binds one
   exact package release to pinned window assets, identity intent, and route

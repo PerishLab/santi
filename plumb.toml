@@ -5,4 +5,4 @@ binaries = ["santi", "santi-api"]
 targets = ["x86_64-unknown-linux-gnu"]
 
 [release.deb]
-root = ".runseal/packaging/deb"
+root = "crates/santi/operator/packaging/deb"
