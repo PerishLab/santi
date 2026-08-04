@@ -1,7 +1,6 @@
 {
   "imports": {
-    "@/lib/": "./lib/",
-    "@perish/sealkit": "jsr:@perish/sealkit"
+    "@/lib/": "./lib/"
   },
   "compilerOptions": {
     "strict": true

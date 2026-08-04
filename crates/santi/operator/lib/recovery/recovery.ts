@@ -2,7 +2,6 @@
 //! points. The host script owns validation and all state transitions.
 
 import { runRecoveryRemote } from "@/lib/recovery/remote.ts";
-import { command } from "@perish/sealkit/operator";
 
 export type RecoveryRequest =
   | { action: "status" }
@@ -10,37 +9,35 @@ export type RecoveryRequest =
   | { action: "execute"; capsule: string; candidateVersion: string }
   | { action: "accept"; capsule: string };
 
-const COMMANDS = [
-  { action: "status", tokens: ["status"] },
-  { action: "repair", tokens: ["repair"] },
-  { action: "accept", tokens: ["accept", { capture: "capsule" }] },
-  {
-    action: "execute",
-    tokens: [
-      "execute",
-      { capture: "capsule" },
-      "--confirm",
-      { capture: "candidateVersion" },
-    ],
-  },
-] as const;
+type RecoveryRemote = (argv: string[]) => Promise<number>;
+
+function requireValue(value: string | undefined, name: string): string {
+  if (value === undefined || value.length === 0) {
+    throw new Error(`${name} must be nonempty`);
+  }
+  return value;
+}
 
 export function parseRecoveryRequest(argv: string[]): RecoveryRequest {
-  const request = command.parse(argv, COMMANDS);
-  if (request.action === "status") {
+  if (argv.length === 1 && argv[0] === "status") {
     return { action: "status" };
   }
-  if (request.action === "repair") {
+  if (argv.length === 1 && argv[0] === "repair") {
     return { action: "repair" };
   }
-  if (request.action === "accept") {
-    return { action: "accept", capsule: request.values.capsule };
+  if (argv.length === 2 && argv[0] === "accept") {
+    return { action: "accept", capsule: requireValue(argv[1], "capsule") };
   }
-  return {
-    action: "execute",
-    capsule: request.values.capsule,
-    candidateVersion: request.values.candidateVersion,
-  };
+  if (argv.length === 4 && argv[0] === "execute" && argv[2] === "--confirm") {
+    const candidateVersion = requireValue(argv[3], "candidate version");
+    if (candidateVersion === "--confirm") throw new Error("duplicate --confirm");
+    return {
+      action: "execute",
+      capsule: requireValue(argv[1], "capsule"),
+      candidateVersion,
+    };
+  }
+  throw new Error("invalid recovery command");
 }
 
 function printHelp(): void {
@@ -53,7 +50,10 @@ function printHelp(): void {
   console.log("Inspect, execute, or accept the single armed post-deploy recovery capsule.");
 }
 
-export async function recovery(argv: string[]): Promise<number> {
+export async function recovery(
+  argv: string[],
+  remote: RecoveryRemote = runRecoveryRemote,
+): Promise<number> {
   if (argv.includes("-h") || argv.includes("--help")) {
     printHelp();
     return 0;
@@ -69,15 +69,15 @@ export async function recovery(argv: string[]): Promise<number> {
   }
 
   if (request.action === "status") {
-    return await runRecoveryRemote(["status"]);
+    return await remote(["status"]);
   }
   if (request.action === "repair") {
-    return await runRecoveryRemote(["arm"]);
+    return await remote(["arm"]);
   }
   if (request.action === "accept") {
-    return await runRecoveryRemote(["accept", request.capsule]);
+    return await remote(["accept", request.capsule]);
   }
-  return await runRecoveryRemote([
+  return await remote([
     "execute",
     request.capsule,
     "--confirm",
@@ -86,11 +86,11 @@ export async function recovery(argv: string[]): Promise<number> {
 }
 
 /** Refuse a deployment while a previous candidate is still armed. */
-export async function guardDeploy(): Promise<number> {
-  return await runRecoveryRemote(["guard-deploy"]);
+export async function guardDeploy(remote: RecoveryRemote = runRecoveryRemote): Promise<number> {
+  return await remote(["guard-deploy"]);
 }
 
 /** Turn the upgrader's raw pre-deploy snapshot into a durable capsule. */
-export async function armRecovery(): Promise<number> {
-  return await runRecoveryRemote(["arm"]);
+export async function armRecovery(remote: RecoveryRemote = runRecoveryRemote): Promise<number> {
+  return await remote(["arm"]);
 }

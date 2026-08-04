@@ -120,10 +120,10 @@ invoke() {
 printf '0.1.0-beta.54\n' >"$STATE/installed"
 printf 'active\n' >"$STATE/service"
 ROLLBACK_HOME=$(prepare_host rollback)
-invoke "$ROLLBACK_HOME" guard-deploy >/dev/null
-invoke "$ROLLBACK_HOME" arm >/dev/null
+invoke "$ROLLBACK_HOME" guard-deploy ignored-extra >/dev/null
+invoke "$ROLLBACK_HOME" arm ignored-extra >/dev/null
 CAPSULE_ID=$(cat "$ROLLBACK_HOME/recovery/armed")
-invoke "$ROLLBACK_HOME" status | grep -q 'validation: OK'
+invoke "$ROLLBACK_HOME" status ignored-extra | grep -q 'validation: OK'
 if invoke "$ROLLBACK_HOME" guard-deploy >/dev/null 2>&1; then
   echo "armed capsule did not block deploy" >&2
   exit 1
@@ -135,14 +135,14 @@ if invoke "$ROLLBACK_HOME" execute "$CAPSULE_ID" --confirm 0.1.0-beta.999 \
 fi
 assert_file_text "$STATE/service" "active"
 assert_file_text "$ROLLBACK_HOME/runtime/db.schema" "33"
-invoke "$ROLLBACK_HOME" execute "$CAPSULE_ID" --confirm 0.1.0-beta.54 >/dev/null
+invoke "$ROLLBACK_HOME" execute "$CAPSULE_ID" --confirm 0.1.0-beta.54 ignored-extra >/dev/null
 assert_file_text "$STATE/installed" "0.1.0-beta.53"
 assert_file_text "$STATE/service" "active"
 assert_file_text "$ROLLBACK_HOME/runtime/db.schema" "28"
 assert_file_text "$ROLLBACK_HOME/recovery/$CAPSULE_ID/candidate-runtime/db.schema" "33"
 [[ -f $ROLLBACK_HOME/recovery/$CAPSULE_ID/ROLLED_BACK ]]
 [[ ! -e $ROLLBACK_HOME/recovery/armed ]]
-invoke "$ROLLBACK_HOME" guard-deploy >/dev/null
+invoke "$ROLLBACK_HOME" guard-deploy ignored-extra >/dev/null
 
 printf '0.1.0-beta.54\n' >"$STATE/installed"
 printf 'active\n' >"$STATE/service"
@@ -163,7 +163,7 @@ printf 'active\n' >"$STATE/service"
 ACCEPT_HOME=$(prepare_host accept)
 invoke "$ACCEPT_HOME" arm >/dev/null
 ACCEPT_ID=$(cat "$ACCEPT_HOME/recovery/armed")
-invoke "$ACCEPT_HOME" accept "$ACCEPT_ID" >/dev/null
+invoke "$ACCEPT_HOME" accept "$ACCEPT_ID" ignored-extra >/dev/null
 assert_file_text "$ACCEPT_HOME/runtime/db.schema" "33"
 [[ -f $ACCEPT_HOME/recovery/$ACCEPT_ID/ACCEPTED ]]
 [[ ! -e $ACCEPT_HOME/recovery/armed ]]
@@ -172,6 +172,41 @@ EMPTY_HOME="$TEST_ROOT/empty/home"
 mkdir -p "$EMPTY_HOME"
 invoke "$EMPTY_HOME" status | grep -q 'no capsule armed'
 [[ ! -e $EMPTY_HOME/recovery ]]
+invoke "$EMPTY_HOME" status ignored-extra | grep -q 'no capsule armed'
+invoke "$EMPTY_HOME" guard-deploy ignored-extra >/dev/null
+if invoke "$EMPTY_HOME" >/dev/null 2>&1; then
+  echo "missing action unexpectedly succeeded" >&2
+  exit 1
+fi
+if invoke "$EMPTY_HOME" unknown >/dev/null 2>&1; then
+  echo "unknown action unexpectedly succeeded" >&2
+  exit 1
+fi
+if invoke "$EMPTY_HOME" accept >/dev/null 2>&1; then
+  echo "accept without a capsule unexpectedly succeeded" >&2
+  exit 1
+fi
+if invoke "$EMPTY_HOME" execute >/dev/null 2>&1; then
+  echo "execute without arguments unexpectedly succeeded" >&2
+  exit 1
+fi
+
+UNSAFE_HOME="$TEST_ROOT/unsafe/home"
+mkdir -p "$UNSAFE_HOME/recovery"
+for unsafe in '../escape--x--y' '.hidden--x--y' 'space value--x--y'; do
+  printf '%s\n' "$unsafe" >"$UNSAFE_HOME/recovery/armed"
+  if invoke "$UNSAFE_HOME" status >/dev/null 2>&1; then
+    echo "unsafe capsule token unexpectedly succeeded: $unsafe" >&2
+    exit 1
+  fi
+done
+
+UNSAFE_VERSION_HOME=$(prepare_host unsafe-version)
+printf 'bad/version\n' >"$STATE/installed"
+if invoke "$UNSAFE_VERSION_HOME" arm >/dev/null 2>&1; then
+  echo "unsafe candidate version unexpectedly succeeded" >&2
+  exit 1
+fi
 
 EARLY_FAILURE_HOME="$TEST_ROOT/early-failure/home"
 mkdir -p "$EARLY_FAILURE_HOME"

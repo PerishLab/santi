@@ -19,6 +19,7 @@ import {
   stampArg,
 } from "@/lib/dev/stamp.ts";
 import { killHard, psList, term } from "@/lib/std/proc.ts";
+import { repoRoot } from "@/lib/std/repo.ts";
 
 const BIN_REL = "target/debug/santi-api";
 const HEALTH_TIMEOUT_MS = 15_000;
@@ -367,11 +368,6 @@ function resolvePaths(): Paths {
   };
 }
 
-function repoRoot(): string {
-  const profile = Deno.env.get("RUNSEAL_PROFILE_PATH");
-  return profile ? dirname(profile) : Deno.cwd();
-}
-
 function readPort(repo: string): number {
   const fromEnv = Deno.env.get("SANTI_LISTEN_PORT");
   if (fromEnv && Number.isInteger(Number(fromEnv))) return Number(fromEnv);
@@ -422,12 +418,6 @@ function exists(path: string): boolean {
   } catch {
     return false;
   }
-}
-
-function dirname(path: string): string {
-  const trimmed = path.replace(/\/+$/, "");
-  const index = trimmed.lastIndexOf("/");
-  return index <= 0 ? "/" : trimmed.slice(0, index);
 }
 
 function join(...parts: string[]): string {

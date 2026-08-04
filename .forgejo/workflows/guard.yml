@@ -46,14 +46,28 @@ jobs:
             --lock crates/santi/operator/deno.lock \
             --frozen=true \
             crates/santi/operator/audit.ts \
+            crates/santi/operator/contract.test.ts \
             crates/santi/operator/contract.ts \
             crates/santi/operator/deploy.ts \
             crates/santi/operator/dev.ts \
+            crates/santi/operator/lib/recovery/recovery.test.ts \
             crates/santi/operator/rollback.ts \
             crates/santi/operator/scp.ts \
             crates/santi/operator/ssh.ts
+          deno test \
+            --allow-read=crates/santi/operator/ops/edge/ingress.yaml,crates/santi/operator/ops/edge/resources/nginx.conf,crates/santi/operator/packaging/deb/postinst,crates/santi/operator/packaging/deb/root/lib/systemd/system/santi.service \
+            --config crates/santi/operator/deno.json \
+            --lock crates/santi/operator/deno.lock \
+            --frozen=true \
+            crates/santi/operator/contract.test.ts
+          deno test \
+            --allow-run=bash \
+            --config crates/santi/operator/deno.json \
+            --lock crates/santi/operator/deno.lock \
+            --frozen=true \
+            crates/santi/operator/lib/recovery/recovery.test.ts
           deno run \
-            --allow-read \
+            --allow-read=crates/santi/operator/ops/edge/ingress.yaml,crates/santi/operator/ops/edge/resources/nginx.conf,crates/santi/operator/packaging/deb/postinst,crates/santi/operator/packaging/deb/root/lib/systemd/system/santi.service \
             --config crates/santi/operator/deno.json \
             --lock crates/santi/operator/deno.lock \
             --frozen=true \

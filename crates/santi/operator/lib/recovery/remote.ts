@@ -4,13 +4,17 @@
 
 import { join } from "@/lib/std/fs.ts";
 import { repoRoot } from "@/lib/std/repo.ts";
-import { command } from "@perish/sealkit/operator";
 
 const HOST = "hk-03.zxiyun";
 const SSH_CONFIG = ".local/ssh/config";
 const SCRIPT = "crates/santi/operator/ops/host/30-santi-recovery.sh";
+
+function posixArgument(value: string): string {
+  return `'${value.replaceAll("'", "'\"'\"'")}'`;
+}
+
 export function recoveryRemoteCommand(argv: string[]): string {
-  return command.remote(["bash", "-s", "--"], argv);
+  return ["bash", "-s", "--", ...argv].map(posixArgument).join(" ");
 }
 
 export async function runRecoveryRemote(argv: string[]): Promise<number> {
