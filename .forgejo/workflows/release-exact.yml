@@ -22,7 +22,7 @@ jobs:
     with:
       channel: ${{ inputs.channel }}
       version: ${{ inputs.version }}
-      guard_contexts: guard / guard (push),guard / guard-macos (push)
+      guard_contexts: '["guard / guard (push)","guard / guard-macos (push)"]'
     secrets:
       publish_access: ${{ secrets.RELEASE_PUBLISH_S3_ACCESS_KEY }}
       publish_secret: ${{ secrets.RELEASE_PUBLISH_S3_SECRET_KEY }}
