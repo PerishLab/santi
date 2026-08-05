@@ -2,6 +2,8 @@ use super::support::*;
 use santi_core::service::{self, Service};
 use santi_core::{message, soul, strand};
 
+mod settlement;
+
 #[derive(Clone, Default)]
 struct Holding {
     requests: Arc<Mutex<Vec<Request>>>,

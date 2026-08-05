@@ -1,6 +1,6 @@
 #[path = "service/basic.rs"]
 mod basic;
-#[path = "service/clock.rs"]
+#[path = "service/clock/mod.rs"]
 mod clock;
 #[path = "service/compact.rs"]
 mod compact;

@@ -21,6 +21,7 @@ pub(in crate::service) struct Clock {
 struct State {
     last: u128,
     active: BTreeMap<String, Seat>,
+    alerted: BTreeSet<String>,
 }
 
 struct Seat {
@@ -42,6 +43,7 @@ impl Clock {
             state: Mutex::new(State {
                 last: now / cadence.as_millis(),
                 active: BTreeMap::new(),
+                alerted: BTreeSet::new(),
             }),
         })
     }
@@ -54,7 +56,11 @@ impl Clock {
         self.window
     }
 
-    fn ring(&self, living: &BTreeSet<String>) -> Result<(i64, BTreeSet<String>), String> {
+    fn ring(
+        &self,
+        living: &BTreeSet<String>,
+        boundaries: &BTreeMap<String, String>,
+    ) -> Result<(i64, BTreeSet<String>), String> {
         let now = epoch()?;
         let tick = now / self.cadence.as_millis();
         let instant = Instant::now();
@@ -78,6 +84,7 @@ impl Clock {
                 due.insert(soul.clone());
             }
         }
+        due.extend(alerts(&mut state.alerted, boundaries));
         let revision =
             i64::try_from(now).map_err(|_| "soul clock time is out of range".to_string())?;
         Ok((revision, due))
@@ -92,7 +99,8 @@ pub(in crate::service) async fn ring(service: &Service) -> Result<(), String> {
         .collect::<BTreeSet<_>>();
     let mut living = living(service).await?;
     living.retain(|soul| !leased.contains(soul));
-    let (revision, due) = service.clock.ring(&living)?;
+    let boundaries = boundaries(service, &living).await?;
+    let (revision, due) = service.clock.ring(&living, &boundaries)?;
     for soul in due {
         if let Err(error) = notice::regular(service, &soul, revision).await {
             eprintln!("santi: soul clock offer failed soul={soul} detail={error}");
@@ -111,6 +119,39 @@ pub(in crate::service) async fn ring(service: &Service) -> Result<(), String> {
         }
     }
     Ok(())
+}
+
+async fn boundaries(
+    service: &Service,
+    living: &BTreeSet<String>,
+) -> Result<BTreeMap<String, String>, String> {
+    let mut boundaries = BTreeMap::new();
+    for soul in living {
+        let Some(running) = service.running(soul, None).await? else {
+            continue;
+        };
+        for active in running.active {
+            let candidate = active.usage.as_ref().is_some_and(|usage| usage.calls >= 12);
+            if candidate && service.store.called(&active.turn.id).await?.len() >= 12 {
+                boundaries.insert(active.turn.id, soul.clone());
+            }
+        }
+    }
+    Ok(boundaries)
+}
+
+fn alerts(
+    alerted: &mut BTreeSet<String>,
+    boundaries: &BTreeMap<String, String>,
+) -> BTreeSet<String> {
+    alerted.retain(|turn| boundaries.contains_key(turn));
+    let mut due = BTreeSet::new();
+    for (turn, soul) in boundaries {
+        if alerted.insert(turn.clone()) {
+            due.insert(soul.clone());
+        }
+    }
+    due
 }
 
 async fn living(service: &Service) -> Result<BTreeSet<String>, String> {
