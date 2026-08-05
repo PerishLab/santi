@@ -13,6 +13,8 @@ use tokio::io::{AsyncRead, AsyncReadExt};
 
 use crate::service::interrupt::Control;
 
+mod redact;
+
 #[derive(Debug, Deserialize)]
 pub(super) struct Args {
     pub(super) command: String,
@@ -96,6 +98,7 @@ struct Pipe {
 struct Text {
     value: String,
     truncated: bool,
+    redactions: usize,
 }
 
 async fn piped(
@@ -139,8 +142,9 @@ fn captured(capture: Capture) -> Outcome {
         limit,
     } = capture;
     let mut remaining = limit;
-    let stdout = normalized(stdout, remaining.as_mut());
-    let stderr = normalized(stderr, remaining.as_mut());
+    let stdout = redacted(normalized(stdout, remaining.as_mut()));
+    let stderr = redacted(normalized(stderr, remaining.as_mut()));
+    let redactions = stdout.redactions + stderr.redactions;
     let mut output = json!({
         "exit_code": status.code().unwrap_or(-1),
         "stdout": stdout.value,
@@ -152,6 +156,10 @@ fn captured(capture: Capture) -> Outcome {
         output["output_truncated"] = Value::Bool(stdout.truncated || stderr.truncated);
         output["output_limit_bytes"] = Value::from(limit);
     }
+    if redactions > 0 {
+        output["redacted"] = Value::Bool(true);
+        output["redactions"] = Value::from(redactions);
+    }
     Outcome::Captured(output)
 }
 
@@ -162,6 +170,7 @@ fn normalized(pipe: Pipe, remaining: Option<&mut usize>) -> Text {
         return Text {
             value: value.into_owned(),
             truncated,
+            redactions: 0,
         };
     };
     let mut end = value.len().min(*remaining);
@@ -172,7 +181,24 @@ fn normalized(pipe: Pipe, remaining: Option<&mut usize>) -> Text {
     Text {
         truncated: truncated || end < value.len(),
         value: value[..end].to_string(),
+        redactions: 0,
     }
+}
+
+fn redacted(mut text: Text) -> Text {
+    let ceiling = text.value.len();
+    let (mut value, redactions) = redact::text(&text.value);
+    if value.len() > ceiling {
+        let mut end = ceiling;
+        while !value.is_char_boundary(end) {
+            end -= 1;
+        }
+        value.truncate(end);
+        text.truncated = true;
+    }
+    text.value = value;
+    text.redactions = redactions;
+    text
 }
 
 fn reserved(remaining: &AtomicUsize, requested: usize) -> usize {
