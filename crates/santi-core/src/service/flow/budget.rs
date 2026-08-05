@@ -10,6 +10,7 @@ use super::super::Service;
 use crate::budget;
 
 mod execution;
+mod observation;
 pub(super) use execution::Verdict;
 
 const PROVIDER: &str = "provider_request_exceeds_budget";
@@ -107,19 +108,39 @@ impl Service {
 
     pub(in crate::service) async fn admit_pending(
         &self,
-        strand: &str,
+        strand: &crate::strand::Strand,
+        operation: &str,
     ) -> Result<Option<Fault>, String> {
         let Some(budget) = self.budget() else {
             return Ok(None);
         };
-        let estimate = self.estimate(strand).await?;
+        let key = crate::budget::Error::Context
+            .descriptor()
+            .key("strand", &strand.id);
+        let active = self.store.incident(&key).await?;
+        let mut observed = None;
+        if let Some(incident) = active.as_ref() {
+            let current = observation::observe(self, strand, &budget).await?;
+            if operation == "cold_start_resume" && current.matches(incident) {
+                return Ok(Some(crate::engine().fault(incident)));
+            }
+            observed = Some(current);
+        }
+        let estimate = self.estimate(&strand.id).await?;
         if estimate.total <= budget.bytes {
+            if active.is_some() {
+                resolve(self, &key, "driver_remeasurement", &estimate).await?;
+            }
             return Ok(None);
         }
+        let observed = match observed {
+            Some(observed) => observed,
+            None => observation::observe(self, strand, &budget).await?,
+        };
         let metadata = self.provider.metadata();
         let reason = reason(estimate.total, budget.bytes);
         self.pressure(Pressure {
-            strand,
+            strand: &strand.id,
             code: "pending_drain_would_exceed_budget",
             text: &reason,
             operation: "pending_drain_admission",
@@ -129,7 +150,10 @@ impl Service {
             bytes: Some(budget.bytes),
             estimate: &estimate,
             observed: None,
-            metadata: serde_json::json!({"estimator": estimate.estimator}),
+            metadata: serde_json::json!({
+                "estimator": estimate.estimator,
+                "observation": observed,
+            }),
         })
         .await
         .map(Some)
@@ -223,22 +247,31 @@ impl Service {
         if estimate.total > budget.bytes {
             return Ok(false);
         }
-        let resolved = self
-            .store
-            .resolve(
-                &key,
-                cleared_by,
-                json!({
-                    "schema": "santi.error.context_budget.resolution.v1",
-                    "resolved_by": cleared_by,
-                    "estimate": estimate,
-                }),
-                &crate::now(),
-            )
-            .await?;
-        self.dispatched().await;
-        Ok(resolved)
+        resolve(self, &key, cleared_by, &estimate).await
     }
+}
+
+async fn resolve(
+    service: &Service,
+    key: &str,
+    cleared_by: &str,
+    estimate: &budget::Estimate,
+) -> Result<bool, String> {
+    let resolved = service
+        .store
+        .resolve(
+            key,
+            cleared_by,
+            json!({
+                "schema": "santi.error.context_budget.resolution.v1",
+                "resolved_by": cleared_by,
+                "estimate": estimate,
+            }),
+            &crate::now(),
+        )
+        .await?;
+    service.dispatched().await;
+    Ok(resolved)
 }
 
 fn reason(total: i64, bytes: i64) -> String {

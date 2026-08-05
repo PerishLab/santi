@@ -112,7 +112,7 @@ impl Engine {
         Ok(sent)
     }
 
-    fn fault(&self, incident: &Incident) -> Fault {
+    pub fn fault(&self, incident: &Incident) -> Fault {
         Fault {
             id: tag("error"),
             incident: Some(incident.id.clone()),

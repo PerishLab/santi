@@ -3,7 +3,7 @@ use serde_json::{Value, json};
 
 use crate::budget;
 
-const ESTIMATOR: &str = "provider_json_bytes_v1";
+pub(crate) const ESTIMATOR: &str = "provider_json_bytes_v1";
 
 pub(crate) fn gauged(request: &Request) -> budget::Estimate {
     estimated(

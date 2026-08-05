@@ -4,6 +4,8 @@ mod basic;
 mod clock;
 #[path = "service/compact.rs"]
 mod compact;
+#[path = "service/context.rs"]
+mod context;
 #[path = "service/environment.rs"]
 mod environment;
 #[path = "service/execution.rs"]

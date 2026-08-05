@@ -76,10 +76,7 @@ impl Service {
                     return drive::Outcome::Failed(self.stumbled(&strand.id, drive, error).await);
                 }
             }
-            if let Err(error) = self.absolve(&strand.id, "driver_remeasurement").await {
-                return drive::Outcome::Failed(self.stumbled(&strand.id, drive, error).await);
-            }
-            let held = match self.admit_pending(&strand.id).await {
+            let held = match self.admit_pending(&strand, drive.operation).await {
                 Ok(held) => held,
                 Err(error) => {
                     return drive::Outcome::Failed(self.stumbled(&strand.id, drive, error).await);
