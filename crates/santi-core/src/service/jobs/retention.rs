@@ -42,7 +42,7 @@ impl Service {
         Ok(full)
     }
 
-    pub(super) async fn pace(&self, next: Instant) -> Instant {
+    pub(in crate::service) async fn pace(&self, next: Instant) -> Instant {
         let now = Instant::now();
         if now < next {
             return next;

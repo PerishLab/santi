@@ -1,5 +1,5 @@
 mod engine;
-use engine::{address, drive, error, materials, notice, thinking, timing};
+use engine::{address, drive, error, materials, notice, thinking, timing, watch::clock};
 mod face;
 pub use face::Admission;
 mod flow;
@@ -51,6 +51,7 @@ pub struct Service {
     supervisor: Arc<dyn jobs::Supervisor>,
     handoffs: Arc<Mutex<HashSet<String>>>,
     retention: Duration,
+    clock: Arc<clock::Clock>,
     pub(crate) capability: Option<Arc<crate::capability::Issuer>>,
 }
 
@@ -120,6 +121,7 @@ impl Service {
             supervisor,
             handoffs: Arc::new(Mutex::new(HashSet::new())),
             retention: Duration::from_secs(RETENTION),
+            clock: Arc::new(clock::Clock::new(clock::CADENCE, clock::WINDOW)?),
             capability: None,
         })
     }
@@ -132,6 +134,16 @@ impl Service {
     pub fn bounded(mut self, limit: budget::Execution) -> Result<Self, String> {
         limit.validate()?;
         self.limit = Some(limit);
+        Ok(self)
+    }
+
+    pub fn clock(mut self, cadence: Duration) -> Result<Self, String> {
+        self.clock = Arc::new(clock::Clock::new(cadence, self.clock.window())?);
+        Ok(self)
+    }
+
+    pub fn window(mut self, window: Duration) -> Result<Self, String> {
+        self.clock = Arc::new(clock::Clock::new(self.clock.cadence(), window)?);
         Ok(self)
     }
 

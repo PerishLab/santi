@@ -1,5 +1,7 @@
 #[path = "service/basic.rs"]
 mod basic;
+#[path = "service/clock.rs"]
+mod clock;
 #[path = "service/compact.rs"]
 mod compact;
 #[path = "service/environment.rs"]

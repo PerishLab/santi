@@ -131,6 +131,13 @@ Cold start reconciles each active stamp independently and never automatically
 replays an uncertain job. The launched process receives origin locators but
 never inherits the create capability.
 
+Every Soul with a running Turn or active Job receives a wall-clock pulse after
+one continuous minute of activity and every ten-minute wall-clock boundary
+thereafter. Santi coalesces the pulse on the Soul's `santi:clock` strand and
+wakes that strand with only the current absolute time. The clock does not
+inspect the work, diagnose delay, recommend an action, or change the execution
+it observed.
+
 Export the OpenAPI document:
 
 ```sh

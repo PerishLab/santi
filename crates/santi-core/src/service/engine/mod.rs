@@ -5,5 +5,6 @@ pub(in crate::service) mod materials;
 pub(in crate::service) mod notice;
 pub(in crate::service) mod thinking;
 pub(in crate::service) mod timing;
+pub(in crate::service) mod watch;
 
 use super::Service;
