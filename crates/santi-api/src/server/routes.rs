@@ -28,6 +28,7 @@ pub(super) fn router(service: Service) -> Router {
         .route("/api/v1/strands", post(weave).get(strands))
         .route("/api/v1/souls", post(awaken).get(souls))
         .route("/api/v1/souls/{soul}", get(get_soul))
+        .route("/api/v1/souls/{soul}/active-turns", get(running))
         .route(
             "/api/v1/souls/{soul}/wake",
             get(wake_status).post(control_wake),
@@ -142,11 +143,13 @@ pub async fn health(State(service): State<Service>) -> impl IntoResponse {
     )
 }
 
+mod active;
 mod downstream;
 mod drive;
 mod environment;
 mod receipts;
 mod turn;
+pub use active::*;
 pub use downstream::*;
 pub use drive::*;
 pub use environment::*;

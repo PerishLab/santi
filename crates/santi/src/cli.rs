@@ -139,6 +139,8 @@ pub enum EffectCommand {
 
 #[derive(Subcommand)]
 pub enum Turn {
+    #[command(about = "List bounded active sibling turns for --soul, excluding --strand")]
+    Active,
     #[command(about = "Idempotently stop one exact running turn")]
     Stop { id: String },
 }

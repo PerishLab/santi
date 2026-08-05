@@ -50,6 +50,7 @@ fn receipt() {
 
 #[test]
 fn turns() {
+    assert!(Cli::try_parse_from(["santi", "turn", "active"]).is_ok());
     let parsed = Cli::try_parse_from(["santi", "turn", "stop", "turn_123"]).unwrap();
     let Command::Turn(Turn::Stop { id }) = parsed.command else {
         panic!("expected turn stop command");

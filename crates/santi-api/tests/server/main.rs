@@ -128,7 +128,7 @@ mod openapi {
         assert!(document.contains("/api/v1/errors/{scope_kind}/{scope_id}"));
         assert!(document.contains("/api/v1/errors/events"));
         assert!(document.contains("/api/v1/strands/{strand}/drive"));
-        assert!(document.contains("/api/v1/souls/{soul}/strands"));
+        assert!(document.contains("/api/v1/souls/{soul}/active-turns"));
         assert!(document.contains("/api/v1/receipts/{inbox}"));
         assert!(document.contains("/api/v1/effects/{effect}"));
         assert!(document.contains("/api/v1/effects/{effect}/resolve"));
@@ -140,6 +140,7 @@ mod openapi {
         assert!(document.contains("/api/v1/turn-events/stream"));
         assert!(document.contains("/api/v1/turns/{turn}/stop"));
         assert!(document.contains("turn.Stop"));
+        assert!(document.contains("active.Projection"));
         assert!(document.contains("event.Batch"));
         assert!(document.contains("request"));
         assert!(document.contains("downstream_bearer"));

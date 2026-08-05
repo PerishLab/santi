@@ -237,6 +237,19 @@ pub(crate) async fn run(
             http.post(&format!("{base}/api/v1/turns/{id}/stop"), None)
                 .await
         }
+        Command::Turn(Turn::Active) => {
+            let soul = defaults.require()?;
+            let mut url = format!("{base}/api/v1/souls/{soul}/active-turns");
+            if let Some(strand) = defaults
+                .strand
+                .as_deref()
+                .map(str::trim)
+                .filter(|strand| !strand.is_empty())
+            {
+                url.push_str(&format!("?exclude={}", urlencoding_encode(strand)));
+            }
+            http.get(&url).await
+        }
         Command::Environment(command) => environment::run(&http, &base, command).await,
         Command::Webhook(Webhook::List) => http.get(&format!("{base}/api/v1/webhooks")).await,
         Command::Webhook(Webhook::Ensure {

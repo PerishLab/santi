@@ -8,7 +8,7 @@ pub use jobs::{
     Draft as JobDraft, Launch as JobLaunch, Observation as JobObservation, Read as JobRead,
     Supervisor as JobSupervisor, Terminal as JobTerminal,
 };
-mod interrupt;
+pub mod interrupt;
 mod text;
 mod tools;
 mod traces;
