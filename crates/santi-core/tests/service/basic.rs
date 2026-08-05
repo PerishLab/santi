@@ -265,6 +265,9 @@ async fn sends() {
         })
         .collect::<Vec<_>>()
         .join("\n");
+    assert!(tool_descriptions.contains("Run a short, bounded shell command."));
+    assert!(tool_descriptions.contains("santi job create <DESCRIPTION> <COMMAND>"));
+    assert!(tool_descriptions.contains("Never keep this synchronous shell open"));
     assert!(tool_descriptions.contains(&soulward()));
     assert!(tool_descriptions.contains(&strandward()));
     assert!(!tool_descriptions.contains("@soul"));
