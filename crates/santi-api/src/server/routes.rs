@@ -28,6 +28,10 @@ pub(super) fn router(service: Service) -> Router {
         .route("/api/v1/strands", post(weave).get(strands))
         .route("/api/v1/souls", post(awaken).get(souls))
         .route("/api/v1/souls/{soul}", get(get_soul))
+        .route(
+            "/api/v1/souls/{soul}/wake",
+            get(wake_status).post(control_wake),
+        )
         .route("/api/v1/souls/{soul}/strands", post(seat))
         .route(
             "/api/v1/souls/{soul}/environment",

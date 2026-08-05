@@ -49,7 +49,7 @@ pub struct Cli {
     pub strand: Option<String>,
 
     #[arg(
-        help = "Default soul addressed by `strand create`, `strand send`, and soul-owned job commands. Falls back to SANTI_SOUL_ID. Empty/absent → strand create/send use the runtime default; job reads and controls require one",
+        help = "Default soul addressed by `strand create`, `strand send`, and soul-owned job or wake commands. Falls back to SANTI_SOUL_ID. Empty/absent → strand create/send use the runtime default; job and wake reads or controls require one",
         long,
         global = true,
         env = "SANTI_SOUL_ID"
@@ -99,6 +99,11 @@ pub enum Command {
     #[command(about = "Soul-owned detached jobs under /api/v1/jobs")]
     #[command(subcommand)]
     Job(Job),
+    #[command(
+        subcommand,
+        about = "Inspect or control one soul's autonomous wake lease"
+    )]
+    Wake(wake::Wake),
     #[command(about = "Turn controls under /api/v1/turns")]
     #[command(subcommand)]
     Turn(Turn),
@@ -240,35 +245,6 @@ pub enum WatchFormat {
     Raw,
 }
 
-pub struct ClientDefaults {
-    pub strand: Option<String>,
-    pub soul: Option<String>,
-}
-
-impl ClientDefaults {
-    pub fn resolve_strand(&self, explicit: Option<String>) -> Result<String> {
-        explicit
-            .or_else(|| self.strand.clone())
-            .map(|id| id.trim().to_string())
-            .filter(|id| !id.is_empty())
-            .ok_or_else(|| {
-                anyhow::anyhow!("no strand id: pass one or set --strand / SANTI_STRAND_ID")
-            })
-    }
-
-    pub fn soul(&self) -> Option<&str> {
-        self.soul
-            .as_deref()
-            .map(str::trim)
-            .filter(|s| !s.is_empty())
-    }
-
-    pub fn require(&self) -> Result<&str> {
-        self.soul()
-            .ok_or_else(|| anyhow::anyhow!("no soul id: pass --soul or set SANTI_SOUL_ID"))
-    }
-}
-
 pub fn split_send_args(
     mut args: Vec<String>,
     defaults: &ClientDefaults,
@@ -288,10 +264,13 @@ pub fn split_send_args(
 }
 
 mod compact;
+mod defaults;
 mod job;
 pub(crate) mod operator;
 mod strand;
+pub mod wake;
 pub use compact::*;
+pub use defaults::*;
 pub use job::*;
 pub use operator::Operator;
 pub use strand::*;

@@ -255,7 +255,7 @@ async fn sends() {
             santi_provider::Tool::Function(tool) => tool.name.as_str(),
         })
         .collect::<Vec<_>>();
-    assert_eq!(tool_names, vec!["shell"]);
+    assert_eq!(tool_names, vec!["shell", "wake"]);
     let tool_descriptions = tools
         .iter()
         .map(|tool| match tool {

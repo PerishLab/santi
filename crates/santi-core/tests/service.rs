@@ -14,6 +14,8 @@ mod execution;
 mod intake;
 #[path = "service/objects.rs"]
 mod objects;
+#[path = "service/wake.rs"]
+mod wake;
 
 #[path = "service/support/mod.rs"]
 mod support;

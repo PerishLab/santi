@@ -4,6 +4,7 @@ use std::time::Duration;
 use anyhow::{Context, Result};
 use futures_util::StreamExt;
 
+use crate::cli::wake::Wake;
 use crate::cli::{
     ClientDefaults, Command, CompactCommand, EffectCommand, Job, Turn, WatchFormat, Webhook,
 };
@@ -211,6 +212,26 @@ pub(crate) async fn run(
         Command::Job(Job::Ack { id }) => {
             http.act(&format!("{base}/api/v1/jobs/{id}/ack"), defaults.require()?)
                 .await
+        }
+        Command::Wake(Wake::Status) => {
+            let soul = defaults.require()?;
+            http.get(&format!("{base}/api/v1/souls/{soul}/wake")).await
+        }
+        Command::Wake(Wake::Enable) => {
+            let soul = defaults.require()?;
+            http.post(
+                &format!("{base}/api/v1/souls/{soul}/wake"),
+                Some(serde_json::json!({"action": "enable"})),
+            )
+            .await
+        }
+        Command::Wake(Wake::Disable) => {
+            let soul = defaults.require()?;
+            http.post(
+                &format!("{base}/api/v1/souls/{soul}/wake"),
+                Some(serde_json::json!({"action": "disable"})),
+            )
+            .await
         }
         Command::Turn(Turn::Stop { id }) => {
             http.post(&format!("{base}/api/v1/turns/{id}/stop"), None)

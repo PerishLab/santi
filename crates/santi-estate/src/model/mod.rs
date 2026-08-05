@@ -6,6 +6,7 @@ mod inbox;
 mod job;
 mod ledger;
 mod ops;
+mod wake;
 
 pub(super) fn graph() -> Graph {
     let mut graph = Graph::new();
@@ -46,5 +47,6 @@ pub(super) fn graph() -> Graph {
         .plug::<ops::error::ResolvedIncident>()
         .plug::<ops::error::ErrorTransition>()
         .plug::<ops::error::ErrorAcknowledgement>();
+    graph.plug::<wake::WakeLease>();
     graph
 }

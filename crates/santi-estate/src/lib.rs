@@ -11,5 +11,5 @@ pub use store::{
     EffectDraft, EnvironDraft, ExpiredJob, ForkDraft, Inbox, InboxDraft, Interruption,
     InterruptionDraft, JobDraft, JobRecord, MessageDraft, NoticeDraft, Offer, Opening, OutboxDraft,
     Prepared, ReceiptDraft, RedemptionDraft, ReplayDraft, ReplyDraft, Status, Store, StrandDraft,
-    ThinkingDraft, TraceDraft, TransitionDraft, TurnDraft, WebhookDraft,
+    ThinkingDraft, TraceDraft, TransitionDraft, TurnDraft, WakeLease, WakeOfferDraft, WebhookDraft,
 };

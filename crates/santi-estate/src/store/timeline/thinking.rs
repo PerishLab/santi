@@ -1,4 +1,4 @@
-use super::{Store, read, write};
+use crate::store::{Store, read, write};
 use keel::{Op, Rank, form};
 use santi_model::thinking;
 

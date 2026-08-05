@@ -18,7 +18,7 @@ pub use jobs::{
     CreateJobRequest, acknowledge as acknowledge_job, cancel as cancel_job, create as create_job,
     get as get_job, list as list_jobs, logs as job_logs,
 };
-pub use routes::{drive, health, receipt, send};
+pub use routes::{control_wake, drive, health, receipt, send, wake_status};
 pub use routes::{
     end_soul_environ as end_soul_environ_handler, end_strand_environ as end_strand_environ_handler,
     set_soul_environ as set_soul_environ_handler, set_strand_environ as set_strand_environ_handler,

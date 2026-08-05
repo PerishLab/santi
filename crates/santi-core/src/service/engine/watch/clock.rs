@@ -4,11 +4,9 @@ use std::{
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
-use serde_json::json;
-use sha2::{Digest, Sha256};
-
 use crate::service::Service;
-use crate::{ingest, message, strand};
+
+mod notice;
 
 pub(in crate::service) const CADENCE: Duration = Duration::from_secs(10 * 60);
 pub(in crate::service) const WINDOW: Duration = Duration::from_secs(60);
@@ -87,11 +85,29 @@ impl Clock {
 }
 
 pub(in crate::service) async fn ring(service: &Service) -> Result<(), String> {
-    let living = living(service).await?;
+    let leases = service.store.scheduled_wakes().await?;
+    let leased = leases
+        .iter()
+        .map(|lease| lease.soul.clone())
+        .collect::<BTreeSet<_>>();
+    let mut living = living(service).await?;
+    living.retain(|soul| !leased.contains(soul));
     let (revision, due) = service.clock.ring(&living)?;
     for soul in due {
-        if let Err(error) = offer(service, &soul, revision).await {
+        if let Err(error) = notice::regular(service, &soul, revision).await {
             eprintln!("santi: soul clock offer failed soul={soul} detail={error}");
+        }
+    }
+    let now = i64::try_from(epoch()?).map_err(|_| "soul clock time is out of range".to_string())?;
+    for lease in leases
+        .into_iter()
+        .filter(|lease| lease.next_millis.is_some_and(|next| next <= now))
+    {
+        if let Err(error) = notice::leased(service, &lease, now).await {
+            eprintln!(
+                "santi: wake lease offer failed soul={} detail={error}",
+                lease.soul
+            );
         }
     }
     Ok(())
@@ -118,52 +134,6 @@ async fn living(service: &Service) -> Result<BTreeSet<String>, String> {
         souls.insert(record.job.origin.soul);
     }
     Ok(souls)
-}
-
-async fn offer(service: &Service, soul: &str, revision: i64) -> Result<(), String> {
-    let observed = crate::stamped(UNIX_EPOCH + Duration::from_millis(revision as u64))?;
-    let strand = service
-        .store
-        .selected(
-            &strand::Selector::ByLabel {
-                soul: soul.to_string(),
-                label: LABEL.to_string(),
-            },
-            &observed,
-        )
-        .await?;
-    let content = message::Content::text(format!("current_time: {observed}"));
-    let encoded = serde_json::to_vec(&content).map_err(|error| error.to_string())?;
-    let digest = format!("{:x}", Sha256::digest(encoded));
-    let source = ingest::Source::new("clock")
-        .with_ref(soul.to_string())
-        .with_metadata(json!({"schema": "santi.soul.clock.v1"}));
-    let key = format!("clock/{soul}");
-    let inbox = crate::tag("inbox");
-    let offered = service
-        .store
-        .offer_notice(
-            santi_estate::NoticeDraft {
-                tag: &inbox,
-                strand: &strand.id,
-                key: &key,
-                revision,
-                digest: &digest,
-                content: &content,
-                source: &source,
-                causes: &[],
-                created: &observed,
-            },
-            500,
-        )
-        .await?;
-    service.dispatched().await;
-    if offered.inserted
-        && let Some(inbox) = offered.inbox
-    {
-        service.inboxes.lock().unwrap().insert(strand.id, inbox);
-    }
-    Ok(())
 }
 
 fn epoch() -> Result<u128, String> {

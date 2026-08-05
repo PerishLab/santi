@@ -4,6 +4,7 @@ mod context;
 pub mod environment;
 
 pub mod service;
+pub mod wake;
 pub mod workspace;
 
 pub use assembly::timeline::{Preview as ProviderPreview, provider_input, provider_preview};

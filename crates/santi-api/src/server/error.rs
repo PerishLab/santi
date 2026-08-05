@@ -60,6 +60,7 @@ const MISSING: &[Rule] = &[
 ];
 
 const CONFLICT: &[Rule] = &[
+    Rule::Starts("wake lease generation conflicts"),
     Rule::Contains("compact plan conflicts"),
     Rule::Starts("downstream request conflicts"),
     Rule::Starts("downstream id conflicts"),
@@ -76,6 +77,7 @@ const CONFLICT: &[Rule] = &[
 ];
 
 const INVALID: &[Rule] = &[
+    Rule::Starts("wake "),
     Rule::Starts("unknown soul"),
     Rule::Contains("must not be empty"),
     Rule::Around {

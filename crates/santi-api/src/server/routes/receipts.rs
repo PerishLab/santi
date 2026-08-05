@@ -124,6 +124,52 @@ pub(super) async fn get_soul(
 }
 
 #[utoipa::path(
+    get,
+    path = "/api/v1/souls/{soul}/wake",
+    params(("soul" = String, Path)),
+    responses(
+        (status = 200, body = santi_core::wake::Lease),
+        (status = 404, body = Fault),
+        (status = 500, body = Fault)
+    )
+)]
+pub async fn wake_status(
+    State(service): State<Service>,
+    Path(soul): Path<String>,
+) -> Result<Json<santi_core::wake::Lease>, ApiError> {
+    service
+        .wake(&soul)
+        .await
+        .map_err(ApiError::from_service)?
+        .map(Json)
+        .ok_or_else(|| ApiError::not_found("soul not found"))
+}
+
+#[utoipa::path(
+    post,
+    path = "/api/v1/souls/{soul}/wake",
+    params(("soul" = String, Path)),
+    request_body = santi_core::wake::CallerRequest,
+    responses(
+        (status = 200, body = santi_core::wake::Lease),
+        (status = 404, body = Fault),
+        (status = 500, body = Fault)
+    )
+)]
+pub async fn control_wake(
+    State(service): State<Service>,
+    Path(soul): Path<String>,
+    Json(request): Json<santi_core::wake::CallerRequest>,
+) -> Result<Json<santi_core::wake::Lease>, ApiError> {
+    match request.action {
+        santi_core::wake::CallerAction::Enable => service.enable_wake(&soul).await,
+        santi_core::wake::CallerAction::Disable => service.disable_wake(&soul).await,
+    }
+    .map(Json)
+    .map_err(ApiError::from_service)
+}
+
+#[utoipa::path(
     post,
     path = "/api/v1/webhooks",
     request_body = webhook::Draft,

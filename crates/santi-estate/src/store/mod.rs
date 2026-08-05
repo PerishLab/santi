@@ -8,10 +8,10 @@ mod error;
 mod inbox;
 mod job;
 mod support;
-mod thinking;
 mod timeline;
 mod tool;
 mod turn;
+mod wake;
 
 pub use effect::{EffectDraft, RedemptionDraft};
 pub use inbox::{
@@ -23,13 +23,13 @@ pub use job::{
 };
 pub use support::{Bootstrap, EnvironDraft, Status, TraceDraft};
 use support::{read, write};
-pub use thinking::ThinkingDraft;
-pub use timeline::{CompactDraft, ForkDraft, MessageDraft};
+pub use timeline::{CompactDraft, ForkDraft, MessageDraft, ThinkingDraft};
 pub use tool::{CallDraft, ReplyDraft};
 pub use turn::{
     ClassifiedFailure, ClassifiedFailureDraft, Completion, CompletionDraft, Interruption,
     InterruptionDraft, OutboxDraft, TurnDraft,
 };
+pub use wake::{WakeLease, WakeOfferDraft};
 
 #[derive(Clone)]
 pub struct Store {

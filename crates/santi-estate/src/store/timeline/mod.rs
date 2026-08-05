@@ -5,9 +5,11 @@ use santi_model::message;
 mod compact;
 mod fork;
 mod projection;
+mod thinking;
 
 pub use compact::CompactDraft;
 pub use fork::ForkDraft;
+pub use thinking::ThinkingDraft;
 
 pub struct MessageDraft<'a> {
     pub tag: &'a str,
