@@ -80,30 +80,27 @@ pub async fn serve() -> Result<(), String> {
     };
     let drainer = service.clone();
     let recovery = service.clone();
+    let watcher = {
+        let service = service.clone();
+        tokio::spawn(async move { service.watch().await })
+    };
     let server = axum::serve(listener, routes::router(service))
         .with_graceful_shutdown(shutdown_signal)
         .into_future();
     tokio::pin!(server);
     let resume = recovery.resume();
     tokio::pin!(resume);
-    let mut watcher = None;
     let result = tokio::select! {
         result = &mut server => result.map_err(|error| error.to_string()),
         recovered = &mut resume => match recovered {
-            Ok(()) => {
-                let service = recovery.clone();
-                watcher = Some(tokio::spawn(async move { service.watch().await }));
-                server.await.map_err(|error| error.to_string())
-            },
+            Ok(()) => server.await.map_err(|error| error.to_string()),
             Err(error) => Err(error),
         },
     };
     if !drainer.closing() {
         drainer.quiesce(std::time::Duration::ZERO);
     }
-    if let Some(watcher) = watcher {
-        watcher.await.map_err(|error| error.to_string())?;
-    }
+    watcher.await.map_err(|error| error.to_string())?;
     result?;
     drainer.drain().await;
     println!("santi-api: drained; exiting");
