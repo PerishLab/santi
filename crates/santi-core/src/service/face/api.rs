@@ -119,6 +119,13 @@ impl Service {
         self.store.snapshot(strand).await
     }
 
+    pub async fn execution_tail(
+        &self,
+        strand: &str,
+    ) -> Result<Option<stream::ExecutionTail>, String> {
+        self.store.execution_tail(strand).await
+    }
+
     pub async fn audit(&self, strand: &str) -> Result<Option<budget::Snapshot>, String> {
         let Some(strand) = self.store.strand(strand).await? else {
             return Ok(None);

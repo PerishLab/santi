@@ -159,6 +159,28 @@ pub(super) async fn snapshot(
 
 #[utoipa::path(
     get,
+    path = "/api/v1/strands/{strand}/execution-tail",
+    params(("strand" = String, Path)),
+    responses(
+        (status = 200, body = stream::ExecutionTail),
+        (status = 404, body = Fault),
+        (status = 500, body = Fault)
+    )
+)]
+pub(super) async fn execution_tail(
+    State(service): State<Service>,
+    Path(strand): Path<String>,
+) -> Result<Json<stream::ExecutionTail>, ApiError> {
+    service
+        .execution_tail(&strand)
+        .await
+        .map_err(ApiError::from_service)?
+        .map(Json)
+        .ok_or_else(|| ApiError::not_found("strand not found"))
+}
+
+#[utoipa::path(
+    get,
     path = "/api/v1/strands/{strand}/budget",
     params(("strand" = String, Path)),
     responses(

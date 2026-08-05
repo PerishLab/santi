@@ -29,6 +29,86 @@ impl Store {
         Ok(entries)
     }
 
+    pub async fn execution_tail(
+        &self,
+        strand: &str,
+    ) -> Result<Option<stream::ExecutionTail>, String> {
+        let Some(strand) = read::one(&self.core, "Strand", "tag", strand).await? else {
+            return Ok(None);
+        };
+        let rows = self
+            .core
+            .ask(
+                &form("StrandEntry")
+                    .when("strand", Op::Eq, &strand.key().to_string())
+                    .order("sequence", Rank::Desc)
+                    .top(stream::EXECUTION_TAIL_RECORD_LIMIT + 1),
+            )
+            .await
+            .map_err(read::error)?;
+        let older_omitted = rows.rows().len() > stream::EXECUTION_TAIL_RECORD_LIMIT;
+        let mut records =
+            Vec::with_capacity(rows.rows().len().min(stream::EXECUTION_TAIL_RECORD_LIMIT));
+        for row in rows.rows().iter().take(stream::EXECUTION_TAIL_RECORD_LIMIT) {
+            let target = read::text(row, "target")?;
+            let kind = target::decode(read::text(row, "target_type")?)?;
+            let sequence = read::int(row, "sequence")?;
+            let created = read::text(row, "created")?.to_string();
+            let record = match kind {
+                strand::Target::Message => stream::ExecutionRecord::project(
+                    sequence,
+                    created,
+                    kind,
+                    &self
+                        .message(target)
+                        .await?
+                        .ok_or_else(|| format!("message {target} missing"))?,
+                ),
+                strand::Target::Compact => stream::ExecutionRecord::project(
+                    sequence,
+                    created,
+                    kind,
+                    &self
+                        .compact(target)
+                        .await?
+                        .ok_or_else(|| format!("compact {target} missing"))?,
+                ),
+                strand::Target::Thinking => stream::ExecutionRecord::project(
+                    sequence,
+                    created,
+                    kind,
+                    &self
+                        .thinking(target)
+                        .await?
+                        .ok_or_else(|| format!("thinking {target} missing"))?,
+                ),
+                strand::Target::ToolCall => stream::ExecutionRecord::project(
+                    sequence,
+                    created,
+                    kind,
+                    &self
+                        .call(target)
+                        .await?
+                        .ok_or_else(|| format!("tool call {target} missing"))?,
+                ),
+                strand::Target::ToolResult => stream::ExecutionRecord::project(
+                    sequence,
+                    created,
+                    kind,
+                    &self
+                        .reply(target)
+                        .await?
+                        .ok_or_else(|| format!("tool result {target} missing"))?,
+                ),
+            }
+            .map_err(|error| error.to_string())?;
+            records.push(record);
+        }
+        let tail = stream::ExecutionTail::newest(records, older_omitted);
+        tail.ensure_response_bound()?;
+        Ok(Some(tail))
+    }
+
     pub async fn events(&self, strand: &str) -> Result<Vec<message::Event>, String> {
         let strand = read::one(&self.core, "Strand", "tag", strand)
             .await?

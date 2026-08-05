@@ -9,76 +9,8 @@ use utoipa::{
 };
 
 mod descriptions;
-use descriptions::COMPONENT_DESCRIPTIONS;
+use descriptions::{COMPONENT_DESCRIPTIONS, PROPERTY_DESCRIPTIONS};
 use santi_core::{material, soul, strand, stream};
-
-const PROPERTY_DESCRIPTIONS: [(&str, &str, &str); 13] = [
-    (
-        "downstream::Draft",
-        "digest",
-        "Lowercase or uppercase SHA-256 hex of a high-entropy Bearer token. The digest is stored but never returned.",
-    ),
-    (
-        "ingest::Request",
-        "request",
-        "Stable idempotency key, unique within the authenticated downstream. Reuse with a changed payload is a conflict.",
-    ),
-    (
-        "event::Batch",
-        "cursor",
-        "Opaque global high-water mark. Persist it even when events is empty; it reveals aggregate activity but no foreign payload.",
-    ),
-    (
-        "Health",
-        "incidents",
-        "Aggregate only: `/health` is public and must never expose strand,\nreceipt, or incident locators.",
-    ),
-    (
-        "Strand",
-        "label",
-        "Opaque external anchor (e.g. a webhook thread key). Unique per soul;\nabsent for strands reached only by id (e.g. CLI-created ones).",
-    ),
-    (
-        "webhook::Draft",
-        "strategy",
-        "`per_thread` (default) or `single`.",
-    ),
-    (
-        "strand::Posted",
-        "message",
-        "The content this send just enqueued, once the driver has actually\ncommitted it to the timeline. Absent when this send coalesced into an\nalready-running turn — durably enqueued, but the driver has not drained\nit yet (it will, when that turn completes and re-pokes).",
-    ),
-    (
-        "receipt::Transition",
-        "rebuilt",
-        "Present only when schema migration reconstructed this evidence from a\ndurable v24 source row. Live transitions leave it unset.",
-    ),
-    (
-        "receipt::Status",
-        "effects",
-        "Per-attempt shell effects reached by any turn carrying this receipt.\nCompletion alone does not imply that any listed external effect applied.",
-    ),
-    (
-        "effect::Effect",
-        "call",
-        "Absent only for an imported legacy row whose old schema had no neutral\ntool-call locator.",
-    ),
-    (
-        "effect::Status",
-        "receipts",
-        "Obligation roots whose attempts include this effect's turn.",
-    ),
-    (
-        "job::Accepted",
-        "job",
-        "The accepted resource. Its current state may advance quickly, but create\nsuccess promises that the detached sidecar durably claimed execution responsibility.",
-    ),
-    (
-        "job::Log",
-        "next",
-        "Opaque monotonic byte cursor for the next read of this stream.",
-    ),
-];
 
 #[derive(OpenApi)]
 #[openapi(
@@ -124,6 +56,7 @@ const PROPERTY_DESCRIPTIONS: [(&str, &str, &str); 13] = [
         super::sse::transitions,
         super::sse::turn_event_stream,
         super::routes::snapshot,
+        super::routes::execution_tail,
         super::routes::turn_events,
         super::routes::stop,
         super::routes::enroll,
@@ -172,6 +105,9 @@ const PROPERTY_DESCRIPTIONS: [(&str, &str, &str); 13] = [
         strand::Detail,
         material::Material,
         stream::Snapshot,
+        stream::ExecutionOrder,
+        stream::ExecutionRecord,
+        stream::ExecutionTail,
         Soul,
         Strand,
         santi_core::message::Role,

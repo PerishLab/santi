@@ -5,8 +5,7 @@ use anyhow::{Context, Result};
 use futures_util::StreamExt;
 
 use crate::cli::{
-    ClientDefaults, Command, CompactCommand, EffectCommand, Job, StrandCommand, Turn, WatchFormat,
-    Webhook, split_send_args,
+    ClientDefaults, Command, CompactCommand, EffectCommand, Job, Turn, WatchFormat, Webhook,
 };
 use crate::text::source::read_summary_file;
 use crate::watch::{next_sse_frame, render_watch_event};
@@ -14,6 +13,7 @@ use crate::watch::{next_sse_frame, render_watch_event};
 mod create;
 mod environment;
 mod send;
+mod strand;
 pub mod tui;
 
 pub(crate) use send::{Proof, prove, uncertain};
@@ -76,61 +76,7 @@ pub(crate) async fn run(
             )
             .await
         }
-        Command::Strand(StrandCommand::Create) => http.create_strand(&base, defaults.soul()).await,
-        Command::Strand(StrandCommand::List) => http.get(&format!("{base}/api/v1/strands")).await,
-        Command::Strand(StrandCommand::Get { id }) => {
-            let id = defaults.resolve_strand(id)?;
-            http.get(&format!("{base}/api/v1/strands/{id}")).await
-        }
-        Command::Strand(StrandCommand::Messages { id }) => {
-            let id = defaults.resolve_strand(id)?;
-            http.get(&format!("{base}/api/v1/strands/{id}/messages"))
-                .await
-        }
-        Command::Strand(StrandCommand::Runtime { id }) => {
-            let id = defaults.resolve_strand(id)?;
-            http.get(&format!("{base}/api/v1/strands/{id}/runtime"))
-                .await
-        }
-        Command::Strand(StrandCommand::Budget { id }) => {
-            let id = defaults.resolve_strand(id)?;
-            http.get(&format!("{base}/api/v1/strands/{id}/budget"))
-                .await
-        }
-        Command::Strand(StrandCommand::Errors { id, limit }) => {
-            let id = defaults.resolve_strand(id)?;
-            http.get(&format!("{base}/api/v1/strands/{id}/errors?limit={limit}"))
-                .await
-        }
-        Command::Strand(StrandCommand::Fork { id }) => {
-            let id = defaults.resolve_strand(id)?;
-            http.post(&format!("{base}/api/v1/strands/{id}/fork"), None)
-                .await
-        }
-        Command::Strand(StrandCommand::Drive { id }) => {
-            let id = defaults.resolve_strand(id)?;
-            http.post(&format!("{base}/api/v1/strands/{id}/drive"), None)
-                .await
-        }
-        Command::Strand(StrandCommand::Send {
-            args,
-            watch,
-            watch_format,
-        }) => {
-            let (id, text) = split_send_args(args, defaults)?;
-            let content = strand_send_body(text, defaults.soul());
-            send(Request {
-                target: Target::new(&client, &base, &id, watch_format),
-                body: content,
-                watch,
-            })
-            .await
-        }
-        Command::Strand(StrandCommand::Events { id, format }) => {
-            let id = defaults.resolve_strand(id)?;
-            http.follow(&format!("{base}/api/v1/strands/{id}/events"), format)
-                .await
-        }
+        Command::Strand(command) => strand::run(&http, &base, defaults, command).await,
         Command::Compact(CompactCommand::Exec {
             first,
             last,

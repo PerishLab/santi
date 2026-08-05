@@ -97,6 +97,30 @@ fn drive() {
 }
 
 #[test]
+fn execution_tail() {
+    let parsed =
+        Cli::try_parse_from(["santi", "strand", "execution-tail", "ss_supervised"]).unwrap();
+    let Command::Strand(StrandCommand::ExecutionTail { id }) = parsed.command else {
+        panic!("expected execution-tail command");
+    };
+    assert_eq!(id.as_deref(), Some("ss_supervised"));
+
+    let parsed = Cli::try_parse_from([
+        "santi",
+        "--strand",
+        "ss_default",
+        "strand",
+        "execution-tail",
+    ])
+    .unwrap();
+    let Command::Strand(StrandCommand::ExecutionTail { id }) = parsed.command else {
+        panic!("expected execution-tail command");
+    };
+    assert_eq!(id, None);
+    assert_eq!(parsed.strand.as_deref(), Some("ss_default"));
+}
+
+#[test]
 fn remote() {
     for args in [
         vec!["santi", "service"],

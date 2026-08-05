@@ -1,6 +1,6 @@
 use santi_estate::{
-    CallDraft, DrainDraft, EffectDraft, InboxDraft, Opening, ReplyDraft, Store, StrandDraft,
-    ThinkingDraft,
+    CallDraft, DrainDraft, EffectDraft, InboxDraft, MessageDraft, Opening, ReplyDraft, Store,
+    StrandDraft, ThinkingDraft,
 };
 use santi_model::{message, strand, thinking, turn};
 
@@ -151,4 +151,66 @@ async fn timeline() {
     assert_eq!(snapshot.events[0].action, "insert");
     assert_eq!(snapshot.calls[0].id, "call_test");
     assert_eq!(snapshot.results[0].id, "result_test");
+
+    for index in 0..17 {
+        let text = match index {
+            15 => "decision-bearing change: freeze the public execution tail",
+            16 => "Clock: 2026-08-05T00:16:00.000Z",
+            _ => "repeated activity: bounded preflight",
+        };
+        store
+            .place(MessageDraft {
+                tag: &format!("message_tail_{index}"),
+                strand: &strand.id,
+                actor: message::Role::System,
+                actor_id: "clock",
+                kind: message::Kind::Text,
+                content: &message::Content::text(text),
+                state: message::State::Fixed,
+                request: false,
+                created: LATER,
+            })
+            .await
+            .expect("tail message");
+    }
+
+    let tail = store
+        .execution_tail(&strand.id)
+        .await
+        .expect("execution tail")
+        .expect("held");
+    assert_eq!(tail.records.len(), 16);
+    assert!(tail.older_omitted);
+    assert!(
+        tail.records
+            .windows(2)
+            .all(|pair| pair[0].sequence > pair[1].sequence)
+    );
+    assert!(
+        tail.records[0]
+            .detail
+            .contains("Clock: 2026-08-05T00:16:00.000Z")
+    );
+    assert!(
+        tail.records[1]
+            .detail
+            .contains("decision-bearing change: freeze the public execution tail")
+    );
+    assert_eq!(
+        tail.records
+            .iter()
+            .filter(|record| record
+                .detail
+                .contains("repeated activity: bounded preflight"))
+            .count(),
+        14
+    );
+    assert!(tail.records.iter().all(|record| !record.detail_truncated));
+    assert!(
+        store
+            .execution_tail("missing")
+            .await
+            .expect("missing tail")
+            .is_none()
+    );
 }

@@ -17,6 +17,8 @@ pub enum StrandCommand {
     Messages { id: Option<String> },
     #[command(about = "GET /api/v1/strands/{id}/runtime (id falls back to --strand)")]
     Runtime { id: Option<String> },
+    #[command(about = "GET /api/v1/strands/{id}/execution-tail (id falls back to --strand)")]
+    ExecutionTail { id: Option<String> },
     #[command(about = "GET /api/v1/strands/{id}/budget (id falls back to --strand)")]
     Budget { id: Option<String> },
     #[command(about = "GET /api/v1/strands/{id}/errors (id falls back to --strand)")]

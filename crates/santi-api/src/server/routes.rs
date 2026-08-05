@@ -75,6 +75,10 @@ pub(super) fn router(service: Service) -> Router {
         )
         .route("/api/v1/compacts/{compact}", get(page))
         .route("/api/v1/strands/{strand}/runtime", get(snapshot))
+        .route(
+            "/api/v1/strands/{strand}/execution-tail",
+            get(execution_tail),
+        )
         .route("/api/v1/turn-events", get(turn_events))
         .route("/api/v1/turn-events/stream", get(turn_event_stream))
         .route("/api/v1/turns/{turn}/stop", post(stop))
