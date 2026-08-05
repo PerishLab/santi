@@ -8,7 +8,7 @@ mod routes;
 mod sse;
 
 use santi_core::service::{self, Service};
-use std::{fs, net::SocketAddr};
+use std::{fs, future::IntoFuture, net::SocketAddr};
 
 use crate::provider;
 
@@ -65,11 +65,6 @@ pub async fn serve() -> Result<(), String> {
     let listener = tokio::net::TcpListener::bind(address)
         .await
         .map_err(|error| error.to_string())?;
-    service.resume().await?;
-    let watcher = {
-        let service = service.clone();
-        tokio::spawn(async move { service.watch().await })
-    };
     println!("santi-api listening on http://{address}");
     let shutdown_signal = {
         let service = service.clone();
@@ -84,14 +79,31 @@ pub async fn serve() -> Result<(), String> {
         }
     };
     let drainer = service.clone();
-    let result = axum::serve(listener, routes::router(service))
+    let recovery = service.clone();
+    let server = axum::serve(listener, routes::router(service))
         .with_graceful_shutdown(shutdown_signal)
-        .await
-        .map_err(|error| error.to_string());
+        .into_future();
+    tokio::pin!(server);
+    let resume = recovery.resume();
+    tokio::pin!(resume);
+    let mut watcher = None;
+    let result = tokio::select! {
+        result = &mut server => result.map_err(|error| error.to_string()),
+        recovered = &mut resume => match recovered {
+            Ok(()) => {
+                let service = recovery.clone();
+                watcher = Some(tokio::spawn(async move { service.watch().await }));
+                server.await.map_err(|error| error.to_string())
+            },
+            Err(error) => Err(error),
+        },
+    };
     if !drainer.closing() {
         drainer.quiesce(std::time::Duration::ZERO);
     }
-    watcher.await.map_err(|error| error.to_string())?;
+    if let Some(watcher) = watcher {
+        watcher.await.map_err(|error| error.to_string())?;
+    }
     result?;
     drainer.drain().await;
     println!("santi-api: drained; exiting");
