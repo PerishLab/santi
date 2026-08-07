@@ -18,7 +18,7 @@ mod wake;
 mod workspace;
 
 pub(crate) fn tools() -> Vec<Tool> {
-    vec![shell::definition(), wake::definition()]
+    vec![shell::definition()]
 }
 
 struct Shell<'a> {

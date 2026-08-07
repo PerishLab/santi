@@ -211,10 +211,10 @@ async fn barrier() {
 
     {
         let requests = provider.requests.lock().unwrap();
-        assert_eq!(names(&requests[0]), vec!["shell", "wake"]);
+        assert_eq!(names(&requests[0]), vec!["shell"]);
         assert_eq!(names(&requests[1]), vec!["feedback", "wake"]);
         assert_eq!(names(&requests[2]), vec!["feedback", "wake"]);
-        assert_eq!(names(&requests[3]), vec!["shell", "wake"]);
+        assert_eq!(names(&requests[3]), vec!["shell"]);
     }
     let snapshot = service
         .audit(&strand.id)

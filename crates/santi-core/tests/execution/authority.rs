@@ -182,12 +182,12 @@ async fn authority() {
     {
         let requests = provider.requests.lock().unwrap();
         assert_eq!(requests.len(), 7);
-        assert_eq!(names(&requests[0]), vec!["shell", "wake"]);
+        assert_eq!(names(&requests[0]), vec!["shell"]);
         assert_eq!(names(&requests[1]), vec!["feedback", "wake"]);
         assert_eq!(names(&requests[2]), vec!["feedback", "wake"]);
-        assert_eq!(names(&requests[3]), vec!["shell", "wake"]);
+        assert_eq!(names(&requests[3]), vec!["shell"]);
         assert_eq!(names(&requests[4]), vec!["feedback", "wake"]);
-        assert_eq!(names(&requests[5]), vec!["shell", "wake"]);
+        assert_eq!(names(&requests[5]), vec!["shell"]);
         let tools = requests[1].tools.as_ref().expect("provider tools");
         let santi_provider::Tool::Function(definition) = &tools[0];
         assert_eq!(definition.parameters["properties"], json!({}));
