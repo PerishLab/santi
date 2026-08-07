@@ -2,23 +2,23 @@ use std::collections::HashMap;
 
 use crate::budget;
 
-use super::Service;
+use crate::service::Service;
 
-struct Span {
-    from: i64,
-    to: i64,
+pub(in crate::service::face) struct Span {
+    pub(in crate::service::face) from: i64,
+    pub(in crate::service::face) to: i64,
     compact: String,
     bytes: i64,
 }
 
-fn covered(span: &Span, spans: &[Span]) -> bool {
+pub(in crate::service::face) fn covered(span: &Span, spans: &[Span]) -> bool {
     spans.iter().any(|other| {
         other.compact != span.compact && other.from <= span.from && other.to >= span.to
     })
 }
 
 impl Service {
-    async fn spans(&self, strand: &str) -> Result<Vec<Span>, String> {
+    pub(in crate::service::face) async fn spans(&self, strand: &str) -> Result<Vec<Span>, String> {
         let entries = self.store.entries(strand).await?;
         let seats = entries
             .iter()
@@ -42,7 +42,10 @@ impl Service {
         Ok(spans)
     }
 
-    pub(super) async fn occupancy(&self, strand: &str) -> Result<Option<budget::Slots>, String> {
+    pub(in crate::service::face) async fn occupancy(
+        &self,
+        strand: &str,
+    ) -> Result<Option<budget::Slots>, String> {
         let policy = self.regimen();
         let spans = self.spans(strand).await?;
         let held = spans

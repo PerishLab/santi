@@ -1,5 +1,8 @@
 use serde_json::json;
 
+mod settled;
+mod slots;
+
 use crate::context::budget::estimated;
 
 use super::Service;
@@ -153,6 +156,7 @@ impl Service {
                     .ok_or_else(|| seatless("to", to))?;
                 Ok((from, to))
             }
+            (None, None, None, None) => self.settled(strand).await,
             _ => Err("compact requires either first/last as message ids or from/to as message sequences, and never a mixture of the two".to_string()),
         }
     }

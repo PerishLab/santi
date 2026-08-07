@@ -3,19 +3,21 @@ use clap::Subcommand;
 #[derive(Subcommand)]
 pub enum CompactCommand {
     #[command(
-        about = "POST /api/v1/strands/{id}/compact — collapse [from,to] into a summary. Strand from --strand/SANTI_STRAND_ID; soul from --soul/SANTI_SOUL_ID"
+        about = "POST /api/v1/strands/{id}/compact — collapse a range into a summary. With no range, collapses everything settled since the last occupied slot and keeps the most recent message live. Strand from --strand/SANTI_STRAND_ID; soul from --soul/SANTI_SOUL_ID"
     )]
     Exec {
         #[arg(
-            help = "First message of the range (a fixed projected message id)",
-            long
+            help = "First message of the range (a fixed projected message id). Omit both --first and --last to collapse everything settled since the last occupied slot, keeping the most recent message live",
+            long,
+            requires = "last"
         )]
-        first: String,
+        first: Option<String>,
         #[arg(
             help = "Last message of the range (a fixed projected message id)",
-            long
+            long,
+            requires = "first"
         )]
-        last: String,
+        last: Option<String>,
         #[arg(help = "The summary text. Mutually exclusive with --summary-file")]
         #[arg(
             long,

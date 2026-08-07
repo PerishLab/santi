@@ -89,11 +89,11 @@ pub(crate) async fn run(
                 Some(path) => read_summary_file(&path)?,
                 None => summary.expect("clap requires summary or summary_file"),
             };
-            let mut body = serde_json::json!({
-                "first": first,
-                "last": last,
-                "summary": summary,
-            });
+            let mut body = serde_json::json!({ "summary": summary });
+            if let (Some(first), Some(last)) = (first, last) {
+                body["first"] = serde_json::Value::from(first);
+                body["last"] = serde_json::Value::from(last);
+            }
             if let Some(soul) = defaults.soul() {
                 body["soul"] = serde_json::Value::from(soul);
             }
