@@ -140,6 +140,7 @@ impl Service {
             strand: strand.id.clone(),
             estimate: self.estimate(&strand.id).await?,
             budget: self.budget(),
+            slots: self.occupancy(&strand.id).await?,
             execution,
             usage,
             incident: self

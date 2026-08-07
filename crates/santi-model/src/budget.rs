@@ -28,8 +28,27 @@ pub struct Snapshot {
     pub estimate: Estimate,
     pub budget: Option<Cap>,
     pub execution: Option<Execution>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub slots: Option<Slots>,
     pub usage: Option<Usage>,
     pub incident: Option<Incident>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema, PartialEq, Eq)]
+#[schema(as = budget::Slot)]
+pub struct Slot {
+    pub compact: String,
+    pub bytes: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema, PartialEq, Eq)]
+#[schema(as = budget::Slots)]
+pub struct Slots {
+    pub ceiling: i64,
+    pub count: i64,
+    pub held: Vec<Slot>,
+    pub free: i64,
+    pub active: i64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema, PartialEq, Eq)]

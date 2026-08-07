@@ -5,6 +5,7 @@ mod downstream;
 mod environment;
 mod fork;
 mod publication;
+mod slots;
 pub(in crate::service) mod wake;
 
 use super::{Service, error};
