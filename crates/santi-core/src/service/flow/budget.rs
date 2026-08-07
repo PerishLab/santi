@@ -36,6 +36,12 @@ impl Service {
         })
     }
 
+    pub(in crate::service) async fn loaded(&self, strand: &str) -> Result<i64, String> {
+        let mut input = crate::provider_input(&self.store, strand).await?;
+        input.extend(self.pending_input(strand).await?);
+        Ok(estimated(&input, None, None).input)
+    }
+
     pub(in crate::service) async fn estimate(
         &self,
         strand: &str,

@@ -9,7 +9,6 @@ use super::Service;
 use crate::service::interrupt::Control;
 use crate::{effect, stream};
 
-mod clock;
 mod environ;
 mod feedback;
 mod reply;
@@ -40,13 +39,14 @@ impl Service {
         control: &Control,
     ) -> Result<(), String> {
         let Address { strand, turn } = address;
-        let clock = clock::selected(self, strand).await?;
+        let clock = room::clock::selected(self, strand).await?;
         let barrier = if clock {
             None
         } else {
             self.barrier(strand).await?
         };
         let crowded = self.crowded(strand).await?;
+        let escape = call.name == "compact" && crowded.is_some();
         let barred = call.name == "shell"
             && (crowded.is_some() || barrier.as_ref().is_some_and(feedback::Barrier::due));
         let due = call.name == "feedback" && barrier.as_ref().is_some_and(feedback::Barrier::due);
@@ -117,6 +117,8 @@ impl Service {
                 control,
             )
             .await?
+        } else if escape {
+            self.compacted(strand, &call, output_limit).await?
         } else if call.name == "wake" {
             self.waked(strand, &call, output_limit).await?
         } else {

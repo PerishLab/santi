@@ -4,21 +4,21 @@ use crate::budget;
 
 use crate::service::Service;
 
-pub(in crate::service::face) struct Span {
-    pub(in crate::service::face) from: i64,
-    pub(in crate::service::face) to: i64,
+pub(in crate::service) struct Span {
+    pub(in crate::service) from: i64,
+    pub(in crate::service) to: i64,
     compact: String,
-    bytes: i64,
+    pub(in crate::service) bytes: i64,
 }
 
-pub(in crate::service::face) fn covered(span: &Span, spans: &[Span]) -> bool {
+pub(in crate::service) fn covered(span: &Span, spans: &[Span]) -> bool {
     spans.iter().any(|other| {
         other.compact != span.compact && other.from <= span.from && other.to >= span.to
     })
 }
 
 impl Service {
-    pub(in crate::service::face) async fn spans(&self, strand: &str) -> Result<Vec<Span>, String> {
+    pub(in crate::service) async fn spans(&self, strand: &str) -> Result<Vec<Span>, String> {
         let entries = self.store.entries(strand).await?;
         let seats = entries
             .iter()

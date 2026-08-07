@@ -1,26 +1,35 @@
+mod apply;
+pub(super) mod clock;
+mod definition;
+
+pub(super) use definition::definition;
+
 use crate::service::Service;
 
 impl Service {
     pub(super) async fn crowded(&self, strand: &str) -> Result<Option<String>, String> {
         let policy = self.regimen();
-        let Some(slots) = self.occupancy(strand).await? else {
-            return Ok(None);
-        };
         let Some(budget) = self.budget() else {
             return Ok(None);
         };
-        let settled = slots.held.iter().map(|slot| slot.bytes).sum::<i64>();
-        let held = slots.held.len();
+        let spans = self.spans(strand).await?;
+        let live = spans
+            .iter()
+            .filter(|span| !crate::service::face::compact::slots::covered(span, &spans))
+            .collect::<Vec<_>>();
+        let settled = live.iter().map(|span| span.bytes).sum::<i64>();
+        let held = live.len();
+        let active = self.loaded(strand).await?.saturating_sub(settled);
         if held > policy.slots {
             return Ok(Some(crowded(held, policy.slots, settled)));
         }
         let ceiling = budget
             .bytes
             .saturating_sub((policy.slots as i64).saturating_mul(policy.slot as i64));
-        if slots.active <= ceiling {
+        if active <= ceiling {
             return Ok(None);
         }
-        Ok(Some(pressed(slots.active, ceiling, settled, held)))
+        Ok(Some(pressed(active, ceiling, settled, held)))
     }
 }
 

@@ -106,8 +106,11 @@ pub(super) fn args(call: &Call, fixed: Option<shell::Args>) -> Result<shell::Arg
 
 impl Service {
     pub(in crate::service) async fn offered(&self, strand: &str) -> Result<Vec<Tool>, String> {
-        if super::clock::selected(self, strand).await? {
+        if super::room::clock::selected(self, strand).await? {
             return Ok(vec![wake::definition()]);
+        }
+        if self.crowded(strand).await?.is_some() {
+            return Ok(vec![super::room::definition()]);
         }
         match self.barrier(strand).await? {
             Some(barrier) if barrier.due() => Ok(vec![
