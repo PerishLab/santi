@@ -13,6 +13,7 @@ mod clock;
 mod environ;
 mod feedback;
 mod reply;
+mod room;
 mod shell;
 mod wake;
 mod workspace;
@@ -45,7 +46,9 @@ impl Service {
         } else {
             self.barrier(strand).await?
         };
-        let barred = call.name == "shell" && barrier.as_ref().is_some_and(feedback::Barrier::due);
+        let crowded = self.crowded(strand).await?;
+        let barred = call.name == "shell"
+            && (crowded.is_some() || barrier.as_ref().is_some_and(feedback::Barrier::due));
         let due = call.name == "feedback" && barrier.as_ref().is_some_and(feedback::Barrier::due);
         let fixed = due
             .then(|| barrier.as_ref().and_then(feedback::Barrier::owned))
@@ -87,6 +90,8 @@ impl Service {
                 output_limit,
             )
             .await?
+        } else if let Some(detail) = crowded.filter(|_| barred) {
+            reply::rejected(self, &call, detail, output_limit).await?
         } else if barred {
             let barrier = barrier.expect("barred shell has feedback barrier");
             let action = if barrier.command.is_some() {

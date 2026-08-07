@@ -1,6 +1,6 @@
 mod api;
 mod bucket;
-mod compact;
+pub(in crate::service) mod compact;
 mod downstream;
 mod environment;
 mod fork;

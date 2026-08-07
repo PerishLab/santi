@@ -42,7 +42,7 @@ impl Service {
         Ok(spans)
     }
 
-    pub(in crate::service::face) async fn occupancy(
+    pub(in crate::service) async fn occupancy(
         &self,
         strand: &str,
     ) -> Result<Option<budget::Slots>, String> {

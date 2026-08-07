@@ -1,7 +1,8 @@
 use serde_json::json;
 
+mod admit;
 mod settled;
-mod slots;
+pub(in crate::service) mod slots;
 
 use crate::context::budget::estimated;
 
@@ -18,6 +19,7 @@ impl Service {
         if summary.is_empty() {
             return Err("compact summary must not be empty".to_string());
         }
+        self.admitted(strand, summary, &request).await?;
         let strand = self
             .store
             .strand(strand)
