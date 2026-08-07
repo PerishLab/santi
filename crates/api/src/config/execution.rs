@@ -9,6 +9,9 @@ pub struct Execution {
     pub calls: usize,
     pub output: usize,
     pub shell: usize,
+    pub feedback_after_calls: Option<usize>,
+    pub feedback_command: Option<String>,
+    pub feedback_cwd: Option<String>,
 }
 
 impl Default for Execution {
@@ -19,6 +22,9 @@ impl Default for Execution {
             calls: 256,
             output: 4 * 1024 * 1024,
             shell: 64 * 1024,
+            feedback_after_calls: None,
+            feedback_command: None,
+            feedback_cwd: None,
         }
     }
 }

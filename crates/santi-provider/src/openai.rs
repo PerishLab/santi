@@ -15,6 +15,7 @@ pub struct Config {
     pub summary: Option<String>,
     pub ceiling: Option<u32>,
     pub bytes: Option<usize>,
+    pub attempts: Option<u32>,
 }
 
 #[derive(Debug, Clone)]
@@ -46,27 +47,38 @@ impl Provider for OpenAI {
     }
 
     async fn stream(&self, request: Request) -> Result<Streaming, String> {
+        let url = format!("{}/responses", self.config.url.trim_end_matches('/'));
+        let body = body(&self.config, request);
         let response = self
             .client
-            .post(format!(
-                "{}/responses",
-                self.config.url.trim_end_matches('/')
-            ))
+            .post(&url)
             .bearer_auth(&self.config.key)
-            .json(&body(&self.config, request))
+            .json(&body)
             .send()
             .await
             .map_err(|error| error.to_string())?;
         if !response.status().is_success() {
             let status = response.status();
-            let body = response.text().await.unwrap_or_default();
-            return Err(format!("openai responses request failed: {status} {body}"));
+            let detail = response.text().await.unwrap_or_default();
+            return Err(format!(
+                "openai responses request failed: {status} {detail}"
+            ));
         }
-        Ok(Box::pin(frames(response.bytes_stream())))
+        Ok(Box::pin(retried(
+            Attempt {
+                client: self.client.clone(),
+                url,
+                key: self.config.key.clone(),
+                body,
+                rounds: self.config.attempts.unwrap_or(2).max(1),
+            },
+            response,
+        )))
     }
 }
 
 mod body;
+mod retry;
 mod stream;
 use body::*;
-use stream::*;
+use retry::*;

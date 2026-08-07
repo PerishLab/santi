@@ -120,6 +120,13 @@ impl<'a> Turn<'a> {
                     );
                 }
             }
+            Trace::Retried { attempt, detail } => {
+                self.log(
+                    "provider_retried",
+                    round,
+                    &format!("attempt={attempt} detail={detail}"),
+                );
+            }
             Trace::Raw { kind, mapped } => {
                 self.raws += 1;
                 let (count, first) = self.tallied(&kind);

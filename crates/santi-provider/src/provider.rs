@@ -63,6 +63,7 @@ pub struct Call {
 pub enum Trace {
     Chunk { bytes: usize },
     Raw { kind: String, mapped: Vec<String> },
+    Retried { attempt: u32, detail: String },
 }
 
 #[derive(Debug, Clone)]

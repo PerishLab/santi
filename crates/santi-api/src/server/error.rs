@@ -54,6 +54,7 @@ const UNAVAILABLE: &[Rule] = &[
 ];
 
 const MISSING: &[Rule] = &[
+    Rule::Starts("missing resource:"),
     Rule::Exact("strand not found"),
     Rule::Exact("soul not found"),
     Rule::Ends("not found"),
@@ -78,6 +79,12 @@ const CONFLICT: &[Rule] = &[
 
 const INVALID: &[Rule] = &[
     Rule::Starts("wake "),
+    Rule::Around {
+        start: "compact ",
+        fragment: " is not a message sequence",
+    },
+    Rule::Starts("compact requires either"),
+    Rule::Contains("boundary must be a fixed projected message"),
     Rule::Starts("unknown soul"),
     Rule::Contains("must not be empty"),
     Rule::Around {

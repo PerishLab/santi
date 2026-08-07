@@ -20,6 +20,7 @@ fn responses(config: OpenAiResponses) -> Arc<dyn Provider> {
         summary: config.summary,
         ceiling: config.max_output_tokens,
         bytes: Some(config.bytes),
+        attempts: config.attempts,
     }))
 }
 

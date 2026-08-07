@@ -7,7 +7,6 @@ use anyhow::{Context, Result};
 use super::create::{Creation, identity, post};
 use super::send::{Request as Send, Target, emission};
 use crate::cli::ClientDefaults;
-use crate::watch::snippet;
 
 const TIMEOUT: Duration = Duration::from_secs(30);
 const HISTORY: usize = 20;
@@ -19,10 +18,10 @@ pub struct Request<'a> {
     pub memory: Option<String>,
 }
 
-struct Identity {
-    soul: String,
-    strand: String,
-    detail: Option<serde_json::Value>,
+pub(super) struct Identity {
+    pub(super) soul: String,
+    pub(super) strand: String,
+    pub(super) detail: Option<serde_json::Value>,
 }
 
 pub async fn run(
@@ -31,21 +30,20 @@ pub async fn run(
     defaults: &ClientDefaults,
     memory: Option<String>,
 ) -> Result<()> {
+    let request = Request {
+        client,
+        base,
+        defaults,
+        memory,
+    };
+    if screen::available() {
+        return screen::run(request).await;
+    }
     let stdin = std::io::stdin();
     let mut input = stdin.lock();
     let stdout = std::io::stdout();
     let mut output = stdout.lock();
-    session(
-        Request {
-            client,
-            base,
-            defaults,
-            memory,
-        },
-        &mut input,
-        &mut output,
-    )
-    .await
+    session(request, &mut input, &mut output).await
 }
 
 pub async fn session(
@@ -112,7 +110,7 @@ pub async fn session(
 }
 
 impl Request<'_> {
-    async fn identify(&self) -> Result<Identity> {
+    pub(super) async fn identify(&self) -> Result<Identity> {
         let explicit = self
             .defaults
             .strand
@@ -216,7 +214,7 @@ impl Request<'_> {
         Ok(())
     }
 
-    async fn get(&self, path: &str) -> Result<serde_json::Value> {
+    pub(super) async fn get(&self, path: &str) -> Result<serde_json::Value> {
         let url = format!("{}{path}", self.base);
         let response = self
             .client
@@ -229,64 +227,21 @@ impl Request<'_> {
     }
 }
 
+mod keys;
+mod paint;
+mod parse;
+mod screen;
+mod state;
+
+use parse::{decode, lines, number, text};
+
 fn history(output: &mut impl Write, detail: Option<&serde_json::Value>) -> Result<()> {
-    let Some(messages) = detail
-        .and_then(|detail| detail.get("messages"))
-        .and_then(serde_json::Value::as_array)
-    else {
-        return Ok(());
-    };
-    let omitted = messages.len().saturating_sub(HISTORY);
+    let (omitted, spoken) = lines(detail, HISTORY);
     if omitted > 0 {
         writeln!(output, "history: {omitted} earlier messages omitted")?;
     }
-    for placed in messages.iter().skip(omitted) {
-        let Some(line) = message(placed) else {
-            continue;
-        };
+    for line in spoken {
         writeln!(output, "{line}")?;
     }
     Ok(())
-}
-
-fn message(placed: &serde_json::Value) -> Option<String> {
-    let role = placed.pointer("/message/role")?.as_str()?;
-    let kind = placed.pointer("/message/kind")?.as_str()?;
-    let text = placed.get("text")?.as_str()?;
-    if text.trim().is_empty() {
-        return None;
-    }
-    let speaker = match (role, kind) {
-        ("soul", _) => "soul",
-        ("system", "text") => "you",
-        _ => "system",
-    };
-    Some(format!("{speaker}> {}", snippet(text, 2000)))
-}
-
-async fn decode(response: reqwest::Response) -> Result<serde_json::Value> {
-    let status = response.status();
-    let body = response.text().await.context("read response body")?;
-    if !status.is_success() {
-        anyhow::bail!(
-            "request failed with status {status}: {}",
-            snippet(&body, 500)
-        );
-    }
-    serde_json::from_str(&body).context("decode response json")
-}
-
-fn text<'a>(value: &'a serde_json::Value, path: &str) -> Result<&'a str> {
-    value
-        .pointer(path)
-        .and_then(serde_json::Value::as_str)
-        .filter(|held| !held.is_empty() && held.trim() == *held)
-        .ok_or_else(|| anyhow::anyhow!("response missing valid {path}"))
-}
-
-fn number(value: &serde_json::Value, path: &str) -> Result<i64> {
-    value
-        .pointer(path)
-        .and_then(serde_json::Value::as_i64)
-        .ok_or_else(|| anyhow::anyhow!("response missing {path}"))
 }

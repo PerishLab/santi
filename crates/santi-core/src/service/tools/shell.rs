@@ -13,7 +13,12 @@ use tokio::io::{AsyncRead, AsyncReadExt};
 
 use crate::service::interrupt::Control;
 
+mod definition;
 mod redact;
+
+pub(super) fn definition() -> santi_provider::Tool {
+    definition::tool()
+}
 
 #[derive(Debug, Deserialize)]
 pub(super) struct Args {

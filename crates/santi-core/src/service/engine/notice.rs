@@ -7,10 +7,15 @@ use santi_provider::Item;
 
 use super::{Service, address::Address};
 use crate::{environment, message, stream};
+use band::{banded, floor};
+use remind::reminded;
 
+mod band;
+mod remind;
 mod unresolved;
 
 pub(in crate::service) struct Observation<'a> {
+    pub(in crate::service) budget: Option<usize>,
     pub(in crate::service) address: Address<&'a str>,
     pub(in crate::service) round: usize,
     pub(in crate::service) provider: &'a str,
@@ -61,6 +66,7 @@ pub(in crate::service) struct Observed {
     pub(in crate::service) instructions: usize,
     pub(in crate::service) threshold: usize,
     pub(in crate::service) band: String,
+    pub(in crate::service) ceiling: Option<usize>,
 }
 
 impl Observed {
@@ -69,7 +75,7 @@ impl Observed {
     }
 
     fn remindable(&self) -> bool {
-        self.total() >= self.threshold
+        self.band != "under" && self.total() >= self.threshold
     }
 
     fn dedupe(&self) -> Option<String> {
@@ -161,8 +167,9 @@ impl Service {
             items: observation.input.len(),
             input,
             instructions,
-            threshold: REFERENCE,
-            band: "soft".to_string(),
+            threshold: floor(observation.budget, input + instructions),
+            band: banded(observation.budget, input + instructions).to_string(),
+            ceiling: observation.budget,
         };
         let _ = self.notices.publish(Event::Observed(event));
     }
@@ -218,33 +225,6 @@ impl Service {
         );
         Ok(())
     }
-}
-
-fn reminded(event: &Observed) -> message::Content {
-    message::Content::text(
-        [
-            "<system_message>".to_string(),
-            "kind: compact_reminder".to_string(),
-            "scope: strand_local".to_string(),
-            "wake: false".to_string(),
-            "obligation: false".to_string(),
-            format!("trigger_turn_id: {}", event.address.turn),
-            format!("round: {}", event.round),
-            format!("provider: {}", event.provider),
-            format!("model: {}", event.model),
-            format!("items: {}", event.items),
-            format!("input: {}", event.input),
-            format!("instructions: {}", event.instructions),
-            format!("total_input_bytes: {}", event.total()),
-            format!(
-                "reference_threshold_bytes: {}",
-                event.threshold
-            ),
-            "summary: This strand is getting large. If useful, you may compact settled context; runtime did not compact or alter provider input.".to_string(),
-            "</system_message>".to_string(),
-        ]
-        .join("\n"),
-    )
 }
 
 fn heft(input: &[Item]) -> usize {

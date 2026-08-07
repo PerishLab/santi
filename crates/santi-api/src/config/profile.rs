@@ -38,6 +38,7 @@ pub struct OpenAiResponses {
     pub summary: Option<String>,
     pub max_output_tokens: Option<u32>,
     pub bytes: usize,
+    pub attempts: Option<u32>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -71,6 +72,8 @@ pub enum Profile {
         max_output_tokens: Option<u32>,
         #[serde(default, alias = "input_budget_bytes")]
         bytes: Option<usize>,
+        #[serde(default)]
+        attempts: Option<u32>,
     },
     ChatCompletions {
         #[serde(default)]
@@ -101,6 +104,7 @@ impl Profile {
                 summary,
                 max_output_tokens,
                 bytes,
+                attempts,
             } => Ok(Resolved::OpenAiResponses(OpenAiResponses {
                 api_key: required(api_key, provider, "api_key")?,
                 model: required(model, provider, "model")?,
@@ -110,6 +114,7 @@ impl Profile {
                 summary: optional(summary, provider, "reasoning_summary")?,
                 max_output_tokens: *max_output_tokens,
                 bytes: positive(*bytes, provider, "bytes")?,
+                attempts: *attempts,
             })),
             Profile::ChatCompletions {
                 api_key,

@@ -92,6 +92,9 @@ fn runtime_under(root: &Path, budget: Option<usize>) -> Runtime {
             calls: 2,
             output: 1024,
             shell: 512,
+            feedback_after_calls: None,
+            feedback_command: None,
+            feedback_cwd: None,
         },
         constitution: None,
     }

@@ -31,6 +31,9 @@ rounds = 8
 calls = 64
 output = 1048576
 shell = 32768
+feedback_after_calls = 6
+feedback_command = "cargo test --locked --workspace"
+feedback_cwd = "strand://product"
 "#,
     );
     let budget = held.execution.budget().unwrap();
@@ -39,6 +42,43 @@ shell = 32768
     assert_eq!(budget.calls, 64);
     assert_eq!(budget.output, 1048576);
     assert_eq!(budget.shell, 32768);
+    assert_eq!(budget.feedback_after_calls, Some(6));
+    assert_eq!(
+        budget.feedback_command.as_deref(),
+        Some("cargo test --locked --workspace")
+    );
+    assert_eq!(budget.feedback_cwd.as_deref(), Some("strand://product"));
+}
+
+#[test]
+fn threshold() {
+    let held = read(
+        r#"
+[execution]
+feedback_after_calls = 0
+"#,
+    );
+    assert!(held.execution.budget().is_err());
+}
+
+#[test]
+fn authority() {
+    let orphaned = read(
+        r#"
+[execution]
+feedback_command = "cargo test --workspace"
+"#,
+    );
+    assert!(orphaned.execution.budget().is_err());
+
+    let unowned = read(
+        r#"
+[execution]
+feedback_after_calls = 2
+feedback_cwd = "strand://product"
+"#,
+    );
+    assert!(unowned.execution.budget().is_err());
 }
 
 #[test]

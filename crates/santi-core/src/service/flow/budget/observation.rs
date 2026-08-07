@@ -4,7 +4,6 @@ use sha2::{Digest, Sha256};
 
 use crate::budget;
 use crate::service::Service;
-use crate::service::tools::tools;
 use crate::{Incident, strand};
 
 const SCHEMA: &str = "santi.context.pending_observation.v1";
@@ -61,7 +60,7 @@ pub(super) async fn observe(
         },
         "pending": pending,
         "instructions": service.wording(&strand.id).await?,
-        "tools": tools(),
+        "tools": service.offered(&strand.id).await?,
         "provider": {
             "name": provider.provider.as_ref(),
             "model": provider.model,

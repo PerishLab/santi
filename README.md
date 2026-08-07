@@ -136,7 +136,9 @@ one continuous minute of activity and every ten-minute wall-clock boundary
 thereafter. Santi coalesces the pulse on the Soul's `santi:clock` strand and
 wakes that strand with only the current absolute time. The clock does not
 inspect the work, diagnose delay, recommend an action, or change the execution
-it observed.
+it observed. Clock attention exposes only wake-lease status, renewal, and
+silence control. It never inherits shell, job, or execution-feedback authority;
+work resumes only through an addressed ordinary strand.
 
 Export the OpenAPI document:
 

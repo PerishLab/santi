@@ -1,6 +1,5 @@
 use serde_json::json;
 
-use super::tools::tools;
 use crate::context::budget::estimated;
 
 use super::Service;
@@ -146,15 +145,15 @@ impl Service {
                     .store
                     .seated(strand, from)
                     .await?
-                    .ok_or_else(|| format!("compact from {from} is not a message"))?;
+                    .ok_or_else(|| seatless("from", from))?;
                 let to = self
                     .store
                     .seated(strand, to)
                     .await?
-                    .ok_or_else(|| format!("compact to {to} is not a message"))?;
+                    .ok_or_else(|| seatless("to", to))?;
                 Ok((from, to))
             }
-            _ => Err("compact requires either first/last or from/to".to_string()),
+            _ => Err("compact requires either first/last as message ids or from/to as message sequences, and never a mixture of the two".to_string()),
         }
     }
 
@@ -176,7 +175,7 @@ impl Service {
         )
         .await?;
         let instructions = self.wording(strand).await?;
-        let tools = tools();
+        let tools = self.offered(strand).await?;
         Ok(estimated(&input, Some(&instructions), Some(&tools)))
     }
 
@@ -264,4 +263,10 @@ fn capped(value: &str, max_bytes: usize) -> String {
         end -= 1;
     }
     format!("{}{}", &value[..end], suffix)
+}
+
+fn seatless(label: &str, sequence: i64) -> String {
+    format!(
+        "compact {label} {sequence} is not a message sequence in this strand; from/to take message sequences, while tool and turn records carry sequences of their own and are not messages; read the strand's messages to pick a boundary, or pass first/last with message ids instead"
+    )
 }

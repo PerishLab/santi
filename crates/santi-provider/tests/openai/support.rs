@@ -112,6 +112,7 @@ pub(crate) async fn replayed(item: Option<Value>) -> Value {
         summary: None,
         ceiling: None,
         bytes: None,
+        attempts: None,
     };
     let (tx, rx) = mpsc::channel();
     let server = thread::spawn(move || {
@@ -180,6 +181,7 @@ pub(crate) async fn captured(lines: Vec<&'static str>) -> Vec<Event> {
         summary: None,
         ceiling: None,
         bytes: None,
+        attempts: None,
     };
     let server = thread::spawn(move || {
         let (mut stream, _) = listener.accept().expect("accept request");

@@ -40,6 +40,12 @@ pub struct Execution {
     pub calls: usize,
     pub output: usize,
     pub shell: usize,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub feedback_after_calls: Option<usize>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub feedback_command: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub feedback_cwd: Option<String>,
 }
 
 impl Execution {
@@ -61,6 +67,29 @@ impl Execution {
         }
         if self.shell > self.output {
             return Err("execution budget shell must not exceed output".to_string());
+        }
+        if self.feedback_after_calls == Some(0) {
+            return Err("execution feedback call threshold must be positive".to_string());
+        }
+        if self
+            .feedback_command
+            .as_ref()
+            .is_some_and(|command| command.trim().is_empty())
+        {
+            return Err("execution feedback command must not be empty".to_string());
+        }
+        if self.feedback_command.is_some() && self.feedback_after_calls.is_none() {
+            return Err("execution feedback command requires a call threshold".to_string());
+        }
+        if self.feedback_cwd.is_some() && self.feedback_command.is_none() {
+            return Err("execution feedback cwd requires a caller-owned command".to_string());
+        }
+        if self
+            .feedback_cwd
+            .as_ref()
+            .is_some_and(|cwd| cwd.trim().is_empty())
+        {
+            return Err("execution feedback cwd must not be empty".to_string());
         }
         Ok(())
     }

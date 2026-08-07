@@ -10,7 +10,7 @@ mod notice;
 
 pub(in crate::service) const CADENCE: Duration = Duration::from_secs(10 * 60);
 pub(in crate::service) const WINDOW: Duration = Duration::from_secs(60);
-const LABEL: &str = "santi:clock";
+pub(in crate::service) const LABEL: &str = "santi:clock";
 
 pub(in crate::service) struct Clock {
     cadence: Duration,

@@ -12,6 +12,7 @@ async fn sent() {
         summary: Some("auto".to_string()),
         ceiling: Some(4096),
         bytes: None,
+        attempts: None,
     })
     .await;
 
@@ -36,6 +37,7 @@ async fn omitted() {
         summary: None,
         ceiling: None,
         bytes: None,
+        attempts: None,
     })
     .await;
 
@@ -54,6 +56,7 @@ async fn unstored() {
         summary: None,
         ceiling: None,
         bytes: None,
+        attempts: None,
     })
     .await;
 
@@ -180,6 +183,66 @@ async fn synthesized() {
     assert_eq!(called["call_id"], "call_1");
 }
 
+#[path = "openai/relay.rs"]
+mod relay;
 #[path = "openai/support.rs"]
 mod support;
+use relay::*;
 use support::*;
+
+#[tokio::test]
+async fn absorbed() {
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("bind test server");
+    let url = format!("http://{}", listener.local_addr().expect("local address"));
+    let server = std::thread::spawn(move || {
+        answered(
+            &listener,
+            r#"{"type":"error","error":{"message":"stream_read_error"}}"#,
+        );
+        answered(
+            &listener,
+            r#"{"type":"response.output_text.delta","delta":"recovered"}"#,
+        );
+    });
+    let events = collected(url, Some(2)).await;
+    server.join().expect("server thread");
+    let retried = events
+        .iter()
+        .position(|event| matches!(event, Event::Traced(Trace::Retried { attempt: 1, .. })))
+        .expect("retry is traced");
+    let spoken = events
+        .iter()
+        .position(|event| matches!(event, Event::Text(text) if text == "recovered"))
+        .expect("recovered text arrives");
+    assert!(retried < spoken);
+    assert!(!events.iter().any(|event| matches!(event, Event::Failed(_))));
+}
+
+#[tokio::test]
+async fn propagated() {
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("bind test server");
+    let url = format!("http://{}", listener.local_addr().expect("local address"));
+    let server = std::thread::spawn(move || {
+        answered(
+            &listener,
+            concat!(
+                r#"{"type":"response.output_text.delta","delta":"spoken"}"#,
+                "\n\n",
+                r#"data: {"type":"error","error":{"message":"stream_read_error"}}"#
+            ),
+        );
+    });
+    let events = collected(url, Some(2)).await;
+    server.join().expect("server thread");
+    assert!(
+        events
+            .iter()
+            .any(|event| matches!(event, Event::Text(text) if text == "spoken"))
+    );
+    assert!(events.iter().any(|event| matches!(event, Event::Failed(_))));
+    assert!(
+        !events
+            .iter()
+            .any(|event| matches!(event, Event::Traced(Trace::Retried { .. })))
+    );
+}

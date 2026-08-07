@@ -11,6 +11,15 @@ rounds = 16
 calls = 256
 output = 4194304
 shell = 65536
+# Optional experiment: after this many ordinary shell calls, the next provider
+# round offers only the feedback tool. Without a caller command, the Soul may
+# choose a native gate or product slice.
+# feedback_after_calls = 6
+# Optional caller-owned mode: feedback becomes a zero-argument tool that runs
+# this exact command and workspace. Captured red and green results both reopen
+# the ordinary action window.
+# feedback_command = "cargo test --locked --workspace"
+# feedback_cwd = "strand://product"
 
 # Optional Ed25519 authority for short-lived, per-effect runtime capabilities.
 # Supply private_key through SANTI_CAPABILITY_PRIVATE_KEY in production.

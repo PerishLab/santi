@@ -1,14 +1,12 @@
 use crate::cli::WatchFormat;
 use crate::client::{Proof, Target, prove, uncertain};
 use anyhow::{Context, Result};
+use bound::{SILENCE, boundary, ceiling};
 use futures_util::{Stream, StreamExt};
 use std::collections::HashMap;
 use std::io::Write;
-use std::time::Duration;
 use tokio::time::Instant;
 
-const SILENCE: Duration = Duration::from_secs(60);
-const LIMIT: Duration = Duration::from_secs(10 * 60);
 tokio::task_local! {
     static HARNESS: Harness;
 }
@@ -66,11 +64,11 @@ pub(crate) async fn follow(
     let mut stream = response.bytes_stream();
     let mut buffer = Vec::new();
     let mut display = Display::new(target.presentation);
-    let limit = started + LIMIT;
+    let limit = ceiling(target.presentation, started);
     let mut silence = started + SILENCE;
     loop {
         let frame = match tokio::time::timeout_at(
-            limit.min(silence),
+            limit.map_or(silence, |limit| limit.min(silence)),
             next_sse_frame(&mut stream, &mut buffer),
         )
         .await
@@ -86,7 +84,7 @@ pub(crate) async fn follow(
             }
             Err(_) => {
                 display.finish(output);
-                settle(target, &receipt, Some(boundary(started))).await?;
+                settle(target, &receipt, Some(boundary(started, limit))).await?;
                 return Ok(());
             }
         };
@@ -102,13 +100,6 @@ pub(crate) async fn follow(
             display.finish(output);
             return Ok(());
         }
-    }
-}
-fn boundary(started: Instant) -> &'static str {
-    if started.elapsed() >= LIMIT {
-        "watch reached its ten-minute proof limit"
-    } else {
-        "event stream produced no event for sixty seconds"
     }
 }
 async fn settle(target: Target<'_>, receipt: &str, boundary: Option<&str>) -> Result<bool> {
@@ -217,6 +208,7 @@ fn terminal(event: &str, data: &str) -> bool {
     let beat = json_field(data, &["payload", "beat"]);
     event == "turn" && matches!(beat.as_deref(), Some("completed") | Some("failed"))
 }
+mod bound;
 mod render;
 pub use render::*;
 pub fn snippet(text: &str, limit: usize) -> String {

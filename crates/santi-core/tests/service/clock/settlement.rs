@@ -107,6 +107,9 @@ async fn settles() {
             calls: 256,
             output: 4096,
             shell: 1024,
+            feedback_after_calls: None,
+            feedback_command: None,
+            feedback_cwd: None,
         })
         .expect("bound service")
         .clock(Duration::from_secs(60 * 60))

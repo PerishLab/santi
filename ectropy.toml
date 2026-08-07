@@ -558,6 +558,9 @@ term = [
   { name = "silence_wake", description = "Soul-explicit wake lease silence operation." },
   { name = "wake_status", description = "Caller-facing wake lease status operation." },
   { name = "wake_tool", description = "Executable-spec lookup for the first-party wake control tool." },
+  { name = "feedback_after_calls", description = "Optional execution-budget cadence for the feedback barrier." },
+  { name = "feedback_command", description = "Caller-owned feedback effect command in the execution budget." },
+  { name = "feedback_cwd", description = "Caller-owned feedback effect workspace in the execution budget." },
 ]
 
 [word]

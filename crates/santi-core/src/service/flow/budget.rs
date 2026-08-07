@@ -3,7 +3,6 @@ use serde_json::json;
 
 use crate::Fault;
 use crate::context::budget::estimated;
-use crate::service::tools::tools;
 use santi_provider::Item;
 
 use super::super::Service;
@@ -44,7 +43,7 @@ impl Service {
         let mut input = crate::provider_input(&self.store, strand).await?;
         input.extend(self.pending_input(strand).await?);
         let instructions = self.wording(strand).await?;
-        let tools = tools();
+        let tools = self.offered(strand).await?;
         Ok(estimated(&input, Some(&instructions), Some(&tools)))
     }
 
@@ -82,7 +81,7 @@ impl Service {
         if let Some(candidate) = crate::context::budget::inbound(kind, content) {
             input.push(candidate);
         }
-        let tools = tools();
+        let tools = self.offered(strand).await?;
         let estimate = estimated(&input, Some(&self.wording(strand).await?), Some(&tools));
         if estimate.total <= budget.bytes {
             return Ok(None);

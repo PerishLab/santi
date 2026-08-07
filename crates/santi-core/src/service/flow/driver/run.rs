@@ -1,7 +1,6 @@
 use crate::context::budget::gauged;
 use crate::service::flow::budget::Verdict;
 use crate::service::flow::failure::{Admission, Failure, Metadata, Operation, Persistence, Stage};
-use crate::service::tools::tools;
 use crate::service::{Service, address::Address, interrupt::Control, notice::Observation, timing};
 use santi_provider::Request;
 use std::{future::Future, pin::Pin};
@@ -150,17 +149,20 @@ impl Service {
             if let Some(cause) = self.halted(control) {
                 return Err(Failure::stopped(cause, &prose));
             }
+            self.noticed(turn).await;
             let input = provider_try!(
                 Operation::Assembly,
                 crate::provider_input(&self.store, strand).await
             );
             let metadata = self.provider.metadata();
             let family = metadata.provider.to_string();
+            let offered = provider_try!(Operation::Assembly, self.offered(strand).await);
+            let ceiling = metadata.budget.as_ref().map(|cap| cap.bytes);
             let request = Request {
                 model: metadata.model,
                 instructions: Some(provider_try!(Operation::Prompt, self.wording(strand).await)),
                 input,
-                tools: Some(tools()),
+                tools: Some(offered),
                 previous: None,
             };
             let estimate = gauged(&request);
@@ -177,6 +179,7 @@ impl Service {
                 request.instructions.as_ref().map_or(0, |text| text.len()),
             );
             self.observed(Observation {
+                budget: ceiling,
                 address: Address { strand, turn },
                 round,
                 provider: &family,

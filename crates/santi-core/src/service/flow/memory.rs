@@ -10,11 +10,15 @@ use super::super::{Service, drive};
 use crate::{ingest, message};
 
 const FALLBACK: usize = 500_000;
+pub(in crate::service) const SLOTS: usize = 3;
+pub(in crate::service) const SLOT: usize = 30_000;
 pub(super) const MAINTENANCE: &str = "santi:memory:maintenance";
 
 #[derive(Clone, Copy)]
 pub(in crate::service) struct Policy {
     pub(in crate::service) allowance: usize,
+    pub(in crate::service) slots: usize,
+    pub(in crate::service) slot: usize,
     threshold: usize,
 }
 
@@ -39,6 +43,8 @@ impl Service {
         let threshold = (bytes.saturating_mul(3) / 4).max(allowance.saturating_add(1));
         Policy {
             allowance,
+            slots: SLOTS,
+            slot: SLOT,
             threshold,
         }
     }

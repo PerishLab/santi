@@ -1,47 +1,24 @@
-use santi_provider::{Call, Function, Tool};
+use santi_provider::{Call, Tool};
 use serde::Deserialize;
-use serde_json::{Value, json};
+use serde_json::Value;
 
 use crate::capability::Origin;
 use crate::service::address::Address;
-use crate::{SOULSPACE, STRANDSPACE, soulward, strandward};
 
 use super::Service;
 use crate::service::interrupt::Control;
 use crate::{effect, stream};
 
+mod clock;
 mod environ;
+mod feedback;
+mod reply;
 mod shell;
 mod wake;
 mod workspace;
 
 pub(crate) fn tools() -> Vec<Tool> {
-    let soulward = soulward();
-    let strandward = strandward();
-    vec![
-        Tool::Function(Function {
-            name: "shell".to_string(),
-            description: format!(
-                "Run a short, bounded shell command. If completion time is unknown, the command waits on external state, or periodic attention is useful, use this invocation only to call `santi job create <DESCRIPTION> <COMMAND>`; optionally add `--cwd`, `--timeout-seconds`, `--output-limit-bytes`, or `--remind-every-seconds`. Santi supplies the one-use capability, creates a durable detached job with timeout and output bounds, and returns its id. Never keep this synchronous shell open merely to wait or poll. By default commands run in the current execution workspace. Use cwd \"{SOULSPACE}\" to work in the current soul workspace, where {soulward} is always rendered live in [santi-soul]. Use cwd \"{STRANDSPACE}\" to work in the current strand workspace, where {strandward} is always rendered live in [santi-strand]. Unix-like systems use bash by default; Windows uses pwsh by default."
-            ),
-            parameters: json!({
-                "type": "object",
-                "properties": {
-                    "command": {
-                        "type": "string",
-                        "description": "The shell command to execute."
-                    },
-                    "cwd": {
-                        "type": "string",
-                        "description": format!("Optional workspace URI. Supports {SOULSPACE}, {SOULSPACE}<path>, {STRANDSPACE}, and {STRANDSPACE}<path>.")
-                    }
-                },
-                "required": ["command"],
-                "additionalProperties": false
-            }),
-        }),
-        wake::definition(),
-    ]
+    vec![shell::definition(), wake::definition()]
 }
 
 struct Shell<'a> {
@@ -50,6 +27,7 @@ struct Shell<'a> {
     call: &'a Call,
     effect: &'a str,
     limit: Option<usize>,
+    fixed: Option<shell::Args>,
 }
 
 impl Service {
@@ -61,7 +39,20 @@ impl Service {
         control: &Control,
     ) -> Result<(), String> {
         let Address { strand, turn } = address;
-        let kind = (call.name == "shell").then_some("shell");
+        let clock = clock::selected(self, strand).await?;
+        let barrier = if clock {
+            None
+        } else {
+            self.barrier(strand).await?
+        };
+        let barred = call.name == "shell" && barrier.as_ref().is_some_and(feedback::Barrier::due);
+        let due = call.name == "feedback" && barrier.as_ref().is_some_and(feedback::Barrier::due);
+        let fixed = due
+            .then(|| barrier.as_ref().and_then(feedback::Barrier::owned))
+            .flatten();
+        let allowed = !clock || call.name == "wake";
+        let shell = call.name == "shell" || due;
+        let kind = (allowed && !barred && shell).then_some("shell");
         let created = crate::now();
         let effect_tag = kind.map(|_| crate::tag("effect"));
         let (held, effect) = self
@@ -88,7 +79,27 @@ impl Service {
             strand,
             stream::Payload::Tool(crate::tool::Beat::Called { call: held.clone() }),
         );
-        let result = if let Some(effect) = effect {
+        let result = if !allowed {
+            reply::rejected(
+                self,
+                &call,
+                format!("unsupported tool on clock attention strand: {}", call.name),
+                output_limit,
+            )
+            .await?
+        } else if barred {
+            let barrier = barrier.expect("barred shell has feedback barrier");
+            let action = if barrier.command.is_some() {
+                "call the zero-argument caller-owned feedback tool, or reply BLOCKED without a tool"
+            } else {
+                "call feedback with kind native or slice, or reply BLOCKED without a tool"
+            };
+            let error = format!(
+                "feedback barrier reached after {} ordinary shell calls (limit {}); {action}",
+                barrier.observed, barrier.limit
+            );
+            reply::rejected(self, &call, error, output_limit).await?
+        } else if let Some(effect) = effect {
             self.shelled(
                 Shell {
                     strand,
@@ -96,6 +107,7 @@ impl Service {
                     call: &call,
                     effect: &effect.id,
                     limit: output_limit,
+                    fixed,
                 },
                 control,
             )
@@ -103,16 +115,13 @@ impl Service {
         } else if call.name == "wake" {
             self.waked(strand, &call, output_limit).await?
         } else {
-            let error = curbed(format!("unsupported tool: {}", call.name), output_limit);
-            self.store
-                .create_reply(santi_estate::ReplyDraft {
-                    tag: &crate::tag("result"),
-                    call: &call.call,
-                    output: None,
-                    error: Some(&error),
-                    created: &crate::now(),
-                })
-                .await?
+            reply::rejected(
+                self,
+                &call,
+                format!("unsupported tool: {}", call.name),
+                output_limit,
+            )
+            .await?
         };
         self.publish(
             strand,
@@ -132,6 +141,7 @@ impl Service {
             call,
             effect,
             limit: output_limit,
+            fixed,
         } = shell;
         let soul = self
             .store
@@ -139,7 +149,11 @@ impl Service {
             .await?
             .map(|strand| strand.soul)
             .ok_or_else(|| "strand not found".to_string())?;
-        let preparation = match argued::<shell::Args>(&call.arguments) {
+        let args = match call.name.as_str() {
+            "feedback" => feedback::args(call, fixed),
+            _ => argued::<shell::Args>(&call.arguments),
+        };
+        let preparation = match args {
             Ok(args) => {
                 self.prepared(
                     Origin {

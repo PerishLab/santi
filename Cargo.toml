@@ -38,6 +38,7 @@ hmac = "0.12.1"
 jiff = "0.2.28"
 keel = { version = "0", registry = "perish" }
 libc = "0.2.180"
+ratatui = { version = "0.30.2", default-features = false, features = ["crossterm"] }
 reqwest = { version = "0.13.4", default-features = false, features = ["json", "rustls", "stream"] }
 santi-api = { path = "crates/santi-api" }
 santi-core = { path = "crates/santi-core" }
@@ -55,6 +56,7 @@ tokio = { version = "1.52.3", features = ["fs", "io-util", "macros", "net", "pro
 tokio-stream = "0.1.18"
 toml = "1.1.2"
 tower-http = { version = "0.6.11", features = ["cors", "trace"] }
+unicode-width = "0.2.2"
 utoipa = { version = "5.5.0", features = ["axum_extras"] }
 uuid = { version = "1.23.3", features = ["v4"] }
 windows-sys = { version = "0.61.2", features = ["Win32_Storage_FileSystem"] }

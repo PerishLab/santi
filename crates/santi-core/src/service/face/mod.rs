@@ -7,5 +7,5 @@ mod fork;
 mod publication;
 pub(in crate::service) mod wake;
 
-use super::{Service, error, tools};
+use super::{Service, error};
 pub use api::Admission;
