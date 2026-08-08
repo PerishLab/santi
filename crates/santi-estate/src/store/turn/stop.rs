@@ -126,6 +126,7 @@ pub(super) fn decode(value: &str) -> Result<turn::Cause, String> {
     match value {
         "operator" => Ok(turn::Cause::Operator),
         "shutdown" => Ok(turn::Cause::Shutdown),
+        "blocked" => Ok(turn::Cause::Blocked),
         value => Err(format!("unknown turn stop cause {value}")),
     }
 }

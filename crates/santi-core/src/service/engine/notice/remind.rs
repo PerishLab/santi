@@ -17,6 +17,9 @@ impl Observed {
 
 fn urged(band: &str) -> &'static str {
     match band {
+        "slots" => {
+            "Every compact slot is occupied and ordinary work is refused until that changes. The only compaction admitted now is one that absorbs: name a range spanning two or more occupied slots so they collapse into one, and decide what survives and how the surviving summary reads."
+        }
         "hard" => {
             "Little headroom remains. Compacting settled context now is the only action that restores room; the runtime will not do it for you."
         }
@@ -62,6 +65,8 @@ pub(super) fn reminded(event: &Observed) -> message::Content {
         format!("input: {}", event.input),
         format!("instructions: {}", event.instructions),
     ];
+    lines.push(format!("slots_held: {}", event.held));
+    lines.push(format!("slots_ceiling: {}", event.slots));
     lines.extend(measured(event));
     lines.push(format!("summary: {}", urged(&event.band)));
     lines.push("</system_message>".to_string());

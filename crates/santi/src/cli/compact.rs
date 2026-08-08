@@ -30,6 +30,12 @@ pub enum CompactCommand {
             long
         )]
         summary_file: Option<String>,
+        #[arg(
+            help = "Compact ids of occupied slots to absorb into this one. Two or more merge them; one rewrites its summary in place. The set must be contiguous",
+            long,
+            conflicts_with_all = ["first", "last"]
+        )]
+        absorb: Vec<String>,
     },
     #[command(about = "Create a provider-visible compact capsule with provenance/risk metadata")]
     Capsule {

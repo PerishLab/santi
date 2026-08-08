@@ -150,10 +150,7 @@ impl Service {
                 return Err(Failure::stopped(cause, &prose));
             }
             self.noticed(turn).await;
-            let input = provider_try!(
-                Operation::Assembly,
-                crate::provider_input(&self.store, strand).await
-            );
+            let input = provider_try!(Operation::Assembly, self.assembled(strand).await);
             let metadata = self.provider.metadata();
             let family = metadata.provider.to_string();
             let offered = provider_try!(Operation::Assembly, self.offered(strand).await);
@@ -178,8 +175,10 @@ impl Service {
                 request.input.len(),
                 request.instructions.as_ref().map_or(0, |text| text.len()),
             );
+            let occupied = provider_try!(Operation::Assembly, self.occupied(strand).await);
             self.observed(Observation {
                 budget: ceiling,
+                held: occupied,
                 address: Address { strand, turn },
                 round,
                 provider: &family,

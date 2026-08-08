@@ -25,3 +25,7 @@ pub(super) fn floor(budget: Option<usize>, total: usize) -> usize {
         .find(|(edge, _)| share >= *edge)
         .map_or(REFERENCE, |(edge, _)| budget * edge / 100)
 }
+
+pub(super) fn crowded(held: usize, slots: usize) -> Option<usize> {
+    (held > slots).then_some(held)
+}

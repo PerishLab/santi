@@ -26,6 +26,7 @@ pub enum Status {
 pub enum Cause {
     Operator,
     Shutdown,
+    Blocked,
 }
 
 impl Cause {
@@ -33,6 +34,7 @@ impl Cause {
         match self {
             Self::Operator => "operator",
             Self::Shutdown => "shutdown",
+            Self::Blocked => "blocked",
         }
     }
 

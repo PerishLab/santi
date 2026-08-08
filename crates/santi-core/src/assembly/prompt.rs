@@ -25,8 +25,6 @@ pub(crate) struct Prompting<'a> {
     pub memoir: PathBuf,
     pub journal: PathBuf,
     pub allowance: usize,
-    pub slots: usize,
-    pub slot: usize,
     pub genesis: bool,
 }
 
@@ -50,8 +48,6 @@ pub(crate) fn prompted(request: Prompting<'_>) -> Result<String, String> {
         ),
         described(),
         met(&request),
-        bounded(&request),
-        preferred(),
     ];
     if let Some(fork_topology) = forked(&request) {
         sections.push(fork_topology);
@@ -170,15 +166,4 @@ fn recalled(path: &Path) -> Result<Material, String> {
 struct Material {
     content: String,
     updated: Option<Timestamp>,
-}
-
-fn bounded(request: &Prompting<'_>) -> String {
-    format!(
-        "[santi-context] This strand holds at most {} compact slots, and each compact summary may be at most {} bytes. These are limits, not advice: a compaction that would exceed either is refused, and once refused no ordinary work proceeds until the timeline fits again. With every slot occupied, the only way to compact further is to absorb existing compacts into one, which rewrites their summary. What is absorbed and how it is rewritten is yours to decide.",
-        request.slots, request.slot
-    )
-}
-
-fn preferred() -> String {
-    "[santi-context] A suggestion, not a rule, for using those slots: let them run from settled to recent, keeping the oldest the most compressed and the newest the most detailed, so that absorbing always costs the least where the least is still needed. Organise them differently when a different order serves the work better; the limits above are what bind you, this ordering is not.".to_string()
 }

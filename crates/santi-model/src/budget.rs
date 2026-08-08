@@ -39,6 +39,8 @@ pub struct Snapshot {
 pub struct Slot {
     pub compact: String,
     pub bytes: i64,
+    pub from: i64,
+    pub to: i64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema, PartialEq, Eq)]

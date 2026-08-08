@@ -1,3 +1,4 @@
+mod assemble;
 use futures_util::StreamExt;
 use santi_provider::{Call, Event, Streaming};
 

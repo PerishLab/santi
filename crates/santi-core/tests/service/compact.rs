@@ -51,6 +51,7 @@ async fn capsule() {
                 from: None,
                 to: None,
                 summary: "one settled exchange".to_string(),
+                absorb: Vec::new(),
                 capsule: Some(compact::Capsule {
                     source: "test".to_string(),
                     reason: "preserve the compact contract".to_string(),

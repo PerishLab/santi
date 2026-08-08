@@ -7,7 +7,7 @@ use santi_provider::Item;
 
 use super::{Service, address::Address};
 use crate::{environment, message, stream};
-use band::{banded, floor};
+use band::{banded, crowded, floor};
 use remind::reminded;
 
 mod band;
@@ -16,6 +16,7 @@ mod unresolved;
 
 pub(in crate::service) struct Observation<'a> {
     pub(in crate::service) budget: Option<usize>,
+    pub(in crate::service) held: usize,
     pub(in crate::service) address: Address<&'a str>,
     pub(in crate::service) round: usize,
     pub(in crate::service) provider: &'a str,
@@ -67,6 +68,8 @@ pub(in crate::service) struct Observed {
     pub(in crate::service) threshold: usize,
     pub(in crate::service) band: String,
     pub(in crate::service) ceiling: Option<usize>,
+    pub(in crate::service) held: usize,
+    pub(in crate::service) slots: usize,
 }
 
 impl Observed {
@@ -75,6 +78,9 @@ impl Observed {
     }
 
     fn remindable(&self) -> bool {
+        if self.band == "slots" {
+            return true;
+        }
         self.band != "under" && self.total() >= self.threshold
     }
 
@@ -157,6 +163,7 @@ impl Default for Bus {
 
 impl Service {
     pub(in crate::service) fn observed(&self, observation: Observation<'_>) {
+        let policy = self.regimen();
         let input = heft(observation.input);
         let instructions = observation.instructions.map_or(0, str::len);
         let event = Observed {
@@ -167,9 +174,14 @@ impl Service {
             items: observation.input.len(),
             input,
             instructions,
-            threshold: floor(observation.budget, input + instructions),
-            band: banded(observation.budget, input + instructions).to_string(),
+            threshold: crowded(observation.held, policy.slots)
+                .unwrap_or_else(|| floor(observation.budget, input + instructions)),
+            band: crowded(observation.held, policy.slots)
+                .map(|_| "slots".to_string())
+                .unwrap_or_else(|| banded(observation.budget, input + instructions).to_string()),
             ceiling: observation.budget,
+            held: observation.held,
+            slots: policy.slots,
         };
         let _ = self.notices.publish(Event::Observed(event));
     }

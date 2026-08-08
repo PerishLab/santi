@@ -1,5 +1,6 @@
 use serde_json::json;
 
+mod absorb;
 mod admit;
 mod settled;
 pub(in crate::service) mod slots;
@@ -157,6 +158,9 @@ impl Service {
                     .await?
                     .ok_or_else(|| seatless("to", to))?;
                 Ok((from, to))
+            }
+            (None, None, None, None) if !request.absorb.is_empty() => {
+                self.merged(strand, &request.absorb).await
             }
             (None, None, None, None) => self.settled(strand).await,
             _ => Err("compact requires either first/last as message ids or from/to as message sequences, and never a mixture of the two".to_string()),

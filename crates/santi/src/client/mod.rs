@@ -83,6 +83,7 @@ pub(crate) async fn run(
             last,
             summary,
             summary_file,
+            absorb,
         }) => {
             let strand = defaults.resolve_strand(None)?;
             let summary = match summary_file {
@@ -90,6 +91,9 @@ pub(crate) async fn run(
                 None => summary.expect("clap requires summary or summary_file"),
             };
             let mut body = serde_json::json!({ "summary": summary });
+            if !absorb.is_empty() {
+                body["absorb"] = serde_json::Value::from(absorb);
+            }
             if let (Some(first), Some(last)) = (first, last) {
                 body["first"] = serde_json::Value::from(first);
                 body["last"] = serde_json::Value::from(last);

@@ -11,25 +11,29 @@ impl Service {
         request: &compact::Exec,
     ) -> Result<(), String> {
         let policy = self.regimen();
-        if summary.len() > policy.slot {
-            return Err(oversized(summary.len(), policy.slot));
-        }
         let spans = self.spans(strand).await?;
-        let held = spans.iter().filter(|span| !covered(span, &spans)).count();
-        if held < policy.slots || absorbing(request) {
+        let live = spans
+            .iter()
+            .filter(|span| !covered(span, &spans))
+            .collect::<Vec<_>>();
+        let carried = live.iter().map(|span| span.bytes as usize).sum::<usize>();
+        if carried.saturating_add(summary.len()) > policy.settled && !absorbing(request) {
+            return Err(oversized(carried, summary.len(), policy.settled));
+        }
+        if live.len() < policy.slots || absorbing(request) {
             return Ok(());
         }
-        Err(crowded(held, policy.slots))
+        Err(crowded(live.len(), policy.slots))
     }
 }
 
 fn absorbing(request: &compact::Exec) -> bool {
-    request.first.is_some() || request.from.is_some()
+    !request.absorb.is_empty() || request.first.is_some() || request.from.is_some()
 }
 
-fn oversized(weight: usize, ceiling: usize) -> String {
+fn oversized(carried: usize, weight: usize, ceiling: usize) -> String {
     format!(
-        "compact summary is {weight} bytes and a slot holds at most {ceiling}; a summary that does not fit is not a compaction but a copy, so shorten it or split the range"
+        "compact refused: the settled part of this strand already carries {carried} bytes and this summary adds {weight}, past the {ceiling} the compacted timeline may hold; write a shorter summary, or absorb existing slots so this one replaces rather than adds"
     )
 }
 

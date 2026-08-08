@@ -44,8 +44,6 @@ impl Service {
             memoir: self.memoir(&strand.soul),
             journal: self.journal(id),
             allowance: self.regimen().allowance,
-            slots: self.regimen().slots,
-            slot: self.regimen().slot,
             genesis: strand.soul == crate::GENESIS,
         })?;
         let key: Key = (id.to_string(), material::Kind::SystemPrompt);

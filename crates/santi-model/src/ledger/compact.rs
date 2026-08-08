@@ -30,6 +30,8 @@ pub struct Exec {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub to: Option<i64>,
     pub summary: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub absorb: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub capsule: Option<Capsule>,
     #[serde(default)]

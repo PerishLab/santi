@@ -47,6 +47,7 @@ fn asked(call: &Call) -> Result<compact::Exec, String> {
         from: None,
         to: None,
         summary,
+        absorb: absorbed(value),
         capsule: None,
         dry: false,
     })
@@ -58,4 +59,17 @@ fn text(value: &serde_json::Value, key: &str) -> Option<String> {
         .and_then(serde_json::Value::as_str)
         .filter(|held| !held.trim().is_empty())
         .map(str::to_string)
+}
+
+fn absorbed(value: &serde_json::Value) -> Vec<String> {
+    value
+        .get("absorb")
+        .and_then(serde_json::Value::as_array)
+        .map(|held| {
+            held.iter()
+                .filter_map(serde_json::Value::as_str)
+                .map(str::to_string)
+                .collect()
+        })
+        .unwrap_or_default()
 }

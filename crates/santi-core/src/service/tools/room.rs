@@ -1,13 +1,15 @@
 mod apply;
 pub(super) mod clock;
 mod definition;
+mod escalate;
 
 pub(super) use definition::definition;
+pub(super) use escalate::exhausted;
 
 use crate::service::Service;
 
 impl Service {
-    pub(super) async fn crowded(&self, strand: &str) -> Result<Option<String>, String> {
+    pub(in crate::service) async fn crowded(&self, strand: &str) -> Result<Option<String>, String> {
         let policy = self.regimen();
         let Some(budget) = self.budget() else {
             return Ok(None);
@@ -20,12 +22,13 @@ impl Service {
         let settled = live.iter().map(|span| span.bytes).sum::<i64>();
         let held = live.len();
         let active = self.loaded(strand).await?.saturating_sub(settled);
+        if settled > policy.settled as i64 {
+            return Ok(Some(overfull(settled, policy.settled as i64, held)));
+        }
         if held > policy.slots {
             return Ok(Some(crowded(held, policy.slots, settled)));
         }
-        let ceiling = budget
-            .bytes
-            .saturating_sub((policy.slots as i64).saturating_mul(policy.slot as i64));
+        let ceiling = budget.bytes.saturating_sub(policy.settled as i64);
         if active <= ceiling {
             return Ok(None);
         }
@@ -42,5 +45,11 @@ fn pressed(active: i64, ceiling: i64, settled: i64, held: usize) -> String {
 fn crowded(held: usize, ceiling: usize, settled: i64) -> String {
     format!(
         "context refused: {held} slots hold the compacted timeline against a ceiling of {ceiling}, carrying {settled} bytes. Nothing ordinary proceeds until it fits. Every compaction from here must absorb: name first/last or from/to spanning two or more occupied slots so they collapse into one, and decide what survives and how the surviving summary reads. Read the slot occupancy beside the budget to choose which to merge."
+    )
+}
+
+fn overfull(settled: i64, ceiling: i64, held: usize) -> String {
+    format!(
+        "context refused: the compacted timeline carries {settled} bytes across {held} slots against a ceiling of {ceiling}. Nothing ordinary proceeds until it fits. Absorb slots into fewer, shorter summaries: name the ones to merge and decide what survives."
     )
 }

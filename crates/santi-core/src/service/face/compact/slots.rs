@@ -4,11 +4,14 @@ use crate::budget;
 
 use crate::service::Service;
 
+#[derive(Clone)]
 pub(in crate::service) struct Span {
     pub(in crate::service) from: i64,
     pub(in crate::service) to: i64,
-    compact: String,
+    pub(in crate::service) compact: String,
     pub(in crate::service) bytes: i64,
+    pub(in crate::service) head: String,
+    pub(in crate::service) tail: String,
 }
 
 pub(in crate::service) fn covered(span: &Span, spans: &[Span]) -> bool {
@@ -37,6 +40,8 @@ impl Service {
                 to,
                 compact: compact.id,
                 bytes: compact.summary.len() as i64,
+                head: compact.first,
+                tail: compact.last,
             });
         }
         Ok(spans)
@@ -54,16 +59,25 @@ impl Service {
             .map(|span| budget::Slot {
                 compact: span.compact.clone(),
                 bytes: span.bytes,
+                from: span.from,
+                to: span.to,
             })
             .collect::<Vec<_>>();
         let estimate = self.estimate(strand).await?;
         let settled = held.iter().map(|slot| slot.bytes).sum::<i64>();
         Ok(Some(budget::Slots {
-            ceiling: policy.slot as i64,
+            ceiling: policy.settled as i64,
             count: policy.slots as i64,
             free: (policy.slots as i64).saturating_sub(held.len() as i64),
             active: estimate.input.saturating_sub(settled),
             held,
         }))
+    }
+}
+
+impl Service {
+    pub(in crate::service) async fn occupied(&self, strand: &str) -> Result<usize, String> {
+        let spans = self.spans(strand).await?;
+        Ok(spans.iter().filter(|span| !covered(span, &spans)).count())
     }
 }

@@ -85,6 +85,7 @@ const INVALID: &[Rule] = &[
     },
     Rule::Starts("compact requires either"),
     Rule::Starts("compact refused:"),
+    Rule::Starts("absorb names"),
     Rule::Starts("compact summary is"),
     Rule::Starts("compact has no settled range"),
     Rule::Starts("context refused:"),

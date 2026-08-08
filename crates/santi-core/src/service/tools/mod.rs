@@ -47,6 +47,9 @@ impl Service {
         };
         let crowded = self.crowded(strand).await?;
         let escape = call.name == "compact" && crowded.is_some();
+        if crowded.is_none() {
+            self.relieved(strand);
+        }
         let barred = call.name == "shell"
             && (crowded.is_some() || barrier.as_ref().is_some_and(feedback::Barrier::due));
         let due = call.name == "feedback" && barrier.as_ref().is_some_and(feedback::Barrier::due);
@@ -91,6 +94,12 @@ impl Service {
             )
             .await?
         } else if let Some(detail) = crowded.filter(|_| barred) {
+            let count = self.refused(strand);
+            if room::exhausted(count) {
+                self.escalated(strand, &detail).await?;
+                control.stop(crate::turn::Cause::Blocked);
+                self.relieved(strand);
+            }
             reply::rejected(self, &call, detail, output_limit).await?
         } else if barred {
             let barrier = barrier.expect("barred shell has feedback barrier");
