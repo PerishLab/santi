@@ -42,3 +42,26 @@ pub fn client() -> Result<Client> {
     }
     plumb::config::load(&path).with_context(|| format!("load {}", path.display()))
 }
+
+pub struct Resume<'a> {
+    pub base: &'a str,
+    pub soul: &'a str,
+    pub strand: &'a str,
+    pub bearer: Option<&'a str>,
+}
+
+pub fn resume(command: &mut std::process::Command, resume: Resume<'_>) {
+    command
+        .env("SANTI_API_KEY", resume.bearer.unwrap_or_default())
+        .env("SANTI_AUTH_TOKEN_URL", "")
+        .env("SANTI_AUTH_CLIENT_ID", "")
+        .env("SANTI_AUTH_USERNAME", "")
+        .env("SANTI_AUTH_PASSWORD", "")
+        .env("SANTI_API_URL", resume.base)
+        .env("SANTI_SOUL_ID", resume.soul)
+        .env("SANTI_STRAND_ID", resume.strand);
+}
+
+pub fn executable() -> Result<PathBuf> {
+    std::env::current_exe().context("resolve the current executable")
+}

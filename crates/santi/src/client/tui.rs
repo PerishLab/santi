@@ -8,6 +8,8 @@ use super::create::{Creation, identity, post};
 use super::send::{Request as Send, Target, emission};
 use crate::cli::ClientDefaults;
 
+pub(super) use crate::watch::Kind;
+
 const TIMEOUT: Duration = Duration::from_secs(30);
 const HISTORY: usize = 20;
 
@@ -15,6 +17,7 @@ pub struct Request<'a> {
     pub client: &'a reqwest::Client,
     pub base: &'a str,
     pub defaults: &'a ClientDefaults,
+    pub bearer: Option<&'a str>,
     pub memory: Option<String>,
 }
 
@@ -24,18 +27,7 @@ pub(super) struct Identity {
     pub(super) detail: Option<serde_json::Value>,
 }
 
-pub async fn run(
-    client: &reqwest::Client,
-    base: &str,
-    defaults: &ClientDefaults,
-    memory: Option<String>,
-) -> Result<()> {
-    let request = Request {
-        client,
-        base,
-        defaults,
-        memory,
-    };
+pub async fn run(request: Request<'_>) -> Result<()> {
     if screen::available() {
         return screen::run(request).await;
     }
@@ -75,6 +67,13 @@ pub async fn session(
         match text {
             "" => continue,
             "/exit" => break,
+            "/reload" => {
+                writeln!(
+                    output,
+                    "reload refused: /reload requires an interactive terminal"
+                )?;
+                continue;
+            }
             "/status" => {
                 request.status(&identity, output).await?;
                 continue;
@@ -89,7 +88,7 @@ pub async fn session(
                 }),
                 watch: true,
             },
-            output,
+            &mut crate::watch::Bytes(&mut *output),
         )
         .await?
         .expect("watched send returns completed receipt proof");
@@ -227,9 +226,13 @@ impl Request<'_> {
     }
 }
 
+mod budget;
+mod clip;
 mod keys;
+mod layout;
 mod paint;
 mod parse;
+mod reload;
 mod screen;
 mod state;
 

@@ -3,7 +3,6 @@ use crate::client::{Proof, Target, prove, uncertain};
 use anyhow::{Context, Result};
 use bound::{SILENCE, boundary, ceiling};
 use futures_util::{Stream, StreamExt};
-use std::collections::HashMap;
 use std::io::Write;
 use tokio::time::Instant;
 
@@ -25,12 +24,61 @@ pub(crate) enum Presentation {
     Watch(WatchFormat),
     Tui,
 }
-struct Display {
-    presentation: Presentation,
-    speaking: bool,
-    newline: bool,
-    spoken: HashMap<String, String>,
-    gap: bool,
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum Kind {
+    Thinking,
+    Tool,
+    Turn,
+    Fault,
+    Other,
+}
+
+impl Kind {
+    fn of(event: &str, beat: &str) -> Self {
+        match (event, beat) {
+            ("thinking", _) => Self::Thinking,
+            ("tool", _) => Self::Tool,
+            ("turn", "failed") | ("transition", _) => Self::Fault,
+            ("turn", _) => Self::Turn,
+            _ => Self::Other,
+        }
+    }
+}
+
+pub(crate) struct Shown<'a> {
+    pub(crate) kind: Kind,
+    pub(crate) turn: Option<&'a str>,
+    pub(crate) line: &'a str,
+}
+
+pub(crate) trait Emit: Write {
+    fn speech(&mut self, text: &str);
+    fn event(&mut self, shown: Shown<'_>);
+}
+
+pub struct Bytes<W>(pub W);
+
+impl<W: Write> Write for Bytes<W> {
+    fn write(&mut self, buffer: &[u8]) -> std::io::Result<usize> {
+        self.0.write(buffer)
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        self.0.flush()
+    }
+}
+
+impl<W: Write> Emit for Bytes<W> {
+    fn speech(&mut self, text: &str) {
+        write!(self.0, "{text}").ok();
+        self.0.flush().ok();
+    }
+
+    fn event(&mut self, shown: Shown<'_>) {
+        writeln!(self.0, "{}", shown.line).ok();
+        self.0.flush().ok();
+    }
 }
 pub(crate) async fn subscribe(target: Target<'_>) -> Result<Watch<'_>> {
     let url = format!("{}/api/v1/strands/{}/events", target.base, target.strand);
@@ -54,7 +102,7 @@ pub(crate) async fn subscribe(target: Target<'_>) -> Result<Watch<'_>> {
 pub(crate) async fn follow(
     watch: Watch<'_>,
     receipt: String,
-    output: &mut impl Write,
+    output: &mut impl Emit,
 ) -> Result<()> {
     let Watch {
         target,
@@ -77,7 +125,7 @@ pub(crate) async fn follow(
             Ok(Err(error)) => {
                 display.finish(output);
                 return Err(uncertain(
-                    target,
+                    target.strand,
                     &receipt,
                     format!("event stream failed: {error:#}"),
                 ));
@@ -102,114 +150,50 @@ pub(crate) async fn follow(
         }
     }
 }
+pub(crate) async fn observe(watch: Watch<'_>, output: &mut impl Emit) -> Result<()> {
+    let Watch { response, .. } = watch;
+    let mut stream = response.bytes_stream();
+    let mut buffer = Vec::new();
+    let mut display = Display::new(Presentation::Tui);
+    loop {
+        match next_sse_frame(&mut stream, &mut buffer).await {
+            Ok(Some((event, data))) => display.write(output, &event, &data),
+            Ok(None) => {
+                display.finish(output);
+                return Ok(());
+            }
+            Err(error) => {
+                display.finish(output);
+                return Err(error);
+            }
+        }
+    }
+}
+
 async fn settle(target: Target<'_>, receipt: &str, boundary: Option<&str>) -> Result<bool> {
     match prove(target, receipt).await? {
         Proof::Completed => Ok(true),
         Proof::Failed => anyhow::bail!(
             "strand send outcome=failed: accepted receipt {receipt} reached its durable failed state; do not resend the accepted message; inspect with `santi receipt {receipt}`"
         ),
-        Proof::Pending(state) if boundary.is_some() => anyhow::bail!(
+        Proof::Pending(state) if boundary.is_some() => Err(crate::client::unsettled(format!(
             "watch outcome=state_unknown: {} while accepted receipt {receipt} remained {state}; do not resend the accepted message; inspect with `santi receipt {receipt}` and `santi strand runtime {}`; resume the blocking condition or explicitly redrive with `santi strand drive {}`",
             boundary.expect("pending boundary"),
             target.strand,
             target.strand
-        ),
+        ))),
         Proof::Pending(_) => Ok(false),
     }
-}
-impl Display {
-    fn new(presentation: Presentation) -> Self {
-        Self {
-            presentation,
-            speaking: false,
-            newline: false,
-            spoken: HashMap::new(),
-            gap: false,
-        }
-    }
-    fn write(&mut self, output: &mut impl Write, event: &str, data: &str) {
-        if event == "gap" {
-            self.gap = true;
-            self.finish(output);
-        }
-        match self.presentation {
-            Presentation::Watch(WatchFormat::Raw) => {
-                if event != "open" {
-                    writeln!(output, "{data}").ok();
-                    output.flush().ok();
-                }
-            }
-            Presentation::Watch(WatchFormat::Filtered) => line(output, event, data),
-            Presentation::Tui => self.tui(output, event, data),
-        }
-    }
-    fn tui(&mut self, output: &mut impl Write, event: &str, data: &str) {
-        let beat = json_field(data, &["payload", "beat"]);
-        if event == "message" && beat.as_deref() == Some("delta") {
-            let Some(text) = json_field(data, &["payload", "text"]) else {
-                return;
-            };
-            let text = speech(&text);
-            if text.is_empty() {
-                return;
-            }
-            if !self.speaking {
-                write!(output, "soul> ").ok();
-                self.speaking = true;
-            }
-            write!(output, "{text}").ok();
-            self.newline = text.ends_with('\n');
-            if let Some(turn) = json_field(data, &["payload", "turn"]) {
-                self.spoken.entry(turn).or_default().push_str(&text);
-            }
-            output.flush().ok();
-            return;
-        }
-        self.finish(output);
-        let completed = event == "message" && beat.as_deref() == Some("completed");
-        let duplicate = completed
-            && !self.gap
-            && json_field(data, &["payload", "turn"]).is_some_and(|turn| {
-                json_field(data, &["payload", "message", "text"])
-                    .map(|text| speech(&text))
-                    .is_some_and(|text| self.spoken.get(&turn) == Some(&text))
-            });
-        if !duplicate {
-            line(output, event, data);
-        }
-        if event == "turn"
-            && matches!(beat.as_deref(), Some("completed") | Some("failed"))
-            && let Some(turn) = json_field(data, &["payload", "turn"])
-        {
-            self.spoken.remove(&turn);
-        }
-    }
-    fn finish(&mut self, output: &mut impl Write) {
-        if self.speaking && !self.newline {
-            writeln!(output).ok();
-            output.flush().ok();
-        }
-        self.speaking = false;
-        self.newline = false;
-    }
-}
-fn line(output: &mut impl Write, event: &str, data: &str) {
-    if let Some(line) = render_watch_event(event, data) {
-        writeln!(output, "{line}").ok();
-        output.flush().ok();
-    }
-}
-fn speech(text: &str) -> String {
-    text.chars()
-        .filter(|character| !character.is_control() || matches!(character, '\n' | '\t'))
-        .collect()
 }
 fn terminal(event: &str, data: &str) -> bool {
     let beat = json_field(data, &["payload", "beat"]);
     event == "turn" && matches!(beat.as_deref(), Some("completed") | Some("failed"))
 }
 mod bound;
+mod display;
 mod render;
+
+use display::Display;
 pub use render::*;
 pub fn snippet(text: &str, limit: usize) -> String {
     let plain = text

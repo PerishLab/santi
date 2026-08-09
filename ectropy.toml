@@ -40,6 +40,12 @@ include = ["crates/**/*.rs", "docs/**/*.md"]
 
 [vocabulary]
 term = [
+  { name = "PageUp", description = "The terminal key name is one established atom." },
+  { name = "PageDown", description = "The terminal key name is one established atom." },
+  { name = "ScrollUp", description = "The terminal mouse wheel event is one established atom." },
+  { name = "ScrollDown", description = "The terminal mouse wheel event is one established atom." },
+  { name = "WordLeft", description = "Word-wise cursor motion is one established editor atom." },
+  { name = "WordRight", description = "Word-wise cursor motion is one established editor atom." },
   { name = "OpenAI", description = "The provider brand spelling is one vendor-owned atom." },
   { name = "OpenAiResponses", description = "The OpenAI Responses API is one vendor-owned product name." },
   { name = "ChatCompletions", description = "Chat Completions is the fixed industry protocol name." },

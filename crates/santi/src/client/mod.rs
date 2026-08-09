@@ -17,7 +17,7 @@ mod send;
 mod strand;
 pub mod tui;
 
-pub(crate) use send::{Proof, prove, uncertain};
+pub(crate) use send::{Proof, prove, uncertain, unsettled};
 pub use send::{Request, Target, emit, send};
 
 const TIMEOUT: Duration = Duration::from_secs(30);
@@ -48,7 +48,16 @@ pub(crate) async fn run(
     let base = base_url.trim_end_matches('/').to_string();
     match command {
         Command::Health => http.get(&format!("{base}/api/v1/health")).await,
-        Command::Tui { memory } => tui::run(&client, &base, defaults, memory).await,
+        Command::Tui { memory } => {
+            tui::run(tui::Request {
+                client: &client,
+                base: &base,
+                defaults,
+                bearer,
+                memory,
+            })
+            .await
+        }
         Command::Errors {
             scope_kind,
             scope_id,

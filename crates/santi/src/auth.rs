@@ -13,15 +13,19 @@ pub(crate) struct Credentials<'a> {
 }
 
 pub(crate) async fn resolve_edge_bearer(credentials: Credentials<'_>) -> Result<Option<String>> {
+    fn present(value: Option<&str>) -> Option<&str> {
+        value.filter(|value| !value.is_empty())
+    }
+
     if let (Some(url), Some(cid), Some(user), Some(pw)) = (
-        credentials.endpoint,
-        credentials.identity,
-        credentials.username,
-        credentials.password,
+        present(credentials.endpoint),
+        present(credentials.identity),
+        present(credentials.username),
+        present(credentials.password),
     ) {
         return Ok(Some(edge_jwt_cached(url, cid, user, pw).await?));
     }
-    Ok(credentials.key.map(str::to_string))
+    Ok(present(credentials.key).map(str::to_string))
 }
 
 fn now_secs() -> u64 {

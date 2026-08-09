@@ -1,13 +1,21 @@
+use std::future::Future;
 use std::io::{IsTerminal, Write};
+use std::process::Command;
+use std::time::Duration;
 
 use anyhow::Result;
 use tokio::sync::mpsc::{UnboundedSender, unbounded_channel};
 
+use super::budget::read;
 use super::keys;
-use super::parse::{lines, number};
+use super::parse::lines;
+use super::state::recover::recover;
 use super::state::{Beat, State, Step};
 use super::{Identity, Request, paint};
 use crate::client::send::{Request as Send, Target, emission};
+use crate::watch::{Emit, Shown};
+
+const TIMEOUT: Duration = Duration::from_secs(3);
 
 pub(super) fn available() -> bool {
     std::io::stdout().is_terminal() && std::io::stdin().is_terminal()
@@ -18,7 +26,7 @@ struct Sink(UnboundedSender<Beat>);
 impl Write for Sink {
     fn write(&mut self, buffer: &[u8]) -> std::io::Result<usize> {
         let text = String::from_utf8_lossy(buffer).into_owned();
-        let _ = self.0.send(Beat::Text(text));
+        let _ = self.0.send(Beat::Speech(text));
         Ok(buffer.len())
     }
 
@@ -27,56 +35,174 @@ impl Write for Sink {
     }
 }
 
+impl Emit for Sink {
+    fn speech(&mut self, text: &str) {
+        let _ = self.0.send(Beat::Speech(text.to_string()));
+    }
+
+    fn event(&mut self, shown: Shown<'_>) {
+        let _ = self.0.send(Beat::Event(
+            shown.kind,
+            shown.turn.map(str::to_string),
+            shown.line.to_string(),
+        ));
+    }
+}
+
 pub(super) async fn run(request: Request<'_>) -> Result<()> {
     let identity = request.identify().await?;
+    let reload = super::reload::Plan::new(&request, &identity)?;
     let mut state = State::new(identity.soul.clone(), identity.strand.clone());
     let (omitted, spoken) = lines(identity.detail.as_ref(), usize::MAX);
     state.seed(omitted, header(&identity, spoken));
-    state.context = context(&request, &identity).await;
-    let outcome = drive(&request, &identity, &mut state).await;
+    state.context = "context: refreshing".to_string();
+    let outcome = drive(&request, &identity, &reload, &mut state).await;
     ratatui::restore();
     outcome
 }
 
-async fn drive(request: &Request<'_>, identity: &Identity, state: &mut State) -> Result<()> {
+async fn drive(
+    request: &Request<'_>,
+    identity: &Identity,
+    reload: &super::reload::Plan,
+    state: &mut State,
+) -> Result<()> {
     let mut terminal = ratatui::init();
     let mut strokes = keys::listen();
     let (sender, mut beats) = unbounded_channel();
     let target = Target::tui(request.client, request.base, &identity.strand);
     let mut active = None;
+    let mut listening = Some(Box::pin(resident(target, sender.clone())));
+    let mut refresh = Some(Box::pin(context(request, identity)));
+    let mut stopping = None;
     loop {
         terminal.draw(|frame| paint::draw(frame, state))?;
         let step = tokio::select! {
             stroke = strokes.recv() => state.struck(stroke),
             beat = beats.recv() => state.heard(beat),
             () = poll(&mut active) => Step::Idle,
+            never = poll(&mut listening) => match never {},
+            value = poll(&mut refresh) => {
+                state.context = value;
+                refresh = None;
+                Step::Stay
+            },
+            detail = poll(&mut stopping) => {
+                state.push(detail);
+                stopping = None;
+                Step::Stay
+            },
         };
         match step {
             Step::Leave => return Ok(()),
-            Step::Idle => active = None,
-            Step::Refresh => state.context = context(request, identity).await,
+            Step::Reload => {
+                let prepared = reload.prepare();
+                drop(terminal);
+                let error = attempted(reload, prepared);
+                terminal = recover(state, error, ratatui::try_init, ratatui::restore)?;
+            }
+            Step::Idle => {
+                active = None;
+                listening = Some(Box::pin(resident(target, sender.clone())));
+            }
+            Step::Refresh => {
+                state.context = "context: refreshing".to_string();
+                refresh = Some(Box::pin(context(request, identity)));
+            }
             Step::Speak(text) => {
+                listening = None;
                 active = Some(Box::pin(dispatch(target, text, sender.clone())));
+            }
+            Step::Stop(turn) => {
+                stopping = Some(Box::pin(interrupt(target, turn)));
+            }
+            Step::Copy(text) => {
+                let report = copied(&text);
+                state.push(report);
             }
             Step::Stay => {}
         }
     }
 }
 
+async fn interrupt(target: Target<'_>, turn: String) -> String {
+    let url = format!("{}/api/v1/turns/{turn}/stop", target.base);
+    match target.client.post(&url).timeout(TIMEOUT).send().await {
+        Ok(response) if response.status().is_success() => {
+            format!("interrupt accepted for turn {turn}; awaiting its durable outcome")
+        }
+        Ok(response) => format!(
+            "interrupt refused for turn {turn} with status {}; nothing was changed",
+            response.status()
+        ),
+        Err(error) => format!(
+            "interrupt for turn {turn} could not be delivered: {error}; the turn may still be \
+             running"
+        ),
+    }
+}
+
+fn attempted(reload: &super::reload::Plan, prepared: Result<Command>) -> anyhow::Error {
+    match prepared {
+        Ok(command) => reload.exec(command),
+        Err(error) => error,
+    }
+}
+
+fn carried(outcome: Result<()>) -> String {
+    match outcome {
+        Ok(()) => "the event stream ended".to_string(),
+        Err(error) => format!("{error:#}"),
+    }
+}
+
+fn copied(text: &str) -> String {
+    match copy(text) {
+        Ok(()) => format!("copied {} bytes to the terminal clipboard", text.len()),
+        Err(error) => format!("copy failed: {error}"),
+    }
+}
+
+fn copy(text: &str) -> std::io::Result<()> {
+    let mut out = std::io::stdout();
+    out.write_all(super::clip::osc52(text).as_bytes())?;
+    out.flush()
+}
+
 fn header(identity: &Identity, spoken: Vec<String>) -> Vec<String> {
     let mut out = vec![
         format!("soul: {}", identity.soul),
         format!("strand: {}", identity.strand),
-        "commands: /status /exit · PageUp and PageDown scroll".to_string(),
+        "commands: /status /reload /exit · PageUp and PageDown scroll".to_string(),
     ];
     out.extend(spoken);
     out
 }
 
-async fn poll(active: &mut Option<std::pin::Pin<Box<impl Future<Output = ()>>>>) {
+async fn poll<T>(active: &mut Option<std::pin::Pin<Box<impl Future<Output = T>>>>) -> T {
     match active.as_mut() {
         Some(running) => running.await,
         None => std::future::pending().await,
+    }
+}
+
+async fn resident(target: Target<'_>, sender: UnboundedSender<Beat>) -> std::convert::Infallible {
+    const FLOOR: Duration = Duration::from_secs(1);
+    const CEILING: Duration = Duration::from_secs(30);
+    let mut backoff = FLOOR;
+    loop {
+        let mut sink = Sink(sender.clone());
+        let detail = match crate::watch::subscribe(target).await {
+            Ok(watch) => {
+                let _ = sender.send(Beat::Live);
+                backoff = FLOOR;
+                carried(crate::watch::observe(watch, &mut sink).await)
+            }
+            Err(error) => format!("{error:#}"),
+        };
+        let _ = sender.send(Beat::Lost(detail));
+        tokio::time::sleep(backoff).await;
+        backoff = (backoff * 2).min(CEILING);
     }
 }
 
@@ -94,7 +220,14 @@ async fn dispatch(target: Target<'_>, text: String, sender: UnboundedSender<Beat
     .await;
     let beat = match outcome {
         Ok(Some(done)) => Beat::Settled(done.0),
-        Ok(None) => Beat::Broken("send returned without a receipt proof".to_string()),
+        Ok(None) => Beat::Unsettled("send returned without a receipt proof".to_string()),
+        Err(error)
+            if error
+                .downcast_ref::<crate::client::send::Unsettled>()
+                .is_some() =>
+        {
+            Beat::Unsettled(format!("{error:#}"))
+        }
         Err(error) => Beat::Broken(format!("{error:#}")),
     };
     let _ = sender.send(beat);
@@ -102,17 +235,5 @@ async fn dispatch(target: Target<'_>, text: String, sender: UnboundedSender<Beat
 
 async fn context(request: &Request<'_>, identity: &Identity) -> String {
     let path = format!("/api/v1/strands/{}/budget", identity.strand);
-    let Ok(value) = request.get(&path).await else {
-        return "context: unread".to_string();
-    };
-    let Ok(total) = number(&value, "/estimate/total") else {
-        return "context: unread".to_string();
-    };
-    match value
-        .pointer("/budget/bytes")
-        .and_then(serde_json::Value::as_i64)
-    {
-        Some(cap) => format!("context: {total}/{cap} bytes"),
-        None => format!("context: {total} bytes (unbounded)"),
-    }
+    read(request.get(&path), TIMEOUT).await
 }

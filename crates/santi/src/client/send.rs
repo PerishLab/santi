@@ -3,13 +3,18 @@ use std::io::Write;
 
 use super::TIMEOUT;
 use crate::cli::WatchFormat;
-use crate::watch::Presentation;
+use crate::watch::{Bytes, Emit, Presentation};
 
 pub struct Request<'a> {
     pub target: Target<'a>,
     pub body: serde_json::Value,
     pub watch: bool,
 }
+
+mod fault;
+mod outcome;
+pub(crate) use fault::{accepted_warning, accepted_warning_error, uncertain, unknown};
+pub(crate) use outcome::{Unsettled, unsettled};
 
 struct Accepted(String);
 pub(crate) struct Completion(pub(crate) String);
@@ -58,12 +63,12 @@ pub async fn send(request: Request<'_>) -> Result<()> {
 }
 
 pub async fn emit(request: Request<'_>, output: &mut impl Write) -> Result<()> {
-    emission(request, output).await.map(|_| ())
+    emission(request, &mut Bytes(output)).await.map(|_| ())
 }
 
 pub(crate) async fn emission(
     request: Request<'_>,
-    output: &mut impl Write,
+    output: &mut impl Emit,
 ) -> Result<Option<Completion>> {
     let watch = if request.watch {
         Some(crate::watch::subscribe(request.target).await?)
@@ -86,7 +91,7 @@ pub(crate) async fn emission(
         Ok(response) => response,
         Err(error) if request.watch => {
             return Err(unknown(
-                request.target,
+                request.target.strand,
                 format!("POST did not return a response: {error}"),
             ));
         }
@@ -108,7 +113,7 @@ pub(crate) async fn emission(
     let text = text.map_err(|error| {
         if request.watch {
             unknown(
-                request.target,
+                request.target.strand,
                 format!("POST response body after status {status} was unreadable: {error}"),
             )
         } else {
@@ -124,7 +129,7 @@ pub(crate) async fn emission(
             } else {
                 format!("POST returned status {status} with response body `{body}`")
             };
-            return Err(unknown(request.target, detail));
+            return Err(unknown(request.target.strand, detail));
         }
         print_response(output, accepted.as_ref(), &text)?;
         anyhow::bail!("request failed with status {status}");
@@ -148,25 +153,25 @@ pub(crate) async fn emission(
 fn acceptance(value: Option<&serde_json::Value>, target: Target<'_>) -> Result<Accepted> {
     let Some(value) = value else {
         return Err(unknown(
-            target,
+            target.strand,
             "successful response was not valid JSON".to_string(),
         ));
     };
     let receipt = exact(value, "/receipt/inbox").ok_or_else(|| {
         unknown(
-            target,
+            target.strand,
             "successful response did not contain a valid exact receipt id".to_string(),
         )
     })?;
     let strand = exact(value, "/receipt/strand").ok_or_else(|| {
         unknown(
-            target,
+            target.strand,
             "successful response did not contain a valid receipt strand".to_string(),
         )
     })?;
     if strand != target.strand {
         return Err(unknown(
-            target,
+            target.strand,
             format!("successful response receipt belongs to strand {strand}"),
         ));
     }
@@ -175,14 +180,14 @@ fn acceptance(value: Option<&serde_json::Value>, target: Target<'_>) -> Result<A
         Some(_) => {
             exact(value, "/turn/id").ok_or_else(|| {
                 unknown(
-                    target,
+                    target.strand,
                     "successful response did not contain a valid exact turn id".to_string(),
                 )
             })?;
         }
         None => {
             return Err(unknown(
-                target,
+                target.strand,
                 "successful response did not classify its initial turn".to_string(),
             ));
         }
@@ -198,14 +203,6 @@ fn exact(value: &serde_json::Value, path: &str) -> Option<String> {
         .map(str::to_string)
 }
 
-fn unknown(target: Target<'_>, detail: String) -> anyhow::Error {
-    anyhow::anyhow!(
-        "strand send outcome=state_unknown: {detail}; the message may have been accepted, but its exact receipt was not proven; do not resend it; inspect with `santi strand runtime {}` and recover the accepted message's receipt/status before resuming or explicitly redriving with `santi strand drive {}`",
-        target.strand,
-        target.strand
-    )
-}
-
 pub(crate) async fn prove(target: Target<'_>, receipt: &str) -> Result<Proof> {
     let url = format!("{}/api/v1/receipts/{receipt}", target.base);
     let response = target
@@ -214,24 +211,27 @@ pub(crate) async fn prove(target: Target<'_>, receipt: &str) -> Result<Proof> {
         .timeout(TIMEOUT)
         .send()
         .await
-        .map_err(|error| uncertain(target, receipt, format!("GET failed: {error}")))?;
+        .map_err(|error| uncertain(target.strand, receipt, format!("GET failed: {error}")))?;
     let status = response.status();
-    let body = response
-        .text()
-        .await
-        .map_err(|error| uncertain(target, receipt, format!("response was unreadable: {error}")))?;
+    let body = response.text().await.map_err(|error| {
+        uncertain(
+            target.strand,
+            receipt,
+            format!("response was unreadable: {error}"),
+        )
+    })?;
     if !status.is_success() {
         return Err(uncertain(
-            target,
+            target.strand,
             receipt,
             format!("GET returned status {status}"),
         ));
     }
     let value: serde_json::Value = serde_json::from_str(&body)
-        .map_err(|error| uncertain(target, receipt, format!("invalid JSON: {error}")))?;
+        .map_err(|error| uncertain(target.strand, receipt, format!("invalid JSON: {error}")))?;
     if field(&value, "inbox") != Some(receipt) || field(&value, "strand") != Some(target.strand) {
         return Err(uncertain(
-            target,
+            target.strand,
             receipt,
             "response identity did not match the accepted message".to_string(),
         ));
@@ -243,52 +243,19 @@ pub(crate) async fn prove(target: Target<'_>, receipt: &str) -> Result<Proof> {
             Ok(Proof::Pending(state.to_string()))
         }
         _ => Err(uncertain(
-            target,
+            target.strand,
             receipt,
             "response did not contain a recognized durable state".to_string(),
         )),
     }
 }
 
-pub(crate) fn uncertain(target: Target<'_>, receipt: &str, detail: String) -> anyhow::Error {
-    anyhow::anyhow!(
-        "watch outcome=state_unknown: {detail} for accepted receipt {receipt}; do not resend the accepted message; inspect with `santi receipt {receipt}` and `santi strand runtime {}`; resume the blocking condition or explicitly redrive with `santi strand drive {}`",
-        target.strand,
-        target.strand
-    )
-}
-
 fn field<'a>(value: &'a serde_json::Value, name: &str) -> Option<&'a str> {
     value.get(name).and_then(serde_json::Value::as_str)
 }
 
-pub(super) fn accepted_warning(value: Option<&serde_json::Value>) -> Option<&serde_json::Value> {
-    value?
-        .pointer("/receipt/warning")
-        .filter(|warning| !warning.is_null())
-}
-
-pub(super) fn accepted_warning_error(warning: &serde_json::Value, receipt: &str) -> anyhow::Error {
-    if let Some(command) = warning
-        .pointer("/context/recovery/command")
-        .and_then(serde_json::Value::as_str)
-    {
-        anyhow::anyhow!(
-            "message was accepted as exact receipt {receipt} but not driven; do not resend it; run `{command}`"
-        )
-    } else {
-        let code = warning
-            .get("code")
-            .and_then(serde_json::Value::as_str)
-            .unwrap_or("unknown warning");
-        anyhow::anyhow!(
-            "message was accepted as exact receipt {receipt} but not driven; do not resend it; inspect and resolve `{code}`"
-        )
-    }
-}
-
 fn print_response(
-    output: &mut impl Write,
+    output: &mut impl Emit,
     accepted: Option<&serde_json::Value>,
     text: &str,
 ) -> Result<()> {
