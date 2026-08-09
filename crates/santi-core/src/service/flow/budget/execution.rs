@@ -94,16 +94,15 @@ impl Service {
     }
 
     pub(in crate::service) async fn usage(&self, strand: &str) -> Result<budget::Usage, String> {
-        let calls = self.store.calls(strand).await?;
-        let results = self.store.results(strand).await?;
-        let output = results.into_iter().fold(0usize, |held, result| {
-            held.saturating_add(match result.output {
-                Some(output) => captured(&output),
-                None => result.error.as_deref().map_or(0, str::len),
+        let tally = self.store.tally(strand).await?;
+        let output = tally.spent.into_iter().fold(0usize, |held, spent| {
+            held.saturating_add(match spent {
+                santi_estate::Spent::Output(output) => captured(&output),
+                santi_estate::Spent::Error(error) => error.len(),
             })
         });
         Ok(budget::Usage {
-            calls: calls.len(),
+            calls: tally.calls,
             output,
         })
     }

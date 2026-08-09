@@ -24,7 +24,7 @@ pub use job::{
 pub use support::{Bootstrap, EnvironDraft, Status, TraceDraft};
 use support::{read, write};
 pub use timeline::{CompactDraft, ForkDraft, MessageDraft, ThinkingDraft};
-pub use tool::{CallDraft, ReplyDraft};
+pub use tool::{CallDraft, ReplyDraft, Spent, Tally};
 pub use turn::{
     ClassifiedFailure, ClassifiedFailureDraft, Completion, CompletionDraft, Interruption,
     InterruptionDraft, OutboxDraft, TurnDraft,

@@ -19,6 +19,12 @@ pub struct ReplyDraft<'a> {
     pub created: &'a str,
 }
 
+mod tally;
+
+mod decode;
+
+pub use tally::{Spent, Tally};
+
 impl Store {
     pub async fn create_call(&self, draft: CallDraft<'_>) -> Result<tool::Call, String> {
         let tag = draft.tag.to_string();
@@ -160,42 +166,6 @@ impl Store {
                 .then_with(|| left.id.cmp(&right.id))
         });
         Ok(replies)
-    }
-
-    async fn decode_call(&self, row: &keel::Row) -> Result<tool::Call, String> {
-        Ok(tool::Call {
-            id: read::text(row, "tag")?.to_string(),
-            turn: read::related(&self.core, "Turn", read::int(row, "turn")?).await?,
-            tool: read::text(row, "tool")?.to_string(),
-            arguments: serde_json::from_str(read::text(row, "arguments")?)
-                .map_err(|error| error.to_string())?,
-            created: read::text(row, "created")?.to_string(),
-        })
-    }
-
-    async fn decode_reply(&self, row: &keel::Row) -> Result<tool::Reply, String> {
-        let key = row.key().to_string();
-        let output = read::one(&self.core, "ToolOutput", "result", &key).await?;
-        let failure = read::one(&self.core, "ToolFailure", "result", &key).await?;
-        let (output, error) = match (output, failure) {
-            (Some(output), None) => (
-                Some(
-                    serde_json::from_str(read::text(&output, "output")?)
-                        .map_err(|error| error.to_string())?,
-                ),
-                None,
-            ),
-            (None, Some(failure)) => (None, Some(read::text(&failure, "error")?.to_string())),
-            (None, None) => return Err("tool result has no outcome".to_string()),
-            (Some(_), Some(_)) => return Err("tool result has conflicting outcomes".to_string()),
-        };
-        Ok(tool::Reply {
-            id: read::text(row, "tag")?.to_string(),
-            call: read::related(&self.core, "ToolCall", read::int(row, "call")?).await?,
-            output,
-            error,
-            created: read::text(row, "created")?.to_string(),
-        })
     }
 }
 
