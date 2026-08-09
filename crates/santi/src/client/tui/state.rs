@@ -17,6 +17,7 @@ mod view;
 pub(super) mod recover;
 
 use super::Kind;
+use super::parse::{Spoken, now};
 
 const DRAFT: usize = 1024 * 1024;
 
@@ -29,10 +30,14 @@ pub(super) enum Step {
     Speak(String),
     Copy(String),
     Stop(String),
+    Name(String, String),
+    Switch(String),
+    Listing(String),
     Idle,
 }
 
 pub(super) enum Beat {
+    Open(String),
     Speech(String),
     Event(Kind, Option<String>, String),
     Lost(String),
@@ -43,50 +48,16 @@ pub(super) enum Beat {
 }
 
 pub(super) enum Entry {
-    Said(Vec<String>),
-    Activity { items: Vec<(Kind, String)> },
+    Said(Spoken),
+    Activity {
+        turn: Option<String>,
+        items: Vec<(Kind, String)>,
+    },
+    Elided(i64),
     Notice(String),
 }
 
-impl Entry {
-    pub(super) fn summary(items: &[(Kind, String)]) -> String {
-        let count = |wanted: Kind| items.iter().filter(|(kind, _)| *kind == wanted).count();
-        let mut parts = Vec::new();
-        for (kind, label) in [
-            (Kind::Thinking, "thinking"),
-            (Kind::Tool, "tool"),
-            (Kind::Turn, "turn"),
-            (Kind::Other, "event"),
-        ] {
-            match count(kind) {
-                0 => {}
-                n => parts.push(format!("{label} {n}")),
-            }
-        }
-        if parts.is_empty() {
-            parts.push(format!("event {}", items.len()));
-        }
-        format!("▸ {}", parts.join(" · "))
-    }
-}
-
-#[derive(Clone, Copy)]
-pub(super) struct Span {
-    anchor: (usize, usize),
-    head: (usize, usize),
-}
-
-impl Span {
-    fn ordered(self) -> ((usize, usize), (usize, usize)) {
-        if self.anchor <= self.head {
-            (self.anchor, self.head)
-        } else {
-            (self.head, self.anchor)
-        }
-    }
-}
-
-fn offset(line: &str, column: usize) -> usize {
+pub(super) fn column(line: &str, column: usize) -> usize {
     let mut used = 0;
     for (offset, grapheme) in line.grapheme_indices(true) {
         if used >= column {
@@ -113,16 +84,24 @@ pub(super) struct State {
     total: usize,
     body: Vec<String>,
     origin: u16,
-    selection: Option<Span>,
+    selection: Option<view::Span>,
     pub(super) turn: Option<String>,
+    pub(super) since: Option<std::time::Instant>,
+    pub(super) beats: usize,
     pub(super) busy: bool,
     pub(super) unsettled: bool,
     pub(super) deaf: bool,
     pub(super) omitted: usize,
+    pub(super) revision: usize,
+    pub(super) names: std::collections::HashMap<String, String>,
 }
 
 impl State {
-    pub(super) fn new(soul: String, strand: String) -> Self {
+    pub(super) fn new(
+        soul: String,
+        strand: String,
+        names: std::collections::HashMap<String, String>,
+    ) -> Self {
         Self {
             soul,
             strand,
@@ -141,31 +120,42 @@ impl State {
             origin: 0,
             selection: None,
             turn: None,
+            since: None,
+            beats: 0,
             busy: false,
             unsettled: false,
             deaf: false,
             omitted: 0,
+            revision: 0,
+            names,
         }
     }
 
-    pub(super) fn seed(&mut self, omitted: usize, spoken: Vec<String>) {
+    pub(super) fn seed(&mut self, omitted: usize, header: Vec<String>, spoken: Vec<Spoken>) {
         self.omitted = omitted;
-        self.entries = if spoken.is_empty() {
-            Vec::new()
-        } else {
-            vec![Entry::Said(spoken)]
-        };
+        self.entries = header.into_iter().map(Entry::Notice).collect();
+        let mut last = 0;
+        for held in spoken {
+            let gap = held.seq.saturating_sub(last).saturating_sub(1);
+            if last > 0 && gap > 0 {
+                self.entries.push(Entry::Elided(gap));
+            }
+            last = held.seq;
+            self.entries.push(Entry::Said(held));
+        }
         self.follow = true;
+        self.changed();
     }
 
     pub(super) fn transcript(&self) -> String {
         let mut out = Vec::new();
         for entry in &self.entries {
             match entry {
-                Entry::Said(lines) => out.extend(lines.iter().cloned()),
-                Entry::Activity { items } => {
+                Entry::Said(held) => out.extend(held.lines.iter().cloned()),
+                Entry::Activity { items, .. } => {
                     out.extend(items.iter().map(|(_, line)| line.clone()));
                 }
+                Entry::Elided(gap) => out.push(format!("{gap} entries not retained")),
                 Entry::Notice(line) => out.push(line.clone()),
             }
         }
@@ -174,12 +164,21 @@ impl State {
 
     pub(super) fn absorb(&mut self, beat: Beat) {
         match beat {
+            Beat::Open(who) => {
+                self.entries.push(Entry::Said(Spoken {
+                    seq: 0,
+                    stamp: now(),
+                    who,
+                    lines: vec![String::new()],
+                }));
+                self.changed();
+            }
             Beat::Speech(text) => self.append(&text),
             Beat::Event(kind, turn, line) => {
-                if let Some(turn) = turn {
-                    self.turn = Some(turn);
+                if let Some(held) = turn.clone() {
+                    self.turn = Some(held);
                 }
-                self.activity(kind, line);
+                self.activity(kind, turn, line);
             }
             Beat::Lost(detail) => {
                 self.deaf = true;
@@ -198,6 +197,7 @@ impl State {
             Beat::Settled(receipt) => {
                 self.busy = false;
                 self.unsettled = false;
+                self.since = None;
                 self.push(format!(
                     "send completed: receipt {receipt} is durably completed; do not resend"
                 ));
@@ -205,6 +205,7 @@ impl State {
             Beat::Broken(detail) => {
                 self.busy = false;
                 self.unsettled = false;
+                self.since = None;
                 self.push(detail);
             }
             Beat::Unsettled(detail) => {
@@ -216,6 +217,7 @@ impl State {
     }
 
     fn changed(&mut self) {
+        self.revision = self.revision.wrapping_add(1);
         if !self.follow {
             self.unseen = true;
         }
@@ -223,32 +225,44 @@ impl State {
 
     fn append(&mut self, text: &str) {
         if !matches!(self.entries.last(), Some(Entry::Said(_))) {
-            self.entries.push(Entry::Said(vec![String::new()]));
+            self.entries.push(Entry::Said(Spoken {
+                seq: 0,
+                stamp: now(),
+                who: "soul".to_string(),
+                lines: vec![String::new()],
+            }));
         }
-        let Some(Entry::Said(lines)) = self.entries.last_mut() else {
+        let Some(Entry::Said(held)) = self.entries.last_mut() else {
             return;
         };
         for (index, part) in text.split('\n').enumerate() {
             if index > 0 {
-                lines.push(String::new());
+                held.lines.push(String::new());
             }
-            match lines.last_mut() {
+            match held.lines.last_mut() {
                 Some(line) => line.push_str(part),
-                None => lines.push(part.to_string()),
+                None => held.lines.push(part.to_string()),
             }
         }
         self.changed();
     }
 
-    fn activity(&mut self, kind: Kind, line: String) {
+    fn activity(&mut self, kind: Kind, turn: Option<String>, line: String) {
         if kind == Kind::Fault {
             self.push(line);
             return;
         }
-        if !matches!(self.entries.last(), Some(Entry::Activity { .. })) {
-            self.entries.push(Entry::Activity { items: Vec::new() });
+        let same = match self.entries.last() {
+            Some(Entry::Activity { turn: held, .. }) => *held == turn || turn.is_none(),
+            _ => false,
+        };
+        if !same {
+            self.entries.push(Entry::Activity {
+                turn,
+                items: Vec::new(),
+            });
         }
-        let Some(Entry::Activity { items }) = self.entries.last_mut() else {
+        let Some(Entry::Activity { items, .. }) = self.entries.last_mut() else {
             return;
         };
         items.push((kind, line));

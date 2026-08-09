@@ -7,24 +7,36 @@ fn collapse() {
     state.absorb(Beat::Speech("soul> hello".into()));
     state.absorb(Beat::Event(
         Kind::Thinking,
-        None,
+        Some("turn_8f8b874793".into()),
         "thinking started t1".into(),
     ));
-    state.absorb(Beat::Event(Kind::Tool, None, "tool call read_file".into()));
-    state.absorb(Beat::Event(Kind::Tool, None, "tool result ok".into()));
+    state.absorb(Beat::Event(
+        Kind::Tool,
+        Some("turn_8f8b874793".into()),
+        "tool call read_file".into(),
+    ));
+    state.absorb(Beat::Event(
+        Kind::Tool,
+        Some("turn_8f8b874793".into()),
+        "tool result ok".into(),
+    ));
 
-    let Some(Entry::Activity { items }) = state.entries.last() else {
+    let Some(Entry::Activity { items, .. }) = state.entries.last() else {
         panic!("consecutive protocol events belong to one group");
     };
     assert_eq!(items.len(), 3, "the events are kept, only quieted");
     assert_eq!(
-        Entry::summary(items),
-        "▸ thinking 1 · tool 2",
+        Entry::summary(Some("turn_8f8b874793"), items),
+        "▸ turn 8f8b8747  thinking 1  tool 2",
         "the collapsed line says what happened without replaying it"
     );
     assert!(!state.verbose, "the screen is a conversation first");
 
-    state.absorb(Beat::Event(Kind::Fault, None, "turn failed: boom".into()));
+    state.absorb(Beat::Event(
+        Kind::Fault,
+        Some("turn_8f8b874793".into()),
+        "turn failed: boom".into(),
+    ));
     assert!(
         matches!(state.entries.last(), Some(Entry::Notice(line)) if line.contains("boom")),
         "a fault must never be collapsible out of sight"
@@ -41,7 +53,7 @@ fn verbosity() {
     let mut state = fresh();
     state.absorb(Beat::Event(
         Kind::Thinking,
-        None,
+        Some("turn_8f8b874793".into()),
         "thinking started t1".into(),
     ));
     let before = state.transcript();
@@ -137,4 +149,33 @@ fn escape() {
         Step::Stop("turn_8f8b87".to_string()),
         "a second escape, with nothing selected, is the interrupt"
     );
+}
+
+#[test]
+fn regrouped() {
+    let mut state = fresh();
+    state.absorb(Beat::Event(
+        Kind::Tool,
+        Some("turn_aaaa1111".into()),
+        "tool call one".into(),
+    ));
+    state.absorb(Beat::Event(Kind::Tool, None, "tool result one".into()));
+    state.absorb(Beat::Event(
+        Kind::Tool,
+        Some("turn_bbbb2222".into()),
+        "tool call two".into(),
+    ));
+
+    let groups = state
+        .entries
+        .iter()
+        .filter(|entry| matches!(entry, Entry::Activity { .. }))
+        .count();
+    assert_eq!(groups, 2, "a new turn opens a new group");
+
+    let Some(Entry::Activity { turn, items }) = state.entries.last() else {
+        panic!("the last group belongs to the second turn");
+    };
+    assert_eq!(turn.as_deref(), Some("turn_bbbb2222"));
+    assert_eq!(items.len(), 1);
 }

@@ -22,8 +22,8 @@ struct Wrap<'a> {
     width: usize,
 }
 
-const PROMPT: &str = "you> ";
-const CONTINUATION: &str = "     ";
+const PROMPT: &str = "❯ ";
+const CONTINUATION: &str = "  ";
 
 pub(super) fn editor(source: &str, cursor: usize, width: usize, height: usize) -> Editor {
     let width = width.max(1);

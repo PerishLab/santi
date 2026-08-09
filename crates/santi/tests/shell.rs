@@ -1,3 +1,5 @@
+#![allow(clippy::duplicate_mod)]
+
 mod config {
     pub use santi::config::{Resume, executable, resume};
 

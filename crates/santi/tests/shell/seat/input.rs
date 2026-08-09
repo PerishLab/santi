@@ -51,3 +51,22 @@ fn vertical() {
     state.down();
     assert_eq!(&state.typed[state.cursor..], "\nlast");
 }
+
+#[test]
+fn kills() {
+    let mut state = fresh();
+    state.insert("first line\nsecond half");
+    state.ahead();
+    assert_eq!(state.typed, "first line\n");
+
+    state.insert("alpha beta");
+    state.shed();
+    assert_eq!(
+        state.typed, "first line\nalpha ",
+        "a word dies, not the line"
+    );
+
+    state.home();
+    state.behind();
+    assert_eq!(state.typed, "first line\n", "the tail of the line goes");
+}

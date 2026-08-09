@@ -1,4 +1,4 @@
-#[path = "../../src/client/tui/clip.rs"]
+#[path = "../../src/client/tui/paint/clip.rs"]
 #[allow(dead_code)]
 mod inner;
 

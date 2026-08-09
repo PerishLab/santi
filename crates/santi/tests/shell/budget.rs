@@ -3,7 +3,7 @@
 mod parse;
 
 #[allow(dead_code)]
-#[path = "../../src/client/tui/budget.rs"]
+#[path = "../../src/client/tui/parse.rs"]
 mod inner;
 
 use inner::read;
@@ -18,5 +18,5 @@ async fn unavailable() {
     )
     .await;
 
-    assert_eq!(value, "context: unavailable");
+    assert_eq!(value, "ctx --");
 }

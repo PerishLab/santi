@@ -6,14 +6,17 @@ use std::time::Duration;
 use anyhow::Result;
 use tokio::sync::mpsc::{UnboundedSender, unbounded_channel};
 
-use super::budget::read;
+#[path = "screen/naming.rs"]
+mod naming;
+
 use super::keys;
-use super::parse::lines;
+use super::parse::{lines, read};
 use super::state::recover::recover;
 use super::state::{Beat, State, Step};
 use super::{Identity, Request, paint};
 use crate::client::send::{Request as Send, Target, emission};
 use crate::watch::{Emit, Shown};
+use naming::{listing, renamed};
 
 const TIMEOUT: Duration = Duration::from_secs(3);
 
@@ -36,6 +39,10 @@ impl Write for Sink {
 }
 
 impl Emit for Sink {
+    fn open(&mut self, who: &str) {
+        let _ = self.0.send(Beat::Open(who.to_string()));
+    }
+
     fn speech(&mut self, text: &str) {
         let _ = self.0.send(Beat::Speech(text.to_string()));
     }
@@ -50,15 +57,25 @@ impl Emit for Sink {
 }
 
 pub(super) async fn run(request: Request<'_>) -> Result<()> {
-    let identity = request.identify().await?;
-    let reload = super::reload::Plan::new(&request, &identity)?;
-    let mut state = State::new(identity.soul.clone(), identity.strand.clone());
-    let (omitted, spoken) = lines(identity.detail.as_ref(), usize::MAX);
-    state.seed(omitted, header(&identity, spoken));
-    state.context = "context: refreshing".to_string();
-    let outcome = drive(&request, &identity, &reload, &mut state).await;
-    ratatui::restore();
-    outcome
+    let mut wanted: Option<String> = None;
+    loop {
+        let identity = match wanted.take() {
+            Some(strand) => request.resume(&strand).await?,
+            None => request.identify().await?,
+        };
+        let reload = super::reload::Plan::new(&request, &identity)?;
+        let names = crate::config::names().alias;
+        let mut state = State::new(identity.soul.clone(), identity.strand.clone(), names);
+        let (omitted, spoken) = lines(identity.detail.as_ref(), usize::MAX);
+        state.seed(omitted, header(&identity), spoken);
+        state.context = "context: refreshing".to_string();
+        let outcome = drive(&request, &identity, &reload, &mut state).await;
+        ratatui::restore();
+        match outcome? {
+            Some(next) => wanted = Some(next),
+            None => return Ok(()),
+        }
+    }
 }
 
 async fn drive(
@@ -66,7 +83,7 @@ async fn drive(
     identity: &Identity,
     reload: &super::reload::Plan,
     state: &mut State,
-) -> Result<()> {
+) -> Result<Option<String>> {
     let mut terminal = ratatui::init();
     let mut strokes = keys::listen();
     let (sender, mut beats) = unbounded_channel();
@@ -75,8 +92,10 @@ async fn drive(
     let mut listening = Some(Box::pin(resident(target, sender.clone())));
     let mut refresh = Some(Box::pin(context(request, identity)));
     let mut stopping = None;
+    let mut pulse = tokio::time::interval(Duration::from_millis(120));
+    let mut cache = paint::Cache::new();
     loop {
-        terminal.draw(|frame| paint::draw(frame, state))?;
+        terminal.draw(|frame| paint::draw(frame, state, &mut cache))?;
         let step = tokio::select! {
             stroke = strokes.recv() => state.struck(stroke),
             beat = beats.recv() => state.heard(beat),
@@ -92,9 +111,13 @@ async fn drive(
                 stopping = None;
                 Step::Stay
             },
+            _ = pulse.tick(), if state.since.is_some() => {
+                state.tick();
+                Step::Stay
+            },
         };
         match step {
-            Step::Leave => return Ok(()),
+            Step::Leave => return Ok(None),
             Step::Reload => {
                 let prepared = reload.prepare();
                 drop(terminal);
@@ -112,6 +135,15 @@ async fn drive(
             Step::Speak(text) => {
                 listening = None;
                 active = Some(Box::pin(dispatch(target, text, sender.clone())));
+            }
+            Step::Switch(next) => return Ok(Some(next)),
+            Step::Listing(kind) => {
+                let report = listing(request, &kind).await;
+                state.push(report);
+            }
+            Step::Name(id, name) => {
+                let report = renamed(&id, &name);
+                state.push(report);
             }
             Step::Stop(turn) => {
                 stopping = Some(Box::pin(interrupt(target, turn)));
@@ -165,18 +197,15 @@ fn copied(text: &str) -> String {
 
 fn copy(text: &str) -> std::io::Result<()> {
     let mut out = std::io::stdout();
-    out.write_all(super::clip::osc52(text).as_bytes())?;
+    out.write_all(super::paint::clip::osc52(text).as_bytes())?;
     out.flush()
 }
 
-fn header(identity: &Identity, spoken: Vec<String>) -> Vec<String> {
-    let mut out = vec![
-        format!("soul: {}", identity.soul),
-        format!("strand: {}", identity.strand),
-        "commands: /status /reload /exit · PageUp and PageDown scroll".to_string(),
-    ];
-    out.extend(spoken);
-    out
+fn header(identity: &Identity) -> Vec<String> {
+    vec![
+        format!("soul {} · strand {}", identity.soul, identity.strand),
+        "/status  /reload  /exit".to_string(),
+    ]
 }
 
 async fn poll<T>(active: &mut Option<std::pin::Pin<Box<impl Future<Output = T>>>>) -> T {

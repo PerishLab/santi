@@ -226,8 +226,6 @@ impl Request<'_> {
     }
 }
 
-mod budget;
-mod clip;
 mod keys;
 mod layout;
 mod paint;
@@ -243,8 +241,10 @@ fn history(output: &mut impl Write, detail: Option<&serde_json::Value>) -> Resul
     if omitted > 0 {
         writeln!(output, "history: {omitted} earlier messages omitted")?;
     }
-    for line in spoken {
-        writeln!(output, "{line}")?;
+    for held in spoken {
+        for line in held.lines {
+            writeln!(output, "{}> {line}", held.who)?;
+        }
     }
     Ok(())
 }

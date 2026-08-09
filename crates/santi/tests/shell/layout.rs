@@ -20,9 +20,9 @@ fn graphemes() {
 #[test]
 fn cursor() {
     let layout = editor("one\ntwo\nthree", 13, 12, 2);
-    assert_eq!(layout.lines, vec!["     two", "     three"]);
+    assert_eq!(layout.lines, vec!["  two", "  three"]);
     assert_eq!(layout.row, 1);
-    assert_eq!(layout.column, 10);
+    assert_eq!(layout.column, 7);
     assert_eq!(layout.top, 1);
     assert_eq!(layout.total, 3);
 }

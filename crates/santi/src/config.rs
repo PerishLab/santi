@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::path::PathBuf;
 
 use anyhow::{Context, Result};
@@ -11,6 +12,55 @@ pub struct Client {
     pub auth_client_id: Option<String>,
     pub auth_username: Option<String>,
     pub auth_password: Option<String>,
+}
+
+#[derive(Default, Deserialize)]
+pub struct Names {
+    #[serde(default)]
+    pub alias: HashMap<String, String>,
+}
+
+pub fn names() -> Names {
+    let Some(home) = env("HOME") else {
+        return Names::default();
+    };
+    let _ = home;
+    let Ok(path) = alias() else {
+        return Names::default();
+    };
+    if !path.is_file() {
+        return Names::default();
+    }
+    plumb::config::load(&path).unwrap_or_default()
+}
+
+pub fn rename(id: &str, name: &str) -> Result<PathBuf> {
+    let path = alias()?;
+    let mut names = names();
+    if name.is_empty() {
+        names.alias.remove(id);
+    } else {
+        names.alias.insert(id.to_string(), name.to_string());
+    }
+    let mut body = String::from("[alias]\n");
+    let mut sorted = names.alias.into_iter().collect::<Vec<_>>();
+    sorted.sort();
+    for (held, called) in sorted {
+        body.push_str(&format!("{held:?} = {called:?}\n"));
+    }
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent).with_context(|| format!("create {}", parent.display()))?;
+    }
+    std::fs::write(&path, body).with_context(|| format!("write {}", path.display()))?;
+    Ok(path)
+}
+
+fn alias() -> Result<PathBuf> {
+    let home = env("HOME").context("HOME is unset")?;
+    Ok(env("XDG_CONFIG_HOME")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from(&home).join(".config"))
+        .join("santi/alias.toml"))
 }
 
 pub fn load() {

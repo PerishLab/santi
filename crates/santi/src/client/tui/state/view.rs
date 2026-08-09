@@ -1,6 +1,51 @@
 use unicode_width::UnicodeWidthStr;
 
-use super::{Span, State, offset};
+use super::{Entry, Kind, State, Step, column};
+
+fn brief(turn: &str) -> String {
+    let rest = turn.strip_prefix("turn_").unwrap_or(turn);
+    let held = rest.get(..8).unwrap_or(rest);
+    format!("turn {held}  ")
+}
+
+impl Entry {
+    pub(crate) fn summary(turn: Option<&str>, items: &[(Kind, String)]) -> String {
+        let count = |wanted: Kind| items.iter().filter(|(kind, _)| *kind == wanted).count();
+        let mut parts = Vec::new();
+        for (kind, label) in [
+            (Kind::Thinking, "thinking"),
+            (Kind::Tool, "tool"),
+            (Kind::Turn, "turn"),
+            (Kind::Other, "event"),
+        ] {
+            match count(kind) {
+                0 => {}
+                n => parts.push(format!("{label} {n}")),
+            }
+        }
+        if parts.is_empty() {
+            parts.push(format!("event {}", items.len()));
+        }
+        let named = turn.map(brief).unwrap_or_default();
+        format!("▸ {named}{}", parts.join("  "))
+    }
+}
+
+#[derive(Clone, Copy)]
+pub(crate) struct Span {
+    anchor: (usize, usize),
+    head: (usize, usize),
+}
+
+impl Span {
+    fn ordered(self) -> ((usize, usize), (usize, usize)) {
+        if self.anchor <= self.head {
+            (self.anchor, self.head)
+        } else {
+            (self.head, self.anchor)
+        }
+    }
+}
 
 impl State {
     pub(crate) fn rendered(&mut self, body: Vec<String>, origin: u16, visible_lines: usize) {
@@ -53,12 +98,12 @@ impl State {
         for row in start.0..=end.0 {
             let line = self.body.get(row)?;
             let from = if row == start.0 {
-                offset(line, start.1)
+                column(line, start.1)
             } else {
                 0
             };
             let to = if row == end.0 {
-                offset(line, end.1)
+                column(line, end.1)
             } else {
                 line.len()
             };
@@ -97,6 +142,57 @@ impl State {
         self.unseen = false;
     }
 
+    pub(crate) fn reframe(&mut self, origin: u16, visible: usize) {
+        self.origin = origin;
+        let total = self.body.len();
+        self.viewport(total, visible);
+    }
+
+    pub(crate) fn travel(&mut self, want: String) -> Step {
+        if want.is_empty() {
+            return Step::Listing("strands".to_string());
+        }
+        let found = self
+            .names
+            .iter()
+            .find(|(_, called)| called.as_str() == want)
+            .map(|(id, _)| id.clone());
+        let next = found.unwrap_or(want);
+        if next == self.strand {
+            self.push(format!("already on {}", self.calling(&next)));
+            return Step::Stay;
+        }
+        Step::Switch(next)
+    }
+
+    pub(crate) fn rename(&mut self, name: String) -> Step {
+        let strand = self.strand.clone();
+        if name.is_empty() {
+            self.names.remove(&strand);
+        } else {
+            self.names.insert(strand.clone(), name.clone());
+        }
+        Step::Name(strand, name)
+    }
+
+    pub(crate) fn calling(&self, id: &str) -> String {
+        match self.names.get(id) {
+            Some(name) => name.clone(),
+            None => short(id),
+        }
+    }
+
+    pub(crate) fn tick(&mut self) {
+        self.beats = self.beats.wrapping_add(1);
+    }
+
+    pub(crate) fn alive(&self) -> Option<String> {
+        let since = self.since?;
+        let spin = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+        let mark = spin[self.beats % spin.len()];
+        Some(format!("{mark} {}s", since.elapsed().as_secs()))
+    }
+
     pub(crate) fn top(&self) -> String {
         let work = if self.unsettled {
             "receipt unsettled"
@@ -107,9 +203,9 @@ impl State {
         };
         let hearing = if self.deaf { " · not hearing" } else { "" };
         format!(
-            "soul: {} · strand: {} · {work}{hearing}",
-            short(&self.soul),
-            short(&self.strand),
+            "{} · {} · {work}{hearing}",
+            self.calling(&self.soul),
+            self.calling(&self.strand),
         )
     }
 
@@ -129,9 +225,13 @@ impl State {
         } else {
             "PgDown/Ctrl-End bottom · drag to copy · Ctrl-T detail"
         };
+        let live = self
+            .alive()
+            .map(|held| format!(" · {held}"))
+            .unwrap_or_default();
         match self.position() {
-            Some(position) => format!("{} · {position} · {hint}", self.context),
-            None => format!("{} · {hint}", self.context),
+            Some(position) => format!("{}{live} · {position} · {hint}", self.context),
+            None => format!("{}{live} · {hint}", self.context),
         }
     }
 }

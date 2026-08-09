@@ -53,6 +53,7 @@ pub(crate) struct Shown<'a> {
 }
 
 pub(crate) trait Emit: Write {
+    fn open(&mut self, who: &str);
     fn speech(&mut self, text: &str);
     fn event(&mut self, shown: Shown<'_>);
 }
@@ -70,6 +71,11 @@ impl<W: Write> Write for Bytes<W> {
 }
 
 impl<W: Write> Emit for Bytes<W> {
+    fn open(&mut self, who: &str) {
+        write!(self.0, "{who}> ").ok();
+        self.0.flush().ok();
+    }
+
     fn speech(&mut self, text: &str) {
         write!(self.0, "{text}").ok();
         self.0.flush().ok();
@@ -269,6 +275,17 @@ pub fn parse_sse_frame(frame: &str) -> Option<(String, String)> {
     }
     event.map(|event| (event, data))
 }
+pub(crate) fn owner(data: &str) -> Option<String> {
+    const WHERE: [&[&str]; 5] = [
+        &["payload", "turn"],
+        &["payload", "turn", "id"],
+        &["payload", "thinking", "turn"],
+        &["payload", "call", "turn"],
+        &["payload", "activity", "turn"],
+    ];
+    WHERE.iter().find_map(|path| json_field(data, path))
+}
+
 pub fn json_field(data: &str, path: &[&str]) -> Option<String> {
     let value = serde_json::from_str::<serde_json::Value>(data).ok()?;
     let value = path.iter().try_fold(&value, |value, key| value.get(*key))?;

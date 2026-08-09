@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use super::{Emit, Kind, Presentation, Shown, json_field, render_watch_event};
+use super::{Emit, Kind, Presentation, Shown, json_field, owner, render_watch_event};
 use crate::cli::WatchFormat;
 
 pub(super) struct Display {
@@ -30,7 +30,7 @@ impl Display {
             Presentation::Watch(WatchFormat::Raw) => {
                 if event != "open" {
                     let beat = json_field(data, &["payload", "beat"]).unwrap_or_default();
-                    let turn = json_field(data, &["payload", "turn"]);
+                    let turn = owner(data);
                     output.event(Shown {
                         kind: Kind::of(event, &beat),
                         turn: turn.as_deref(),
@@ -53,7 +53,7 @@ impl Display {
                 return;
             }
             if !self.speaking {
-                output.speech("soul> ");
+                output.open("soul");
                 self.speaking = true;
             }
             output.speech(&text);
@@ -94,7 +94,7 @@ impl Display {
 fn line(output: &mut impl Emit, event: &str, data: &str) {
     if let Some(line) = render_watch_event(event, data) {
         let beat = json_field(data, &["payload", "beat"]).unwrap_or_default();
-        let turn = json_field(data, &["payload", "turn"]);
+        let turn = owner(data);
         output.event(Shown {
             kind: Kind::of(event, &beat),
             turn: turn.as_deref(),

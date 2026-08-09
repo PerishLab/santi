@@ -1,4 +1,6 @@
 use super::super::keys::Stroke;
+
+const WHEEL: usize = 3;
 use super::{Beat, State, Step};
 
 impl State {
@@ -58,19 +60,31 @@ impl State {
                 Step::Stay
             }
             Stroke::ScrollUp => {
-                self.higher(1);
+                self.higher(WHEEL);
                 Step::Stay
             }
             Stroke::ScrollDown => {
-                self.lower(1);
+                self.lower(WHEEL);
                 Step::Stay
             }
             Stroke::PageUp => {
-                self.higher(self.viewport);
+                self.higher(self.viewport.div_ceil(2));
                 Step::Stay
             }
             Stroke::PageDown => {
-                self.lower(self.viewport);
+                self.lower(self.viewport.div_ceil(2));
+                Step::Stay
+            }
+            Stroke::Ahead => {
+                self.ahead();
+                Step::Stay
+            }
+            Stroke::Behind => {
+                self.behind();
+                Step::Stay
+            }
+            Stroke::Shed => {
+                self.shed();
                 Step::Stay
             }
             Stroke::Bottom => {
@@ -79,6 +93,7 @@ impl State {
             }
             Stroke::Verbose => {
                 self.verbose = !self.verbose;
+                self.revision = self.revision.wrapping_add(1);
                 Step::Stay
             }
             Stroke::Copy => Step::Copy(self.transcript()),
@@ -143,6 +158,20 @@ impl State {
             self.context = "context: refreshing".to_string();
             return Step::Refresh;
         }
+        if let Some(rest) = self.typed.strip_prefix("/strand") {
+            let want = rest.trim().to_string();
+            self.take();
+            return self.travel(want);
+        }
+        if self.typed == "/soul" {
+            self.take();
+            return Step::Listing("souls".to_string());
+        }
+        if let Some(rest) = self.typed.strip_prefix("/alias") {
+            let name = rest.trim().to_string();
+            self.take();
+            return self.rename(name);
+        }
         if self.typed.trim().is_empty() {
             return Step::Stay;
         }
@@ -184,6 +213,7 @@ impl State {
         let text = self.take().expect("checked nonblank draft");
         self.push(format!("you> {text}"));
         self.busy = true;
+        self.since = Some(std::time::Instant::now());
         Step::Speak(text)
     }
 

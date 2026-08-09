@@ -76,7 +76,11 @@ fn status() {
 
 #[test]
 fn restores() {
-    let mut state = State::new("soul_luna".to_string(), "ss_direct".to_string());
+    let mut state = State::new(
+        "soul_luna".to_string(),
+        "ss_direct".to_string(),
+        Default::default(),
+    );
     let mut restored = false;
     let error = recover(
         &mut state,
@@ -95,7 +99,11 @@ fn restores() {
 
 #[test]
 fn visible() {
-    let mut state = State::new("soul_luna".to_string(), "ss_direct".to_string());
+    let mut state = State::new(
+        "soul_luna".to_string(),
+        "ss_direct".to_string(),
+        Default::default(),
+    );
     let mut restored = false;
     recover(
         &mut state,
@@ -109,4 +117,69 @@ fn visible() {
     let spoken = state.transcript();
     assert!(spoken.contains("reload failed; still running the old TUI"));
     assert!(spoken.contains("restore terminal failed"));
+}
+
+#[test]
+fn named() {
+    let mut state = fresh();
+    assert!(
+        state.top().contains("ss_direct"),
+        "an unnamed strand falls back to its id"
+    );
+
+    let Step::Name(id, name) = enter(&mut state, "/alias main") else {
+        panic!("aliasing yields the pair to persist, it does not write from state");
+    };
+    assert_eq!(name, "main");
+    assert!(id.starts_with("ss_"));
+    assert!(state.top().contains("main"), "the name shows at once");
+    assert!(!state.top().contains("ss_direct"));
+
+    let Step::Name(_, cleared) = enter(&mut state, "/alias") else {
+        panic!("a bare /alias clears");
+    };
+    assert!(cleared.is_empty());
+    assert!(
+        state.top().contains("ss_direct"),
+        "cleared falls back to the id"
+    );
+}
+
+#[test]
+fn travels() {
+    let mut state = fresh();
+    assert_eq!(
+        enter(&mut state, "/strand"),
+        Step::Listing("strands".to_string()),
+        "a bare /strand lists rather than guessing"
+    );
+    assert_eq!(
+        enter(&mut state, "/soul"),
+        Step::Listing("souls".to_string())
+    );
+
+    let Step::Switch(next) = enter(&mut state, "/strand ss_other") else {
+        panic!("naming a strand switches to it");
+    };
+    assert_eq!(next, "ss_other");
+
+    assert_eq!(
+        enter(&mut state, "/strand ss_direct"),
+        Step::Stay,
+        "switching to the current strand is a no-op, not a reload"
+    );
+    assert!(state.transcript().contains("already on"));
+}
+
+#[test]
+fn aliased() {
+    let mut state = fresh();
+    let Step::Name(..) = enter(&mut state, "/alias 主线") else {
+        panic!("alias set");
+    };
+    assert_eq!(
+        enter(&mut state, "/strand 主线"),
+        Step::Stay,
+        "an alias resolves to its id before the switch is judged"
+    );
 }

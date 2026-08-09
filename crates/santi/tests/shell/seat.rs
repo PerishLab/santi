@@ -1,4 +1,8 @@
 #[allow(dead_code)]
+#[path = "../../src/client/tui/parse.rs"]
+mod parse;
+
+#[allow(dead_code)]
 mod keys {
     pub(super) enum Stroke {
         Enter,
@@ -18,6 +22,9 @@ mod keys {
         ScrollDown,
         PageUp,
         PageDown,
+        Ahead,
+        Behind,
+        Shed,
         Bottom,
         Verbose,
         Copy,
@@ -50,7 +57,11 @@ use state::recover::recover;
 use state::{Beat, Entry, State, Step};
 
 fn fresh() -> State {
-    State::new("soul_luna".to_string(), "ss_direct".to_string())
+    State::new(
+        "soul_luna".to_string(),
+        "ss_direct".to_string(),
+        Default::default(),
+    )
 }
 
 fn enter(state: &mut State, text: &str) -> Step {

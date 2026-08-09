@@ -14,15 +14,15 @@ fn position() {
     state.viewport(100, 10);
     assert_eq!(
         state.position().as_deref(),
-        Some("81-90/100"),
-        "a scrolled reader is told exactly where they are"
+        Some("86-95/100"),
+        "paging moves half a screen so the previous view keeps an anchor"
     );
 
     state.absorb(Beat::Speech("output while the reader is away".to_string()));
     state.viewport(101, 10);
     assert_eq!(
         state.position().as_deref(),
-        Some("81-90/101 ↑new"),
+        Some("86-95/101 ↑new"),
         "new output must not silently pass an away reader"
     );
 

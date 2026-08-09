@@ -83,6 +83,26 @@ impl State {
         self.preferred = None;
     }
 
+    pub(crate) fn ahead(&mut self) {
+        let start = glyph(&self.typed).start(self.cursor);
+        self.typed.drain(start..self.cursor);
+        self.cursor = start;
+        self.preferred = None;
+    }
+
+    pub(crate) fn behind(&mut self) {
+        let end = glyph(&self.typed).end(self.cursor);
+        self.typed.drain(self.cursor..end);
+        self.preferred = None;
+    }
+
+    pub(crate) fn shed(&mut self) {
+        let from = self.cursor;
+        self.leftward();
+        self.typed.drain(self.cursor..from);
+        self.preferred = None;
+    }
+
     pub(crate) fn home(&mut self) {
         self.cursor = glyph(&self.typed).start(self.cursor);
         self.preferred = None;

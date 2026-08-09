@@ -1,6 +1,6 @@
 const TABLE: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
-pub(super) fn osc52(text: &str) -> String {
+pub(crate) fn osc52(text: &str) -> String {
     format!("\x1b]52;c;{}\x07", encode(text.as_bytes()))
 }
 
