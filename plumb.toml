@@ -9,10 +9,10 @@ root = "crates/santi/operator/packaging/deb"
 
 [[document]]
 strategy = "agent"
-source = [{ path = ".", seal = "35a8c6ed0d9c8c83144181dbf7842624d9311b57d1ffb66072e9484871b3d31a" }]
+source = [{ path = ".", seal = "c39797f60220c5bfb1b0d39abc410ddee450a69e093759abd6d0a5f3dd7ccfa2" }]
 target-seal = "e1aea3a8c6d6d512ce286f92280ee20abd0ff336d94b1e1680fbc22a946b4c8f"
 
 [[document]]
 strategy = "design"
-source = [{ path = ".", seal = "35a8c6ed0d9c8c83144181dbf7842624d9311b57d1ffb66072e9484871b3d31a" }]
+source = [{ path = ".", seal = "c39797f60220c5bfb1b0d39abc410ddee450a69e093759abd6d0a5f3dd7ccfa2" }]
 target-seal = "1e038626b9e3be3e679ee41d900362374f56cb3b39f7c8ce80bb6de9ef71b769"
