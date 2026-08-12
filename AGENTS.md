@@ -100,6 +100,27 @@ rejected, not silently created). To address a soul ad hoc without a default:
   `.local/secrets/releases/`. Both are gitignored. Never commit live
   credentials; `santi.example.toml` is the tracked runtime template.
 
+## Operator surface
+
+- `crates/santi/operator/ops` owns Santi-specific idempotent host wiring,
+  Authentik registration, edge manifests, deployment, recovery, and webhook
+  reconciliation. Infra owns only generic host, k3s, DNS, and middleware.
+- `crates/santi/operator/packaging/deb` installs both binaries and the systemd
+  service. Maintainer scripts never delete `/home/santi/.santi`.
+- Bootstrap ignored operator state by copying the tracked SSH and client seeds
+  under `crates/santi/operator/templates` into `.local/ssh` and
+  `.local/secrets`, then insert real endpoints and credentials there only.
+- `santi operator deploy` is a streamed host transaction. It verifies the
+  source package, snapshots runtime state, installs the exact beta, proves
+  doctor, readiness, and memory continuity, then validates and arms one
+  recovery capsule before reporting completion.
+- An armed capsule must be explicitly accepted or executed. Repair may rebuild
+  interrupted capsule metadata from retained artifacts; it never fabricates
+  source, candidate, or runtime identity.
+- Webhook desired topology is reconciled through `santi webhook ensure`.
+  Signing values stay in the host environment; event paths authenticate by
+  provider signature while management remains behind the identity edge.
+
 ## Release
 
 - Canonical-authority stable owns the root manager, moving pointer, default
@@ -122,4 +143,4 @@ rejected, not silently created). To address a soul ad hoc without a default:
   stable capsule compiler before anything irreversible.
   `plumb doctor` does not check this: a changelog is owed by a release, not by a
   working tree. A release requiring nothing of anyone still writes MIGRATION.md
-  saying so. See `plumb/docs/changelog.md`.
+  saying so. Follow the release-local contract under `docs/CHANGELOG`.
