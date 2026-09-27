@@ -1,18 +1,45 @@
+[layout]
+
+[[layout.seat]]
+path = "crates/*"
+anchor = ["Cargo.toml"]
+note = "The santi client, server, and runtime Rust workspace members."
+
+[[layout.seat]]
+path = ".cargo"
+note = "Cargo registry configuration."
+
+[[layout.seat]]
+path = "packaging/deb"
+anchor = ["control"]
+note = "The santi-api Debian placement wharf packs: control, maintainer scripts, and root/ payload."
+
+[[layout.seat]]
+path = ".runseal"
+note = "Committed inert Runseal resources."
+
+[[layout.file]]
+name = ["DESIGN.md"]
+note = "The runtime design: estate, receipts, recovery, and effects."
+
+[[layout.file]]
+name = ["santi.example.toml", ".env.example"]
+note = "Tracked local runtime configuration templates; live santi.toml and .env stay ignored."
+
+[[layout.file]]
+name = ["Cargo.toml", "Cargo.lock", "rust-toolchain.toml"]
+note = "Rust workspace anchors and the toolchain wharf builds with."
+
 [release]
 product = "santi"
 authority = "https://releases.santi.perish.uk"
 binaries = ["santi", "santi-api"]
+targets = ["x86_64-unknown-linux-gnu", "aarch64-apple-darwin"]
+
+[release.binary.santi-api]
 targets = ["x86_64-unknown-linux-gnu"]
+install = false
 
 [release.deb]
-root = "crates/santi/operator/packaging/deb"
-
-[[document]]
-strategy = "agent"
-source = [{ path = ".", seal = "c39797f60220c5bfb1b0d39abc410ddee450a69e093759abd6d0a5f3dd7ccfa2" }]
-target-seal = "e1aea3a8c6d6d512ce286f92280ee20abd0ff336d94b1e1680fbc22a946b4c8f"
-
-[[document]]
-strategy = "design"
-source = [{ path = ".", seal = "c39797f60220c5bfb1b0d39abc410ddee450a69e093759abd6d0a5f3dd7ccfa2" }]
-target-seal = "1e038626b9e3be3e679ee41d900362374f56cb3b39f7c8ce80bb6de9ef71b769"
+binary = "santi-api"
+root = "packaging/deb"

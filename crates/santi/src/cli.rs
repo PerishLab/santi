@@ -116,9 +116,6 @@ pub enum Command {
     #[command(about = "Inspect or idempotently ensure webhook subscriptions")]
     #[command(subcommand)]
     Webhook(Webhook),
-    #[command(about = "Operate Santi's local and live delivery surfaces")]
-    #[command(subcommand)]
-    Operator(Operator),
 }
 
 #[derive(Subcommand)]
@@ -268,11 +265,9 @@ pub fn split_send_args(
 mod compact;
 mod defaults;
 mod job;
-pub(crate) mod operator;
 mod strand;
 pub mod wake;
 pub use compact::*;
 pub use defaults::*;
 pub use job::*;
-pub use operator::Operator;
 pub use strand::*;

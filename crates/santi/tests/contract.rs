@@ -20,18 +20,30 @@ fn cli() {
     let hash = format!("{:x}", Sha256::digest(text.as_bytes()));
     assert_eq!(
         hash,
-        "8fcc0b1b05330bf22f06eadac831f49f91fa09871e7ea6243d5540a47cf1728a"
+        "5510331fe2f2163f2c15b855fa2e9fed6057348092834cc7ce9f56148f06697d"
     );
 }
 
 #[test]
 fn template() {
-    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("operator/templates/secrets/santi.toml");
-    let client: santi::config::Client = plumb::config::load(&path).expect("operator config");
+    let dir = tempfile::tempdir().expect("tempdir");
+    let path = dir.path().join("santi.toml");
+    std::fs::write(
+        &path,
+        concat!(
+            "base_url = \"https://santi.example.invalid\"\n",
+            "auth_token_url = \"https://auth.example.invalid/application/o/token/\"\n",
+            "auth_client_id = \"replace-with-client-id\"\n",
+            "auth_username = \"santi-window-cli\"\n",
+            "auth_password = \"replace-with-app-password\"\n",
+        ),
+    )
+    .expect("write client config");
+    let client: santi::config::Client = plumb::config::load(&path).expect("client config");
     assert_eq!(
         client.base_url.as_deref(),
-        Some("https://santi.liberte.top")
+        Some("https://santi.example.invalid")
     );
     assert_eq!(client.auth_username.as_deref(), Some("santi-window-cli"));
+    assert!(client.api_key.is_none());
 }

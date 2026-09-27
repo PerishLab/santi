@@ -1,0 +1,30 @@
+[Unit]
+Description=santi runtime
+Documentation=https://github.com/PerishLab/santi
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=santi
+Group=santi
+# Jobs detach into santi's persistent user manager. PAM supplies this system
+# service with the matching XDG runtime directory and user-bus address.
+PAMName=login
+# Operator-managed secrets + config (env:// refs resolve from here). The .deb
+# ships an example at /etc/santi/santi.env.example; it never overwrites a real
+# one. Optional (`-`): a missing file does not fail unit load — `serve` then
+# fails cleanly on unresolved provider config instead.
+EnvironmentFile=-/etc/santi/santi.env
+Environment=SANTI_HOME=/home/santi/.santi
+ExecStart=/usr/bin/santi-api serve
+Restart=on-failure
+RestartSec=2
+# Graceful shutdown: santi pauses inbox consumption on SIGTERM and drains its
+# in-flight turn (SANTI_SERVER_GRACE, default 30). TimeoutStopSec MUST be
+# >= that grace, or systemd SIGKILLs the drain mid-turn. Keep a margin.
+KillSignal=SIGTERM
+TimeoutStopSec=50
+
+[Install]
+WantedBy=multi-user.target

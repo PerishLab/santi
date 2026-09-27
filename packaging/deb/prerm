@@ -1,0 +1,14 @@
+#!/bin/sh
+# santi-api prerm: stop the service only on a real removal — NOT on `upgrade`;
+# restarting across an upgrade stays with whoever deploys the host.
+set -e
+
+case "$1" in
+remove | deconfigure)
+    if [ -d /run/systemd/system ] && command -v systemctl >/dev/null 2>&1; then
+        systemctl stop santi.service || true
+    fi
+    ;;
+esac
+
+exit 0

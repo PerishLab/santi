@@ -3,6 +3,7 @@ use std::time::{Duration, Instant};
 use super::super::Service;
 
 pub(in crate::service) mod clock;
+mod notice;
 
 impl Service {
     pub async fn watch(&self) {

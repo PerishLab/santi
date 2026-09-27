@@ -12,9 +12,8 @@ crates/
   santi-estate/    # Keel graph + durable ceremonies and projections
   santi-provider/  # ProviderClient boundary; keeps santi-core provider-agnostic
   santi-api/       # HTTP/SSE/OpenAPI server library over santi-core
-  santi/           # HTTP client plus an external-process operator namespace
-    operator/       # retained operator-owned host/edge/deb assets and commands
-docs/integration/v1/ # versioned owner contract and exact external-delivery assets
+  santi/           # the `santi` binary: transport-only HTTP client and TUI
+packaging/deb/     # the santi-api Debian placement: control, maintainer scripts, root/ payload
 ```
 
 ## Boundaries
@@ -25,9 +24,11 @@ docs/integration/v1/ # versioned owner contract and exact external-delivery asse
   owned here, not in `santi-core`.
 - `api` ships `santi-api`, the server entry. It owns config resolution,
   bootstrap, serving, OpenAPI export, and local runtime operations.
-- `santi` keeps its transport-only HTTP client boundary. Its explicit `operator`
-  namespace may coordinate external binaries and owned assets, but must never
-  depend on or call `santi-api` or `santi-core` in process. HTTP stays the only way in.
+- `santi` keeps its transport-only HTTP client boundary. It must never depend on
+  or call `santi-api` or `santi-core` in process. HTTP stays the only way in.
+- Both binaries install the product identity `plumb::identity!("SANTI")` before
+  parsing arguments and report `<binary> <marker>` through
+  `plumb::version!("SANTI")`.
 
 ## Build & checks
 
@@ -37,10 +38,9 @@ cargo clippy --locked --workspace --all-targets -- -D warnings
 cargo test --locked --workspace
 ```
 
-CI (`.forgejo/workflows/guard.yml`) runs Ectropy syntax laws, Plumb repository
-shape, and the Rust fmt/clippy/test triad on the self-hosted Linux runner.
-Release workflows publish both executables in Linux x86_64 tar and Debian
-artifacts to R2.
+Run `plumb doctor .` and `ectropy .` before and after changing repository
+shape. The repository carries no CI workflow; guard hooks projected by
+`plumb configuration install` prove each staged tree.
 
 ## Trigger a single turn locally (hot path)
 
@@ -85,62 +85,24 @@ rejected, not silently created). To address a soul ad hoc without a default:
 
 - Edition 2024, MIT. Workspace dependencies are pinned in the root
   `Cargo.toml`; crates reference them with `.workspace = true`.
-- Forgejo (`PerishFire/santi`) is the canonical write target. The public GitHub
-  repository is historical and is not reverse-synchronized.
-- Santi's runtime boundary stops at its executables. Packaging, recovery, and
-  system-service artifacts under `crates/santi/operator` are operator-owned and are not runtime
-  architecture. Infra owns only generic host, k3s, DNS, and shared middleware.
-- `docs/integration/v1/` is Santi-owned delivery truth. Its strict manifest binds one
-  exact package release to pinned window assets, identity intent, and route
-  semantics without generated IDs, credentials, or production endpoints.
-  Consumers bind these tracked bytes through immutable commit URLs and exact
-  SHA-256 plus byte-count identities; provisional live observations never amend
-  the owner contract.
-- Runtime secrets live in `santi.toml`; local release escrow lives under
-  `.local/secrets/releases/`. Both are gitignored. Never commit live
+- GitHub `PerishLab/santi` is the canonical repository.
+- Santi's runtime boundary stops at its executables. `packaging/deb` is the
+  host placement for the server, not runtime architecture; its maintainer
+  scripts create the `santi` system user, enable but never start
+  `santi.service`, stop it only on removal, and never delete
+  `/home/santi/.santi`.
+- Runtime secrets live in `santi.toml`; it is gitignored. Never commit live
   credentials; `santi.example.toml` is the tracked runtime template.
-
-## Operator surface
-
-- `crates/santi/operator/ops` owns Santi-specific idempotent host wiring,
-  Authentik registration, edge manifests, deployment, recovery, and webhook
-  reconciliation. Infra owns only generic host, k3s, DNS, and middleware.
-- `crates/santi/operator/packaging/deb` installs both binaries and the systemd
-  service. Maintainer scripts never delete `/home/santi/.santi`.
-- Bootstrap ignored operator state by copying the tracked SSH and client seeds
-  under `crates/santi/operator/templates` into `.local/ssh` and
-  `.local/secrets`, then insert real endpoints and credentials there only.
-- `santi operator deploy` is a streamed host transaction. It verifies the
-  source package, snapshots runtime state, installs the exact beta, proves
-  doctor, readiness, and memory continuity, then validates and arms one
-  recovery capsule before reporting completion.
-- An armed capsule must be explicitly accepted or executed. Repair may rebuild
-  interrupted capsule metadata from retained artifacts; it never fabricates
-  source, candidate, or runtime identity.
-- Webhook desired topology is reconciled through `santi webhook ensure`.
-  Signing values stay in the host environment; event paths authenticate by
-  provider signature while management remains behind the identity edge.
 
 ## Release
 
-- Canonical-authority stable owns the root manager, moving pointer, default
-  install root, and default bin directory. It is the only release admitted to
-  those consensus surfaces.
-- Every non-stable channel requires an exact version plus explicit install and
-  bin paths disjoint from stable. Non-stable has no pointer or activation.
-- `plumb.toml` is the product-owned release declaration. Stable Plumb owns
-  target builds, archives, Debian assembly, managers and records, exact
-  objects, public readback, and manager smoke.
-- Publishing and stable activation use separate commands and credentials.
-  Exact seals are create-only; stable activation compare-and-swaps the sole
-  moving pointer.
-- Stable is rebuilt from the same commit as one exact candidate and embeds its
-  complete seal plus digest as proof.
-- Live deploys require one exact beta. The host transaction resolves its Debian
-  asset from that candidate's immutable seal.
-- A stable release refuses to publish without
-  `docs/CHANGELOG/v<version>/{en,zh}/{INDEX.md,MIGRATION.md}`, enforced by the
-  stable capsule compiler before anything irreversible.
-  `plumb doctor` does not check this: a changelog is owed by a release, not by a
-  working tree. A release requiring nothing of anyone still writes MIGRATION.md
-  saying so. Follow the release-local contract under `docs/CHANGELOG`.
+- Plumb owns repository governance, release markers, and landing; wharf builds,
+  binds, and distributes each release. `plumb.toml` is the release
+  declaration. Read their current help and rules; do not restate a release
+  workflow or changelog shape here.
+- One marker covers both executables: `santi` ships for Linux x86_64 and macOS
+  arm64 through the manager; `santi-api` ships for Linux x86_64 only, is not
+  installed by the manager, and is placed as the `santi-api` `.deb`. The deb
+  carries only `santi-api`, never the client.
+- A placement is published, never deployed. Deploying a host is outside this
+  repository.
