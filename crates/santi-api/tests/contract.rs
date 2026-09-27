@@ -4,6 +4,7 @@ use sha2::{Digest, Sha256};
 fn api() {
     let text = santi_api::export_openapi_json().expect("export openapi");
     let document: serde_json::Value = serde_json::from_str(&text).expect("parse openapi");
+    assert_eq!(document["info"]["version"].as_str(), Some("v1"));
     let description = document["components"]["schemas"]["compact.Compact"]["description"]
         .as_str()
         .expect("compact description");
@@ -27,6 +28,6 @@ fn api() {
     let hash = format!("{:x}", Sha256::digest(text.as_bytes()));
     assert_eq!(
         hash,
-        "3ddf7e5a041af97650591f878de0dc3395a5c6be2e0d6901484553d4cc9d75f7"
+        "4e03432de52193576baf6cc73eb67790fb7243c0f0a0fd97db53e899816163d4"
     );
 }

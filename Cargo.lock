@@ -86,7 +86,7 @@ checksum = "2a4385e2e34eb35d6b3efe798b9eb88096925d87726c0798709bf56d9ed84af3"
 
 [[package]]
 name = "api"
-version = "0.1.0"
+version = "0.0.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -773,7 +773,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -1438,9 +1438,9 @@ dependencies = [
 
 [[package]]
 name = "keel"
-version = "0.10.3"
-source = "sparse+https://git.perish.top/api/packages/PerishLab/cargo/"
-checksum = "84cfb4a7b78ee7c1e9b21d2af8d5d8a66ecc6a1d8540fff9a38f612de683fceb"
+version = "0.11.1"
+source = "sparse+https://cargo.perish.uk/"
+checksum = "e6aae441b747bc4e2919ad8889aad198a5076971c9d6b399b4be49dc20536b47"
 dependencies = [
  "axum",
  "getrandom 0.3.4",
@@ -1454,9 +1454,9 @@ dependencies = [
 
 [[package]]
 name = "keel-macro"
-version = "0.10.3"
-source = "sparse+https://git.perish.top/api/packages/PerishLab/cargo/"
-checksum = "2fe79c30fbfd4a59252342232a4558733214f4ee9261cd94faf6fb431aff58c4"
+version = "0.11.1"
+source = "sparse+https://cargo.perish.uk/"
+checksum = "94e8175271149677b16f5571d4f555518c829be8fa25c9e988b62552b99a9845"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1598,6 +1598,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "object"
+version = "0.39.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2e5a6c098c7a3b6547378093f5cc30bc54fd361ce711e05293a5cc589562739b"
+dependencies = [
+ "memchr",
+]
+
+[[package]]
 name = "once_cell"
 version = "1.21.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1707,28 +1716,34 @@ checksum = "19f132c84eca552bf34cab8ec81f1c1dcc229b811638f9d283dceabe58c5569e"
 
 [[package]]
 name = "plumb"
-version = "0.18.20"
-source = "sparse+https://git.perish.top/api/packages/PerishLab/cargo/"
-checksum = "00c5b867a0b69d54bf8f8ca5f5f0b12bd346cc315ace00d2c245cee90852a275"
+version = "0.52.0"
+source = "sparse+https://cargo.perish.uk/"
+checksum = "2a959ebd81866fbfe03687c3eec63baee72aceef191defba3e7bc6130ef8fdcf"
 dependencies = [
  "base64",
  "clap",
+ "object",
  "pin-project-lite",
  "plumb-macro",
+ "semver",
  "serde",
+ "serde_json",
  "sha2",
+ "tempfile",
  "toml 0.9.12+spec-1.1.0",
+ "which",
 ]
 
 [[package]]
 name = "plumb-macro"
-version = "0.18.20"
-source = "sparse+https://git.perish.top/api/packages/PerishLab/cargo/"
-checksum = "fdc333f0f09ff052f4142de34d3321263472af5f2852cfa39e261aca40dfe3c0"
+version = "0.52.0"
+source = "sparse+https://cargo.perish.uk/"
+checksum = "12554a8d120f058f546ff10d9b2aa85456be1e45921402ad867072b8470d5948"
 dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.118",
+ "toml 0.9.12+spec-1.1.0",
 ]
 
 [[package]]
@@ -2099,7 +2114,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -2156,7 +2171,7 @@ dependencies = [
  "security-framework",
  "security-framework-sys",
  "webpki-root-certs",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -2200,7 +2215,7 @@ dependencies = [
 
 [[package]]
 name = "santi"
-version = "0.1.0"
+version = "0.0.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -2222,7 +2237,7 @@ dependencies = [
 
 [[package]]
 name = "santi-api"
-version = "0.1.0"
+version = "0.0.0"
 dependencies = [
  "aes",
  "async-stream",
@@ -2256,7 +2271,7 @@ dependencies = [
 
 [[package]]
 name = "santi-core"
-version = "0.1.0"
+version = "0.0.0"
 dependencies = [
  "async-stream",
  "async-trait",
@@ -2285,7 +2300,7 @@ dependencies = [
 
 [[package]]
 name = "santi-error"
-version = "0.1.0"
+version = "0.0.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -2295,7 +2310,7 @@ dependencies = [
 
 [[package]]
 name = "santi-estate"
-version = "0.1.0"
+version = "0.0.0"
 dependencies = [
  "fs2",
  "keel",
@@ -2310,7 +2325,7 @@ dependencies = [
 
 [[package]]
 name = "santi-model"
-version = "0.1.0"
+version = "0.0.0"
 dependencies = [
  "jiff",
  "santi-error",
@@ -2322,11 +2337,11 @@ dependencies = [
 
 [[package]]
 name = "santi-object"
-version = "0.1.0"
+version = "0.0.0"
 
 [[package]]
 name = "santi-provider"
-version = "0.1.0"
+version = "0.0.0"
 dependencies = [
  "async-stream",
  "async-trait",
@@ -2773,7 +2788,7 @@ dependencies = [
  "getrandom 0.4.3",
  "once_cell",
  "rustix",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -3295,6 +3310,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "which"
+version = "8.0.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bae2f2b2b816647a1cab1acc91f5bd20812d53cb344382635ec2181940c8034f"
+dependencies = [
+ "libc",
+]
+
+[[package]]
 name = "winapi"
 version = "0.3.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3316,7 +3340,7 @@ version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
 dependencies = [
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]

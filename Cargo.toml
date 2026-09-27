@@ -15,10 +15,10 @@ resolver = "2"
 [workspace.package]
 edition = "2024"
 license = "MIT"
-version = "0.1.0"
+version = "0.0.0"
 
 [workspace.dependencies]
-plumb = { version = "0.18.14", registry = "perish" }
+plumb = { version = "=0.52.0", registry = "perish" }
 aes = "0.8.4"
 anyhow = "1.0.100"
 async-stream = "0.3.6"

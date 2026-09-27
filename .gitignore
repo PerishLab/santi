@@ -3,11 +3,9 @@
 .env.local
 .env.release
 santi.toml
-!crates/santi/operator/templates/secrets/santi.toml
 .local/
 .task/
 .tmp/
 __pycache__/
 target/
 dist/
-/.forgejo/release.env

@@ -16,6 +16,7 @@ pub async fn run() -> Result<()> {
         over,
         command,
     } = Cli::parse();
+    plumb::identity::ready().map_err(anyhow::Error::msg)?;
     match command.unwrap_or(Command::Serve) {
         Command::Serve => {
             config::boot(config.as_deref(), over.partial()).map_err(anyhow::Error::msg)?;
