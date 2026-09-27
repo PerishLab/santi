@@ -14,6 +14,7 @@ use santi_core::{material, soul, strand, stream};
 
 #[derive(OpenApi)]
 #[openapi(
+    info(version = "v1"),
     modifiers(&SecurityAddon),
     paths(
         super::routes::health,

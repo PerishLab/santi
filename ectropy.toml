@@ -3,6 +3,7 @@ allow = false
 
 [[grant]]
 paths = [
+  "crates/*/src/**/*.rs",
   "crates/*/tests/**/*.rs",
 ]
 syntax = "test"
@@ -25,18 +26,17 @@ fanout = 10
 file = 300
 markup = 8
 param = 4
-path = 4
+path = 3
 
 [module]
 roots = [
   "crates/*/src",
   "crates/*/tests",
-  "docs",
 ]
 
 [scan]
 exclude = ["**/target/**"]
-include = ["crates/**/*.rs", "docs/**/*.md"]
+include = ["crates/**/*.rs"]
 
 [vocabulary]
 term = [

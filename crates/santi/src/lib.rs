@@ -9,7 +9,7 @@ use anyhow::Result;
 use clap::Parser;
 
 use auth::{Credentials, resolve_edge_bearer};
-use cli::{BASE, Cli, ClientDefaults, Command};
+use cli::{BASE, Cli, ClientDefaults};
 pub async fn run() -> Result<()> {
     config::load();
     let Cli {
@@ -23,9 +23,7 @@ pub async fn run() -> Result<()> {
         soul,
         command,
     } = Cli::parse();
-    if let Command::Operator(command) = command {
-        return cli::operator::run(command);
-    }
+    plumb::identity::ready().map_err(anyhow::Error::msg)?;
     let client = config::client()?;
     let defaults = ClientDefaults { strand, soul };
     let bearer = resolve_edge_bearer(Credentials {

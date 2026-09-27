@@ -1,0 +1,47 @@
+#!/bin/sh
+# santi-api postinst: provision the service user, config dir, and systemd unit.
+# Deliberately does NOT start the service: starting needs host-provided
+# secrets in /etc/santi/santi.env and a `santi-api bootstrap`. We only install
+# and enable; whoever deploys the host starts it once config is present.
+set -e
+
+case "$1" in
+configure)
+    # System user/group owning the runtime.
+    if ! getent group santi >/dev/null 2>&1; then
+        addgroup --system santi
+    fi
+    if ! getent passwd santi >/dev/null 2>&1; then
+        adduser --system --ingroup santi --home /home/santi \
+            --shell /usr/sbin/nologin --disabled-password santi
+    fi
+
+    # Config dir + example env. Never clobber a real santi.env (host secrets).
+    mkdir -p /etc/santi
+    chmod 755 /etc/santi
+
+    # Runtime home (soul memory lives here — created, never wiped by the package).
+    mkdir -p /home/santi/.santi
+    chown -R santi:santi /home/santi/.santi
+
+    # Everything below needs a running systemd; a container or chroot without
+    # one configures cleanly and skips it.
+    if [ -d /run/systemd/system ]; then
+        # Detached jobs live in santi's user manager, independently of the API
+        # system service and login sessions. Lingering is a required cold-boot
+        # invariant: start the manager now and at every boot.
+        if command -v loginctl >/dev/null 2>&1; then
+            loginctl enable-linger santi || true
+        fi
+        if command -v systemctl >/dev/null 2>&1; then
+            systemctl daemon-reload || true
+        fi
+    fi
+    # Enabling only writes unit links, so it also works without a running systemd.
+    if command -v systemctl >/dev/null 2>&1; then
+        systemctl enable santi.service >/dev/null 2>&1 || true
+    fi
+    ;;
+esac
+
+exit 0
