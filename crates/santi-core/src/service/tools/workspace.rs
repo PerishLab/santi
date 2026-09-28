@@ -8,7 +8,7 @@ use crate::{parsed, workspace};
 impl Service {
     pub(super) async fn prepared(
         &self,
-        origin: Origin<'_>,
+        origin: Origin<&str>,
         args: shell::Args,
     ) -> Result<shell::Prepared, String> {
         std::fs::create_dir_all(self.soulhome(origin.soul)).map_err(|error| error.to_string())?;

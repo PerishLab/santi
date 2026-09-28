@@ -6,7 +6,7 @@ use crate::{environ, environment, service::address::Address};
 impl Service {
     pub(super) async fn resolved_environment(
         &self,
-        origin: &Origin<'_>,
+        origin: &Origin<&str>,
     ) -> Result<BTreeMap<String, String>, String> {
         let mut declared = self
             .config

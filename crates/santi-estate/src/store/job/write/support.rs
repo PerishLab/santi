@@ -1,46 +1,28 @@
 use keel::Row;
+use santi_model::job::Origin;
 
-pub(super) struct Origin<'a> {
-    pub soul: &'a Row,
-    pub strand: &'a Row,
-    pub turn: &'a Row,
-    pub call: &'a Row,
-    pub effect: &'a Row,
-}
-
-#[derive(PartialEq, Eq)]
-struct Lineage {
-    soul: Option<i64>,
-    strand: Option<i64>,
-    turn: Option<i64>,
-    effect: Option<i64>,
-    call: Option<i64>,
-}
-
-impl Lineage {
-    fn read(origin: &Origin<'_>) -> Self {
-        Self {
-            soul: origin.strand.int("soul"),
-            strand: origin.turn.int("strand"),
-            turn: origin.call.int("turn"),
-            effect: origin.effect.int("turn"),
-            call: origin.effect.int("call"),
-        }
-    }
-
-    fn expected(origin: &Origin<'_>) -> Self {
-        Self {
-            soul: Some(origin.soul.key()),
-            strand: Some(origin.strand.key()),
-            turn: Some(origin.turn.key()),
-            effect: Some(origin.turn.key()),
-            call: Some(origin.call.key()),
-        }
+fn read(origin: &Origin<&Row>) -> Origin<Option<i64>> {
+    Origin {
+        soul: origin.strand.int("soul"),
+        strand: origin.turn.int("strand"),
+        turn: origin.call.int("turn"),
+        call: origin.effect.int("call"),
+        effect: origin.effect.int("turn"),
     }
 }
 
-pub(super) fn validate(origin: Origin<'_>) -> Result<(), keel::adapt::Error> {
-    if Lineage::read(&origin) != Lineage::expected(&origin) {
+fn expected(origin: &Origin<&Row>) -> Origin<Option<i64>> {
+    Origin {
+        soul: Some(origin.soul.key()),
+        strand: Some(origin.strand.key()),
+        turn: Some(origin.turn.key()),
+        call: Some(origin.call.key()),
+        effect: Some(origin.turn.key()),
+    }
+}
+
+pub(super) fn validate(origin: Origin<&Row>) -> Result<(), keel::adapt::Error> {
+    if read(&origin) != expected(&origin) {
         return Err(adapt("job capability origin is inconsistent"));
     }
     Ok(())

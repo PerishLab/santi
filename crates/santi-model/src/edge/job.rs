@@ -27,14 +27,19 @@ impl State {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, ToSchema, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, ToSchema, PartialEq, Eq)]
 #[schema(as = job::Origin)]
-pub struct Origin {
-    pub soul: String,
-    pub strand: String,
-    pub turn: String,
-    pub call: String,
-    pub effect: String,
+pub struct Origin<T = String> {
+    #[schema(value_type = String)]
+    pub soul: T,
+    #[schema(value_type = String)]
+    pub strand: T,
+    #[schema(value_type = String)]
+    pub turn: T,
+    #[schema(value_type = String)]
+    pub call: T,
+    #[schema(value_type = String)]
+    pub effect: T,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]

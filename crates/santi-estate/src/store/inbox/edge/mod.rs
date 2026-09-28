@@ -183,7 +183,13 @@ impl Store {
         let accepted = self
             .core
             .batch(async |tx| {
-                let (unit, owner, identity, value, digest) = replay_shape(tx, replay).await?;
+                let Shape {
+                    unit,
+                    owner,
+                    identity,
+                    value,
+                    digest,
+                } = replay_shape(tx, replay).await?;
                 if let Some(row) = tx
                     .one(
                         &form(unit)
@@ -233,51 +239,50 @@ impl Store {
     }
 }
 
+struct Shape<'a> {
+    unit: &'static str,
+    owner: (&'static str, String),
+    identity: &'static str,
+    value: &'a str,
+    digest: &'a str,
+}
+
 async fn replay_shape<'a>(
     tx: &mut keel::Tx<'_, keel::adapt::db::Sqlite>,
     replay: ReplayDraft<'a>,
-) -> Result<
-    (
-        &'static str,
-        (&'static str, String),
-        &'static str,
-        &'a str,
-        &'a str,
-    ),
-    keel::adapt::Error,
-> {
+) -> Result<Shape<'a>, keel::adapt::Error> {
     match replay {
         ReplayDraft::Webhook {
             subscription,
             delivery,
             digest,
-        } => Ok((
-            "WebhookDelivery",
-            (
+        } => Ok(Shape {
+            unit: "WebhookDelivery",
+            owner: (
                 "webhook",
                 read::need(tx, "Webhook", "name", subscription)
                     .await?
                     .to_string(),
             ),
-            "delivery",
-            delivery,
+            identity: "delivery",
+            value: delivery,
             digest,
-        )),
+        }),
         ReplayDraft::Downstream {
             owner,
             request,
             digest,
-        } => Ok((
-            "DownstreamIngest",
-            (
+        } => Ok(Shape {
+            unit: "DownstreamIngest",
+            owner: (
                 "downstream",
                 read::need(tx, "Downstream", "tag", owner)
                     .await?
                     .to_string(),
             ),
-            "request",
-            request,
+            identity: "request",
+            value: request,
             digest,
-        )),
+        }),
     }
 }
