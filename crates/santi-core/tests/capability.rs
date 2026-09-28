@@ -2,7 +2,8 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
 use ed25519_dalek::{Signature, Verifier as _, VerifyingKey};
-use santi_core::capability::{Issuer, Key, Origin};
+use santi_core::capability::{Issuer, Key};
+use santi_model::job::Origin;
 use serde_json::Value;
 
 #[test]
@@ -62,7 +63,7 @@ fn key(private: &str) -> Key<'_> {
     }
 }
 
-fn origin() -> Origin<'static> {
+fn origin() -> Origin<&'static str> {
     Origin {
         soul: "soul_1",
         strand: "strand_1",

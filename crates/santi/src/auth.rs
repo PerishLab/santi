@@ -17,12 +17,11 @@ pub(crate) async fn resolve_edge_bearer(credentials: Credentials<'_>) -> Result<
         value.filter(|value| !value.is_empty())
     }
 
-    if let (Some(url), Some(cid), Some(user), Some(pw)) = (
-        present(credentials.endpoint),
-        present(credentials.identity),
-        present(credentials.username),
-        present(credentials.password),
-    ) {
+    if let Some(url) = present(credentials.endpoint)
+        && let Some(cid) = present(credentials.identity)
+        && let Some(user) = present(credentials.username)
+        && let Some(pw) = present(credentials.password)
+    {
         return Ok(Some(edge_jwt_cached(url, cid, user, pw).await?));
     }
     Ok(present(credentials.key).map(str::to_string))

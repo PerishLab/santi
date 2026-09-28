@@ -2,6 +2,7 @@ use serde_json::json;
 
 mod absorb;
 mod admit;
+mod bounds;
 mod settled;
 pub(in crate::service) mod slots;
 
@@ -129,44 +130,6 @@ impl Service {
         Ok((metadata, after, ratio))
     }
 
-    async fn bounded2(
-        &self,
-        strand: &str,
-        request: &compact::Exec,
-    ) -> Result<(String, String), String> {
-        let from = request
-            .first
-            .as_deref()
-            .map(str::trim)
-            .filter(|value| !value.is_empty());
-        let to = request
-            .last
-            .as_deref()
-            .map(str::trim)
-            .filter(|value| !value.is_empty());
-        match (from, to, request.from, request.to) {
-            (Some(from), Some(to), None, None) => Ok((from.to_string(), to.to_string())),
-            (None, None, Some(from), Some(to)) => {
-                let from = self
-                    .store
-                    .seated(strand, from)
-                    .await?
-                    .ok_or_else(|| seatless("from", from))?;
-                let to = self
-                    .store
-                    .seated(strand, to)
-                    .await?
-                    .ok_or_else(|| seatless("to", to))?;
-                Ok((from, to))
-            }
-            (None, None, None, None) if !request.absorb.is_empty() => {
-                self.merged(strand, &request.absorb).await
-            }
-            (None, None, None, None) => self.settled(strand).await,
-            _ => Err("compact requires either first/last as message ids or from/to as message sequences, and never a mixture of the two".to_string()),
-        }
-    }
-
     async fn foreseen(
         &self,
         strand: &str,
@@ -273,10 +236,4 @@ fn capped(value: &str, max_bytes: usize) -> String {
         end -= 1;
     }
     format!("{}{}", &value[..end], suffix)
-}
-
-fn seatless(label: &str, sequence: i64) -> String {
-    format!(
-        "compact {label} {sequence} is not a message sequence in this strand; from/to take message sequences, while tool and turn records carry sequences of their own and are not messages; read the strand's messages to pick a boundary, or pass first/last with message ids instead"
-    )
 }

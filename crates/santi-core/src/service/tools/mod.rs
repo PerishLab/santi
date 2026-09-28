@@ -2,8 +2,8 @@ use santi_provider::{Call, Tool};
 use serde::Deserialize;
 use serde_json::Value;
 
-use crate::capability::Origin;
 use crate::service::address::Address;
+use santi_model::job::Origin;
 
 use super::Service;
 use crate::service::interrupt::Control;

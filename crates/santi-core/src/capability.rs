@@ -5,6 +5,7 @@ use std::{
 
 use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
 use ed25519_dalek::{Signer as _, SigningKey};
+use santi_model::job::Origin;
 use serde::Serialize;
 
 const PREFIX: &str = "santi1";
@@ -23,15 +24,6 @@ pub struct Issuer {
     key_id: String,
     ttl: u64,
     key: SigningKey,
-}
-
-#[derive(Clone, Copy)]
-pub struct Origin<'a> {
-    pub soul: &'a str,
-    pub strand: &'a str,
-    pub turn: &'a str,
-    pub call: &'a str,
-    pub effect: &'a str,
 }
 
 #[derive(Serialize)]
@@ -79,7 +71,7 @@ impl Issuer {
         })
     }
 
-    pub fn issue(&self, origin: Origin<'_>) -> Result<String, String> {
+    pub fn issue(&self, origin: Origin<&str>) -> Result<String, String> {
         self.mint(origin, epoch()?)
     }
 
@@ -91,7 +83,7 @@ impl Issuer {
         &self.key_id
     }
 
-    fn mint(&self, origin: Origin<'_>, now: u64) -> Result<String, String> {
+    fn mint(&self, origin: Origin<&str>, now: u64) -> Result<String, String> {
         bounded("capability soul", origin.soul, 256)?;
         bounded("capability strand", origin.strand, 256)?;
         bounded("capability turn", origin.turn, 256)?;

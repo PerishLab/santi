@@ -192,20 +192,25 @@ impl Store {
         let key = row.key().to_string();
         let complete = read::one(&self.core, "TurnCompletion", "turn", &key).await?;
         let failed = read::one(&self.core, "TurnFailure", "turn", &key).await?;
-        let (status, to, error, finished) = match (complete, failed) {
-            (None, None) => (turn::Status::Running, None, None, None),
-            (Some(done), None) => (
-                turn::Status::Completed,
-                Some(read::int(&done, "to")?),
-                None,
-                Some(read::text(&done, "finished")?.to_string()),
-            ),
-            (None, Some(failed)) => (
-                turn::Status::Failed,
-                None,
-                Some(read::text(&failed, "error")?.to_string()),
-                Some(read::text(&failed, "finished")?.to_string()),
-            ),
+        let outcome = match (complete, failed) {
+            (None, None) => Outcome {
+                status: turn::Status::Running,
+                to: None,
+                error: None,
+                finished: None,
+            },
+            (Some(done), None) => Outcome {
+                status: turn::Status::Completed,
+                to: Some(read::int(&done, "to")?),
+                error: None,
+                finished: Some(read::text(&done, "finished")?.to_string()),
+            },
+            (None, Some(failed)) => Outcome {
+                status: turn::Status::Failed,
+                to: None,
+                error: Some(read::text(&failed, "error")?.to_string()),
+                finished: Some(read::text(&failed, "finished")?.to_string()),
+            },
             (Some(_), Some(_)) => return Err("turn has conflicting outcomes".to_string()),
         };
         Ok(turn::Turn {
@@ -214,14 +219,21 @@ impl Store {
             trigger: decode_trigger(read::text(row, "trigger")?)?,
             source: row.text("source").map(str::to_string),
             from: read::int(row, "from")?,
-            to,
-            status,
-            error,
+            to: outcome.to,
+            status: outcome.status,
+            error: outcome.error,
             created: read::text(row, "created")?.to_string(),
             updated: read::text(row, "updated")?.to_string(),
-            finished,
+            finished: outcome.finished,
         })
     }
+}
+
+struct Outcome {
+    status: turn::Status,
+    to: Option<i64>,
+    error: Option<String>,
+    finished: Option<String>,
 }
 
 fn trigger(trigger: &turn::Trigger) -> &'static str {
