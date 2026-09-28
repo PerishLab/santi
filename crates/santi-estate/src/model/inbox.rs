@@ -6,7 +6,7 @@ use keel::resource;
 pub(crate) struct StrandInbox {
     #[field(string, unique)]
     tag: string,
-    #[field(string, values = ("santi_system", "text"))]
+    #[field(string, values = ["santi_system", "text"])]
     kind: string,
     #[field(string)]
     content: string,
@@ -51,7 +51,7 @@ pub(crate) struct InboxReceipt {
     #[field(
         string,
         default = "accepted",
-        values = ("accepted", "completed", "driving", "failed", "recovered")
+        values = ["accepted", "completed", "driving", "failed", "recovered"]
     )]
     state: string,
     #[field(string)]
@@ -70,7 +70,7 @@ pub(crate) struct ReceiptTransition {
     sequence: int,
     #[field(
         string,
-        values = ("accepted", "completed", "driving", "failed", "recovered")
+        values = ["accepted", "completed", "driving", "failed", "recovered"]
     )]
     state: string,
     #[field(string, opt)]

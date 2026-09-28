@@ -68,7 +68,7 @@ pub(crate) struct DownstreamIngest {
 
 #[resource]
 pub(crate) struct Environ {
-    #[field(string, values = ("soul", "strand"))]
+    #[field(string, values = ["soul", "strand"])]
     scope: string,
     #[field(string)]
     owner: string,

@@ -25,7 +25,7 @@ pub(crate) struct StrandEffect {
     #[field(
         string,
         default = "prepared",
-        values = ("dispatching", "prepared", "settled_applied", "settled_not_applied", "unknown")
+        values = ["dispatching", "prepared", "settled_applied", "settled_not_applied", "unknown"]
     )]
     state: string,
     #[field(string, opt)]
@@ -75,7 +75,7 @@ pub(crate) struct Job {
     #[field(
         string,
         default = "submitting",
-        values = (
+        values = [
             "accepted",
             "cancelled",
             "cancelling",
@@ -85,7 +85,7 @@ pub(crate) struct Job {
             "succeeded",
             "timed_out",
             "unknown"
-        )
+        ]
     )]
     state: string,
     #[field(string, opt)]

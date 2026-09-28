@@ -6,7 +6,7 @@ use keel::resource;
 pub(crate) struct WakeLease {
     #[field(int, min = 1)]
     generation: int,
-    #[field(string, values = ("active", "expired", "revoked", "silent"))]
+    #[field(string, values = ["active", "expired", "revoked", "silent"])]
     state: string,
     #[field(int, min = 0)]
     remaining: int,
