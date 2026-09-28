@@ -45,22 +45,32 @@ impl Plan {
             .iter()
             .map(String::as_str)
             .collect::<Vec<_>>();
-        (
-            self.first_tag.as_str(),
-            self.last_tag.as_str(),
-            self.from,
-            self.to,
+        Extent {
+            first: self.first_tag.as_str(),
+            last: self.last_tag.as_str(),
+            from: self.from,
+            to: self.to,
             absorbed,
-            self.collapsed,
-        ) == (
-            expected.first.as_str(),
-            expected.last.as_str(),
-            expected.from,
-            expected.to,
-            held,
-            expected.collapsed,
-        )
+            collapsed: self.collapsed,
+        } == Extent {
+            first: expected.first.as_str(),
+            last: expected.last.as_str(),
+            from: expected.from,
+            to: expected.to,
+            absorbed: held,
+            collapsed: expected.collapsed,
+        }
     }
+}
+
+#[derive(PartialEq)]
+struct Extent<'a> {
+    first: &'a str,
+    last: &'a str,
+    from: i64,
+    to: i64,
+    absorbed: Vec<&'a str>,
+    collapsed: i64,
 }
 
 pub(super) async fn build(

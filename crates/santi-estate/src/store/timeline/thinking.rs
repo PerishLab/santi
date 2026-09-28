@@ -239,35 +239,47 @@ impl Store {
         let key = row.key().to_string();
         let complete = read::one(&self.core, "ThinkingCompletion", "thinking", &key).await?;
         let failed = read::one(&self.core, "ThinkingFailure", "thinking", &key).await?;
-        let (state, reason, error, finished) = match (complete, failed) {
-            (None, None) => (thinking::State::Running, None, None, None),
-            (Some(done), None) => (
-                thinking::State::Completed,
-                Some(decode_reason(read::text(&done, "reason")?)?),
-                None,
-                Some(read::text(&done, "finished")?.to_string()),
-            ),
-            (None, Some(failed)) => (
-                thinking::State::Failed,
-                None,
-                Some(read::text(&failed, "error")?.to_string()),
-                Some(read::text(&failed, "finished")?.to_string()),
-            ),
+        let outcome = match (complete, failed) {
+            (None, None) => Outcome {
+                state: thinking::State::Running,
+                reason: None,
+                error: None,
+                finished: None,
+            },
+            (Some(done), None) => Outcome {
+                state: thinking::State::Completed,
+                reason: Some(decode_reason(read::text(&done, "reason")?)?),
+                error: None,
+                finished: Some(read::text(&done, "finished")?.to_string()),
+            },
+            (None, Some(failed)) => Outcome {
+                state: thinking::State::Failed,
+                reason: None,
+                error: Some(read::text(&failed, "error")?.to_string()),
+                finished: Some(read::text(&failed, "finished")?.to_string()),
+            },
             (Some(_), Some(_)) => return Err("thinking span has conflicting outcomes".to_string()),
         };
         Ok(thinking::Span {
             id: read::text(row, "tag")?.to_string(),
             turn: read::related(&self.core, "Turn", read::int(row, "turn")?).await?,
             response: row.text("response").map(str::to_string),
-            state,
+            state: outcome.state,
             summary: row.text("summary").map(str::to_string),
-            completion_reason: reason,
-            error,
+            completion_reason: outcome.reason,
+            error: outcome.error,
             created: read::text(row, "created")?.to_string(),
             updated: read::text(row, "updated")?.to_string(),
-            finished,
+            finished: outcome.finished,
         })
     }
+}
+
+struct Outcome {
+    state: thinking::State,
+    reason: Option<thinking::Reason>,
+    error: Option<String>,
+    finished: Option<String>,
 }
 
 fn reason_text(reason: &thinking::Reason) -> &'static str {

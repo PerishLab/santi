@@ -4,7 +4,7 @@ use keel::{Op, Row, Tx, form};
 use santi_model::job;
 
 mod support;
-use support::{Origin, adapt, key, signed, tag, validate};
+use support::{adapt, key, signed, tag, validate};
 
 pub(super) struct Writer<'a, 'tx>(&'a mut Tx<'tx, Sqlite>);
 
@@ -21,7 +21,7 @@ pub(super) async fn capability(
     let turn = writer.relation("Turn", draft.turn).await?;
     let call = writer.relation("ToolCall", draft.call).await?;
     let effect = writer.relation("StrandEffect", draft.effect).await?;
-    validate(Origin {
+    validate(job::Origin {
         soul: &soul,
         strand: &strand,
         turn: &turn,
