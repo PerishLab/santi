@@ -7,9 +7,9 @@ use keel::resource;
 pub(crate) struct MessageEvent {
     #[field(string, unique)]
     tag: string,
-    #[field(string, values = ("delete", "fix", "insert", "patch", "remove"))]
+    #[field(string, values = ["delete", "fix", "insert", "patch", "remove"])]
     action: string,
-    #[field(string, values = ("soul", "system"))]
+    #[field(string, values = ["soul", "system"])]
     actor_type: string,
     #[field(string)]
     actor: string,
@@ -67,7 +67,7 @@ pub(crate) struct ThinkingSpan {
 
 #[resource(frozen)]
 pub(crate) struct ThinkingCompletion {
-    #[field(string, values = ("called", "finished", "spoke"))]
+    #[field(string, values = ["called", "finished", "spoke"])]
     reason: string,
     #[field(string)]
     finished: string,

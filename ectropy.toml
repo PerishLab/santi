@@ -1,15 +1,3 @@
-[[boundary]]
-allow = ["tuple"]
-note = "Keel's resource macro grammar requires field values as a literal tuple"
-paths = [
-  "crates/santi-estate/src/model/history.rs",
-  "crates/santi-estate/src/model/inbox.rs",
-  "crates/santi-estate/src/model/job.rs",
-  "crates/santi-estate/src/model/ledger.rs",
-  "crates/santi-estate/src/model/ops/error.rs",
-  "crates/santi-estate/src/model/wake.rs",
-]
-
 [comment]
 allow = false
 

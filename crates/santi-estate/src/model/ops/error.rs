@@ -11,19 +11,19 @@ pub(crate) struct ErrorIncident {
     code: string,
     #[field(
         string,
-        values = (
+        values = [
             "exhausted",
             "internal",
             "invalid",
             "missing",
             "unauthorized",
             "unavailable"
-        )
+        ]
     )]
     category: string,
-    #[field(string, values = ("error",))]
+    #[field(string, values = ["error"])]
     severity: string,
-    #[field(string, values = ("changed", "later", "never", "resolved"))]
+    #[field(string, values = ["changed", "later", "never", "resolved"])]
     retry: string,
     #[field(string)]
     exposure: string,
@@ -67,19 +67,19 @@ pub(crate) struct ResolvedIncident {
     code: string,
     #[field(
         string,
-        values = (
+        values = [
             "exhausted",
             "internal",
             "invalid",
             "missing",
             "unauthorized",
             "unavailable"
-        )
+        ]
     )]
     category: string,
-    #[field(string, values = ("error",))]
+    #[field(string, values = ["error"])]
     severity: string,
-    #[field(string, values = ("changed", "later", "never", "resolved"))]
+    #[field(string, values = ["changed", "later", "never", "resolved"])]
     retry: string,
     #[field(string)]
     exposure: string,
@@ -125,7 +125,7 @@ pub(crate) struct ErrorTransition {
     incident: string,
     #[field(int, unique = incident, min = 1)]
     revision: int,
-    #[field(string, values = ("opened", "resolved"))]
+    #[field(string, values = ["opened", "resolved"])]
     kind: string,
     #[field(string)]
     payload: string,

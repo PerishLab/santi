@@ -773,7 +773,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -1438,9 +1438,9 @@ dependencies = [
 
 [[package]]
 name = "keel"
-version = "0.11.1"
+version = "0.12.0"
 source = "sparse+https://cargo.perish.uk/"
-checksum = "e6aae441b747bc4e2919ad8889aad198a5076971c9d6b399b4be49dc20536b47"
+checksum = "8bdcf804ee4348131d25e0d0b4f1a538ca4ddcfb3b61a067f1ba5ad3fc7eb598"
 dependencies = [
  "axum",
  "getrandom 0.3.4",
@@ -1454,9 +1454,9 @@ dependencies = [
 
 [[package]]
 name = "keel-macro"
-version = "0.11.1"
+version = "0.12.0"
 source = "sparse+https://cargo.perish.uk/"
-checksum = "94e8175271149677b16f5571d4f555518c829be8fa25c9e988b62552b99a9845"
+checksum = "dc7b175480540b2fadf1c20c71b882b77a235a21d14840f53f8e14a3ff83d670"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -2114,7 +2114,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -2171,7 +2171,7 @@ dependencies = [
  "security-framework",
  "security-framework-sys",
  "webpki-root-certs",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -2785,10 +2785,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32497e9a4c7b38532efcdebeef879707aa9f794296a4f0244f6f69e9bc8574bd"
 dependencies = [
  "fastrand",
- "getrandom 0.3.4",
+ "getrandom 0.4.3",
  "once_cell",
  "rustix",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -3340,7 +3340,7 @@ version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
 dependencies = [
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]

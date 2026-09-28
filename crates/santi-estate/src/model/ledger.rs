@@ -41,7 +41,7 @@ pub(crate) struct Strand {
 pub(crate) struct Turn {
     #[field(string, unique)]
     tag: string,
-    #[field(string, values = ("strand_send", "system"))]
+    #[field(string, values = ["strand_send", "system"])]
     trigger: string,
     #[field(string, opt)]
     source: string,
@@ -79,15 +79,15 @@ pub(crate) struct TurnFailure {
 pub(crate) struct Message {
     #[field(string, unique)]
     tag: string,
-    #[field(string, values = ("soul", "system"))]
+    #[field(string, values = ["soul", "system"])]
     actor_type: string,
     #[field(string)]
     actor: string,
-    #[field(string, default = "text", values = ("santi_system", "text"))]
+    #[field(string, default = "text", values = ["santi_system", "text"])]
     kind: string,
     #[field(string)]
     content: string,
-    #[field(string, values = ("aborted", "fixed", "pending"))]
+    #[field(string, values = ["aborted", "fixed", "pending"])]
     state: string,
     #[field(int, default = 1, min = 1)]
     version: int,
@@ -103,7 +103,7 @@ pub(crate) struct Message {
 
 #[resource(frozen)]
 pub(crate) struct StrandEntry {
-    #[field(string, values = ("message", "thinking", "tool_call", "tool_result"))]
+    #[field(string, values = ["message", "thinking", "tool_call", "tool_result"])]
     target_type: string,
     #[field(string, unique = (strand, target_type))]
     target: string,
@@ -117,7 +117,7 @@ pub(crate) struct StrandEntry {
 
 #[resource]
 pub(crate) struct TurnStop {
-    #[field(string, values = ("operator", "shutdown"))]
+    #[field(string, values = ["operator", "shutdown"])]
     cause: string,
     #[field(string)]
     requested: string,
