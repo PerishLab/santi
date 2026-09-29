@@ -62,6 +62,16 @@ registered zone; cursor movement may reveal aggregate volume but never another
 zone's labels or content. SSE is a lossy wake-up and cursor backfill remains the
 authority.
 
+Santi also carries one built-in inbound path. `POST /api/v1/webhooks/{name}`
+accepts GitHub and Feishu events for a webhook subscribed through
+`/api/v1/webhooks`, and puts each admitted event on a strand in its own zone:
+`github:{name}:issue:{repo}#{number}` or `feishu:{name}:chat:{chat_id}`.
+Senders are filtered by the configured allowlist. The path is inbound only:
+Santi sends nothing back through it and keeps no participant or message ledger
+for it. Message identity, participants and delivery remain stim's; whether
+human chat should keep entering here rather than through stim is an open
+product question.
+
 ## Environment and capabilities
 
 Synchronous shells start behind an explicit environment wall. Host allowlisted
