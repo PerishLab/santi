@@ -2,9 +2,6 @@ use super::support::*;
 use santi_core::service::{self, Service};
 use santi_core::{message, soul, strand};
 
-#[path = "../../src/service/face/publication.rs"]
-mod publication;
-
 #[tokio::test]
 async fn seats() {
     let temp = tempfile::tempdir().expect("temp dir");
@@ -118,20 +115,6 @@ async fn visibility() {
             .is_err()
     );
     assert_eq!(service.souls().await.expect("souls after").len(), before);
-}
-
-#[test]
-fn truncation() {
-    let temp = tempfile::tempdir().expect("temp dir");
-    publication::publish(temp.path(), "soul_test", b"published identity").expect("publish memoir");
-    let memory = temp.path().join("souls").join("soul_test").join("memory");
-    let memoir = memory.join("MEMORY.md");
-    assert!(publication::memoir(&memory, b"different identity").is_err());
-    assert_eq!(
-        std::fs::read(&memoir).expect("retained memoir"),
-        b"published identity"
-    );
-    assert!(!memory.join(".MEMORY.md.staged").exists());
 }
 
 #[tokio::test]

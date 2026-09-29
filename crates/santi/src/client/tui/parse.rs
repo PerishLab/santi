@@ -141,3 +141,21 @@ pub(super) async fn read(
         None => format!("ctx {} B", total),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::read;
+    use std::future;
+    use std::time::Duration;
+
+    #[tokio::test]
+    async fn unavailable() {
+        let value = read(
+            future::pending::<anyhow::Result<serde_json::Value>>(),
+            Duration::from_millis(10),
+        )
+        .await;
+
+        assert_eq!(value, "ctx --");
+    }
+}

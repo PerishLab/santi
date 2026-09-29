@@ -51,3 +51,22 @@ fn sync(directory: &Path) -> Result<(), String> {
         .and_then(|file| file.sync_all())
         .map_err(|error| error.to_string())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{memoir, publish};
+
+    #[test]
+    fn truncation() {
+        let temp = tempfile::tempdir().expect("temp dir");
+        publish(temp.path(), "soul_test", b"published identity").expect("publish memoir");
+        let memory = temp.path().join("souls").join("soul_test").join("memory");
+        let published = memory.join("MEMORY.md");
+        assert!(memoir(&memory, b"different identity").is_err());
+        assert_eq!(
+            std::fs::read(&published).expect("retained memoir"),
+            b"published identity"
+        );
+        assert!(!memory.join(".MEMORY.md.staged").exists());
+    }
+}

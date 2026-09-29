@@ -37,3 +37,31 @@ pub(crate) fn accepted_warning_error(warning: &serde_json::Value, receipt: &str)
     };
     unsettled(detail)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::super::outcome::Unsettled;
+    use super::{accepted_warning_error, uncertain, unknown};
+
+    #[test]
+    fn typed() {
+        let warning = serde_json::json!({
+            "code": "runtime.strand.drive_failed",
+            "context": { "recovery": { "command": "santi strand drive ss_direct" } }
+        });
+        let errors = [
+            unknown("ss_direct", "POST response was ambiguous".to_string()),
+            uncertain(
+                "ss_direct",
+                "inbox_direct",
+                "receipt was unreadable".to_string(),
+            ),
+            accepted_warning_error(&warning, "inbox_direct"),
+        ];
+
+        for error in errors {
+            assert!(error.downcast_ref::<Unsettled>().is_some());
+            assert!(error.to_string().contains("do not resend"));
+        }
+    }
+}
