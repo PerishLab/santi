@@ -16,6 +16,10 @@ mod view;
 #[path = "state/recover.rs"]
 pub(super) mod recover;
 
+#[cfg(test)]
+#[path = "state/tests.rs"]
+mod tests;
+
 use super::Kind;
 use super::parse::{Spoken, now};
 
