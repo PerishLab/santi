@@ -156,3 +156,23 @@ fn write_token_cache(path: &std::path::Path, value: &serde_json::Value) -> Resul
     }
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{Credentials, resolve_edge_bearer};
+
+    #[tokio::test]
+    async fn sentinels() {
+        let bearer = resolve_edge_bearer(Credentials {
+            endpoint: Some(""),
+            identity: Some(""),
+            username: Some(""),
+            password: Some(""),
+            key: Some("resolved bearer"),
+        })
+        .await
+        .expect("empty sentinels must not trigger edge auth");
+
+        assert_eq!(bearer.as_deref(), Some("resolved bearer"));
+    }
+}
