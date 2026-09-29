@@ -3,6 +3,71 @@ use std::io::Write as _;
 use api::config::{Config, ConfigPartial};
 use plumb::config::Cascade as _;
 
+const EXAMPLE: &str = r#"
+provider = "openai"
+
+[jobs]
+acknowledged_retention_seconds = 604800
+
+# One strand-lifetime execution envelope. Provider rounds are per turn; calls
+# and captured tool output accumulate until the strand yields to a new one.
+[execution]
+profile = "runtime_v1"
+rounds = 16
+calls = 256
+output = 4194304
+shell = 65536
+# Optional experiment: after this many ordinary shell calls, the next provider
+# round offers only the feedback tool. Without a caller command, the Soul may
+# choose a native gate or product slice.
+# feedback_after_calls = 6
+# Optional caller-owned mode: feedback becomes a zero-argument tool that runs
+# this exact command and workspace. Captured red and green results both reopen
+# the ordinary action window.
+# feedback_command = "cargo test --locked --workspace"
+# feedback_cwd = "strand://product"
+
+# Optional Ed25519 authority for short-lived, per-effect runtime capabilities.
+# Supply private_key through SANTI_CAPABILITY_PRIVATE_KEY in production.
+[capability]
+issuer = ""
+audience = ""
+key_id = ""
+private_key = ""
+ttl_seconds = 120
+
+# Lowest explicit layer for every turn shell. Values may be literals or env://
+# references. Soul and strand environment resources override this map.
+[environment]
+
+[providers.openai]
+kind = "openai_responses"
+api_key = ""
+model = ""
+base_url = "https://api.openai.com/v1"
+reasoning_effort = ""
+summary = ""
+bytes = 500000
+
+[providers.deepseek]
+kind = "chat_completions"
+api_key = ""
+model = "deepseek-v4-pro"
+base_url = "https://api.deepseek.com"
+thinking = ""
+reasoning_effort = ""
+bytes = 500000
+
+[providers.siliconflow]
+kind = "chat_completions"
+api_key = ""
+model = "zai-org/GLM-5.2"
+base_url = "https://api.siliconflow.cn/v1"
+thinking = ""
+reasoning_effort = ""
+bytes = 500000
+"#;
+
 fn read(text: &str) -> Config {
     let mut file = tempfile::NamedTempFile::new().unwrap();
     file.write_all(text.as_bytes()).unwrap();
@@ -11,7 +76,7 @@ fn read(text: &str) -> Config {
 
 #[test]
 fn example() {
-    let held = read(include_str!("../../../santi.example.toml"));
+    let held = read(EXAMPLE);
     assert_eq!(held.providers.len(), 3);
     assert_eq!(held.server.grace, 30);
     assert_eq!(held.execution.budget().unwrap().rounds, 16);

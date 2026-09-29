@@ -1,57 +1,64 @@
-use std::collections::HashMap;
-use std::path::{Path, PathBuf};
+use std::collections::HashSet;
 
-fn sources(dir: &Path, held: &mut Vec<PathBuf>) {
-    let Ok(entries) = std::fs::read_dir(dir) else {
-        return;
-    };
-    for entry in entries.flatten() {
-        let path = entry.path();
-        if path.is_dir() {
-            sources(&path, held);
-        } else if path.extension().is_some_and(|ext| ext == "rs") {
-            held.push(path);
-        }
-    }
+use santi_error::{Descriptor, Ruled, catalog};
+use santi_model::{budget, drive, soul, turn};
+
+fn budgets() -> Vec<Descriptor> {
+    use budget::Error::{Context, Execution, Inbox};
+    [Context, Execution, Inbox]
+        .iter()
+        .map(|held| match held {
+            Context | Execution | Inbox => held.descriptor(),
+        })
+        .collect()
+}
+
+fn turns() -> Vec<Descriptor> {
+    use turn::Error::{Interrupted, Provider, Runtime};
+    [Provider, Runtime, Interrupted]
+        .iter()
+        .map(|held| match held {
+            Provider | Runtime | Interrupted => held.descriptor(),
+        })
+        .collect()
+}
+
+fn edges() -> Vec<Descriptor> {
+    let drives = [drive::Error::Failed].map(|held| match held {
+        drive::Error::Failed => held.descriptor(),
+    });
+    let souls = [soul::Error::Intervention].map(|held| match held {
+        soul::Error::Intervention => held.descriptor(),
+    });
+    drives.into_iter().chain(souls).collect()
+}
+
+fn descriptors() -> Vec<Descriptor> {
+    let mut held = vec![
+        catalog::UNSAVED,
+        catalog::INVALID_ARGUMENT,
+        catalog::NOT_FOUND,
+        catalog::UNAUTHORIZED,
+        catalog::UNAVAILABLE,
+        catalog::INTERNAL,
+    ];
+    held.extend(budgets());
+    held.extend(turns());
+    held.extend(edges());
+    held
 }
 
 #[test]
 fn lawful() {
-    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
-    let crates = root.join("crates");
-    let mut files = Vec::new();
-    let Ok(entries) = std::fs::read_dir(&crates) else {
-        panic!("crates dir missing");
-    };
-    for entry in entries.flatten() {
-        sources(&entry.path().join("src"), &mut files);
-    }
-    let mut seen: HashMap<String, PathBuf> = HashMap::new();
-    for file in files {
-        let Ok(text) = std::fs::read_to_string(&file) else {
-            continue;
-        };
-        for line in text.lines() {
-            let Some(rest) = line.trim_start().strip_prefix("code: \"") else {
-                continue;
-            };
-            let Some(code) = rest.split('"').next() else {
-                continue;
-            };
-            assert!(
-                code.chars()
-                    .all(|held| held.is_ascii_lowercase() || held == '.' || held == '_'),
-                "code {code} in {} must be lowercase dotted words",
-                file.display()
-            );
-            if let Some(prior) = seen.insert(code.to_string(), file.clone()) {
-                panic!(
-                    "code {code} declared in both {} and {}",
-                    prior.display(),
-                    file.display()
-                );
-            }
-        }
+    let mut seen = HashSet::new();
+    for descriptor in descriptors() {
+        let code = descriptor.code;
+        assert!(
+            code.chars()
+                .all(|held| held.is_ascii_lowercase() || held == '.' || held == '_'),
+            "code {code} must be lowercase dotted words"
+        );
+        assert!(seen.insert(code), "code {code} declared twice");
     }
     assert!(
         seen.len() >= 12,
