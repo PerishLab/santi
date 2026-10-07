@@ -1,5 +1,10 @@
 # Agent guide
 
+Read the canonical [PerishLab delivery governance](https://github.com/PerishLab/.github/blob/main/GOVERNANCE.md)
+at work start and again before delivery or Issue closure. That document owns
+organization-wide Issue, pull-request and acceptance policy; this file keeps
+repository-specific constraints without copying that policy.
+
 `santi` is a standalone agent runtime. Treat this repo as runtime-first: there
 is no product layer here, and none should be added speculatively.
 
