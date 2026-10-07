@@ -27,8 +27,8 @@ name = ["santi.example.toml", ".env.example"]
 note = "Tracked local runtime configuration templates; live santi.toml and .env stay ignored."
 
 [[layout.file]]
-name = ["Cargo.toml", "Cargo.lock", "rust-toolchain.toml"]
-note = "Rust workspace anchors and the toolchain wharf builds with."
+name = ["Cargo.toml", "Cargo.lock"]
+note = "Rust workspace anchors."
 
 [release]
 product = "santi"
