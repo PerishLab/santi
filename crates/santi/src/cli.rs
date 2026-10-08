@@ -236,7 +236,9 @@ impl EffectOutcomeArg {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, ValueEnum)]
 pub enum WatchFormat {
-    #[value(help = "Human-readable milestones that omit repeated turn states and stream chunks")]
+    #[value(
+        help = "Human-readable milestones that omit stream chunks; send --watch also omits repeated turn states"
+    )]
     Filtered,
     #[value(
         help = "Raw debugging output: SSE bytes for `strand events`, JSON event data for `send --watch`"
