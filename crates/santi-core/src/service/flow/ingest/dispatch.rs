@@ -90,17 +90,19 @@ impl Service {
                 "system" => crate::turn::Trigger::System,
                 _ => crate::turn::Trigger::StrandSend,
             };
-            let started = self
-                .store
-                .drain_turn(santi_estate::DrainDraft {
-                    turn: &turn_tag,
-                    strand: &strand.id,
-                    trigger,
-                    source: None,
-                    actor: crate::SYSTEM,
-                    created: &crate::now(),
-                })
-                .await;
+            let draft = santi_estate::DrainDraft {
+                turn: &turn_tag,
+                strand: &strand.id,
+                trigger,
+                source: None,
+                actor: crate::SYSTEM,
+                created: &crate::now(),
+            };
+            let started = if drive.operation == "operator_redrive" {
+                self.store.redrive(draft).await
+            } else {
+                self.store.drain_turn(draft).await
+            };
             self.dispatched().await;
             match started {
                 Ok(santi_estate::Opening::Started(started)) => {

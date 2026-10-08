@@ -116,4 +116,22 @@ async fn resolves() {
     assert_eq!(incident.latest.context["turn"], turn(&recovered).id);
     assert_eq!(incident.latest.context["provider"], "fake-provider");
     assert_eq!(incident.latest.context["model"], "fake-model");
+    assert_eq!(
+        service
+            .drive(&strand.id)
+            .await
+            .expect("covered history")
+            .state,
+        santi_core::drive::State::Idle
+    );
+    assert_eq!(
+        service
+            .receipt(&failed.receipt.inbox)
+            .await
+            .expect("old receipt")
+            .expect("held")
+            .state,
+        santi_core::receipt::State::Failed
+    );
+    assert_eq!(provider.requests.lock().unwrap().len(), 2);
 }
