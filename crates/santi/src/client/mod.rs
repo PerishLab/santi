@@ -13,6 +13,7 @@ use crate::watch::{next_sse_frame, render_watch_event};
 
 mod create;
 mod environment;
+mod jobs;
 mod send;
 mod strand;
 pub mod tui;

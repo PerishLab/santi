@@ -92,6 +92,8 @@ async fn drive(
     let mut listening = Some(Box::pin(resident(target, sender.clone())));
     let mut refresh = Some(Box::pin(context(request, identity)));
     let mut stopping = None;
+    let mut catalog = crate::client::jobs::Catalog::default();
+    let mut inspection = None;
     let mut pulse = tokio::time::interval(Duration::from_millis(120));
     let mut cache = paint::Cache::new();
     loop {
@@ -104,6 +106,12 @@ async fn drive(
             value = poll(&mut refresh) => {
                 state.context = value;
                 refresh = None;
+                Step::Stay
+            },
+            (held, report) = poll(&mut inspection) => {
+                catalog = held;
+                inspection = None;
+                state.push(report);
                 Step::Stay
             },
             detail = poll(&mut stopping) => {
@@ -140,6 +148,17 @@ async fn drive(
             Step::Listing(kind) => {
                 let report = listing(request, &kind).await;
                 state.push(report);
+            }
+            Step::Jobs(_) if inspection.is_some() => {
+                state.push("job inspection is already in flight".to_string());
+            }
+            Step::Jobs(command) => {
+                inspection = Some(Box::pin(crate::client::jobs::inspect(
+                    request,
+                    identity,
+                    catalog.clone(),
+                    command,
+                )));
             }
             Step::Name(id, name) => {
                 let report = renamed(&id, &name);
@@ -204,7 +223,7 @@ fn copy(text: &str) -> std::io::Result<()> {
 fn header(identity: &Identity) -> Vec<String> {
     vec![
         format!("soul {} · strand {}", identity.soul, identity.strand),
-        "/status  /reload  /exit".to_string(),
+        "/status  /jobs  /job N [stdout|stderr] [cursor]  /reload  /exit".to_string(),
     ]
 }
 

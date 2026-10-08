@@ -37,6 +37,7 @@ pub(super) enum Step {
     Name(String, String),
     Switch(String),
     Listing(String),
+    Jobs(String),
     Idle,
 }
 

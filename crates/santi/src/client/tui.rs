@@ -54,7 +54,11 @@ pub async fn session(
     )?;
     history(output, identity.detail.as_ref())?;
     request.status(&identity, output).await?;
-    writeln!(output, "commands: /status /exit")?;
+    writeln!(
+        output,
+        "commands: /status /jobs /job N [stdout|stderr] [cursor] /exit"
+    )?;
+    let mut catalog = super::jobs::Catalog::default();
 
     loop {
         write!(output, "you> ")?;
@@ -79,6 +83,13 @@ pub async fn session(
                 continue;
             }
             _ => {}
+        }
+        if super::jobs::command(text) {
+            let (held, report) =
+                super::jobs::inspect(&request, &identity, catalog, text.to_string()).await;
+            catalog = held;
+            writeln!(output, "{report}")?;
+            continue;
         }
         let completed = emission(
             Send {
