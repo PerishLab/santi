@@ -6,6 +6,7 @@ use plumb::config::Cascade;
 use santi_api::config::{Layout, Profile, env, home};
 use santi_api::runtime::{self, Runtime};
 
+pub mod context;
 mod execution;
 pub use execution::Execution;
 
@@ -210,6 +211,14 @@ pub fn path(over: Option<&str>) -> PathBuf {
         .map(PathBuf::from)
         .or_else(|| env("SANTI_CONFIG").map(PathBuf::from))
         .unwrap_or_else(|| home().join("santi.toml"))
+}
+
+pub fn origin(over: Option<&str>) -> Result<context::Origin, String> {
+    context::Origin::new(
+        path(over),
+        over.is_some_and(|path| !path.trim().is_empty()),
+        env("SANTI_CONFIG").is_some(),
+    )
 }
 
 pub fn boot(config: Option<&str>, over: ConfigPartial) -> Result<(), String> {

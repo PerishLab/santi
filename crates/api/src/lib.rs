@@ -1,6 +1,7 @@
 mod bootstrap;
 pub mod cli;
 pub mod config;
+mod doctor;
 pub mod text;
 
 use anyhow::Result;
@@ -36,6 +37,7 @@ pub async fn run() -> Result<()> {
             Ok(())
         }
         Command::Doctor { storage_only } => {
+            let origin = config::origin(config.as_deref()).map_err(anyhow::Error::msg)?;
             config::boot(config.as_deref(), over.partial()).map_err(anyhow::Error::msg)?;
             let report = if storage_only {
                 santi_api::runtime::held().paths.doctor().await
@@ -43,9 +45,15 @@ pub async fn run() -> Result<()> {
                 santi_api::ops::doctor().await
             }
             .map_err(anyhow::Error::msg)?;
-            println!("{}", serde_json::to_string_pretty(&report)?);
-            if !report.ok {
-                anyhow::bail!("doctor: unhealthy (see report above)");
+            let ok = report.ok;
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&doctor::Report::new(origin, report))?
+            );
+            if !ok {
+                anyhow::bail!(
+                    "doctor: local configuration or estate is not ready (see actions above); query the running service with santi --base-url <service-url> health"
+                );
             }
             Ok(())
         }

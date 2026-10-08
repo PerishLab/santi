@@ -27,7 +27,7 @@ pub enum Command {
     #[command(name = "export-openapi")]
     Export,
     #[command(
-        about = "Check the store, default soul memory, and provider budget without a running server"
+        about = "Check the selected local config, estate and provider in this process environment; use santi health to query a running service"
     )]
     Doctor {
         #[arg(
