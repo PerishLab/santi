@@ -171,14 +171,20 @@ async fn refuses() {
             }
             _ => unreachable!(),
         }
-        let error = store
-            .redrive(draft("turn_retry"))
-            .await
-            .expect_err("refuse");
-        assert!(
-            error.contains("inbox_retry")
-                && error.contains("effect_retry")
-                && error.contains("do not resend")
+        let opening = store.redrive(draft("turn_retry")).await.expect("refusal");
+        let Opening::Refused(refusal) = opening else {
+            panic!("unsafe effect must refuse replay");
+        };
+        assert_eq!(refusal.inbox, "inbox_retry");
+        assert_eq!(refusal.effect, "effect_retry");
+        assert_eq!(
+            refusal.state,
+            match state {
+                effect::State::Unknown => "unknown",
+                effect::State::Dispatching => "dispatching",
+                effect::State::Settled(effect::Outcome::Applied) => "settled_applied",
+                _ => unreachable!(),
+            }
         );
         assert!(store.turn("turn_retry").await.expect("turn").is_none());
         let status = store

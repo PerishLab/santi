@@ -69,7 +69,15 @@ pub struct Begun {
 
 #[derive(Debug, Clone)]
 pub enum Opening {
+    Refused(Refusal),
     Started(Begun),
     Running(santi_model::turn::Turn),
     Idle,
+}
+
+#[derive(Debug, Clone)]
+pub struct Refusal {
+    pub inbox: String,
+    pub effect: String,
+    pub state: String,
 }

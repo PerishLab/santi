@@ -3,6 +3,7 @@ use super::codec::Pending;
 use keel::Row;
 
 pub(super) enum Opened {
+    Refused(super::Refusal),
     Started(Vec<String>),
     Running(String),
     Idle,
