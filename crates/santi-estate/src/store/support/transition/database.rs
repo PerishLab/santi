@@ -6,8 +6,7 @@ pub(super) async fn probe(path: &Path) -> Result<(i64, Vec<String>), String> {
     let options = SqliteConnectOptions::new()
         .filename(path)
         .read_only(true)
-        .create_if_missing(false)
-        .busy_timeout(std::time::Duration::ZERO);
+        .create_if_missing(false);
     let mut conn = SqliteConnection::connect_with(&options)
         .await
         .map_err(|error| format!("open database {}: {error}", path.display()))?;

@@ -78,6 +78,8 @@ CREATE INDEX idx_r_soul_session_messages_target_lookup ON r_soul_session_message
 
 struct Estate<'a>(&'a Path);
 
+mod locks;
+
 #[tokio::test]
 async fn legacy() {
     let temp = tempfile::tempdir().expect("temp");
