@@ -13,6 +13,7 @@ members = [
 resolver = "2"
 
 [workspace.package]
+repository = "https://github.com/PerishLab/santi"
 edition = "2024"
 license = "MIT"
 version = "0.0.0"
