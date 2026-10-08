@@ -172,6 +172,11 @@ impl State {
             self.take();
             return self.rename(name);
         }
+        if crate::client::jobs::command(self.typed.trim()) {
+            let command = self.typed.trim().to_string();
+            self.take();
+            return Step::Jobs(command);
+        }
         if self.typed.trim().is_empty() {
             return Step::Stay;
         }

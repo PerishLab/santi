@@ -183,3 +183,20 @@ fn aliased() {
         "an alias resolves to its id before the switch is judged"
     );
 }
+
+#[test]
+fn jobs() {
+    let mut state = fresh();
+    state.busy = true;
+    state.unsettled = true;
+    for command in ["/jobs", "/job 1 stderr 16", "/job", "/job nonsense"] {
+        assert_eq!(enter(&mut state, command), Step::Jobs(command.to_string()));
+        assert!(state.typed.is_empty());
+        assert!(state.busy && state.unsettled);
+    }
+    assert_eq!(
+        state.heard(Some(Beat::Settled("inbox_done".to_string()))),
+        Step::Refresh
+    );
+    assert!(!state.busy && !state.unsettled);
+}
