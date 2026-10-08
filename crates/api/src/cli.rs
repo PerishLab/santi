@@ -31,6 +31,12 @@ pub enum Command {
     )]
     Doctor {
         #[arg(
+            long,
+            conflicts_with = "storage_only",
+            help = "Inspect Linux detached-job prerequisites as the intended runtime user; checks global shell PATH and the persistent user manager without starting jobs"
+        )]
+        jobs: bool,
+        #[arg(
             help = "Internal storage-only check used by deployment and recovery",
             long,
             hide = true

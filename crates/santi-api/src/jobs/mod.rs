@@ -3,6 +3,7 @@ mod files;
 mod launchd;
 mod model;
 mod process;
+pub mod readiness;
 #[cfg(target_os = "linux")]
 mod systemd;
 #[cfg(target_os = "windows")]
