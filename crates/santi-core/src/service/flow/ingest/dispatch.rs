@@ -105,6 +105,9 @@ impl Service {
             };
             self.dispatched().await;
             match started {
+                Ok(santi_estate::Opening::Refused(refusal)) => {
+                    drive::Outcome::Failed(self.declined(&strand.id, drive, refusal).await)
+                }
                 Ok(santi_estate::Opening::Started(started)) => {
                     let key = crate::drive::Error::Failed
                         .descriptor()

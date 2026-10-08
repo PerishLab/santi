@@ -4,6 +4,7 @@ use super::*;
 pub(super) struct Recovery {
     pub from: Option<i64>,
     pub receipts: Vec<String>,
+    pub refusal: Option<Refusal>,
 }
 
 pub(super) async fn collect(
@@ -49,7 +50,10 @@ pub(super) async fn collect(
         if from <= seen {
             continue;
         }
-        effects(tx, receipt).await?;
+        if let Some(refusal) = effects(tx, receipt).await? {
+            recovered.refusal = Some(refusal);
+            return Ok(recovered);
+        }
         recovered.from = Some(recovered.from.unwrap_or(from).max(from));
         recovered.receipts.push(
             receipt
@@ -61,7 +65,10 @@ pub(super) async fn collect(
     Ok(recovered)
 }
 
-async fn effects(tx: &mut Tx<'_, Sqlite>, receipt: &Row) -> Result<(), keel::adapt::Error> {
+async fn effects(
+    tx: &mut Tx<'_, Sqlite>,
+    receipt: &Row,
+) -> Result<Option<Refusal>, keel::adapt::Error> {
     let transitions = tx
         .ask(&form("ReceiptTransition").when("receipt", Op::Eq, &receipt.key().to_string()))
         .await?;
@@ -84,12 +91,14 @@ async fn effects(tx: &mut Tx<'_, Sqlite>, receipt: &Row) -> Result<(), keel::ada
             let inbox = receipt.text("tag").unwrap_or("missing");
             let tag = effect.text("tag").unwrap_or("missing");
             let state = effect.text("state").unwrap_or("missing");
-            return Err(keel::adapt::Error::Adapt(format!(
-                "receipt {inbox} cannot be replayed while effect {tag} is {state}; inspect `santi receipt {inbox}` and `santi effect query {tag}` and reconcile external evidence before recovery; do not resend or repeat the command"
-            )));
+            return Ok(Some(Refusal {
+                inbox: inbox.to_string(),
+                effect: tag.to_string(),
+                state: state.to_string(),
+            }));
         }
     }
-    Ok(())
+    Ok(None)
 }
 
 pub(super) async fn bind(

@@ -16,7 +16,7 @@ mod wake;
 pub use effect::{EffectDraft, RedemptionDraft};
 pub use inbox::{
     Accepted, Begun, DownstreamDraft, DrainDraft, Inbox, InboxDraft, NoticeDraft, Offer, Opening,
-    ReceiptDraft, ReplayDraft, WebhookDraft,
+    ReceiptDraft, Refusal, ReplayDraft, WebhookDraft,
 };
 pub use job::{
     AttentionDraft, CapabilityDraft, ExpiredJob, JobDraft, JobRecord, Prepared, TransitionDraft,

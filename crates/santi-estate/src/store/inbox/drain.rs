@@ -1,4 +1,4 @@
-use super::{Begun, DrainDraft, Opening, Store, read, receipt};
+use super::{Begun, DrainDraft, Opening, Refusal, Store, read, receipt};
 use keel::adapt::db::Sqlite;
 use keel::{Op, Rank, Row, Tx, form};
 use santi_model::receipt as receipt_model;
@@ -25,6 +25,7 @@ pub(super) async fn open(
         .await
         .map_err(read::error)?;
     match opened {
+        Opened::Refused(refusal) => Ok(Opening::Refused(refusal)),
         Opened::Idle => Ok(Opening::Idle),
         Opened::Running(tag) => {
             let turn = store
@@ -69,6 +70,9 @@ async fn open_in(
     } else {
         recovery::Recovery::default()
     };
+    if let Some(refusal) = recovered.refusal {
+        return Ok(Opened::Refused(refusal));
+    }
     let pending = pending(tx, strand.key()).await?;
     if pending.is_empty() && recovered.receipts.is_empty() {
         return Ok(Opened::Idle);

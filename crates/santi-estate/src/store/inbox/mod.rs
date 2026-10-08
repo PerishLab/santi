@@ -11,7 +11,9 @@ mod types;
 pub(in crate::store) mod write;
 
 pub use edge::{Accepted, DownstreamDraft, ReplayDraft, WebhookDraft};
-pub use types::{Begun, DrainDraft, Inbox, InboxDraft, NoticeDraft, Offer, Opening, ReceiptDraft};
+pub use types::{
+    Begun, DrainDraft, Inbox, InboxDraft, NoticeDraft, Offer, Opening, ReceiptDraft, Refusal,
+};
 pub(in crate::store) use write::offer as offer_in;
 
 impl Store {
