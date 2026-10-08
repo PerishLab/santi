@@ -9,12 +9,18 @@ pub struct Report {
     target: &'static str,
     state: &'static str,
     actions: Vec<&'static str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    jobs: Option<santi_api::jobs::readiness::Report>,
     #[serde(flatten)]
     report: DoctorReport,
 }
 
 impl Report {
-    pub fn new(config: Origin, report: DoctorReport) -> Self {
+    pub fn new(
+        config: Origin,
+        report: DoctorReport,
+        jobs: Option<santi_api::jobs::readiness::Report>,
+    ) -> Self {
         let mut actions = Vec::new();
         let state = if !report.database_exists {
             actions.push("Run santi-api bootstrap with this same --config to initialize the estate and sudo custody.");
@@ -43,6 +49,7 @@ impl Report {
             target: "local_process",
             state,
             actions,
+            jobs,
             report,
         }
     }

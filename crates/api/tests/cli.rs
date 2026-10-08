@@ -13,14 +13,27 @@ fn local() {
     assert!(matches!(
         parsed.command,
         Some(Command::Doctor {
-            storage_only: false
+            storage_only: false,
+            jobs: false,
         })
     ));
     let parsed = Cli::try_parse_from(["santi-api", "doctor", "--storage-only"]).unwrap();
     assert!(matches!(
         parsed.command,
-        Some(Command::Doctor { storage_only: true })
+        Some(Command::Doctor {
+            storage_only: true,
+            jobs: false
+        })
     ));
+    let parsed = Cli::try_parse_from(["santi-api", "doctor", "--jobs"]).unwrap();
+    assert!(matches!(
+        parsed.command,
+        Some(Command::Doctor {
+            storage_only: false,
+            jobs: true
+        })
+    ));
+    assert!(Cli::try_parse_from(["santi-api", "doctor", "--jobs", "--storage-only"]).is_err());
     let parsed = Cli::try_parse_from([
         "santi-api",
         "--strand",

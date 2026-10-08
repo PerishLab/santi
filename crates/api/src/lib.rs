@@ -36,7 +36,7 @@ pub async fn run() -> Result<()> {
             println!("{document}");
             Ok(())
         }
-        Command::Doctor { storage_only } => {
+        Command::Doctor { storage_only, jobs } => {
             let origin = config::origin(config.as_deref()).map_err(anyhow::Error::msg)?;
             config::boot(config.as_deref(), over.partial()).map_err(anyhow::Error::msg)?;
             let report = if storage_only {
@@ -45,14 +45,22 @@ pub async fn run() -> Result<()> {
                 santi_api::ops::doctor().await
             }
             .map_err(anyhow::Error::msg)?;
-            let ok = report.ok;
+            let jobs = if jobs {
+                Some(
+                    santi_api::jobs::readiness::inspect(&santi_api::runtime::held().environment)
+                        .await,
+                )
+            } else {
+                None
+            };
+            let ok = report.ok && jobs.as_ref().is_none_or(|jobs| jobs.ok);
             println!(
                 "{}",
-                serde_json::to_string_pretty(&doctor::Report::new(origin, report))?
+                serde_json::to_string_pretty(&doctor::Report::new(origin, report, jobs))?
             );
             if !ok {
                 anyhow::bail!(
-                    "doctor: local configuration or estate is not ready (see actions above); query the running service with santi --base-url <service-url> health"
+                    "doctor: local configuration, estate or requested deployment prerequisites are not ready (see actions above); query the running service with santi --base-url <service-url> health"
                 );
             }
             Ok(())
