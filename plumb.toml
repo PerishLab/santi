@@ -19,10 +19,6 @@ path = ".runseal"
 note = "Committed inert Runseal resources."
 
 [[layout.file]]
-name = ["DESIGN.md"]
-note = "The runtime design: estate, receipts, recovery, and effects."
-
-[[layout.file]]
 name = ["santi.example.toml", ".env.example"]
 note = "Tracked local runtime configuration templates; live santi.toml and .env stay ignored."
 

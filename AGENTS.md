@@ -1,41 +1,42 @@
 # Agent guide
 
 Read the canonical [PerishLab delivery governance](https://github.com/PerishLab/.github/blob/main/GOVERNANCE.md)
-at work start and again before delivery or Issue closure. That document owns
-organization-wide Issue, pull-request and acceptance policy; this file keeps
-repository-specific constraints without copying that policy.
+at work start and again before delivery or Issue closure.
 
-`santi` is a standalone agent runtime. Treat this repo as runtime-first: there
-is no product layer here, and none should be added speculatively.
+Santi is a standalone agent runtime. Keep changes centered on souls, strands,
+execution, and their durable evidence. Product roles and workflows belong to
+consumers of the runtime.
 
-## Layout
+## Working constraints
 
-```text
-crates/
-  api/             # the `santi-api` binary: config, bootstrap, serve, local ops
-  santi-core/      # runtime model + service (turns, assembly, objects, workspace)
-  santi-estate/    # Keel graph + durable ceremonies and projections
-  santi-provider/  # ProviderClient boundary; keeps santi-core provider-agnostic
-  santi-api/       # HTTP/SSE/OpenAPI server library over santi-core
-  santi/           # the `santi` binary: transport-only HTTP client and TUI
-packaging/deb/     # the santi-api Debian placement: control, maintainer scripts, root/ payload
-```
+Treat the Keel estate and its sudo possession as one recovery unit when backing
+up, restoring, or moving a runtime.
 
-## Boundaries
+Live credentials belong in the ignored `santi.toml`; use `santi.example.toml`
+for tracked configuration changes.
 
-- `santi-core` is provider-agnostic. Provider specifics live behind
-  `santi-provider::ProviderClient`.
-- `santi-api` is the only network boundary. Browser/host-facing shapes are
-  owned here, not in `santi-core`.
-- `api` ships `santi-api`, the server entry. It owns config resolution,
-  bootstrap, serving, OpenAPI export, and local runtime operations.
-- `santi` keeps its transport-only HTTP client boundary. It must never depend on
-  or call `santi-api` or `santi-core` in process. HTTP stays the only way in.
-- Both binaries install the product identity `plumb::identity!("SANTI")` before
-  parsing arguments and report `<binary> <marker>` through
-  `plumb::version!("SANTI")`.
+Release work ends at artifact publication. Host deployment is separate
+operational work.
 
-## Build & checks
+## Source authorities
+
+The workspace manifests own crate membership and dependency boundaries.
+`crates/santi-core/src/assembly/prompt.rs` owns the built-in soul and strand
+constitution; `crates/santi-core/src/service/flow/memory.rs` owns memory pressure
+and maintenance.
+
+For execution and recovery changes, follow
+`crates/santi-core/src/service/flow` into `crates/santi-estate/src/store`.
+Receipt, completion, and effect behavior is exercised in
+`crates/santi-estate/tests/completion`,
+`crates/santi-estate/tests/operations/terminal.rs`, and
+`crates/santi-estate/tests/effects.rs`.
+
+The binaries' `--help` and the server's OpenAPI export own the public interface.
+`plumb.toml` owns release targets and placement; `packaging/deb` owns Debian
+host integration. Consult current Plumb and Wharf help for delivery.
+
+## Verification
 
 ```sh
 cargo fmt --all
@@ -43,71 +44,16 @@ cargo clippy --locked --workspace --all-targets -- -D warnings
 cargo test --locked --workspace
 ```
 
-Run `plumb doctor .` and `ectropy .` before and after changing repository
-shape. The repository carries no CI workflow; guard hooks projected by
-`plumb configuration install` prove each staged tree.
+Run `plumb doctor .` and `ectropy .` before and after repository shape changes.
 
-## Trigger a single turn locally (hot path)
-
-To exercise a real end-to-end turn, prefer reusing the repo-root
-`santi.toml` — it already configures a working provider, so no ad-hoc
-config or env wiring is needed. `santi-api serve` reads `./santi.toml`
-by default; drive one turn and stop when it lands:
+For a real-provider turn, reuse the ignored repo-root `santi.toml` when it is
+configured. Run `santi-api --config santi.toml serve` in a separate terminal, then:
 
 ```sh
-santi-api serve &                                       # reads ./santi.toml
 SID=$(santi strand create | jq -r .strand.id)
 SANTI_STRAND_ID=$SID santi strand send 'Reply with exactly: OK' --watch
 ```
 
-`--watch` subscribes before sending and exits successfully only after the
-accepted message's matching receipt is proven to have reached durable
-`completed`. It does not prove strand idleness, and queued follow-on work may
-remain after success. Durable `failed` is an error. A pending receipt or
-unavailable proof remains `state_unknown`: after sixty seconds without an event
-or ten minutes total, do not resend the accepted message; inspect it with
-`santi receipt <inbox>` and `santi strand runtime <strand>`, then resume the
-blocking condition or explicitly redrive it with `santi strand drive <strand>`.
-Silence is never success. By default, watch output is filtered human-readable
-milestones for interactive use.
-
-For raw/debug automation, pass `--watch-format raw`; it relays event JSON (one
-object per line, same payload shape as `strand events`). Distill the reply with
-jq:
-
-```sh
-… strand send '…' --watch --watch-format raw \
-  | jq -rc 'select(.payload.type=="message" and .payload.beat=="completed")
-            | .payload.message.content_text'
-```
-
-`--strand`/`SANTI_STRAND_ID` set a default strand id; `--soul`/`SANTI_SOUL_ID`
-pick a non-default soul (empty → the runtime's default soul; an unknown soul is
-rejected, not silently created). To address a soul ad hoc without a default:
-`santi --soul <id> strand send <strand_id> '…'`.
-
-## Conventions
-
-- Edition 2024, MIT. Workspace dependencies are pinned in the root
-  `Cargo.toml`; crates reference them with `.workspace = true`.
-- GitHub `PerishLab/santi` is the canonical repository.
-- Santi's runtime boundary stops at its executables. `packaging/deb` is the
-  host placement for the server, not runtime architecture; its maintainer
-  scripts create the `santi` system user, enable but never start
-  `santi.service`, stop it only on removal, and never delete
-  `/home/santi/.santi`.
-- Runtime secrets live in `santi.toml`; it is gitignored. Never commit live
-  credentials; `santi.example.toml` is the tracked runtime template.
-
-## Release
-
-- Plumb owns repository governance, release markers, and landing; wharf builds,
-  binds, and distributes each release. `plumb.toml` is the release
-  declaration. Read their current help and rules; do not restate a release
-  workflow or changelog shape here.
-- One marker covers both executables: `santi` ships for Linux x86_64 and macOS
-  arm64 through the manager; `santi-api` ships for Linux x86_64 only, is not
-  installed by the manager, and is placed as the `santi-api` `.deb`. The deb
-  carries only `santi-api`, never the client.
-- A placement is published, never deployed. Deploying a host is outside this
-  repository.
+Inspect an accepted send with `santi receipt <inbox>` and
+`santi strand runtime <strand>` when its watch result remains unknown.
+Stop the server after the check.
