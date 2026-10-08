@@ -47,7 +47,7 @@ cargo test --locked --workspace
 Run `plumb doctor .` and `ectropy .` before and after repository shape changes.
 
 For a real-provider turn, reuse the ignored repo-root `santi.toml` when it is
-configured. Run `santi-api serve` in a separate terminal, then:
+configured. Run `santi-api --config santi.toml serve` in a separate terminal, then:
 
 ```sh
 SID=$(santi strand create | jq -r .strand.id)
