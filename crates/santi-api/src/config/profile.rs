@@ -7,6 +7,13 @@ pub enum Resolved {
 }
 
 impl Resolved {
+    pub fn effort(&self) -> Option<&str> {
+        match self {
+            Self::OpenAiResponses(config) => config.reasoning_effort.as_deref(),
+            Self::ChatCompletions(config) => config.reasoning_effort.as_deref(),
+        }
+    }
+
     pub fn kind(&self) -> &'static str {
         match self {
             Self::OpenAiResponses(_) => "openai_responses",
@@ -94,6 +101,30 @@ pub enum Profile {
 }
 
 impl Profile {
+    pub fn kind(&self) -> &'static str {
+        match self {
+            Self::OpenAiResponses { .. } => "openai_responses",
+            Self::ChatCompletions { .. } => "chat_completions",
+        }
+    }
+
+    pub fn model(&self, provider: &str) -> Option<String> {
+        let (Self::OpenAiResponses { model, .. } | Self::ChatCompletions { model, .. }) = self;
+        optional(model, provider, "model").ok().flatten()
+    }
+
+    pub fn effort(&self, provider: &str) -> Option<String> {
+        let (Self::OpenAiResponses {
+            reasoning_effort, ..
+        }
+        | Self::ChatCompletions {
+            reasoning_effort, ..
+        }) = self;
+        optional(reasoning_effort, provider, "reasoning_effort")
+            .ok()
+            .flatten()
+    }
+
     pub fn resolve(&self, provider: &str) -> Result<Resolved, String> {
         match self {
             Profile::OpenAiResponses {

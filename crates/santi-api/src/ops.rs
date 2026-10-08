@@ -27,6 +27,7 @@ pub struct ProviderDoctorReport {
     pub profile: Option<String>,
     pub kind: Option<String>,
     pub model: Option<String>,
+    pub effort: Option<String>,
     pub bytes: Option<usize>,
     pub source: Option<String>,
     pub ok: bool,
@@ -179,11 +180,13 @@ impl Layout {
 
     pub async fn configured(&self, held: &Runtime) -> Result<DoctorReport, String> {
         let profile = Some(held.provider.clone());
+        let selected = held.providers.get(&held.provider);
         let provider = match held.resolved() {
             Ok(provider) => ProviderDoctorReport {
                 profile,
                 kind: Some(provider.kind().to_string()),
                 model: Some(provider.model().to_string()),
+                effort: provider.effort().map(str::to_string),
                 bytes: Some(provider.bytes()),
                 source: Some("provider_config".to_string()),
                 ok: true,
@@ -191,8 +194,9 @@ impl Layout {
             },
             Err(error) => ProviderDoctorReport {
                 profile,
-                kind: None,
-                model: None,
+                kind: selected.map(|profile| profile.kind().to_string()),
+                model: selected.and_then(|profile| profile.model(&held.provider)),
+                effort: selected.and_then(|profile| profile.effort(&held.provider)),
                 bytes: None,
                 source: None,
                 ok: false,

@@ -22,6 +22,7 @@ async fn reports() {
     assert_eq!(provider.profile.as_deref(), Some("openai"));
     assert_eq!(provider.kind.as_deref(), Some("openai_responses"));
     assert_eq!(provider.model.as_deref(), Some("gpt-5.5"));
+    assert_eq!(provider.effort.as_deref(), Some("medium"));
     assert_eq!(provider.bytes, Some(120000));
     assert_eq!(provider.source.as_deref(), Some("provider_config"));
 }
@@ -70,6 +71,7 @@ fn runtime_under(root: &Path, budget: Option<usize>) -> Runtime {
         kind = "openai_responses"
         api_key = "test-key"
         model = "gpt-5.5"
+        reasoning_effort = "medium"
         {budget}
         "#
     ))
