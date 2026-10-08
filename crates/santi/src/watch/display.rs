@@ -9,6 +9,7 @@ pub(super) struct Display {
     newline: bool,
     spoken: HashMap<String, String>,
     gap: bool,
+    activity: Option<(String, String)>,
 }
 
 impl Display {
@@ -19,6 +20,7 @@ impl Display {
             newline: false,
             spoken: HashMap::new(),
             gap: false,
+            activity: None,
         }
     }
     pub(super) fn write(&mut self, output: &mut impl Emit, event: &str, data: &str) {
@@ -38,9 +40,35 @@ impl Display {
                     });
                 }
             }
-            Presentation::Watch(WatchFormat::Filtered) => line(output, event, data),
+            Presentation::Watch(WatchFormat::Filtered) => self.filtered(output, event, data),
             Presentation::Tui => self.tui(output, event, data),
         }
+    }
+    fn filtered(&mut self, output: &mut impl Emit, event: &str, data: &str) {
+        let beat = json_field(data, &["payload", "beat"]);
+        if event == "gap"
+            || event == "turn"
+                && matches!(beat.as_deref(), Some("started" | "completed" | "failed"))
+        {
+            self.activity = None;
+        }
+        if event == "turn" && beat.as_deref() == Some("active") {
+            let activity = json_field(data, &["payload", "activity", "turn"])
+                .zip(json_field(data, &["payload", "activity", "state"]))
+                .filter(|(turn, state)| {
+                    !turn.is_empty()
+                        && matches!(
+                            state.as_str(),
+                            "requesting" | "thinking" | "generating" | "calling" | "running"
+                        )
+                });
+            let duplicate = activity.is_some() && self.activity == activity;
+            self.activity = activity;
+            if duplicate {
+                return;
+            }
+        }
+        line(output, event, data);
     }
     fn tui(&mut self, output: &mut impl Emit, event: &str, data: &str) {
         let beat = json_field(data, &["payload", "beat"]);
@@ -108,3 +136,6 @@ fn speech(text: &str) -> String {
         .filter(|character| !character.is_control() || matches!(character, '\n' | '\t'))
         .collect()
 }
+
+#[cfg(test)]
+mod check;
