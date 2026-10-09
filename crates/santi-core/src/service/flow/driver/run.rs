@@ -5,8 +5,9 @@ use crate::service::{Service, address::Address, interrupt::Control, notice::Obse
 use santi_provider::Request;
 use std::{future::Future, pin::Pin};
 
+use super::finish::Finish;
 use super::*;
-use crate::{message, stream, turn};
+use crate::{message, turn};
 
 impl Service {
     pub(in crate::service::flow) fn conduct(
@@ -20,98 +21,29 @@ impl Service {
                 Err(failure) => {
                     self.bury(&strand, &turn, failure).await;
                 }
-                Ok((last, response)) => {
+                Ok(finish) => {
                     if let Some(cause) = self.halted(&control) {
                         self.bury(&strand, &turn, Failure::stopped(cause, "")).await;
                     } else {
-                        self.land(&strand, &turn, last, response).await;
+                        self.land(&strand, &turn, finish).await;
                     }
                 }
             }
             self.noticed(&turn).await;
             self.release(&turn);
+            self.unsettle(&strand);
             self.poke(&strand, "strand_send", None, "turn_completion_poke")
                 .await;
             self.relieve(&strand).await;
         })
     }
 
-    async fn land(
-        &self,
-        strand: &str,
-        turn: &str,
-        last: Option<message::Placed>,
-        response: Option<String>,
-    ) {
-        if let Some(message) = last.as_ref() {
-            self.publish(
-                strand,
-                stream::Payload::Message(crate::message::Beat::Completed {
-                    turn: turn.to_string(),
-                    message: message.clone(),
-                }),
-            );
-        }
-        let metadata = self.provider.metadata();
-        match self
-            .store
-            .finish_turn(santi_estate::CompletionDraft {
-                turn,
-                reply: last.as_ref().map(|message| message.message.id.as_str()),
-                provider: &metadata.provider,
-                model: &metadata.model,
-                response: response.as_deref(),
-                occurred: &crate::now(),
-            })
-            .await
-        {
-            Ok(completion) => {
-                self.dispatched().await;
-                let turned = completion.event;
-                let (label, text) = match turned {
-                    Some(event) => (Some(event.label), Some(event.text)),
-                    None => (None, None),
-                };
-                self.publish(
-                    strand,
-                    stream::Payload::Turn(crate::turn::Beat::Completed {
-                        turn: turn.to_string(),
-                        label,
-                        text,
-                    }),
-                );
-            }
-            Err(error) => match self.store.stop(turn).await {
-                Ok(Some(stop)) if stop.cause.is_some() => {
-                    self.bury(strand, turn, Failure::stopped(stop.cause.unwrap(), ""))
-                        .await
-                }
-                Ok(_) | Err(_) => {
-                    self.bury(
-                        strand,
-                        turn,
-                        Failure::runtime(
-                            Operation::Persistence(Persistence::Completion),
-                            error,
-                            "",
-                        ),
-                    )
-                    .await
-                }
-            },
-        }
-    }
-
-    async fn run(
-        &self,
-        strand: &str,
-        turn: &str,
-        control: &Control,
-    ) -> Result<(Option<message::Placed>, Option<String>), Failure> {
+    async fn run(&self, strand: &str, turn: &str, control: &Control) -> Result<Finish, Failure> {
         let mut prose = String::new();
         let mut last: Option<message::Placed> = None;
         let mut timing = timing::Turn::new(turn);
         let mut round = 0;
+        let mut handoff = None;
         macro_rules! provider_try {
             ($operation:expr, $expr:expr) => {
                 match $expr {
@@ -150,6 +82,10 @@ impl Service {
                 return Err(Failure::stopped(cause, &prose));
             }
             self.noticed(turn).await;
+            provider_try!(
+                Operation::Assembly,
+                self.settling(strand, turn, round).await
+            );
             let input = provider_try!(Operation::Assembly, self.assembled(strand).await);
             let metadata = self.provider.metadata();
             let family = metadata.provider.to_string();
@@ -259,6 +195,13 @@ impl Service {
             }
 
             if calls.is_empty() {
+                if self.settlement(strand).is_some() {
+                    let error = provider_try!(
+                        Operation::Admission(Admission::Execution),
+                        self.incomplete(strand, turn, round).await
+                    );
+                    return Err(Failure::execution(error, &prose));
+                }
                 break completed;
             }
 
@@ -266,6 +209,7 @@ impl Service {
                 Operation::Admission(Admission::Execution),
                 self.judge(strand, turn, round, calls.len()).await
             ) {
+                Verdict::Maintain => continue,
                 Verdict::Unbounded => vec![None; calls.len()],
                 Verdict::Bounded(limits) => limits.into_iter().map(Some).collect::<Vec<_>>(),
                 Verdict::Rejected(error) => {
@@ -274,6 +218,7 @@ impl Service {
             };
             timing.outputting(round, calls.len());
             let count = calls.len();
+            let mut compacted = false;
             for (call, output_limit) in calls.into_iter().zip(limits) {
                 if let Some(cause) = self.halted(control) {
                     return Err(Failure::stopped(cause, &prose));
@@ -285,11 +230,24 @@ impl Service {
                 if let Some(cause) = self.halted(control) {
                     return Err(Failure::stopped(cause, &prose));
                 }
-                provider_try!(Operation::Tool, result);
+                compacted |= provider_try!(Operation::Tool, result);
             }
             timing.outputted(round, count);
+            if compacted && self.settlement(strand).is_some() {
+                let reason = self
+                    .reason(strand)
+                    .unwrap_or_else(|| "execution_budget".into());
+                handoff = Some(format!(
+                    "<system_message>\nkind: execution_pause\nturn: {turn}\nreason: {reason}\nprovider_rounds: {round}\nstate: This turn paused after a successful compact. Recorded history and tool results remain available.\n</system_message>"
+                ));
+                break completed;
+            }
         };
 
-        Ok((last, response))
+        Ok(Finish {
+            last,
+            response,
+            handoff,
+        })
     }
 }

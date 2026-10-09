@@ -9,6 +9,7 @@ use super::super::Service;
 use crate::budget;
 
 mod execution;
+mod maintenance;
 mod observation;
 pub(super) use execution::Verdict;
 

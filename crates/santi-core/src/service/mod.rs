@@ -43,6 +43,7 @@ pub struct Service {
     inboxes: Arc<Mutex<HashMap<String, String>>>,
     budgets: Arc<Mutex<HashMap<String, budget::Execution>>>,
     limit: Option<budget::Execution>,
+    settlements: Arc<Mutex<HashMap<String, Settlement>>>,
     pressure: Arc<tokio::sync::Mutex<()>>,
     closing: Arc<AtomicBool>,
     controls: Arc<Mutex<HashMap<String, interrupt::Control>>>,
@@ -54,6 +55,11 @@ pub struct Service {
     retention: Duration,
     clock: Arc<clock::Clock>,
     pub(crate) capability: Option<Arc<crate::capability::Issuer>>,
+}
+
+struct Settlement {
+    reason: String,
+    detail: String,
 }
 
 #[derive(Debug, Clone)]
@@ -114,6 +120,7 @@ impl Service {
             inboxes: Arc::new(Mutex::new(HashMap::new())),
             budgets: Arc::new(Mutex::new(HashMap::new())),
             limit: None,
+            settlements: Arc::new(Mutex::new(HashMap::new())),
             pressure: Arc::new(tokio::sync::Mutex::new(())),
             closing: Arc::new(AtomicBool::new(false)),
             controls: Arc::new(Mutex::new(HashMap::new())),

@@ -1,6 +1,6 @@
 use santi_provider::Call;
 
-use super::{Service, curbed};
+use super::Service;
 
 pub(super) async fn rejected(
     service: &Service,
@@ -19,4 +19,18 @@ pub(super) async fn rejected(
             created: &crate::now(),
         })
         .await
+}
+
+pub(in crate::service) fn curbed(error: String, limit: Option<usize>) -> String {
+    let Some(limit) = limit else {
+        return error;
+    };
+    if error.len() <= limit {
+        return error;
+    }
+    let mut end = limit;
+    while end > 0 && !error.is_char_boundary(end) {
+        end -= 1;
+    }
+    error[..end].to_string()
 }

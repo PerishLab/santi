@@ -109,7 +109,7 @@ impl Service {
         if super::room::clock::selected(self, strand).await? {
             return Ok(vec![wake::definition()]);
         }
-        if self.crowded(strand).await?.is_some() {
+        if self.settlement(strand).is_some() || self.crowded(strand).await?.is_some() {
             return Ok(vec![super::room::definition()]);
         }
         match self.barrier(strand).await? {

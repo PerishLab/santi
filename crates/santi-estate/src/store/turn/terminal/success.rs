@@ -38,7 +38,7 @@ impl Store {
     }
 }
 
-async fn finish(
+pub(super) async fn finish(
     tx: &mut Tx<'_, Sqlite>,
     draft: CompletionDraft<'_>,
 ) -> Result<Option<event::Event>, keel::adapt::Error> {

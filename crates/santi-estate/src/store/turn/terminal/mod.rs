@@ -5,6 +5,7 @@ use keel::{Op, Row, Tx, form};
 use santi_model::{message, receipt, turn};
 
 mod failure;
+mod handoff;
 mod recovery;
 mod success;
 

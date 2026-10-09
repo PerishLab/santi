@@ -12,6 +12,7 @@ use crate::{effect, stream};
 mod environ;
 mod feedback;
 mod reply;
+pub(super) use reply::curbed;
 mod room;
 mod shell;
 mod wake;
@@ -37,7 +38,7 @@ impl Service {
         call: Call,
         output_limit: Option<usize>,
         control: &Control,
-    ) -> Result<(), String> {
+    ) -> Result<bool, String> {
         let Address { strand, turn } = address;
         let clock = room::clock::selected(self, strand).await?;
         let barrier = if clock {
@@ -46,17 +47,26 @@ impl Service {
             self.barrier(strand).await?
         };
         let crowded = self.crowded(strand).await?;
-        let escape = call.name == "compact" && crowded.is_some();
+        let maintenance = self.settlement(strand);
+        let compact = call.name == "compact";
+        let escape = compact && (crowded.is_some() || maintenance.is_some());
         if crowded.is_none() {
             self.relieved(strand);
         }
+        let maintaining = maintenance.is_some() || crowded.is_some();
         let barred = call.name == "shell"
-            && (crowded.is_some() || barrier.as_ref().is_some_and(feedback::Barrier::due));
+            && (maintaining || barrier.as_ref().is_some_and(feedback::Barrier::due));
         let due = call.name == "feedback" && barrier.as_ref().is_some_and(feedback::Barrier::due);
         let fixed = due
             .then(|| barrier.as_ref().and_then(feedback::Barrier::owned))
             .flatten();
-        let allowed = !clock || call.name == "wake";
+        let allowed = if clock {
+            call.name == "wake"
+        } else if maintaining {
+            compact || call.name == "shell"
+        } else {
+            true
+        };
         let shell = call.name == "shell" || due;
         let kind = (allowed && !barred && shell).then_some("shell");
         let created = crate::now();
@@ -85,15 +95,20 @@ impl Service {
             strand,
             stream::Payload::Tool(crate::tool::Beat::Called { call: held.clone() }),
         );
+        let scope = if clock {
+            "clock attention strand"
+        } else {
+            "current runtime state"
+        };
         let result = if !allowed {
             reply::rejected(
                 self,
                 &call,
-                format!("unsupported tool on clock attention strand: {}", call.name),
+                format!("unsupported tool on {scope}: {}", call.name),
                 output_limit,
             )
             .await?
-        } else if let Some(detail) = crowded.filter(|_| barred) {
+        } else if let Some(detail) = maintenance.or(crowded).filter(|_| barred) {
             let count = self.refused(strand);
             if room::exhausted(count) {
                 self.escalated(strand, &detail).await?;
@@ -139,11 +154,12 @@ impl Service {
             )
             .await?
         };
+        let compacted = compact && result.error.is_none();
         self.publish(
             strand,
             stream::Payload::Tool(crate::tool::Beat::Replied { result }),
         );
-        Ok(())
+        Ok(compacted)
     }
 
     async fn shelled(
@@ -271,20 +287,6 @@ impl Service {
             }
         }
     }
-}
-
-pub(super) fn curbed(error: String, limit: Option<usize>) -> String {
-    let Some(limit) = limit else {
-        return error;
-    };
-    if error.len() <= limit {
-        return error;
-    }
-    let mut end = limit;
-    while end > 0 && !error.is_char_boundary(end) {
-        end -= 1;
-    }
-    error[..end].to_string()
 }
 
 pub(super) fn argued<T: for<'de> Deserialize<'de>>(value: &Value) -> Result<T, String> {

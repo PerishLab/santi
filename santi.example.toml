@@ -7,7 +7,7 @@ acknowledged_retention_seconds = 604800
 # and captured tool output accumulate until the strand yields to a new one.
 [execution]
 profile = "runtime_v1"
-rounds = 16
+rounds = 64
 calls = 256
 output = 4194304
 shell = 65536
