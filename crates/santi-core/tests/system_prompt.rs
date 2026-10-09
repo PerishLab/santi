@@ -34,32 +34,18 @@ async fn renders() {
     let text = harness.system_prompt().await.text;
 
     assert!(text.contains("[santi]"));
-    assert!(text.contains(
-        "santi is an agent runtime: a container that keeps souls and runs their strands."
-    ));
+    assert!(text.contains("santi keeps souls and runs their strands."));
     assert!(text.contains("[santi-meta]"));
     assert!(!text.contains("channel: santi"));
     assert!(text.contains("soul: soul_default"));
     assert!(text.contains("strand: "));
     assert!(!text.contains("soul_name"));
+    assert!(text.contains(&format!("{} supplies [santi-soul]", soulward())));
+    assert!(text.contains(&format!("{} supplies [santi-strand]", strandward())));
     assert!(text.contains(&format!(
-        "{} will always be displayed in [santi-soul].",
-        soulward()
+        "save versions into {SOULSPACE} or {STRANDSPACE} as needed."
     )));
-    assert!(text.contains(&format!(
-        "{} will always be displayed in [santi-strand].",
-        strandward()
-    )));
-    assert!(text.contains(&format!(
-        "These files have no internal version history; save backups into {SOULSPACE} or {STRANDSPACE} if needed."
-    )));
-    assert!(text.contains("<system_message> blocks describe Santi runtime facts in this strand."));
-    assert!(text.contains(
-        "They are part of your context, not user speech or your natural-language reply."
-    ));
-    assert!(
-        text.contains("Read them as strand facts about the workspace, runtime, or provider flow.")
-    );
+    assert!(text.contains("<system_message> blocks report runtime facts"));
     assert!(text.contains("[santi-soul]"));
     assert!(text.contains("[santi-strand]"));
     assert!(text.contains(&format!("source: {}", soulward())));
@@ -90,7 +76,7 @@ async fn overrides() {
     let text = harness.system_prompt().await.text;
 
     assert!(text.contains("[santi]\nmy own physics, hot-edited"));
-    assert!(!text.contains("santi is an agent runtime: a container that keeps souls"));
+    assert!(!text.contains("santi keeps souls and runs their strands."));
 }
 
 #[tokio::test]
@@ -99,7 +85,7 @@ async fn fallback() {
 
     let text = harness.system_prompt().await.text;
 
-    assert!(text.contains("Your memory is still empty. You are a soul"));
+    assert!(text.contains("You are a soul — a cyber-individual."));
     assert!(!text.to_lowercase().contains("secretary"));
 }
 
