@@ -45,7 +45,9 @@ pub(super) fn normalize(draft: Draft) -> Result<Normalized, String> {
         .map(|cwd| cwd.trim().to_string())
         .filter(|cwd| !cwd.is_empty());
     if let Some(cwd) = &cwd {
-        crate::parsed(cwd)?;
+        crate::parsed(cwd).map_err(|_| {
+            "job cwd must be a workspace URI: use soul://, soul://<path>, strand://, or strand://<path> with no parent traversal; omit cwd to use the runtime execution directory (not the creating shell cwd)".to_string()
+        })?;
     }
     let timeout = bounded("job timeout", draft.timeout.unwrap_or(TIMEOUT), TIMECAP)?;
     let output = bounded("job output limit", draft.output.unwrap_or(OUTPUT), OUTCAP)?;

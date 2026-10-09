@@ -6,7 +6,10 @@ pub enum Job {
     Create {
         description: String,
         command: String,
-        #[arg(long)]
+        #[arg(
+            long,
+            help = "Job working directory: soul://, soul://<path>, strand://, or strand://<path>; no parent traversal. Omit to use the runtime execution directory, not the creating shell cwd"
+        )]
         cwd: Option<String>,
         #[arg(long)]
         timeout_seconds: Option<u64>,
