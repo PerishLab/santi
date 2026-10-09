@@ -2,9 +2,10 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 
 use anyhow::{Context, Result};
+use plumb::config::Cascade;
 use serde::Deserialize;
 
-#[derive(Default, Deserialize)]
+#[derive(Debug, Default, Cascade)]
 pub struct Client {
     pub base_url: Option<String>,
     pub api_key: Option<String>,
@@ -12,6 +13,7 @@ pub struct Client {
     pub auth_client_id: Option<String>,
     pub auth_username: Option<String>,
     pub auth_password: Option<String>,
+    pub token_cache: Option<PathBuf>,
 }
 
 #[derive(Default, Deserialize)]
@@ -63,10 +65,6 @@ fn alias() -> Result<PathBuf> {
         .join("santi/alias.toml"))
 }
 
-pub fn load() {
-    dotenvy::dotenv().ok();
-}
-
 pub fn env(name: &str) -> Option<String> {
     std::env::var(name)
         .ok()
@@ -80,17 +78,22 @@ pub fn shelter() -> PathBuf {
         .unwrap_or_else(std::env::temp_dir)
 }
 
-pub fn client() -> Result<Client> {
+pub fn client(over: ClientPartial) -> Result<Client> {
+    let file = file()?;
+    Client::resolve_with(file.as_deref(), over)
+        .map_err(|error| anyhow::anyhow!("resolve santi client configuration: {error}"))
+}
+
+fn file() -> Result<Option<PathBuf>> {
     let cwd = std::env::current_dir().context("read current directory")?;
-    let Ok(product) = plumb::config::discover(&cwd, "plumb.toml") else {
-        return Ok(Client::default());
-    };
-    let root = product.parent().context("plumb.toml has no parent")?;
-    let path = root.join(".local/secrets/santi.toml");
-    if !path.is_file() {
-        return Ok(Client::default());
-    }
-    plumb::config::load(&path).with_context(|| format!("load {}", path.display()))
+    let local = plumb::config::discover(&cwd, "plumb.toml")
+        .ok()
+        .and_then(|product| Some(product.parent()?.join(".local/secrets/santi.toml")));
+    let home = env("SANTI_HOME")
+        .map(PathBuf::from)
+        .or_else(|| plumb::config::data("santi"))
+        .map(|home| home.join("client.toml"));
+    Ok(local.into_iter().chain(home).find(|path| path.is_file()))
 }
 
 pub struct Resume<'a> {
@@ -107,9 +110,20 @@ pub fn resume(command: &mut std::process::Command, resume: Resume<'_>) {
         .env("SANTI_AUTH_CLIENT_ID", "")
         .env("SANTI_AUTH_USERNAME", "")
         .env("SANTI_AUTH_PASSWORD", "")
-        .env("SANTI_API_URL", resume.base)
+        .env("SANTI_BASE_URL", resume.base)
         .env("SANTI_SOUL_ID", resume.soul)
         .env("SANTI_STRAND_ID", resume.strand);
+    for flag in [
+        "--auth-token-url",
+        "--auth-client-id",
+        "--auth-username",
+        "--auth-password",
+    ] {
+        command.args([flag, ""]);
+    }
+    if resume.bearer.is_none() {
+        command.args(["--api-key", ""]);
+    }
 }
 
 pub fn executable() -> Result<PathBuf> {

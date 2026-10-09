@@ -10,7 +10,6 @@ use clap::Parser;
 use cli::{Capability, Cli, Command, InboxCommand, Job};
 
 pub async fn run() -> Result<()> {
-    config::load();
     let Cli {
         config,
         strand,

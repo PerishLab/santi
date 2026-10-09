@@ -10,10 +10,6 @@ pub mod context;
 mod execution;
 pub use execution::Execution;
 
-pub fn load() {
-    dotenvy::dotenv().ok();
-}
-
 #[derive(Debug, Cascade)]
 #[cascade(section)]
 pub struct Listen {
@@ -237,29 +233,8 @@ fn resolved(
     if let Some(path) = file {
         held = held.merge(plumb::config::load::<ConfigPartial>(path)?);
     }
-    held = held.merge(Config::lookup("SANTI", &legacy)?);
     held = held.merge(Config::env("SANTI")?);
     Ok(held.merge(over))
-}
-
-fn legacy(key: &str) -> Option<String> {
-    let names: &[&str] = match key {
-        "SANTI_LISTEN_HOST" => &["SANTI_HOST"],
-        "SANTI_LISTEN_PORT" => &["SANTI_PORT"],
-        "SANTI_PATHS_DATABASE" => &["SANTI_DB"],
-        "SANTI_PATHS_RUNTIME" => &["SANTI_PATHS_RUNTIME_ROOT", "SANTI_RUNTIME_ROOT"],
-        "SANTI_PATHS_EXECUTION" => &["SANTI_PATHS_EXECUTION_ROOT", "SANTI_EXECUTION_ROOT"],
-        "SANTI_SERVER_GRACE" => &[
-            "SANTI_SERVER_SHUTDOWN_GRACE_SECS",
-            "SANTI_SHUTDOWN_GRACE_SECS",
-        ],
-        "SANTI_WEBHOOKS_GITHUB_LOGIN" => &["SANTI_WEBHOOK_GITHUB_LOGIN"],
-        "SANTI_WEBHOOKS_GITHUB_ALLOW" => &["SANTI_WEBHOOK_GITHUB_ALLOW"],
-        "SANTI_WEBHOOKS_FEISHU_ENCRYPT_KEY" => &["SANTI_WEBHOOK_FEISHU_ENCRYPT_KEY"],
-        "SANTI_WEBHOOKS_FEISHU_ALLOW" => &["SANTI_WEBHOOK_FEISHU_ALLOW"],
-        _ => &[],
-    };
-    names.iter().find_map(|name| env(name))
 }
 
 fn runtime(held: Config) -> Result<Runtime, String> {

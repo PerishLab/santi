@@ -20,7 +20,7 @@ fn cli() {
     let hash = format!("{:x}", Sha256::digest(text.as_bytes()));
     assert_eq!(
         hash,
-        "b4f4014327ddcc972f257a953343c2a0c062d591cb883c6bf0f3797abe63fc09"
+        "1fdaeaea513a1ca46764e76c65b6efda65d1976998dc9514b5d4512d8aeae34d"
     );
 }
 
@@ -39,11 +39,31 @@ fn template() {
         ),
     )
     .expect("write client config");
-    let client: santi::config::Client = plumb::config::load(&path).expect("client config");
+    let held: santi::config::ClientPartial = plumb::config::load(&path).expect("client config");
+    let client = plumb::config::Cascade::merge(santi::config::Client::default(), held);
     assert_eq!(
         client.base_url.as_deref(),
         Some("https://santi.example.invalid")
     );
     assert_eq!(client.auth_username.as_deref(), Some("santi-window-cli"));
     assert!(client.api_key.is_none());
+}
+
+#[test]
+fn environment() {
+    let get = |key: &str| match key {
+        "SANTI_BASE_URL" => Some("http://base.example".to_string()),
+        "SANTI_API_URL" => Some("http://retired.example".to_string()),
+        "SANTI_TOKEN_CACHE" => Some("/tmp/santi-cache.json".to_string()),
+        _ => None,
+    };
+    assert_eq!(santi::config::Client::prefix(), "SANTI");
+    let held = <santi::config::Client as plumb::config::Cascade>::lookup("SANTI", &get)
+        .expect("client environment");
+    let client = plumb::config::Cascade::merge(santi::config::Client::default(), held);
+    assert_eq!(client.base_url.as_deref(), Some("http://base.example"));
+    assert_eq!(
+        client.token_cache.as_deref(),
+        Some(std::path::Path::new("/tmp/santi-cache.json"))
+    );
 }
