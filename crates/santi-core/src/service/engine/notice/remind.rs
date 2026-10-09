@@ -18,16 +18,16 @@ impl Observed {
 fn urged(band: &str) -> &'static str {
     match band {
         "slots" => {
-            "Every compact slot is occupied and ordinary work is refused until that changes. The only compaction admitted now is one that absorbs: name a range spanning two or more occupied slots so they collapse into one, and decide what survives and how the surviving summary reads."
+            "Every compact slot is occupied. Merge two or more contiguous occupied Compact IDs into one summary to free a slot. Compact projection headers identify the slots and their covered Message IDs."
         }
         "hard" => {
-            "Little headroom remains. Compacting settled context now is the only action that restores room; the runtime will not do it for you."
+            "Little headroom remains. Compact settled context through `santi compact exec` while shell is available, or the compact tool during context maintenance."
         }
         "firm" => {
             "Headroom is shrinking. Compacting settled context now costs less than compacting under pressure later."
         }
         _ => {
-            "This strand is getting large. If useful, you may compact settled context; runtime did not compact or alter provider input."
+            "This strand is getting large. Compact settled context when useful; the summary preserves the facts and references you need to continue."
         }
     }
 }

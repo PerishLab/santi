@@ -183,7 +183,13 @@ async fn sends() {
     match &requests[0].input[0] {
         Item::Message { role, content } => {
             assert_eq!(role, "user");
-            assert_eq!(content, "hello provider");
+            assert_eq!(
+                content,
+                &format!(
+                    "[message {}]\nhello provider",
+                    response.message.as_ref().expect("message").message.id
+                )
+            );
         }
         other => panic!("expected text message, got {other:?}"),
     }

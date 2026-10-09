@@ -98,7 +98,7 @@ impl Timeline<'_> {
         let content = placed.message.content.rendered();
         Ok((!content.trim().is_empty()).then(|| Item::Message {
             role: role.to_string(),
-            content,
+            content: format!("[message {}]\n{content}", placed.message.id),
         }))
     }
 
