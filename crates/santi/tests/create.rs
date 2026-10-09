@@ -3,16 +3,13 @@ use std::sync::{
     Arc,
     atomic::{AtomicUsize, Ordering},
 };
-
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::oneshot;
-
 struct Server {
     base: String,
     request: oneshot::Receiver<String>,
 }
-
 #[derive(Clone, Copy)]
 enum Loss {
     Transport,
@@ -20,7 +17,6 @@ enum Loss {
     Malformed,
     Redirect,
 }
-
 struct Ambiguity {
     base: String,
     committed: Arc<AtomicUsize>,
@@ -170,6 +166,7 @@ async fn identify(base: &str, soul: Option<&str>) -> Output {
     }
     command.args(["tui"]).output().await.expect("run tui")
 }
+
 #[tokio::test]
 async fn owner() {
     let server = serve(
@@ -297,3 +294,6 @@ async fn redirects() {
     assert_eq!(server.committed.load(Ordering::SeqCst), 1);
     assert_eq!(server.redirected.load(Ordering::SeqCst), 0);
 }
+
+#[path = "create/refusal.rs"]
+mod refusal;
