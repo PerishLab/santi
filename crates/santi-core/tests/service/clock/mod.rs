@@ -153,7 +153,8 @@ async fn coalesces() {
     let temp = tempfile::tempdir().expect("temp dir");
     bootstrap(&temp).await;
     let database = temp.path().join("santi.sqlite");
-    let service = Service::open(config(&temp), Arc::new(Holding::default()))
+    let provider = Arc::new(Holding::default());
+    let service = Service::open(config(&temp), provider.clone())
         .await
         .expect("open service")
         .clock(Duration::from_secs(1))
@@ -191,11 +192,46 @@ async fn coalesces() {
         sleep(Duration::from_millis(20)).await;
     }
     let clock = clock.expect("clock strand");
-    sleep(Duration::from_millis(2200)).await;
-    let store = santi_core::Store::open(&database)
-        .await
-        .expect("open store");
-    let pending = store.inboxes(&clock.id).await.expect("pending pulses");
+    let mut heard = false;
+    for _ in 0..150 {
+        heard = provider.requests.lock().unwrap().iter().any(|request| {
+            request.input.iter().any(|item| {
+                matches!(item, Item::Message { content, .. } if content.contains("current_time:"))
+            })
+        });
+        if heard {
+            break;
+        }
+        sleep(Duration::from_millis(20)).await;
+    }
+    assert!(heard, "first clock pulse did not enter the held turn");
+    let mut first = None;
+    let mut pending = Vec::new();
+    let mut revised = false;
+    for _ in 0..150 {
+        let store = santi_core::Store::open(&database)
+            .await
+            .expect("open current store");
+        pending = store.inboxes(&clock.id).await.expect("pending pulses");
+        assert!(pending.len() <= 1, "clock pulses were not coalesced");
+        let Some(pulse) = pending.first() else {
+            sleep(Duration::from_millis(20)).await;
+            continue;
+        };
+        let revision = pulse.coalesce_revision.expect("clock revision");
+        match &first {
+            Some((id, prior)) => {
+                assert_eq!(&pulse.id, id, "pending clock inbox was replaced");
+                revised = revision > *prior;
+            }
+            None => first = Some((pulse.id.clone(), revision)),
+        }
+        if revised {
+            break;
+        }
+        sleep(Duration::from_millis(20)).await;
+    }
+    assert!(revised, "pending clock pulse was not updated: {first:?}");
     assert_eq!(pending.len(), 1);
     assert_eq!(
         pending[0].coalesce_key.as_deref(),
