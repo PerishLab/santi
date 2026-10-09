@@ -10,6 +10,7 @@ pub(crate) struct Credentials<'a> {
     pub(crate) username: Option<&'a str>,
     pub(crate) password: Option<&'a str>,
     pub(crate) key: Option<&'a str>,
+    pub(crate) cache: Option<&'a std::path::Path>,
 }
 
 pub(crate) async fn resolve_edge_bearer(credentials: Credentials<'_>) -> Result<Option<String>> {
@@ -22,7 +23,17 @@ pub(crate) async fn resolve_edge_bearer(credentials: Credentials<'_>) -> Result<
         && let Some(user) = present(credentials.username)
         && let Some(pw) = present(credentials.password)
     {
-        return Ok(Some(edge_jwt_cached(url, cid, user, pw).await?));
+        let path = credentials
+            .cache
+            .map(std::path::Path::to_path_buf)
+            .unwrap_or_else(|| edge_token_cache_path(url, cid, user));
+        let edge = Edge {
+            url,
+            identity: cid,
+            username: user,
+            password: pw,
+        };
+        return Ok(Some(edge_jwt_cached(&path, edge).await?));
     }
     Ok(present(credentials.key).map(str::to_string))
 }
@@ -34,16 +45,16 @@ fn now_secs() -> u64 {
         .unwrap_or(0)
 }
 
-async fn edge_jwt_cached(
-    token_url: &str,
-    client_id: &str,
-    username: &str,
-    password: &str,
-) -> Result<String> {
+struct Edge<'a> {
+    url: &'a str,
+    identity: &'a str,
+    username: &'a str,
+    password: &'a str,
+}
+
+async fn edge_jwt_cached(path: &std::path::Path, edge: Edge<'_>) -> Result<String> {
     let now = now_secs();
-    let path = edge_token_cache_path(token_url, client_id, username);
-    if let Some(p) = &path
-        && let Ok(bytes) = std::fs::read(p)
+    if let Ok(bytes) = std::fs::read(path)
         && let Ok(v) = serde_json::from_slice::<serde_json::Value>(&bytes)
         && let Some(token) = v.get("access_token").and_then(|t| t.as_str())
         && v.get("expires_at").and_then(|t| t.as_u64()).unwrap_or(0) > now + 60
@@ -51,11 +62,9 @@ async fn edge_jwt_cached(
         return Ok(token.to_string());
     }
     let (access_token, expires_in) =
-        fetch_edge_jwt(token_url, client_id, username, password).await?;
-    if let Some(p) = &path {
-        let v = serde_json::json!({ "access_token": access_token, "expires_at": now + expires_in });
-        let _ = write_token_cache(p, &v);
-    }
+        fetch_edge_jwt(edge.url, edge.identity, edge.username, edge.password).await?;
+    let v = serde_json::json!({ "access_token": access_token, "expires_at": now + expires_in });
+    let _ = write_token_cache(path, &v);
     Ok(access_token)
 }
 
@@ -105,22 +114,15 @@ async fn fetch_edge_jwt(
     Ok((access_token, expires_in))
 }
 
-fn edge_token_cache_path(
-    token_url: &str,
-    client_id: &str,
-    username: &str,
-) -> Option<std::path::PathBuf> {
+fn edge_token_cache_path(token_url: &str, client_id: &str, username: &str) -> std::path::PathBuf {
     use std::hash::{Hash, Hasher};
-    if let Some(explicit) = crate::config::env("SANTI_TOKEN_CACHE") {
-        return Some(std::path::PathBuf::from(explicit));
-    }
     let mut hasher = std::collections::hash_map::DefaultHasher::new();
     token_url.hash(&mut hasher);
     client_id.hash(&mut hasher);
     username.hash(&mut hasher);
     let key = format!("{:016x}", hasher.finish());
     let dir = crate::config::shelter();
-    Some(dir.join(format!("edge-jwt-{key}.json")))
+    dir.join(format!("edge-jwt-{key}.json"))
 }
 
 pub fn form_urlencode(pairs: &[(&str, &str)]) -> String {
@@ -169,6 +171,7 @@ mod tests {
             username: Some(""),
             password: Some(""),
             key: Some("resolved bearer"),
+            cache: None,
         })
         .await
         .expect("empty sentinels must not trigger edge auth");

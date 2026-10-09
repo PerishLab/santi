@@ -24,10 +24,25 @@ fn identity() {
         },
     );
 
-    assert_eq!(command.get_args().collect::<Vec<_>>(), [OsStr::new("tui")]);
+    assert_eq!(
+        command.get_args().collect::<Vec<_>>(),
+        [
+            "tui",
+            "--auth-token-url",
+            "",
+            "--auth-client-id",
+            "",
+            "--auth-username",
+            "",
+            "--auth-password",
+            "",
+        ]
+        .map(OsStr::new),
+        "edge credentials are blanked as arguments so no client file can supply them"
+    );
     let environment = command.get_envs().collect::<Vec<_>>();
     for (name, expected) in [
-        ("SANTI_API_URL", "http://runtime.example"),
+        ("SANTI_BASE_URL", "http://runtime.example"),
         ("SANTI_SOUL_ID", "soul_luna"),
         ("SANTI_STRAND_ID", "ss_direct"),
         ("SANTI_API_KEY", "resolved bearer"),
@@ -87,4 +102,11 @@ fn unresolved() {
             "{name} must be blanked when no bearer was resolved"
         );
     }
+    let arguments = command.get_args().collect::<Vec<_>>();
+    assert!(
+        arguments
+            .windows(2)
+            .any(|pair| pair == [OsStr::new("--api-key"), OsStr::new("")]),
+        "an unresolved bearer is blanked as an argument so no client file can supply one"
+    );
 }

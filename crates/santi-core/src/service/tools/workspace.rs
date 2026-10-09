@@ -31,7 +31,7 @@ impl Service {
         command.current_dir(&cwd).env_clear();
         crate::environment::allow(&mut command);
         if let Some(bind) = self.config.bind.as_ref() {
-            command.env("SANTI_API_URL", format!("http://{bind}"));
+            command.env("SANTI_BASE_URL", format!("http://{bind}"));
         }
         command
             .envs(environment)

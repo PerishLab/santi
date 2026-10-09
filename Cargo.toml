@@ -29,7 +29,6 @@ base64 = "0.22.1"
 bytes = "1.11.1"
 cbc = { version = "0.1.2", features = ["alloc"] }
 clap = { version = "4.6.1", features = ["derive", "env"] }
-dotenvy = "0.15.7"
 ed25519-dalek = "2.2.0"
 futures-core = "0.3.32"
 futures-util = "0.3.32"

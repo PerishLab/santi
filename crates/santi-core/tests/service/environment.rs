@@ -102,7 +102,7 @@ impl Provider for ShellProvider {
         };
         if round == 0 {
             let arguments = json!({
-                "command": "printf '%s|%s|%s|%s|%s|%s|%s|%s' \"$SHARED\" \"$STRAND_ONLY\" \"$GLOBAL_ONLY\" \"$BROKEN\" \"${SANTI_RUNTIME_CAPABILITY%%.*}\" \"${SANTI_CAPABILITY_PRIVATE_KEY-unset}\" \"$SANTI_API_URL\" \"$PATH\""
+                "command": "printf '%s|%s|%s|%s|%s|%s|%s|%s' \"$SHARED\" \"$STRAND_ONLY\" \"$GLOBAL_ONLY\" \"$BROKEN\" \"${SANTI_RUNTIME_CAPABILITY%%.*}\" \"${SANTI_CAPABILITY_PRIVATE_KEY-unset}\" \"$SANTI_BASE_URL\" \"$PATH\""
             });
             Ok(Box::pin(stream::iter(vec![
                 Ok(Event::Called(Call {

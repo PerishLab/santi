@@ -489,6 +489,7 @@ term = [
   { name = "terminal_ceremonies", description = "Established Santi executable-spec module name." },
   { name = "thinking_line", description = "Established Santi watch rendering operation." },
   { name = "timeout_seconds", description = "Established Santi job API and persisted schema field." },
+  { name = "token_cache", description = "Santi client configuration field; its Cascade spelling is the public SANTI_TOKEN_CACHE variable." },
   { name = "tool_descriptions", description = "Established Santi executable-spec identifier." },
   { name = "tool_name", description = "Established Santi audit API field." },
   { name = "tool_names", description = "Established Santi executable-spec identifier." },

@@ -11,37 +11,34 @@ pub const BASE: &str = "http://127.0.0.1:43307";
 )]
 pub struct Cli {
     #[arg(
-        help = "Base URL of a running santi server. Falls back to SANTI_API_URL, then .local/secrets/santi.toml, then the local default. Only used by HTTP client commands. The file is relative to a Plumb repository root discovered via plumb.toml in the current directory or its ancestors; outside such a repository, no client file fallback applies.",
+        help = "Base URL of a running santi server. Falls back to SANTI_BASE_URL, then base_url in the client file: .local/secrets/santi.toml under a Plumb repository root discovered via plumb.toml from the current directory, otherwise client.toml in the santi home, then the local default. Only used by HTTP client commands.",
         long,
-        global = true,
-        env = "SANTI_API_URL"
+        global = true
     )]
     pub base_url: Option<String>,
 
     #[arg(
-        help = "Static bearer token sent on client requests. Falls back to SANTI_API_KEY, then .local/secrets/santi.toml. Transitional: prefer edge auth to reach santi behind forward-auth. The file is relative to a Plumb repository root discovered via plumb.toml in the current directory or its ancestors; outside such a repository, no client file fallback applies.",
+        help = "Static bearer token sent on client requests. Falls back to SANTI_API_KEY, then api_key in the client file. Transitional: prefer edge auth to reach santi behind forward-auth.",
         long,
-        global = true,
-        env = "SANTI_API_KEY"
+        global = true
     )]
     pub api_key: Option<String>,
 
     #[arg(
-        help = "Edge auth via authentik client_credentials. Explicit flags or env override .local/secrets/santi.toml. A complete set is exchanged for a cached short-lived JWT. The file is relative to a Plumb repository root discovered via plumb.toml in the current directory or its ancestors; outside such a repository, no client file fallback applies.",
+        help = "Edge auth via authentik client_credentials. Each auth flag falls back to its SANTI_AUTH_* variable, then its auth_* key in the client file. A complete set is exchanged for a short-lived JWT cached at token_cache (SANTI_TOKEN_CACHE) or a per-identity default.",
         long,
-        global = true,
-        env = "SANTI_AUTH_TOKEN_URL"
+        global = true
     )]
     pub auth_token_url: Option<String>,
-    #[arg(long, global = true, env = "SANTI_AUTH_CLIENT_ID")]
+    #[arg(long, global = true)]
     pub auth_client_id: Option<String>,
-    #[arg(long, global = true, env = "SANTI_AUTH_USERNAME")]
+    #[arg(long, global = true)]
     pub auth_username: Option<String>,
-    #[arg(long, global = true, env = "SANTI_AUTH_PASSWORD")]
+    #[arg(long, global = true)]
     pub auth_password: Option<String>,
 
     #[arg(
-        help = "Default strand id used when a strand subcommand omits an explicit id. Falls back to SANTI_STRAND_ID. Empty/absent → an id must be passed",
+        help = "Default strand id used when a strand subcommand omits an explicit id. Falls back to SANTI_STRAND_ID, the session context Santi sets for its jobs and resumes. Empty/absent → an id must be passed",
         long,
         global = true,
         env = "SANTI_STRAND_ID"
@@ -49,7 +46,7 @@ pub struct Cli {
     pub strand: Option<String>,
 
     #[arg(
-        help = "Default soul addressed by `strand create`, `strand send`, and soul-owned job or wake commands. Falls back to SANTI_SOUL_ID. Empty/absent → strand create/send use the runtime default; job and wake reads or controls require one",
+        help = "Default soul addressed by `strand create`, `strand send`, and soul-owned job or wake commands. Falls back to SANTI_SOUL_ID, the session context Santi sets for its jobs and resumes. Empty/absent → strand create/send use the runtime default; job and wake reads or controls require one",
         long,
         global = true,
         env = "SANTI_SOUL_ID"
