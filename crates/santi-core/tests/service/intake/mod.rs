@@ -39,11 +39,14 @@ async fn ingests() {
             .iter()
             .any(|turn| turn.trigger == santi_core::turn::Trigger::System)
     );
-    assert!(
-        runtime
-            .messages
-            .iter()
-            .any(|message| message.text == "an external request arrived")
+    let inbound = runtime
+        .messages
+        .iter()
+        .find(|message| message.text == "an external request arrived")
+        .expect("original event");
+    let projection = format!(
+        "[message {}]\nan external request arrived",
+        inbound.message.id
     );
     assert!(
         runtime
@@ -70,7 +73,7 @@ async fn ingests() {
             matches!(
                 item,
                 Item::Message { role, content }
-                    if role == "system" && content == "an external request arrived"
+                    if role == "system" && content == &projection
             )
         })
     }));

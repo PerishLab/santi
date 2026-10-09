@@ -1,6 +1,7 @@
 use santi_core::{Item, provider_input, provider_preview};
 use santi_estate::{
-    CallDraft, CompactDraft, MessageDraft, ReplyDraft, Store, StrandDraft, ThinkingDraft, TurnDraft,
+    CallDraft, CompactDraft, ForkDraft, MessageDraft, ReplyDraft, Store, StrandDraft,
+    ThinkingDraft, TurnDraft,
 };
 use santi_model::{message, thinking, turn};
 
@@ -109,7 +110,7 @@ async fn assembles_ordered_estate() {
         .await
         .expect("assembly");
     assert_eq!(input.len(), 5);
-    assert_message(&input[0], "user", "run");
+    assert_message(&input[0], "user", "[message message_first]\nrun");
     let Item::Reasoning { id, content } = &input[1] else {
         panic!("expected reasoning");
     };
@@ -134,15 +135,36 @@ async fn assembles_ordered_estate() {
     };
     assert_eq!(call, "call_test");
     assert!(output.contains("done"));
-    assert_message(&input[4], "assistant", "done");
+    assert_message(&input[4], "assistant", "[message message_last]\ndone");
+    let child = store
+        .fork(ForkDraft {
+            tag: "strand_child",
+            parent: "strand_test",
+            at: 5,
+            created: LATER,
+        })
+        .await
+        .expect("fork");
+    let inherited = provider_input(&store, &child.id).await.expect("fork input");
+    assert_eq!(inherited.len(), 5);
+    assert_message(&inherited[0], "user", "[message message_first]\nrun");
+    assert_message(&inherited[4], "assistant", "[message message_last]\ndone");
+    assert_eq!(
+        store
+            .message("message_first")
+            .await
+            .expect("lookup")
+            .expect("original")
+            .message
+            .content
+            .rendered(),
+        "run"
+    );
+    let first = identity(&input[0]);
+    let last = identity(&input[4]);
 
     let report = store
-        .preview_compact(
-            "compact_preview",
-            "strand_test",
-            "message_first",
-            "message_last",
-        )
+        .preview_compact("compact_preview", "strand_test", first, last)
         .await
         .expect("preview");
     let metadata = serde_json::json!({
@@ -172,8 +194,8 @@ async fn assembles_ordered_estate() {
         .create_compact(CompactDraft {
             tag: "compact_test",
             strand: "strand_test",
-            first: "message_first",
-            last: "message_last",
+            first,
+            last,
             summary: "summary",
             metadata: Some(&metadata),
             expected: None,
@@ -186,6 +208,17 @@ async fn assembles_ordered_estate() {
             .await
             .expect("compact assembly"),
     );
+}
+
+fn identity(item: &Item) -> &str {
+    let Item::Message { content, .. } = item else {
+        panic!("expected message");
+    };
+    content
+        .strip_prefix("[message ")
+        .and_then(|text| text.split_once("]\n"))
+        .expect("message identity")
+        .0
 }
 
 fn assert_message(item: &Item, expected_role: &str, expected_content: &str) {
@@ -214,6 +247,8 @@ fn assert_compact(items: &[Item]) {
         header["schema"],
         "santi.compact_projection.visible_header.v1"
     );
+    assert_eq!(header["covered_message_range"]["first"], "message_first");
+    assert_eq!(header["covered_message_range"]["last"], "message_last");
     let estimate = &header["context_estimate"];
     assert_eq!(estimate["pre_total_bytes"], 1200);
     assert_eq!(estimate["budget_input_bytes"], 4000);

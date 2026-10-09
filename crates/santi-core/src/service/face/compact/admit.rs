@@ -39,6 +39,6 @@ fn oversized(carried: usize, weight: usize, ceiling: usize) -> String {
 
 fn crowded(held: usize, ceiling: usize) -> String {
     format!(
-        "compact refused: {held} of {ceiling} slots are occupied and a default range would open another; name first/last or from/to across two or more occupied slots so this compaction absorbs them into one, deciding what survives and how the surviving summary reads"
+        "compact refused: {held} of {ceiling} slots are occupied and a default range would open another; supply absorb with two or more contiguous occupied Compact IDs and a summary to merge them into one"
     )
 }

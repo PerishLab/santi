@@ -36,12 +36,14 @@ async fn preserves() {
     let retry = send_text(&service, &strand.id, "continue with preserved partial").await;
     wait_for_turn(&service, &strand.id, &turn(&retry).id, turn::Status::Failed).await;
 
+    let projection = format!(
+        "[message {}]\npartial runtime output",
+        partial_message.message.id
+    );
     let requests = provider.requests.lock().unwrap();
     assert_eq!(requests.len(), 2);
     assert!(requests[1].input.iter().any(|message| {
-        as_text(message).is_some_and(|(role, content)| {
-            role == "assistant" && content == "partial runtime output"
-        })
+        as_text(message).is_some_and(|(role, content)| role == "assistant" && content == projection)
     }));
     assert!(requests[1].input.iter().all(|message| {
         as_text(message).is_none_or(|(_, content)| !content.contains("kind: turn_failed"))
