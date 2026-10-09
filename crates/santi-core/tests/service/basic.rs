@@ -192,9 +192,7 @@ async fn sends() {
         .as_deref()
         .expect("runtime instructions");
     assert!(instructions.contains("[santi]"));
-    assert!(instructions.contains(
-        "santi is an agent runtime: a container that keeps souls and runs their strands."
-    ));
+    assert!(instructions.contains("santi keeps souls and runs their strands."));
     assert!(instructions.contains("[santi-meta]"));
     assert!(instructions.contains(&format!("soul: {}", soul.id)));
     assert!(instructions.contains("strand: "));
@@ -202,28 +200,12 @@ async fn sends() {
     assert!(!instructions.contains("soul_name"));
     assert!(instructions.contains("[santi-soul]"));
     assert!(instructions.contains("[santi-strand]"));
+    assert!(instructions.contains(&format!("{} supplies [santi-soul]", soulward())));
+    assert!(instructions.contains(&format!("{} supplies [santi-strand]", strandward())));
     assert!(instructions.contains(&format!(
-        "{} will always be displayed in [santi-soul].",
-        soulward()
+        "save versions into {SOULSPACE} or {STRANDSPACE} as needed."
     )));
-    assert!(instructions.contains(&format!(
-        "{} will always be displayed in [santi-strand].",
-        strandward()
-    )));
-    assert!(instructions.contains(&format!(
-        "These files have no internal version history; save backups into {SOULSPACE} or {STRANDSPACE} if needed."
-    )));
-    assert!(
-        instructions
-            .contains("<system_message> blocks describe Santi runtime facts in this strand.")
-    );
-    assert!(instructions.contains(
-        "They are part of your context, not user speech or your natural-language reply."
-    ));
-    assert!(
-        instructions
-            .contains("Read them as strand facts about the workspace, runtime, or provider flow.")
-    );
+    assert!(instructions.contains("<system_message> blocks report runtime facts"));
     assert!(instructions.contains(&format!("source: {}", soulward())));
     assert!(instructions.contains(&format!("source: {}", strandward())));
     assert!(!instructions.contains("hint:"));
