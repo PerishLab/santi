@@ -11,7 +11,7 @@ pub const BASE: &str = "http://127.0.0.1:43307";
 )]
 pub struct Cli {
     #[arg(
-        help = "Base URL of a running santi server. Falls back to SANTI_API_URL, then .local/secrets/santi.toml, then the local default. Only used by HTTP client commands",
+        help = "Base URL of a running santi server. Falls back to SANTI_API_URL, then .local/secrets/santi.toml, then the local default. Only used by HTTP client commands. The file is relative to a Plumb repository root discovered via plumb.toml in the current directory or its ancestors; outside such a repository, no client file fallback applies.",
         long,
         global = true,
         env = "SANTI_API_URL"
@@ -19,7 +19,7 @@ pub struct Cli {
     pub base_url: Option<String>,
 
     #[arg(
-        help = "Static bearer token sent on client requests. Falls back to SANTI_API_KEY, then .local/secrets/santi.toml. Transitional: prefer edge auth to reach santi behind forward-auth",
+        help = "Static bearer token sent on client requests. Falls back to SANTI_API_KEY, then .local/secrets/santi.toml. Transitional: prefer edge auth to reach santi behind forward-auth. The file is relative to a Plumb repository root discovered via plumb.toml in the current directory or its ancestors; outside such a repository, no client file fallback applies.",
         long,
         global = true,
         env = "SANTI_API_KEY"
@@ -27,7 +27,7 @@ pub struct Cli {
     pub api_key: Option<String>,
 
     #[arg(
-        help = "Edge auth via authentik client_credentials. Explicit flags or env override .local/secrets/santi.toml. A complete set is exchanged for a cached short-lived JWT",
+        help = "Edge auth via authentik client_credentials. Explicit flags or env override .local/secrets/santi.toml. A complete set is exchanged for a cached short-lived JWT. The file is relative to a Plumb repository root discovered via plumb.toml in the current directory or its ancestors; outside such a repository, no client file fallback applies.",
         long,
         global = true,
         env = "SANTI_AUTH_TOKEN_URL"
