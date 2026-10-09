@@ -772,7 +772,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -1437,9 +1437,9 @@ dependencies = [
 
 [[package]]
 name = "keel"
-version = "0.12.0"
+version = "0.13.0"
 source = "sparse+https://cargo.perish.uk/"
-checksum = "8bdcf804ee4348131d25e0d0b4f1a538ca4ddcfb3b61a067f1ba5ad3fc7eb598"
+checksum = "e61cb2ee6f8765eba67f0aa74c78773980334e836e101440f70a7aa7542ae49e"
 dependencies = [
  "axum",
  "getrandom 0.3.4",
@@ -1453,9 +1453,9 @@ dependencies = [
 
 [[package]]
 name = "keel-macro"
-version = "0.12.0"
+version = "0.13.0"
 source = "sparse+https://cargo.perish.uk/"
-checksum = "dc7b175480540b2fadf1c20c71b882b77a235a21d14840f53f8e14a3ff83d670"
+checksum = "071c991b980d9b6e0f07f10c799f2a6d7370bfea70efa59e82780d7e38e86709"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1715,9 +1715,9 @@ checksum = "19f132c84eca552bf34cab8ec81f1c1dcc229b811638f9d283dceabe58c5569e"
 
 [[package]]
 name = "plumb"
-version = "0.75.0"
+version = "0.79.0"
 source = "sparse+https://cargo.perish.uk/"
-checksum = "eddd3d09333ddc4e227b26e6ec820f5082a222203f268097972bcdb5866ba49c"
+checksum = "65153febfba0197c6be226b9bf1797604ebb97238c4559099656ee5ba88d3268"
 dependencies = [
  "base64",
  "clap",
@@ -1727,17 +1727,19 @@ dependencies = [
  "semver",
  "serde",
  "serde_json",
+ "serde_yaml_ng",
  "sha2",
  "tempfile",
  "toml 0.9.12+spec-1.1.0",
+ "toml_edit",
  "which",
 ]
 
 [[package]]
 name = "plumb-macro"
-version = "0.75.0"
+version = "0.79.0"
 source = "sparse+https://cargo.perish.uk/"
-checksum = "700e9fbef24fa42f70e4fd4359573fe77c34e7785eb37069852d20ea0eb8a057"
+checksum = "fa74efea859a0add0e237887f5fcaba79470f43e4f429c8c759e7084a356cf55"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -2113,7 +2115,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -2170,7 +2172,7 @@ dependencies = [
  "security-framework",
  "security-framework-sys",
  "webpki-root-certs",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -2469,6 +2471,19 @@ dependencies = [
  "itoa",
  "ryu",
  "serde",
+]
+
+[[package]]
+name = "serde_yaml_ng"
+version = "0.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7b4db627b98b36d4203a7b458cf3573730f2bb591b28871d916dfa9efabfd41f"
+dependencies = [
+ "indexmap",
+ "itoa",
+ "ryu",
+ "serde",
+ "unsafe-libyaml",
 ]
 
 [[package]]
@@ -2783,10 +2798,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32497e9a4c7b38532efcdebeef879707aa9f794296a4f0244f6f69e9bc8574bd"
 dependencies = [
  "fastrand",
- "getrandom 0.3.4",
+ "getrandom 0.4.3",
  "once_cell",
  "rustix",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -2965,6 +2980,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "toml_edit"
+version = "0.23.10+spec-1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "84c8b9f757e028cee9fa244aea147aab2a9ec09d5325a9b01e0a49730c2b5269"
+dependencies = [
+ "indexmap",
+ "toml_datetime 0.7.5+spec-1.1.0",
+ "toml_parser",
+ "toml_writer",
+ "winnow 0.7.15",
+]
+
+[[package]]
 name = "toml_parser"
 version = "1.1.2+spec-1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3098,6 +3126,12 @@ name = "unicode-width"
 version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b4ac048d71ede7ee76d585517add45da530660ef4390e49b098733c6e897f254"
+
+[[package]]
+name = "unsafe-libyaml"
+version = "0.2.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "673aac59facbab8a9007c7f6108d11f63b603f7cabff99fabf650fea5c32b861"
 
 [[package]]
 name = "untrusted"
@@ -3338,7 +3372,7 @@ version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
 dependencies = [
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -3440,6 +3474,9 @@ name = "winnow"
 version = "0.7.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "df79d97927682d2fd8adb29682d1140b343be4ac0f08fd68b7765d9c059d3945"
+dependencies = [
+ "memchr",
+]
 
 [[package]]
 name = "winnow"
