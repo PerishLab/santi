@@ -10,8 +10,6 @@ pub(in crate::service) struct Span {
     pub(in crate::service) to: i64,
     pub(in crate::service) compact: String,
     pub(in crate::service) bytes: i64,
-    pub(in crate::service) head: String,
-    pub(in crate::service) tail: String,
 }
 
 pub(in crate::service) fn covered(span: &Span, spans: &[Span]) -> bool {
@@ -40,8 +38,6 @@ impl Service {
                 to,
                 compact: compact.id,
                 bytes: compact.summary.len() as i64,
-                head: compact.first,
-                tail: compact.last,
             });
         }
         Ok(spans)

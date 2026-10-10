@@ -8,6 +8,7 @@ use crate::service::interrupt::Control;
 use crate::{thinking, turn};
 
 mod finish;
+mod maintenance;
 mod run;
 
 struct Output {

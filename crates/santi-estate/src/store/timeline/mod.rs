@@ -2,12 +2,12 @@ use super::{Store, read, write};
 use keel::{Op, Rank, form};
 use santi_model::message;
 
-mod compact;
+pub(in crate::store) mod compact;
 mod fork;
 mod projection;
 mod thinking;
 
-pub use compact::CompactDraft;
+pub use compact::{CompactDraft, Limits};
 pub use fork::ForkDraft;
 pub use thinking::ThinkingDraft;
 

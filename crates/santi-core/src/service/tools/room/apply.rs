@@ -18,7 +18,7 @@ impl Service {
         };
         match result {
             Ok(report) => {
-                let output = bounded(
+                let output = santi_estate::bounded(
                     serde_json::to_value(report).map_err(|error| error.to_string())?,
                     limit,
                 );
@@ -37,7 +37,7 @@ impl Service {
     }
 }
 
-fn asked(call: &Call) -> Result<compact::Exec, String> {
+pub(super) fn asked(call: &Call) -> Result<compact::Exec, String> {
     let value = &call.arguments;
     let summary = value
         .get("summary")
@@ -75,26 +75,4 @@ fn absorbed(value: &serde_json::Value) -> Vec<String> {
                 .collect()
         })
         .unwrap_or_default()
-}
-
-fn bounded(output: serde_json::Value, limit: Option<usize>) -> serde_json::Value {
-    let Some(limit) = limit else {
-        return output;
-    };
-    if output.to_string().len() <= limit {
-        return output;
-    }
-    let compact = serde_json::json!({ "compact": output["compact"], "truncated": true });
-    if compact.to_string().len() <= limit {
-        return compact;
-    }
-    let truncated = serde_json::json!({ "truncated": true });
-    if truncated.to_string().len() <= limit {
-        return truncated;
-    }
-    if limit >= 4 {
-        serde_json::Value::Null
-    } else {
-        serde_json::json!(0)
-    }
 }
