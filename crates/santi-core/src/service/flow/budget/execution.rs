@@ -2,11 +2,33 @@ use super::*;
 
 pub(in crate::service) enum Verdict {
     Unbounded,
+    Maintain,
     Bounded(Vec<usize>),
     Rejected(Box<Fault>),
 }
 
 impl Service {
+    pub(in crate::service) async fn incomplete(
+        &self,
+        strand: &str,
+        turn: &str,
+        round: usize,
+    ) -> Result<Fault, String> {
+        let budget = self
+            .rationed(strand)
+            .ok_or_else(|| "maintenance budget missing".to_string())?;
+        let usage = self.usage(strand).await?;
+        self.breached(Breach {
+            strand,
+            turn,
+            budget: &budget,
+            usage,
+            reason: "compact_required",
+            request: json!({ "provider_round": round, "completion": "without_compact" }),
+        })
+        .await
+    }
+
     pub(in crate::service) async fn readmit(
         &self,
         strand: &str,
@@ -47,7 +69,7 @@ impl Service {
             "provider_round": round,
             "calls": calls,
         });
-        if round >= budget.rounds {
+        if round >= budget.rounds && self.settlement(strand).is_none() {
             return self
                 .breached(Breach {
                     strand,
@@ -60,6 +82,9 @@ impl Service {
                 .await
                 .map(Box::new)
                 .map(Verdict::Rejected);
+        }
+        if self.reserve(strand, turn, round, calls).await? {
+            return Ok(Verdict::Maintain);
         }
         if usage.calls.saturating_add(calls) > budget.calls {
             return self
@@ -75,7 +100,12 @@ impl Service {
                 .map(Box::new)
                 .map(Verdict::Rejected);
         }
-        let room = budget.output.saturating_sub(usage.output);
+        let ceiling = if budget.rounds >= 2 && self.settlement(strand).is_none() {
+            budget.output - (budget.output / 8).max(1)
+        } else {
+            budget.output
+        };
+        let room = ceiling.saturating_sub(usage.output);
         if room < calls {
             return self
                 .breached(Breach {

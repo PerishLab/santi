@@ -21,24 +21,30 @@ impl Store {
             .await?
             .ok_or_else(|| "strand not found".to_string())?;
         let key = strand.key().to_string();
+        let boundary = self
+            .latest(read::text(&strand, "tag")?)
+            .await?
+            .map_or(0, |turn| turn.from);
         let calls = self
             .core
-            .ask(&form("StrandEntry").when("strand", Op::Eq, &key).when(
-                "target_type",
-                Op::Eq,
-                "tool_call",
-            ))
+            .ask(
+                &form("StrandEntry")
+                    .when("strand", Op::Eq, &key)
+                    .when("sequence", Op::Gt, &boundary.to_string())
+                    .when("target_type", Op::Eq, "tool_call"),
+            )
             .await
             .map_err(read::error)?
             .rows()
             .len();
         let entries = self
             .core
-            .ask(&form("StrandEntry").when("strand", Op::Eq, &key).when(
-                "target_type",
-                Op::Eq,
-                "tool_result",
-            ))
+            .ask(
+                &form("StrandEntry")
+                    .when("strand", Op::Eq, &key)
+                    .when("sequence", Op::Gt, &boundary.to_string())
+                    .when("target_type", Op::Eq, "tool_result"),
+            )
             .await
             .map_err(read::error)?;
         let mut tags = Vec::with_capacity(entries.rows().len());

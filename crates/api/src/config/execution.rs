@@ -18,7 +18,7 @@ impl Default for Execution {
     fn default() -> Self {
         Self {
             profile: "runtime_v1".to_string(),
-            rounds: 16,
+            rounds: 64,
             calls: 256,
             output: 4 * 1024 * 1024,
             shell: 64 * 1024,

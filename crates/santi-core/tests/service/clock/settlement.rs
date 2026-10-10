@@ -152,10 +152,7 @@ async fn settles() {
         .expect("known soul");
     assert_eq!(projection.active.len(), 1);
     assert_eq!(projection.active[0].turn.id, current);
-    assert_eq!(
-        projection.active[0].usage.as_ref().expect("usage").calls,
-        12
-    );
+    assert_eq!(projection.active[0].usage.as_ref().expect("usage").calls, 0);
 
     let watcher = {
         let service = service.clone();
@@ -182,7 +179,7 @@ async fn settles() {
         reached = projection.active[0]
             .usage
             .as_ref()
-            .is_some_and(|usage| usage.calls == 24);
+            .is_some_and(|usage| usage.calls == 12);
         if reached {
             break;
         }

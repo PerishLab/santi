@@ -11,59 +11,15 @@ mod feedback;
 #[path = "../execution/secrets.rs"]
 mod secrets;
 
-#[derive(Clone, Default)]
-struct BudgetedProvider {
-    requests: Arc<Mutex<Vec<Request>>>,
-    rounds: usize,
-    command: Option<String>,
-}
+#[path = "../execution/provider.rs"]
+mod provider;
+use provider::BudgetedProvider;
 
-#[async_trait]
-impl Provider for BudgetedProvider {
-    fn metadata(&self) -> Metadata {
-        Metadata {
-            provider: Arc::from("output-provider"),
-            model: "output-model".to_string(),
-            budget: None,
-        }
-    }
+#[path = "../execution/refusal.rs"]
+mod refusal;
 
-    async fn stream(&self, request: Request) -> Result<Streaming, String> {
-        let round = {
-            let mut requests = self.requests.lock().unwrap();
-            let round = requests.len();
-            requests.push(request);
-            round
-        };
-        if round < self.rounds {
-            let command = self
-                .command
-                .clone()
-                .unwrap_or_else(|| format!("printf '{}'", "x".repeat(100)));
-            let arguments = json!({"command": command});
-            return Ok(Box::pin(stream::iter(vec![
-                Ok(Event::Called(Call {
-                    response: format!("response_{round}"),
-                    mark: None,
-                    item: json!({"type": "function_call"}),
-                    call: format!("call_{round}"),
-                    name: "shell".to_string(),
-                    raw: arguments.to_string(),
-                    arguments,
-                })),
-                Ok(Event::Completed {
-                    response: Some(format!("response_{round}")),
-                }),
-            ])));
-        }
-        Ok(Box::pin(stream::iter(vec![
-            Ok(Event::Text("bounded output".to_string())),
-            Ok(Event::Completed {
-                response: Some("response_done".to_string()),
-            }),
-        ])))
-    }
-}
+#[path = "../execution/handoff.rs"]
+mod handoff;
 
 #[tokio::test]
 async fn bounds() {
@@ -243,7 +199,8 @@ async fn rounds() {
     let runtime = Probe::new(&service)
         .failed_turn(&strand.id, &accepted_turn(&posted).id)
         .await;
-    assert_eq!(runtime.results.len(), 1);
+    assert_eq!(runtime.results.len(), 2);
+    assert!(runtime.results[1].error.is_some());
     let incident = runtime
         .errors
         .iter()
