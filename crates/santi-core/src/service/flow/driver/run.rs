@@ -31,7 +31,7 @@ impl Service {
             }
             self.noticed(&turn).await;
             self.release(&turn);
-            self.unsettle(&strand);
+            self.unsettle(&turn);
             self.poke(&strand, "strand_send", None, "turn_completion_poke")
                 .await;
             self.relieve(&strand).await;
@@ -86,10 +86,10 @@ impl Service {
                 Operation::Assembly,
                 self.settling(strand, turn, round).await
             );
-            let input = provider_try!(Operation::Assembly, self.assembled(strand).await);
+            let input = provider_try!(Operation::Assembly, self.assembled(strand, turn).await);
             let metadata = self.provider.metadata();
             let family = metadata.provider.to_string();
-            let offered = provider_try!(Operation::Assembly, self.offered(strand).await);
+            let offered = provider_try!(Operation::Assembly, self.offers(strand, Some(turn)).await);
             let ceiling = metadata.budget.as_ref().map(|cap| cap.bytes);
             let request = Request {
                 model: metadata.model,
@@ -195,7 +195,7 @@ impl Service {
             }
 
             if calls.is_empty() {
-                if self.settlement(strand).is_some() {
+                if self.settlement(turn).is_some() {
                     let error = provider_try!(
                         Operation::Admission(Admission::Execution),
                         self.incomplete(strand, turn, round).await
@@ -233,9 +233,9 @@ impl Service {
                 compacted |= provider_try!(Operation::Tool, result);
             }
             timing.outputted(round, count);
-            if compacted && self.settlement(strand).is_some() {
+            if compacted && self.settlement(turn).is_some() {
                 let reason = self
-                    .reason(strand)
+                    .reason(turn)
                     .unwrap_or_else(|| "execution_budget".into());
                 handoff = Some(format!(
                     "<system_message>\nkind: execution_pause\nturn: {turn}\nreason: {reason}\nprovider_rounds: {round}\nstate: This turn paused after a successful compact. Recorded history and tool results remain available.\n</system_message>"

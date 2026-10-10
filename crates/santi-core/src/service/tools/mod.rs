@@ -47,7 +47,7 @@ impl Service {
             self.barrier(strand).await?
         };
         let crowded = self.crowded(strand).await?;
-        let maintenance = self.settlement(strand);
+        let maintenance = self.settlement(turn);
         let compact = call.name == "compact";
         let escape = compact && (crowded.is_some() || maintenance.is_some());
         if crowded.is_none() {

@@ -11,7 +11,7 @@ impl Service {
         let Some(budget) = self.rationed(strand) else {
             return Ok(false);
         };
-        if budget.rounds < 2 || self.settlement(strand).is_some() {
+        if budget.rounds < 2 || self.settlement(turn).is_some() {
             return Ok(false);
         }
         let usage = self.usage(strand).await?;
@@ -31,7 +31,7 @@ impl Service {
             "<system_message>\nkind: execution_maintenance\nturn: {turn}\nprovider_round: {round}\nrequested_calls: {calls}\nreason: {reason}\nstate: This tool batch was not admitted into the reserved allowance. Only compact is available. A successful compact ends this turn and queues a pause notice for this strand.\n</system_message>"
         );
         self.settlements.lock().unwrap().insert(
-            strand.to_string(),
+            turn.to_string(),
             Settlement {
                 reason: reason.into(),
                 detail,
@@ -40,24 +40,24 @@ impl Service {
         Ok(true)
     }
 
-    pub(in crate::service) fn settlement(&self, strand: &str) -> Option<String> {
+    pub(in crate::service) fn settlement(&self, turn: &str) -> Option<String> {
         self.settlements
             .lock()
             .unwrap()
-            .get(strand)
+            .get(turn)
             .map(|state| state.detail.clone())
     }
 
-    pub(in crate::service) fn reason(&self, strand: &str) -> Option<String> {
+    pub(in crate::service) fn reason(&self, turn: &str) -> Option<String> {
         self.settlements
             .lock()
             .unwrap()
-            .get(strand)
+            .get(turn)
             .map(|state| state.reason.clone())
     }
 
-    pub(in crate::service) fn unsettle(&self, strand: &str) {
-        self.settlements.lock().unwrap().remove(strand);
+    pub(in crate::service) fn unsettle(&self, turn: &str) {
+        self.settlements.lock().unwrap().remove(turn);
     }
 
     pub(in crate::service) async fn settling(
@@ -69,7 +69,7 @@ impl Service {
         let Some(budget) = self.rationed(strand) else {
             return Ok(());
         };
-        if budget.rounds < 2 || self.settlement(strand).is_some() {
+        if budget.rounds < 2 || self.settlement(turn).is_some() {
             return Ok(());
         }
         let usage = self.usage(strand).await?;
@@ -88,7 +88,7 @@ impl Service {
                 budget.rounds, usage.calls, usage.output
             );
             self.settlements.lock().unwrap().insert(
-                strand.to_string(),
+                turn.to_string(),
                 Settlement {
                     reason: reason.into(),
                     detail,
