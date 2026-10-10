@@ -5,7 +5,7 @@ use keel::{Op, Row, Tx, form};
 use santi_model::{message, receipt, turn};
 
 mod failure;
-mod handoff;
+pub(super) mod handoff;
 mod recovery;
 mod success;
 
@@ -72,17 +72,8 @@ pub(in crate::store) async fn complete(
     to: i64,
     finished: &str,
 ) -> Result<(), keel::adapt::Error> {
-    let turn = Reader(tx).eligible(tag).await?;
+    let turn = Reader(tx).admitted(tag).await?;
     let key = turn.key().to_string();
-    if tx
-        .one(&form("TurnStop").when("turn", Op::Eq, &key))
-        .await?
-        .is_some()
-    {
-        return Err(keel::adapt::Error::Adapt(
-            "stopped turn cannot complete".into(),
-        ));
-    }
     tx.put(
         "TurnCompletion",
         &[
@@ -161,4 +152,23 @@ pub(super) async fn terminal(
             .one(&form("TurnFailure").when("turn", Op::Eq, &key))
             .await?
             .is_some())
+}
+
+pub(super) use handoff::{check, complete as handoff};
+
+impl Reader<'_, '_> {
+    async fn admitted(&mut self, tag: &str) -> Result<Row, keel::adapt::Error> {
+        let turn = self.eligible(tag).await?;
+        if self
+            .0
+            .one(&form("TurnStop").when("turn", Op::Eq, &turn.key().to_string()))
+            .await?
+            .is_some()
+        {
+            return Err(keel::adapt::Error::Adapt(
+                "stopped turn cannot complete".into(),
+            ));
+        }
+        Ok(turn)
+    }
 }

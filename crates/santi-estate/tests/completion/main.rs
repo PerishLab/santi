@@ -5,6 +5,7 @@ use santi_estate::{
 use santi_model::{budget, effect, message, receipt, turn};
 
 mod handoff;
+mod maintenance;
 mod recovery;
 mod support;
 use support::*;

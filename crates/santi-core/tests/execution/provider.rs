@@ -6,6 +6,7 @@ pub(super) struct BudgetedProvider {
     pub(super) rounds: usize,
     pub(super) command: Option<String>,
     pub(super) maintenance: bool,
+    pub(super) compacts: usize,
     pub(super) second: Option<String>,
     pub(super) batch: usize,
 }
@@ -38,7 +39,11 @@ impl Provider for BudgetedProvider {
             } else {
                 json!({"command": command})
             };
-            let count = if compact { 1 } else { self.batch.max(1) };
+            let count = if compact {
+                self.compacts.max(1)
+            } else {
+                self.batch.max(1)
+            };
             let mut events = vec![Ok(Event::Text(format!("round {round}")))];
             for index in 0..count {
                 events.push(Ok(Event::Called(Call {

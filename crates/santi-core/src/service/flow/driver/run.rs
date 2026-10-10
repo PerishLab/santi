@@ -6,6 +6,7 @@ use santi_provider::Request;
 use std::{future::Future, pin::Pin};
 
 use super::finish::Finish;
+use super::maintenance::Maintenance;
 use super::*;
 use crate::{message, turn};
 
@@ -21,6 +22,7 @@ impl Service {
                 Err(failure) => {
                     self.bury(&strand, &turn, failure).await;
                 }
+                Ok(finish) if finish.settled => {}
                 Ok(finish) => {
                     if let Some(cause) = self.halted(&control) {
                         self.bury(&strand, &turn, Failure::stopped(cause, "")).await;
@@ -43,7 +45,6 @@ impl Service {
         let mut last: Option<message::Placed> = None;
         let mut timing = timing::Turn::new(turn);
         let mut round = 0;
-        let mut handoff = None;
         macro_rules! provider_try {
             ($operation:expr, $expr:expr) => {
                 match $expr {
@@ -216,9 +217,35 @@ impl Service {
                     return Err(Failure::execution(*error, &prose));
                 }
             };
+            if provider_try!(Operation::Assembly, self.maintaining(strand, turn).await) {
+                timing.outputting(round, calls.len());
+                let count = calls.len();
+                self.stirred(strand, turn, turn::Motion::Running, active.clone());
+                let settled = self
+                    .maintained(
+                        Maintenance {
+                            address: Address { strand, turn },
+                            round,
+                            calls,
+                            limits,
+                            reply: last.as_ref(),
+                            response: completed.as_deref(),
+                        },
+                        control,
+                    )
+                    .await?;
+                timing.outputted(round, count);
+                if settled {
+                    return Ok(Finish {
+                        last,
+                        response: completed,
+                        settled: true,
+                    });
+                }
+                continue;
+            }
             timing.outputting(round, calls.len());
             let count = calls.len();
-            let mut compacted = false;
             for (call, output_limit) in calls.into_iter().zip(limits) {
                 if let Some(cause) = self.halted(control) {
                     return Err(Failure::stopped(cause, &prose));
@@ -230,24 +257,15 @@ impl Service {
                 if let Some(cause) = self.halted(control) {
                     return Err(Failure::stopped(cause, &prose));
                 }
-                compacted |= provider_try!(Operation::Tool, result);
+                provider_try!(Operation::Tool, result);
             }
             timing.outputted(round, count);
-            if compacted && self.settlement(turn).is_some() {
-                let reason = self
-                    .reason(turn)
-                    .unwrap_or_else(|| "execution_budget".into());
-                handoff = Some(format!(
-                    "<system_message>\nkind: execution_pause\nturn: {turn}\nreason: {reason}\nprovider_rounds: {round}\nstate: This turn paused after a successful compact. Recorded history and tool results remain available.\n</system_message>"
-                ));
-                break completed;
-            }
         };
 
         Ok(Finish {
             last,
             response,
-            handoff,
+            settled: false,
         })
     }
 }

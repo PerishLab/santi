@@ -5,7 +5,7 @@ use crate::{message, stream};
 pub(super) struct Finish {
     pub(super) last: Option<message::Placed>,
     pub(super) response: Option<String>,
-    pub(super) handoff: Option<String>,
+    pub(super) settled: bool,
 }
 
 impl Service {
@@ -13,7 +13,7 @@ impl Service {
         let Finish {
             last,
             response,
-            handoff,
+            settled: _,
         } = finish;
         if let Some(message) = last.as_ref() {
             self.publish(
@@ -33,28 +33,7 @@ impl Service {
             response: response.as_deref(),
             occurred: &crate::now(),
         };
-        let pause = handoff.clone();
-        let completed = match handoff {
-            Some(detail) => {
-                let content = message::Content::text(detail);
-                let source =
-                    crate::ingest::Source::new("execution_pause").with_ref(turn.to_string());
-                self.store
-                    .handoff(
-                        draft,
-                        santi_estate::InboxDraft {
-                            tag: &crate::tag("inbox"),
-                            strand,
-                            kind: message::Kind::SantiSystem,
-                            content: &content,
-                            source: Some(&source),
-                            created: &crate::now(),
-                        },
-                    )
-                    .await
-            }
-            None => self.store.finish_turn(draft).await,
-        };
+        let completed = self.store.finish_turn(draft).await;
         match completed {
             Ok(completion) => {
                 self.dispatched().await;
@@ -68,7 +47,7 @@ impl Service {
                     stream::Payload::Turn(crate::turn::Beat::Completed {
                         turn: turn.to_string(),
                         label,
-                        text: pause.or(text),
+                        text,
                     }),
                 );
             }

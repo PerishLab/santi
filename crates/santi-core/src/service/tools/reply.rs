@@ -21,16 +21,4 @@ pub(super) async fn rejected(
         .await
 }
 
-pub(in crate::service) fn curbed(error: String, limit: Option<usize>) -> String {
-    let Some(limit) = limit else {
-        return error;
-    };
-    if error.len() <= limit {
-        return error;
-    }
-    let mut end = limit;
-    while end > 0 && !error.is_char_boundary(end) {
-        end -= 1;
-    }
-    error[..end].to_string()
-}
+pub(in crate::service) use santi_estate::curbed;

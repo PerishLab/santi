@@ -2,25 +2,31 @@ use super::*;
 
 #[tokio::test]
 async fn continues() {
-    verify(8, 32, 10000).await;
+    verify(8, 32, 10000, 1).await;
 }
 
 #[tokio::test]
 async fn calls() {
-    verify(64, 4, 10000).await;
+    verify(64, 4, 10000, 1).await;
 }
 
 #[tokio::test]
 async fn output() {
-    verify(64, 32, 800).await;
+    verify(64, 32, 800, 1).await;
 }
 
-async fn verify(rounds: usize, calls: usize, output: usize) {
+#[tokio::test]
+async fn batches() {
+    verify(8, 32, 10000, 3).await;
+}
+
+async fn verify(rounds: usize, calls: usize, output: usize, compacts: usize) {
     let temp = tempfile::tempdir().expect("temp");
     bootstrap(&temp).await;
     let provider = Arc::new(BudgetedProvider {
         rounds: 10,
         maintenance: true,
+        compacts,
         ..Default::default()
     });
     let service = Service::open(
@@ -81,6 +87,26 @@ async fn verify(rounds: usize, calls: usize, output: usize) {
             .all(|turn| turn.status == santi_core::turn::Status::Completed)
     );
     assert_eq!(runtime.compacts.len(), runtime.turns.len() - 1);
+    let invocations = runtime
+        .calls
+        .iter()
+        .filter(|call| call.tool == "compact")
+        .collect::<Vec<_>>();
+    assert_eq!(invocations.len(), runtime.compacts.len() * compacts);
+    for call in invocations {
+        assert!(runtime.results.iter().any(|result| result.call == call.id));
+    }
+    assert_eq!(
+        runtime
+            .results
+            .iter()
+            .filter(|result| result
+                .error
+                .as_deref()
+                .is_some_and(|error| error.contains("no settled range")))
+            .count(),
+        runtime.compacts.len() * (compacts - 1)
+    );
     assert_eq!(
         runtime
             .calls

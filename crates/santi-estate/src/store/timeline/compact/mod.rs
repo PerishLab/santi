@@ -2,8 +2,17 @@ use crate::store::{Store, read};
 use keel::{Op, Rank, form};
 use santi_model::compact;
 
+mod admit;
 mod page;
 mod plan;
+mod scope;
+mod selection;
+
+#[derive(Clone, Copy)]
+pub struct Limits {
+    pub slots: usize,
+    pub settled: usize,
+}
 
 pub struct CompactDraft<'a> {
     pub tag: &'a str,
@@ -43,41 +52,10 @@ impl Store {
             .map_err(|error| error.to_string())?;
         let plan = self
             .core
-            .batch(async |tx| {
-                let plan = plan::build(tx, draft.strand, draft.first, draft.last).await?;
-                if let Some(expected) = draft.expected
-                    && (expected.compact != draft.tag || !plan.matches(expected))
-                {
-                    return Err(keel::adapt::Error::Adapt(
-                        "compact plan conflicts with its preview; retry compact".into(),
-                    ));
-                }
-                for (key, _) in &plan.absorbed {
-                    tx.end("Compact", *key).await?;
-                }
-                let strand = plan.strand.to_string();
-                let first = plan.first.to_string();
-                let last = plan.last.to_string();
-                let mut fields = vec![
-                    ("tag", draft.tag),
-                    ("summary", draft.summary),
-                    ("created", draft.created),
-                    ("strand", strand.as_str()),
-                    ("first", first.as_str()),
-                    ("last", last.as_str()),
-                ];
-                if let Some(metadata) = metadata.as_deref() {
-                    fields.push(("metadata", metadata));
-                }
-                tx.put("Compact", &fields).await?;
-                Ok(plan)
-            })
+            .batch(async |tx| create(tx, &draft, metadata.as_deref()).await)
             .await
             .map_err(read::error)?;
-        self.compact(draft.tag)
-            .await?
-            .ok_or_else(|| "created compact missing".to_string())?;
-        Ok(plan.report(draft.tag, false))
+        Ok(plan)
     }
 
     pub async fn compact(&self, tag: &str) -> Result<Option<compact::Compact>, String> {
@@ -159,4 +137,66 @@ impl Store {
                 .map_err(|error| error.to_string())?,
         })
     }
+}
+
+pub(in crate::store) async fn create(
+    tx: &mut keel::Tx<'_, keel::adapt::db::Sqlite>,
+    draft: &CompactDraft<'_>,
+    metadata: Option<&str>,
+) -> Result<compact::Report, keel::adapt::Error> {
+    let plan = plan::build(tx, draft.strand, draft.first, draft.last).await?;
+    if let Some(expected) = draft.expected
+        && (expected.compact != draft.tag || !plan.matches(expected))
+    {
+        return Err(keel::adapt::Error::Adapt(
+            "compact plan conflicts with its preview; retry compact".into(),
+        ));
+    }
+    for (key, _) in &plan.absorbed {
+        tx.end("Compact", *key).await?;
+    }
+    let strand = plan.strand.to_string();
+    let first = plan.first.to_string();
+    let last = plan.last.to_string();
+    let mut fields = vec![
+        ("tag", draft.tag),
+        ("summary", draft.summary),
+        ("created", draft.created),
+        ("strand", strand.as_str()),
+        ("first", first.as_str()),
+        ("last", last.as_str()),
+    ];
+    if let Some(metadata) = metadata {
+        fields.push(("metadata", metadata));
+    }
+    tx.put("Compact", &fields).await?;
+    Ok(plan.report(draft.tag, false))
+}
+
+impl Store {
+    pub async fn selection(
+        &self,
+        strand: &str,
+        request: &compact::Exec,
+        limits: Limits,
+    ) -> Result<(String, String), String> {
+        self.core
+            .batch(async |tx| {
+                let scope = scope::load(tx, strand).await?;
+                scope
+                    .select(request, limits)
+                    .map_err(keel::adapt::Error::Adapt)
+            })
+            .await
+            .map_err(read::error)
+    }
+}
+
+pub(in crate::store) async fn selected(
+    tx: &mut keel::Tx<'_, keel::adapt::db::Sqlite>,
+    strand: &str,
+    request: &compact::Exec,
+    limits: Limits,
+) -> Result<Result<(String, String), String>, keel::adapt::Error> {
+    Ok(scope::load(tx, strand).await?.select(request, limits))
 }

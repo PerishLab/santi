@@ -1,9 +1,5 @@
 use serde_json::json;
 
-mod absorb;
-mod admit;
-mod bounds;
-mod settled;
 pub(in crate::service) mod slots;
 
 use crate::context::budget::estimated;
@@ -21,13 +17,23 @@ impl Service {
         if summary.is_empty() {
             return Err("compact summary must not be empty".to_string());
         }
-        self.admitted(strand, summary, &request).await?;
         let strand = self
             .store
             .strand(strand)
             .await?
             .ok_or_else(|| "strand not found".to_string())?;
-        let (from, to) = self.bounded2(&strand.id, &request).await?;
+        let policy = self.regimen();
+        let (from, to) = self
+            .store
+            .selection(
+                &strand.id,
+                &request,
+                santi_estate::Limits {
+                    slots: policy.slots,
+                    settled: policy.settled,
+                },
+            )
+            .await?;
         let before = self.estimate(&strand.id).await?;
         if request.dry {
             let mut response = self
@@ -72,16 +78,22 @@ impl Service {
                 created: &crate::now(),
             })
             .await?;
-        let after = self.estimate(&strand.id).await?;
-        let ratio = squeezed(&before, &after);
-        response.active_incident_resolved = self.absolve(&strand.id, "compact_exec").await?;
+        match self.estimate(&strand.id).await {
+            Ok(after) => {
+                response.ratio = squeezed(&before, &after);
+                response.after = Some(after);
+            }
+            Err(error) => eprintln!("santi: committed compact estimate failed: {error}"),
+        }
+        match self.absolve(&strand.id, "compact_exec").await {
+            Ok(resolved) => response.active_incident_resolved = resolved,
+            Err(error) => eprintln!("santi: committed compact resolution failed: {error}"),
+        }
         if response.active_incident_resolved {
             self.poked(&strand.id, "strand_send", None, "compact_recovery_poke")
                 .await;
         }
         response.before = Some(before);
-        response.after = Some(after);
-        response.ratio = ratio;
         Ok(response)
     }
 

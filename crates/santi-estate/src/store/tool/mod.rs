@@ -19,7 +19,9 @@ pub struct ReplyDraft<'a> {
     pub created: &'a str,
 }
 
+mod bound;
 mod tally;
+pub use bound::{bounded, curbed};
 
 mod decode;
 

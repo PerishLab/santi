@@ -2,9 +2,11 @@ use super::{Store, read};
 use keel::{Op, Rank, form};
 use santi_model::turn;
 
+mod maintenance;
 mod outbox;
 mod stop;
 mod terminal;
+pub use maintenance::{Attempt, Invocation, Maintenance, Settlement};
 
 pub use outbox::OutboxDraft;
 pub use terminal::{
