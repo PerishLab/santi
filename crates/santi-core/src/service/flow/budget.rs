@@ -11,6 +11,8 @@ use crate::budget;
 mod execution;
 mod maintenance;
 mod observation;
+#[cfg(test)]
+mod ownership;
 pub(super) use execution::Verdict;
 
 const PROVIDER: &str = "provider_request_exceeds_budget";

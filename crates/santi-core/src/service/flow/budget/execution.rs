@@ -69,7 +69,7 @@ impl Service {
             "provider_round": round,
             "calls": calls,
         });
-        if round >= budget.rounds && self.settlement(strand).is_none() {
+        if round >= budget.rounds && self.settlement(turn).is_none() {
             return self
                 .breached(Breach {
                     strand,
@@ -100,7 +100,7 @@ impl Service {
                 .map(Box::new)
                 .map(Verdict::Rejected);
         }
-        let ceiling = if budget.rounds >= 2 && self.settlement(strand).is_none() {
+        let ceiling = if budget.rounds >= 2 && self.settlement(turn).is_none() {
             budget.output - (budget.output / 8).max(1)
         } else {
             budget.output

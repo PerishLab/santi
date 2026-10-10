@@ -106,10 +106,25 @@ pub(super) fn args(call: &Call, fixed: Option<shell::Args>) -> Result<shell::Arg
 
 impl Service {
     pub(in crate::service) async fn offered(&self, strand: &str) -> Result<Vec<Tool>, String> {
+        let turn = self.store.latest(strand).await?;
+        let owner = turn
+            .as_ref()
+            .filter(|turn| turn.status == crate::turn::Status::Running)
+            .map(|turn| turn.id.as_str());
+        self.offers(strand, owner).await
+    }
+
+    pub(in crate::service) async fn offers(
+        &self,
+        strand: &str,
+        turn: Option<&str>,
+    ) -> Result<Vec<Tool>, String> {
         if super::room::clock::selected(self, strand).await? {
             return Ok(vec![wake::definition()]);
         }
-        if self.settlement(strand).is_some() || self.crowded(strand).await?.is_some() {
+        if turn.and_then(|turn| self.settlement(turn)).is_some()
+            || self.crowded(strand).await?.is_some()
+        {
             return Ok(vec![super::room::definition()]);
         }
         match self.barrier(strand).await? {
