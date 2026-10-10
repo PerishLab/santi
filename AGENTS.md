@@ -3,9 +3,14 @@
 Read the canonical [PerishLab delivery governance](https://github.com/PerishLab/.github/blob/main/GOVERNANCE.md)
 at work start and again before delivery or Issue closure.
 
-Santi is a standalone agent runtime. Keep changes centered on souls, strands,
-execution, and their durable evidence. Product roles and workflows belong to
-consumers of the runtime.
+Santi keeps individuals (souls) with multiple brains (strands). Inboxes carry
+incoming information; tools carry outward actions; compact condenses memory
+and sustains thought. External channels are communication windows; their
+strand mappings express adaptable working preferences. Brain continuity
+spans turns and external work items.
+
+Keep changes centered on souls, strands, execution, and their durable evidence.
+Product roles and workflows belong to consumers of the runtime.
 
 ## Working constraints
 
