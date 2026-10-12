@@ -88,6 +88,7 @@ pub fn launch(
     (
         santi_api::jobs::Native::new(env!("CARGO_BIN_EXE_santi-api")),
         JobLaunch {
+            environment: None,
             job: job::Job {
                 id: id.clone(),
                 origin: job::Origin {

@@ -215,6 +215,11 @@ impl Writer<'_, '_> {
         let turn = key(capability, "turn")?;
         let call = key(capability, "call")?;
         let effect = key(capability, "effect")?;
+        let environment = draft
+            .environment
+            .map(serde_json::to_string)
+            .transpose()
+            .map_err(|_| adapt("invalid job environment snapshot"))?;
         let mut fields = vec![
             ("tag", draft.tag),
             ("description", draft.description),
@@ -237,6 +242,9 @@ impl Writer<'_, '_> {
             ("call", call.as_str()),
             ("effect", effect.as_str()),
         ];
+        if let Some(environment) = environment.as_deref() {
+            fields.push(("environment", environment));
+        }
         if let Some(cwd) = draft.cwd {
             fields.push(("cwd", cwd));
         }
