@@ -8,7 +8,8 @@ mod types;
 mod write;
 
 pub use types::{
-    AttentionDraft, CapabilityDraft, ExpiredJob, JobDraft, JobRecord, Prepared, TransitionDraft,
+    AttentionDraft, CapabilityDraft, Environment, ExpiredJob, JobDraft, JobRecord, Prepared,
+    TransitionDraft,
 };
 
 impl Store {
@@ -17,6 +18,26 @@ impl Store {
             .batch(async |tx| write::capability(tx, draft).await)
             .await
             .map_err(read::error)
+    }
+
+    pub async fn capability(&self, digest: &str, now: i64) -> Result<(job::Origin, bool), String> {
+        let row = read::one(&self.core, "JobCapability", "digest", digest)
+            .await?
+            .ok_or_else(|| "invalid job capability".to_string())?;
+        if row.int("consumed").is_none() && now > read::int(&row, "expires")? {
+            return Err("job capability expired".to_string());
+        }
+        Ok((
+            job::Origin {
+                soul: read::related(&self.core, "Soul", read::int(&row, "soul")?).await?,
+                strand: read::related(&self.core, "Strand", read::int(&row, "strand")?).await?,
+                turn: read::related(&self.core, "Turn", read::int(&row, "turn")?).await?,
+                call: read::related(&self.core, "ToolCall", read::int(&row, "call")?).await?,
+                effect: read::related(&self.core, "StrandEffect", read::int(&row, "effect")?)
+                    .await?,
+            },
+            row.int("consumed").is_some(),
+        ))
     }
 
     pub async fn expire_capabilities(&self, now_millis: i64) -> Result<usize, String> {
