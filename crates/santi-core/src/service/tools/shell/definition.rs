@@ -1,15 +1,13 @@
 use santi_provider::{Function, Tool};
 use serde_json::json;
 
-use crate::{SOULSPACE, STRANDSPACE, soulward, strandward};
+use crate::{SOULSPACE, STRANDSPACE};
 
 pub(super) fn tool() -> Tool {
-    let soulward = soulward();
-    let strandward = strandward();
     Tool::Function(Function {
         name: "shell".to_string(),
         description: format!(
-            "Run a short, bounded shell command. If completion time is unknown, the command waits on external state, or periodic attention is useful, use this invocation only to call `santi job create <DESCRIPTION> <COMMAND>`; optionally add `--cwd`, `--timeout-seconds`, `--output-limit-bytes`, or `--remind-every-seconds`. Santi supplies the one-use capability, creates a durable detached job with timeout and output bounds, and returns its id. Never keep this synchronous shell open merely to wait or poll. By default commands run in the current execution workspace. Use cwd \"{SOULSPACE}\" to work in the current soul workspace, where {soulward} is always rendered live in [santi-soul]. Use cwd \"{STRANDSPACE}\" to work in the current strand workspace, where {strandward} is always rendered live in [santi-strand]. Unix-like systems use bash by default; Windows uses pwsh by default."
+            "Run a short, bounded command in a fresh shell process. For work with unknown duration, external waits, or periodic attention, use this invocation solely to create one detached Job with `santi job create <DESCRIPTION> <COMMAND>`; its help lists options. Santi supplies the one-use capability and returns the durable Job id. Commands default to the current execution workspace; cwd selects {SOULSPACE} or {STRANDSPACE} and their subpaths. Unix-like systems use bash; Windows uses pwsh."
         ),
         parameters: json!({
             "type": "object",
@@ -20,7 +18,7 @@ pub(super) fn tool() -> Tool {
                 },
                 "cwd": {
                     "type": "string",
-                    "description": format!("Optional workspace URI. Supports {SOULSPACE}, {SOULSPACE}<path>, {STRANDSPACE}, and {STRANDSPACE}<path>.")
+                    "description": format!("Omit or leave empty for the current execution workspace. Select {SOULSPACE}, {SOULSPACE}<path>, {STRANDSPACE}, or {STRANDSPACE}<path> for a workspace URI.")
                 }
             },
             "required": ["command"],

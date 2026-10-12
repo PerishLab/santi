@@ -61,7 +61,7 @@ mod github {
         assert_eq!(event.delivery.as_deref(), Some("issuecomment-1"));
         assert!(event.santi_system_text.contains("issue_comment.created"));
         assert!(event.santi_system_text.contains("issuecomment-1"));
-        assert!(!event.santi_system_text.contains("top secret"));
+        assert!(event.santi_system_text.contains("requested work"));
     }
 
     #[test]
@@ -251,7 +251,7 @@ fn github_body() -> &'static [u8] {
         "action":"created",
         "repository":{"full_name":"PerishCode/santi"},
         "issue":{"number":42,"title":"title"},
-        "comment":{"body":"top secret","html_url":"https://github.com/PerishCode/santi/issues/42#issuecomment-1"},
+        "comment":{"body":"requested work","html_url":"https://github.com/PerishCode/santi/issues/42#issuecomment-1"},
         "sender":{"login":"somehuman"}
     }"#
 }

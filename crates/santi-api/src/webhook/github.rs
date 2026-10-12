@@ -101,7 +101,8 @@ impl WebhookAdaptor for GithubAdaptor {
             .is_some_and(|login| login.eq_ignore_ascii_case(&sender));
         let in_scope = sender_allowed(&sender, self.allow.as_deref());
         let santi_system_text = format!(
-            "[github] {event_type}.{action} on {repo}#{number}\nurl: {url}\ndelivery: {delivery}"
+            "[github] {event_type}.{action} on {repo}#{number}\nurl: {url}\ndelivery: {delivery}\n{}",
+            content(&payload, &event_type)
         );
         let label = format!("github:{webhook_name}:issue:{repo}#{number}");
         let metadata = json!({
@@ -125,6 +126,37 @@ impl WebhookAdaptor for GithubAdaptor {
             self_authored,
         }))
     }
+}
+
+fn content(payload: &Value, event: &str) -> String {
+    let source = if event == "issue_comment" {
+        "comment"
+    } else {
+        "issue"
+    };
+    let title = string_at(payload, &["issue", "title"]).unwrap_or_default();
+    let body = string_at(payload, &[source, "body"]);
+    let available = body.is_some();
+    let body = body.unwrap_or_default();
+    let updated =
+        string_at(payload, &[source, "updated_at"]).unwrap_or_else(|| "unknown".to_string());
+    let visible = clipped(&body, 8192);
+    format!(
+        "title: {}\ntitle_truncated: {}\ncontent_source: {source}\nupdated: {updated}\nbody_available: {available}\nbody_bytes: {}\nvisible_bytes: {}\ntruncated: {}\nbody:\n{visible}",
+        clipped(&title, 512),
+        title.len() > 512,
+        body.len(),
+        visible.len(),
+        visible.len() < body.len()
+    )
+}
+
+fn clipped(text: &str, limit: usize) -> &str {
+    let mut end = text.len().min(limit);
+    while !text.is_char_boundary(end) {
+        end -= 1;
+    }
+    &text[..end]
 }
 
 fn normalized(value: Option<&str>) -> Option<String> {
