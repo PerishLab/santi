@@ -19,7 +19,8 @@ pub use inbox::{
     ReceiptDraft, Refusal, ReplayDraft, WebhookDraft,
 };
 pub use job::{
-    AttentionDraft, CapabilityDraft, ExpiredJob, JobDraft, JobRecord, Prepared, TransitionDraft,
+    AttentionDraft, CapabilityDraft, Environment, ExpiredJob, JobDraft, JobRecord, Prepared,
+    TransitionDraft,
 };
 pub use support::{Bootstrap, EnvironDraft, Status, TraceDraft};
 use support::{read, write};
