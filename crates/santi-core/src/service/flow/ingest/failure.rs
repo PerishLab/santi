@@ -15,8 +15,11 @@ impl Service {
         let Some(incident) = self.store.incident(&key).await? else {
             return Ok(None);
         };
+        if incident.latest.context["recovery"]["effect"].is_string() {
+            return Ok(None);
+        }
         let pending = self.store.inboxes(strand).await?.len();
-        let mut draft = drive_failure(
+        let draft = drive_failure(
             strand,
             Drive {
                 trigger: "admission_guard",
@@ -26,10 +29,6 @@ impl Service {
             "strand driver recovery is still required",
             pending,
         );
-        if incident.latest.context["recovery"]["effect"].is_string() {
-            draft.context["recovery"] = incident.latest.context["recovery"].clone();
-            draft.context["detail"] = incident.latest.context["detail"].clone();
-        }
         self.store.raise(draft, &crate::now()).await.map(Some)
     }
 

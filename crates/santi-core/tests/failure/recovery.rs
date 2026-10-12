@@ -1,5 +1,8 @@
 use super::*;
 
+#[path = "continuation.rs"]
+mod continuation;
+
 #[tokio::test]
 async fn recovers() {
     let temp = tempfile::tempdir().expect("temp");
@@ -62,6 +65,7 @@ async fn refuses() {
     let temp = tempfile::tempdir().expect("temp");
     let provider = Arc::new(FailureProvider {
         fail_with: Some("interrupted".to_string()),
+        fail_for_requests: Some(1),
         ..FailureProvider::default()
     });
     let service = open_service(&temp, provider.clone()).await;
@@ -164,18 +168,6 @@ async fn refuses() {
         )
         .expect("after JSON")
     );
-    let rejected = service
-        .send(
-            &strand.id,
-            strand::Post {
-                content: vec![message::Part::Text {
-                    text: "do not accept".into(),
-                }],
-            },
-        )
-        .await
-        .expect_err("admission guard");
-    guidance(&rejected, &accepted.receipt.inbox, "settled_applied");
     drop(service);
     let reopened = reopened(&temp, provider.clone()).await;
     reopened.resume().await.expect("resume");
@@ -199,6 +191,39 @@ async fn refuses() {
         .await
         .expect_err("retained refusal");
     guidance(&refusal, &accepted.receipt.inbox, "settled_applied");
+    let fresh = send_text(&reopened, &strand.id, "continue from current knowledge").await;
+    let after = wait_for_turn(
+        &reopened,
+        &strand.id,
+        &turn(&fresh).id,
+        turn::Status::Completed,
+    )
+    .await;
+    assert_eq!(after.turns.len(), 2);
+    assert_eq!(after.calls.len(), 1);
+    assert_eq!(after.effects.len(), 1);
+    assert_eq!(
+        serde_json::to_value(&before).expect("before JSON"),
+        serde_json::to_value(
+            reopened
+                .receipt(&accepted.receipt.inbox)
+                .await
+                .unwrap()
+                .unwrap()
+        )
+        .expect("retained JSON")
+    );
+    assert!(!reopened.degraded());
+    let requests = provider.requests.lock().unwrap();
+    assert_eq!(requests.len(), 2);
+    for text in ["external effect", "continue from current knowledge"] {
+        assert!(
+            requests[1]
+                .input
+                .iter()
+                .any(|item| { as_text(item).is_some_and(|(_, content)| content.contains(text)) })
+        );
+    }
 }
 
 fn guidance(error: &santi_core::Fault, inbox: &str, state: &str) {
