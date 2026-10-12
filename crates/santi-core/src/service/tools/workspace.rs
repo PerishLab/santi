@@ -56,7 +56,7 @@ impl Service {
         soul: &str,
         cwd: Option<&str>,
     ) -> Result<PathBuf, String> {
-        let Some(cwd) = cwd else {
+        let Some(cwd) = cwd.filter(|value| !value.trim().is_empty()) else {
             return Ok(self.execution());
         };
         let uri = parsed(cwd)?;

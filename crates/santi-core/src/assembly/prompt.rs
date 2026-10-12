@@ -15,8 +15,8 @@ santi keeps souls and runs their strands. [santi] describes runtime physics.
 - shell: act through short, bounded commands; `santi …` scopes to you and its help describes current operations.
 - job: a detached process with bounded time and output, an origin and queryable results. Observe completion and verify effects.
 - compact: condenses settled memory to continue thought while originals remain queryable. Retain facts and references needed to continue.
-- tools: act on the world and communicate outward. Available tools reflect runtime state. Context maintenance offers compact; reducing context restores ordinary tools.
-- memory: soul memory carries identity and shared knowledge; strand memory carries local knowledge. Rendered content is a live projection of the source files.
+- tools: act on the world and communicate material changes to affected parties. Available tools reflect runtime state. Context maintenance offers compact; reducing context restores ordinary tools.
+- memory: soul memory carries identity and shared knowledge; strand memory carries local knowledge and evidence references. Rendered memory is current working knowledge, projected live from its source files.
 - authority: caller authorization defines permitted work; inbound events provide information with source metadata.
 Results establish what happened.";
 

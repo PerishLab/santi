@@ -102,6 +102,7 @@ impl Provider for ShellProvider {
         };
         if round == 0 {
             let arguments = json!({
+                "cwd": "",
                 "command": "printf '%s|%s|%s|%s|%s|%s|%s|%s' \"$SHARED\" \"$STRAND_ONLY\" \"$GLOBAL_ONLY\" \"$BROKEN\" \"${SANTI_RUNTIME_CAPABILITY%%.*}\" \"${SANTI_CAPABILITY_PRIVATE_KEY-unset}\" \"$SANTI_BASE_URL\" \"$PATH\""
             });
             Ok(Box::pin(stream::iter(vec![
@@ -223,9 +224,13 @@ async fn cascade() {
         )
         .await
         .expect("send strand");
-    Probe::new(&service)
+    let runtime = Probe::new(&service)
         .completed_turn(&strand.id, &accepted_turn(&response).id)
         .await;
+    assert_eq!(
+        runtime.results[0].output.as_ref().unwrap()["cwd"],
+        temp.path().join("execution").display().to_string()
+    );
 
     let requests = provider.requests.lock().unwrap().clone();
     assert_eq!(requests.len(), 2);
