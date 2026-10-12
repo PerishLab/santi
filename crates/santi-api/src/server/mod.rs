@@ -5,10 +5,11 @@ mod ingress;
 mod jobs;
 mod openapi;
 mod routes;
+mod shutdown;
 mod sse;
 
 use santi_core::service::{self, Service};
-use std::{fs, future::IntoFuture, net::SocketAddr};
+use std::{fs, net::SocketAddr};
 
 use crate::provider;
 
@@ -66,45 +67,7 @@ pub async fn serve() -> Result<(), String> {
         .await
         .map_err(|error| error.to_string())?;
     println!("santi-api listening on http://{address}");
-    let shutdown_signal = {
-        let service = service.clone();
-        let grace = held.grace;
-        async move {
-            wait_for_shutdown_signal().await;
-            println!(
-                "santi-api: shutdown signal received — quiescing (no new turns; grace={}s)",
-                grace.as_secs()
-            );
-            service.quiesce(grace);
-        }
-    };
-    let drainer = service.clone();
-    let recovery = service.clone();
-    let watcher = {
-        let service = service.clone();
-        tokio::spawn(async move { service.watch().await })
-    };
-    let server = axum::serve(listener, routes::router(service))
-        .with_graceful_shutdown(shutdown_signal)
-        .into_future();
-    tokio::pin!(server);
-    let resume = recovery.resume();
-    tokio::pin!(resume);
-    let result = tokio::select! {
-        result = &mut server => result.map_err(|error| error.to_string()),
-        recovered = &mut resume => match recovered {
-            Ok(()) => server.await.map_err(|error| error.to_string()),
-            Err(error) => Err(error),
-        },
-    };
-    if !drainer.closing() {
-        drainer.quiesce(std::time::Duration::ZERO);
-    }
-    watcher.await.map_err(|error| error.to_string())?;
-    result?;
-    drainer.drain().await;
-    println!("santi-api: drained; exiting");
-    Ok(())
+    shutdown::serve(service, listener, held.grace, wait_for_shutdown_signal()).await
 }
 
 async fn wait_for_shutdown_signal() {
