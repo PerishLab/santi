@@ -1523,6 +1523,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "locus"
+version = "0.6.1"
+source = "sparse+https://cargo.perish.uk/"
+checksum = "fbdd06eb4800e6cc8140b399a4ab6e6606da426ad9b50a4a95733579120a9614"
+dependencies = [
+ "getrandom 0.3.4",
+ "locus-macro",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "locus-macro"
+version = "0.6.1"
+source = "sparse+https://cargo.perish.uk/"
+checksum = "bf1ab6e8cb2da6e2cbe624418231e9b5564f203efa58290a16acd68dfcd4e9ff"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.118",
+]
+
+[[package]]
 name = "log"
 version = "0.4.33"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1716,9 +1739,9 @@ checksum = "19f132c84eca552bf34cab8ec81f1c1dcc229b811638f9d283dceabe58c5569e"
 
 [[package]]
 name = "plumb"
-version = "0.91.0"
+version = "0.93.0"
 source = "sparse+https://cargo.perish.uk/"
-checksum = "6a7c1b2a5fd9a1b44997a18caa33008f24cf18fa067074313b4a894532714ed8"
+checksum = "8a233d0704c55d1a8e9d83093ab345b360ccd92d62f4ca3cef4fa56ef0a00bee"
 dependencies = [
  "base64",
  "clap",
@@ -1738,9 +1761,9 @@ dependencies = [
 
 [[package]]
 name = "plumb-macro"
-version = "0.91.0"
+version = "0.93.0"
 source = "sparse+https://cargo.perish.uk/"
-checksum = "8041f027a34a32924df8f0cd63fcaf839a62f290828bdbac33648f62b9bf2932"
+checksum = "b8c1f2afa83bcea58c444fe3d271510bbb7e86398b1138408c9335d76714adba"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -2223,6 +2246,7 @@ dependencies = [
  "clap",
  "futures-util",
  "jiff",
+ "locus",
  "plumb",
  "ratatui",
  "reqwest",

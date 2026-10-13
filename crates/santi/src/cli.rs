@@ -7,7 +7,8 @@ pub const BASE: &str = "http://127.0.0.1:43307";
 #[command(
     name = "santi",
     version = plumb::version!("SANTI"),
-    about = "HTTP client for a running santi runtime"
+    about = "HTTP client for a running santi runtime",
+    after_help = "Optional Locus observation: set [locus] enabled = true in config.toml below the existing santi data home. endpoint defaults to LOCUS_API or http://127.0.0.1:43308; buffer uses state/locus below that home. Missing configuration disables observation. Client authentication configuration remains separate."
 )]
 pub struct Cli {
     #[arg(

@@ -153,3 +153,6 @@ fn remote() {
 
 #[path = "cli/parse.rs"]
 mod parse;
+
+#[path = "cli/observation.rs"]
+mod observation;

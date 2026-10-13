@@ -2,6 +2,8 @@ pub mod auth;
 pub mod cli;
 pub mod client;
 pub mod config;
+#[path = "cli/observation.rs"]
+mod observation;
 mod text;
 pub mod watch;
 
@@ -12,6 +14,17 @@ use auth::{Credentials, resolve_edge_bearer};
 use cli::{BASE, Cli, ClientDefaults};
 use config::ClientPartial;
 pub async fn run() -> Result<()> {
+    let cli = Cli::parse();
+    let observation = observation::Run::start(observation::name(&cli.command));
+    let result = execute(cli).await;
+    if let Some(observation) = observation {
+        observation.finish(if result.is_ok() { 0 } else { 1 });
+    }
+    result
+}
+
+#[locus::trace(with = observation::view())]
+async fn execute(cli: Cli) -> Result<()> {
     let Cli {
         base_url,
         api_key,
@@ -22,7 +35,7 @@ pub async fn run() -> Result<()> {
         strand,
         soul,
         command,
-    } = Cli::parse();
+    } = cli;
     plumb::identity::ready().map_err(anyhow::Error::msg)?;
     let client = config::client(ClientPartial {
         base_url: base_url.map(Some),

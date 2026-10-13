@@ -23,6 +23,8 @@ toml.workspace = true
 unicode-segmentation.workspace = true
 unicode-width.workspace = true
 
+locus = { version = "0", registry = "perish" }
+
 [dev-dependencies]
 sha2.workspace = true
 tempfile = "3.27.0"

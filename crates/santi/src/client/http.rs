@@ -74,6 +74,7 @@ pub(super) struct Http<'a> {
 }
 
 impl Http<'_> {
+    #[locus::trace(with = crate::observation::view())]
     pub(super) async fn get(&self, url: &str) -> Result<()> {
         let response = self
             .client
@@ -85,6 +86,7 @@ impl Http<'_> {
         print_json(response).await
     }
 
+    #[locus::trace(with = crate::observation::view())]
     pub(super) async fn post(&self, url: &str, body: Option<serde_json::Value>) -> Result<()> {
         let mut request = self.client.post(url).timeout(TIMEOUT);
         if let Some(body) = body {
@@ -97,6 +99,7 @@ impl Http<'_> {
         print_json(response).await
     }
 
+    #[locus::trace(with = crate::observation::view())]
     pub(super) async fn delete(&self, url: &str) -> Result<()> {
         let response = self
             .client
