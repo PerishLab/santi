@@ -25,9 +25,18 @@ fn api() {
     ] {
         assert!(document["components"]["schemas"].get(schema).is_some());
     }
+    let cap = &document["components"]["schemas"]["budget.Cap"];
+    assert!(cap["properties"].get("maintenance").is_some());
+    assert!(
+        !cap["required"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|field| field == "maintenance")
+    );
     let hash = format!("{:x}", Sha256::digest(text.as_bytes()));
     assert_eq!(
         hash,
-        "4e03432de52193576baf6cc73eb67790fb7243c0f0a0fd97db53e899816163d4"
+        "a33146145bfd718848a35d6b92b8df8f0b6a599f4972ba112dda6bb71395b9a7"
     );
 }

@@ -20,6 +20,7 @@ fn responses(config: OpenAiResponses) -> Arc<dyn Provider> {
         summary: config.summary,
         ceiling: config.max_output_tokens,
         bytes: Some(config.bytes),
+        maintenance: Some(config.maintenance),
         attempts: config.attempts,
     }))
 }
@@ -34,5 +35,6 @@ fn completions(config: ChatCompletions) -> Arc<dyn Provider> {
         effort: config.reasoning_effort,
         ceiling: config.max_tokens,
         bytes: Some(config.bytes),
+        maintenance: Some(config.maintenance),
     }))
 }

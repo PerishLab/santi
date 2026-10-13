@@ -12,6 +12,14 @@ use crate::service::Service;
 
 impl Service {
     pub(in crate::service) async fn crowded(&self, strand: &str) -> Result<Option<String>, String> {
+        self.room(strand, true).await
+    }
+
+    pub(in crate::service) async fn pressured(&self, strand: &str) -> Result<bool, String> {
+        Ok(self.room(strand, false).await?.is_some())
+    }
+
+    async fn room(&self, strand: &str, pending: bool) -> Result<Option<String>, String> {
         let policy = self.regimen();
         let Some(budget) = self.budget() else {
             return Ok(None);
@@ -23,7 +31,11 @@ impl Service {
             .collect::<Vec<_>>();
         let settled = live.iter().map(|span| span.bytes).sum::<i64>();
         let held = live.len();
-        let active = self.loaded(strand).await?.saturating_sub(settled);
+        let active = self
+            .weight(strand, pending)
+            .await?
+            .total
+            .saturating_sub(settled);
         if settled > policy.settled as i64 {
             return Ok(Some(overfull(settled, policy.settled as i64, held)));
         }

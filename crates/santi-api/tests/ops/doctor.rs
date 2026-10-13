@@ -24,6 +24,7 @@ async fn reports() {
     assert_eq!(provider.model.as_deref(), Some("gpt-5.5"));
     assert_eq!(provider.effort.as_deref(), Some("medium"));
     assert_eq!(provider.bytes, Some(120000));
+    assert_eq!(provider.maintenance, Some(240000));
     assert_eq!(provider.source.as_deref(), Some("provider_config"));
 }
 
@@ -99,5 +100,24 @@ fn runtime_under(root: &Path, budget: Option<usize>) -> Runtime {
             feedback_cwd: None,
         },
         constitution: None,
+    }
+}
+
+#[test]
+fn capacity() {
+    for (configured, expected) in [
+        ("", Some(200)),
+        ("maintenance_bytes = 400", Some(400)),
+        ("maintenance_bytes = 100", None),
+        ("maintenance_bytes = 0", None),
+    ] {
+        let profile: Profile = toml::from_str(&format!("kind = \"openai_responses\"\napi_key = \"test\"\nmodel = \"test\"\nbytes = 100\n{configured}")).unwrap();
+        assert_eq!(
+            profile
+                .resolve("test")
+                .ok()
+                .map(|resolved| resolved.maintenance()),
+            expected
+        );
     }
 }

@@ -12,6 +12,7 @@ async fn sent() {
         summary: Some("auto".to_string()),
         ceiling: Some(4096),
         bytes: None,
+        maintenance: None,
         attempts: None,
     })
     .await;
@@ -37,6 +38,7 @@ async fn omitted() {
         summary: None,
         ceiling: None,
         bytes: None,
+        maintenance: None,
         attempts: None,
     })
     .await;
@@ -56,6 +58,7 @@ async fn unstored() {
         summary: None,
         ceiling: None,
         bytes: None,
+        maintenance: None,
         attempts: None,
     })
     .await;

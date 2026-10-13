@@ -1,3 +1,5 @@
+#[path = "../execution/context.rs"]
+mod maintenance;
 use super::support::*;
 use santi_core::service::{self, Service};
 use santi_core::{Store, message};
@@ -17,6 +19,7 @@ impl Provider for Bounded {
             model: "context-model".to_string(),
             budget: Some(santi_provider::Cap {
                 bytes: self.bytes.load(Ordering::SeqCst),
+                maintenance: self.bytes.load(Ordering::SeqCst).saturating_mul(2),
                 source: "test".to_string(),
             }),
         }
@@ -118,4 +121,12 @@ async fn occurrences(service: &Service, strand: &str) -> i64 {
     let incident = snapshot.incident.expect("context incident");
     assert_eq!(incident.code, "context.budget.exceeded");
     incident.occurrences
+}
+
+#[test]
+fn legacy() {
+    let cap: santi_core::budget::Cap =
+        serde_json::from_str(r#"{"bytes":500000,"source":"provider_config"}"#).unwrap();
+    assert_eq!(cap.maintenance, None);
+    assert_eq!(cap.ceiling(), 500_000);
 }

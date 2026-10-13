@@ -1,15 +1,15 @@
 use crate::Ruled;
+use crate::context::budget::estimated;
 use serde_json::json;
 
 use crate::Fault;
-use crate::context::budget::estimated;
-use santi_provider::Item;
 
 use super::super::Service;
 use crate::budget;
 
 mod execution;
 mod maintenance;
+mod measure;
 mod observation;
 #[cfg(test)]
 mod ownership;
@@ -35,45 +35,9 @@ impl Service {
     pub(in crate::service) fn budget(&self) -> Option<budget::Cap> {
         self.provider.metadata().budget.map(|budget| budget::Cap {
             bytes: budget.bytes as i64,
+            maintenance: Some(budget.maintenance as i64),
             source: budget.source,
         })
-    }
-
-    pub(in crate::service) async fn loaded(&self, strand: &str) -> Result<i64, String> {
-        let mut input = crate::provider_input(&self.store, strand).await?;
-        input.extend(self.pending_input(strand).await?);
-        Ok(estimated(&input, None, None).input)
-    }
-
-    pub(in crate::service) async fn estimate(
-        &self,
-        strand: &str,
-    ) -> Result<budget::Estimate, String> {
-        let mut input = crate::provider_input(&self.store, strand).await?;
-        input.extend(self.pending_input(strand).await?);
-        let instructions = self.wording(strand).await?;
-        let tools = self.offered(strand).await?;
-        Ok(estimated(&input, Some(&instructions), Some(&tools)))
-    }
-
-    async fn pending_input(&self, strand: &str) -> Result<Vec<Item>, String> {
-        Ok(self
-            .store
-            .inboxes(strand)
-            .await?
-            .into_iter()
-            .filter_map(|inbox| {
-                let content = inbox.content.rendered();
-                (!content.trim().is_empty()).then(|| Item::Message {
-                    role: match inbox.kind {
-                        crate::message::Kind::Text => "user",
-                        crate::message::Kind::SantiSystem => "system",
-                    }
-                    .to_string(),
-                    content,
-                })
-            })
-            .collect())
     }
 
     pub(in crate::service) async fn admit_candidate(
@@ -92,11 +56,11 @@ impl Service {
         }
         let tools = self.offered(strand).await?;
         let estimate = estimated(&input, Some(&self.wording(strand).await?), Some(&tools));
-        if estimate.total <= budget.bytes {
+        if estimate.total <= budget.ceiling() {
             return Ok(None);
         }
         let metadata = self.provider.metadata();
-        let reason = reason(estimate.total, budget.bytes);
+        let reason = reason(estimate.total, budget.ceiling());
         self.pressure(Pressure {
             strand,
             code: "candidate_input_exceeds_budget",
@@ -105,7 +69,7 @@ impl Service {
             provider: Some(metadata.provider.as_ref()),
             model: Some(&metadata.model),
             source: Some(&budget.source),
-            bytes: Some(budget.bytes),
+            bytes: Some(budget.ceiling()),
             estimate: &estimate,
             observed: None,
             metadata: serde_json::json!({"estimator": estimate.estimator}),
@@ -118,6 +82,7 @@ impl Service {
         &self,
         strand: &crate::strand::Strand,
         operation: &str,
+        maintenance: bool,
     ) -> Result<Option<Fault>, String> {
         let Some(budget) = self.budget() else {
             return Ok(None);
@@ -134,8 +99,12 @@ impl Service {
             }
             observed = Some(current);
         }
-        let estimate = self.estimate(&strand.id).await?;
-        if estimate.total <= budget.bytes {
+        let estimate = if maintenance {
+            self.weight(&strand.id, false).await?
+        } else {
+            self.estimate(&strand.id).await?
+        };
+        if estimate.total <= budget.ceiling() {
             if active.is_some() {
                 resolve(self, &key, "driver_remeasurement", &estimate).await?;
             }
@@ -146,7 +115,7 @@ impl Service {
             None => observation::observe(self, strand, &budget).await?,
         };
         let metadata = self.provider.metadata();
-        let reason = reason(estimate.total, budget.bytes);
+        let reason = reason(estimate.total, budget.ceiling());
         self.pressure(Pressure {
             strand: &strand.id,
             code: "pending_drain_would_exceed_budget",
@@ -155,7 +124,7 @@ impl Service {
             provider: Some(metadata.provider.as_ref()),
             model: Some(&metadata.model),
             source: Some(&budget.source),
-            bytes: Some(budget.bytes),
+            bytes: Some(budget.ceiling()),
             estimate: &estimate,
             observed: None,
             metadata: serde_json::json!({
@@ -177,7 +146,7 @@ impl Service {
         let Some(budget) = self.budget() else {
             return Ok(None);
         };
-        if estimate.total <= budget.bytes {
+        if estimate.total <= budget.ceiling() {
             return Ok(None);
         }
         let metadata = self.provider.metadata();
@@ -186,7 +155,7 @@ impl Service {
             .strand(strand)
             .await?
             .ok_or_else(|| "strand not found".to_string())?;
-        let reason = reason(estimate.total, budget.bytes);
+        let reason = reason(estimate.total, budget.ceiling());
         let error = self
             .pressure(Pressure {
                 strand: &strand.id,
@@ -196,7 +165,7 @@ impl Service {
                 provider: Some(metadata.provider.as_ref()),
                 model: Some(&request.model),
                 source: Some(&budget.source),
-                bytes: Some(budget.bytes),
+                bytes: Some(budget.ceiling()),
                 estimate,
                 observed: Some(turn),
                 metadata: json!({

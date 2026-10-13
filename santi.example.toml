@@ -42,6 +42,7 @@ base_url = "https://api.openai.com/v1"
 reasoning_effort = ""
 summary = ""
 bytes = 500000
+maintenance_bytes = 1000000
 
 [providers.deepseek]
 kind = "chat_completions"
@@ -51,6 +52,7 @@ base_url = "https://api.deepseek.com"
 thinking = ""
 reasoning_effort = ""
 bytes = 500000
+maintenance_bytes = 1000000
 
 [providers.siliconflow]
 kind = "chat_completions"
@@ -60,3 +62,4 @@ base_url = "https://api.siliconflow.cn/v1"
 thinking = ""
 reasoning_effort = ""
 bytes = 500000
+maintenance_bytes = 1000000

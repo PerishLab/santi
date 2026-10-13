@@ -64,7 +64,7 @@ pub(super) async fn observe(
         "provider": {
             "name": provider.provider.as_ref(),
             "model": provider.model,
-            "budget": {"source": budget.source, "input": budget.bytes},
+            "budget": {"source": budget.source, "input": budget.bytes, "maintenance": budget.maintenance},
         },
     });
     let encoded = serde_json::to_vec(&material).map_err(|error| error.to_string())?;

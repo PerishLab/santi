@@ -1,6 +1,13 @@
 use crate::service::{Service, Settlement};
 
 impl Service {
+    pub(in crate::service) fn press(&self, turn: &str) {
+        self.settlements.lock().unwrap().insert(turn.to_string(), Settlement {
+            reason: "context_budget".into(),
+            detail: "<system_message>\nkind: context_maintenance\nstate: Only compact is available. A successful compact ends this turn and queues a pause notice for this strand.\n</system_message>".into(),
+        });
+    }
+
     pub(in crate::service) async fn reserve(
         &self,
         strand: &str,

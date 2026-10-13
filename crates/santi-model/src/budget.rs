@@ -18,7 +18,15 @@ pub struct Estimate {
 #[schema(as = budget::Cap)]
 pub struct Cap {
     pub bytes: i64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub maintenance: Option<i64>,
     pub source: String,
+}
+
+impl Cap {
+    pub fn ceiling(&self) -> i64 {
+        self.maintenance.unwrap_or(self.bytes)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]

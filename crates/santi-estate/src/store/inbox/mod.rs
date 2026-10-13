@@ -18,11 +18,15 @@ pub(in crate::store) use write::offer as offer_in;
 
 impl Store {
     pub async fn drain_turn(&self, draft: DrainDraft<'_>) -> Result<Opening, String> {
-        drain::open(self, draft, false).await
+        drain::open(self, draft, drain::Mode::Drain).await
+    }
+
+    pub async fn pause(&self, draft: DrainDraft<'_>) -> Result<Opening, String> {
+        drain::open(self, draft, drain::Mode::Maintenance).await
     }
 
     pub async fn redrive(&self, draft: DrainDraft<'_>) -> Result<Opening, String> {
-        drain::open(self, draft, true).await
+        drain::open(self, draft, drain::Mode::Redrive).await
     }
 
     pub async fn accept_inbox(&self, draft: InboxDraft<'_>, gate: usize) -> Result<Inbox, String> {

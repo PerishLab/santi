@@ -12,6 +12,7 @@ async fn mapped() {
         effort: Some("high".to_string()),
         ceiling: Some(512),
         bytes: None,
+        maintenance: None,
     })
     .await;
 

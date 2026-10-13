@@ -87,6 +87,11 @@ impl Service {
                 Operation::Assembly,
                 self.settling(strand, turn, round).await
             );
+            if self.settlement(turn).is_none()
+                && provider_try!(Operation::Assembly, self.pressured(strand).await)
+            {
+                self.press(turn);
+            }
             let input = provider_try!(Operation::Assembly, self.assembled(strand, turn).await);
             let metadata = self.provider.metadata();
             let family = metadata.provider.to_string();

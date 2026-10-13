@@ -43,6 +43,7 @@ pub(crate) async fn itemized(items: Vec<Item>) -> Value {
         effort: None,
         ceiling: None,
         bytes: None,
+        maintenance: None,
     };
     let (tx, rx) = mpsc::channel();
     let server = server(
@@ -92,6 +93,7 @@ pub(crate) async fn captured(lines: Vec<&'static str>) -> Vec<Event> {
         effort: None,
         ceiling: None,
         bytes: None,
+        maintenance: None,
     };
     let (tx, rx) = mpsc::channel();
     let server = server(listener, tx, lines);
