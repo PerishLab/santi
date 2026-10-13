@@ -26,8 +26,10 @@ note = "Tracked local runtime configuration templates; live santi.toml and .env 
 name = ["Cargo.toml", "Cargo.lock"]
 note = "Rust workspace anchors."
 
+[identity]
+ns = "santi"
+
 [release]
-product = "santi"
 authority = "https://releases.santi.perish.uk"
 binaries = ["santi", "santi-api"]
 targets = ["x86_64-unknown-linux-gnu", "aarch64-apple-darwin"]

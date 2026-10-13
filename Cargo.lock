@@ -1437,9 +1437,9 @@ dependencies = [
 
 [[package]]
 name = "keel"
-version = "0.15.0"
+version = "0.16.0"
 source = "sparse+https://cargo.perish.uk/"
-checksum = "834aa85c69d915108da6f27343c928f0a4a517e608b18badb9d8f95a12227912"
+checksum = "c8943e6838498fb41e0765550c976f40f850a05ab7efaadab062013cafce9e20"
 dependencies = [
  "axum",
  "getrandom 0.3.4",
@@ -1454,9 +1454,9 @@ dependencies = [
 
 [[package]]
 name = "keel-macro"
-version = "0.15.0"
+version = "0.16.0"
 source = "sparse+https://cargo.perish.uk/"
-checksum = "6e4bbe2f113682e5112c11e721792585e7acd61b5709f9796946bd0da3a3c40d"
+checksum = "c93c98c344680e79bbf41e4f63e2a77f2bca4af15028412fc3d05098241245a6"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1524,9 +1524,9 @@ dependencies = [
 
 [[package]]
 name = "locus"
-version = "0.6.1"
+version = "0.7.0"
 source = "sparse+https://cargo.perish.uk/"
-checksum = "fbdd06eb4800e6cc8140b399a4ab6e6606da426ad9b50a4a95733579120a9614"
+checksum = "0930d765b9f6d3df3925c6085ddc9346be8737d288a83539aa90e34aafc0e323"
 dependencies = [
  "getrandom 0.3.4",
  "locus-macro",
@@ -1536,9 +1536,9 @@ dependencies = [
 
 [[package]]
 name = "locus-macro"
-version = "0.6.1"
+version = "0.7.0"
 source = "sparse+https://cargo.perish.uk/"
-checksum = "bf1ab6e8cb2da6e2cbe624418231e9b5564f203efa58290a16acd68dfcd4e9ff"
+checksum = "6a8e74c677256e7d864fe901f27613d8831989071924e608ac115899560f3506"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1739,9 +1739,9 @@ checksum = "19f132c84eca552bf34cab8ec81f1c1dcc229b811638f9d283dceabe58c5569e"
 
 [[package]]
 name = "plumb"
-version = "0.93.0"
+version = "0.95.0"
 source = "sparse+https://cargo.perish.uk/"
-checksum = "8a233d0704c55d1a8e9d83093ab345b360ccd92d62f4ca3cef4fa56ef0a00bee"
+checksum = "e2e79b22e1fe8fd143aa069b16f1380fad719cc6d20a6621e01e19832a8d1245"
 dependencies = [
  "base64",
  "clap",
@@ -1761,9 +1761,9 @@ dependencies = [
 
 [[package]]
 name = "plumb-macro"
-version = "0.93.0"
+version = "0.95.0"
 source = "sparse+https://cargo.perish.uk/"
-checksum = "b8c1f2afa83bcea58c444fe3d271510bbb7e86398b1138408c9335d76714adba"
+checksum = "6fc75f388d9bb1b826c986c5f1d0dd973347cc33d069356a8b123893d1461505"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -2823,7 +2823,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32497e9a4c7b38532efcdebeef879707aa9f794296a4f0244f6f69e9bc8574bd"
 dependencies = [
  "fastrand",
- "getrandom 0.3.4",
+ "getrandom 0.4.3",
  "once_cell",
  "rustix",
  "windows-sys 0.61.2",
