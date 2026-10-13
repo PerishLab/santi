@@ -76,6 +76,7 @@ pub struct Metadata {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Cap {
     pub bytes: usize,
+    pub maintenance: usize,
     pub source: String,
 }
 

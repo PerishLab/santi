@@ -31,6 +31,7 @@ pub(crate) async fn collected(url: String, attempts: Option<u32>) -> Vec<Event> 
         ceiling: None,
         attempts,
         bytes: None,
+        maintenance: None,
     });
     let mut stream = provider
         .stream(Request {

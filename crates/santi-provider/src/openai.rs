@@ -15,6 +15,7 @@ pub struct Config {
     pub summary: Option<String>,
     pub ceiling: Option<u32>,
     pub bytes: Option<usize>,
+    pub maintenance: Option<usize>,
     pub attempts: Option<u32>,
 }
 
@@ -41,6 +42,7 @@ impl Provider for OpenAI {
             model: self.config.model.clone(),
             budget: self.config.bytes.map(|bytes| crate::Cap {
                 bytes,
+                maintenance: self.config.maintenance.unwrap_or(bytes.saturating_mul(2)),
                 source: "provider_config".to_string(),
             }),
         }

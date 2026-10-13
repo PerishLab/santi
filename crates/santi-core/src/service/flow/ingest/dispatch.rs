@@ -76,7 +76,16 @@ impl Service {
                     return drive::Outcome::Failed(self.stumbled(&strand.id, drive, error).await);
                 }
             }
-            let held = match self.admit_pending(&strand, drive.operation).await {
+            let maintenance = match self.pressured(&strand.id).await {
+                Ok(maintenance) => maintenance,
+                Err(error) => {
+                    return drive::Outcome::Failed(self.stumbled(&strand.id, drive, error).await);
+                }
+            };
+            let held = match self
+                .admit_pending(&strand, drive.operation, maintenance)
+                .await
+            {
                 Ok(held) => held,
                 Err(error) => {
                     return drive::Outcome::Failed(self.stumbled(&strand.id, drive, error).await);
@@ -86,7 +95,7 @@ impl Service {
                 return drive::Outcome::Held(error);
             }
             let turn_tag = crate::tag("turn");
-            let trigger = match drive.trigger {
+            let trigger = match if maintenance { "system" } else { drive.trigger } {
                 "system" => crate::turn::Trigger::System,
                 _ => crate::turn::Trigger::StrandSend,
             };
@@ -98,7 +107,9 @@ impl Service {
                 actor: crate::SYSTEM,
                 created: &crate::now(),
             };
-            let started = if drive.operation == "operator_redrive" {
+            let started = if maintenance {
+                self.store.pause(draft).await
+            } else if drive.operation == "operator_redrive" {
                 self.store.redrive(draft).await
             } else {
                 self.store.drain_turn(draft).await
@@ -130,6 +141,9 @@ impl Service {
                     let strand = strand.id.clone();
                     let turn = started.turn.id.clone();
                     let control = background.register(&turn);
+                    if maintenance {
+                        self.press(&turn);
+                    }
                     for message in started.drained.iter().cloned() {
                         self.publish(
                             &strand,

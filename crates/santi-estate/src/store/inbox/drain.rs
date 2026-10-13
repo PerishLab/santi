@@ -11,17 +11,23 @@ mod writer;
 use codec::{Pending, aggregate, decode, trigger};
 use types::{Assigned, Message, Opened, Written};
 
+pub(super) enum Mode {
+    Drain,
+    Redrive,
+    Maintenance,
+}
+
 struct Writer<'a, 'tx>(&'a mut Tx<'tx, Sqlite>);
 
 pub(super) async fn open(
     store: &Store,
     draft: DrainDraft<'_>,
-    retry: bool,
+    mode: Mode,
 ) -> Result<Opening, String> {
     let turn = draft.turn.to_string();
     let opened = store
         .core
-        .batch(async |tx| open_in(tx, draft, retry).await)
+        .batch(async |tx| open_in(tx, draft, mode).await)
         .await
         .map_err(read::error)?;
     match opened {
@@ -56,7 +62,7 @@ pub(super) async fn open(
 async fn open_in(
     tx: &mut Tx<'_, Sqlite>,
     draft: DrainDraft<'_>,
-    retry: bool,
+    mode: Mode,
 ) -> Result<Opened, keel::adapt::Error> {
     let strand = tx
         .one(&form("Strand").when("tag", Op::Eq, draft.strand))
@@ -65,7 +71,10 @@ async fn open_in(
     if let Some(tag) = running(tx, strand.key()).await? {
         return Ok(Opened::Running(tag));
     }
-    let recovered = if retry {
+    if matches!(mode, Mode::Maintenance) {
+        return Writer(tx).pause(&strand, &draft).await;
+    }
+    let recovered = if matches!(mode, Mode::Redrive) {
         recovery::collect(tx, &strand).await?
     } else {
         recovery::Recovery::default()
@@ -171,4 +180,25 @@ async fn pending(tx: &mut Tx<'_, Sqlite>, strand: i64) -> Result<Vec<Pending>, k
         )
         .await?;
     rows.rows().iter().map(decode).collect()
+}
+
+impl Writer<'_, '_> {
+    async fn pause(
+        &mut self,
+        strand: &Row,
+        draft: &DrainDraft<'_>,
+    ) -> Result<Opened, keel::adapt::Error> {
+        let content = serde_json::to_string(&santi_model::message::Content::text("<system_message>\nkind: context_maintenance\nstate: This strand is paused for context maintenance. Pending inbox input remains queued. Only compact is available.\n</system_message>"))
+        .map_err(|error| keel::adapt::Error::Adapt(error.to_string()))?;
+        let message = self
+            .insert(Message {
+                strand,
+                kind: "santi_system",
+                content: &content,
+                draft,
+            })
+            .await?;
+        self.put_turn(strand, draft, message.sequence).await?;
+        Ok(Opened::Started(vec![message.tag]))
+    }
 }

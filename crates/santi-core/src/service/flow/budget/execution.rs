@@ -14,6 +14,27 @@ impl Service {
         turn: &str,
         round: usize,
     ) -> Result<Fault, String> {
+        if self.reason(turn).as_deref() == Some("context_budget") {
+            let estimate = self.weight(strand, false).await?;
+            let cap = self
+                .budget()
+                .ok_or_else(|| "context capacity missing".to_string())?;
+            return self
+                .pressure(Pressure {
+                    strand,
+                    code: "compact_required",
+                    text: "context maintenance completed without a successful compact",
+                    operation: "context_maintenance",
+                    provider: None,
+                    model: None,
+                    source: Some(&cap.source),
+                    bytes: Some(cap.ceiling()),
+                    estimate: &estimate,
+                    observed: Some(turn),
+                    metadata: json!({"provider_round": round}),
+                })
+                .await;
+        }
         let budget = self
             .rationed(strand)
             .ok_or_else(|| "maintenance budget missing".to_string())?;

@@ -15,6 +15,7 @@ pub struct Config {
     pub effort: Option<String>,
     pub ceiling: Option<u32>,
     pub bytes: Option<usize>,
+    pub maintenance: Option<usize>,
 }
 
 #[derive(Debug, Clone)]
@@ -40,6 +41,7 @@ impl Provider for Chat {
             model: self.config.model.clone(),
             budget: self.config.bytes.map(|bytes| crate::Cap {
                 bytes,
+                maintenance: self.config.maintenance.unwrap_or(bytes.saturating_mul(2)),
                 source: "provider_config".to_string(),
             }),
         }

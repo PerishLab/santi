@@ -14,8 +14,7 @@ use santi_api::{
     send_strand_handler,
 };
 use santi_core::service::{self, Service};
-use santi_core::{Ruled, budget, drive, engine};
-use santi_core::{effect, message};
+use santi_core::{Ruled, budget, drive, effect, engine, message};
 use santi_estate::{CallDraft, DrainDraft, EffectDraft, InboxDraft, Opening, StrandDraft};
 use santi_provider::{Cap, Event, Metadata, Provider, Request, Streaming};
 
@@ -31,6 +30,7 @@ impl Provider for BudgetedProvider {
             model: "budgeted-model".to_string(),
             budget: Some(Cap {
                 bytes: 1,
+                maintenance: 2,
                 source: "test".to_string(),
             }),
         }

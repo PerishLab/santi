@@ -28,6 +28,13 @@ impl Resolved {
         }
     }
 
+    pub fn maintenance(&self) -> usize {
+        match self {
+            Self::OpenAiResponses(config) => config.maintenance,
+            Self::ChatCompletions(config) => config.maintenance,
+        }
+    }
+
     pub fn bytes(&self) -> usize {
         match self {
             Self::OpenAiResponses(config) => config.bytes,
@@ -45,6 +52,7 @@ pub struct OpenAiResponses {
     pub summary: Option<String>,
     pub max_output_tokens: Option<u32>,
     pub bytes: usize,
+    pub maintenance: usize,
     pub attempts: Option<u32>,
 }
 
@@ -58,6 +66,7 @@ pub struct ChatCompletions {
     pub reasoning_effort: Option<String>,
     pub max_tokens: Option<u32>,
     pub bytes: usize,
+    pub maintenance: usize,
 }
 
 #[derive(Debug, Deserialize)]
@@ -80,6 +89,8 @@ pub enum Profile {
         #[serde(default, alias = "input_budget_bytes")]
         bytes: Option<usize>,
         #[serde(default)]
+        maintenance_bytes: Option<usize>,
+        #[serde(default)]
         attempts: Option<u32>,
     },
     ChatCompletions {
@@ -97,6 +108,8 @@ pub enum Profile {
         max_tokens: Option<u32>,
         #[serde(default, alias = "input_budget_bytes")]
         bytes: Option<usize>,
+        #[serde(default)]
+        maintenance_bytes: Option<usize>,
     },
 }
 
@@ -135,6 +148,7 @@ impl Profile {
                 summary,
                 max_output_tokens,
                 bytes,
+                maintenance_bytes,
                 attempts,
             } => Ok(Resolved::OpenAiResponses(OpenAiResponses {
                 api_key: required(api_key, provider, "api_key")?,
@@ -145,6 +159,7 @@ impl Profile {
                 summary: optional(summary, provider, "reasoning_summary")?,
                 max_output_tokens: *max_output_tokens,
                 bytes: positive(*bytes, provider, "bytes")?,
+                maintenance: capacity(*bytes, *maintenance_bytes, provider)?,
                 attempts: *attempts,
             })),
             Profile::ChatCompletions {
@@ -155,6 +170,7 @@ impl Profile {
                 reasoning_effort,
                 max_tokens,
                 bytes,
+                maintenance_bytes,
             } => Ok(Resolved::ChatCompletions(ChatCompletions {
                 provider: provider.to_string(),
                 api_key: required(api_key, provider, "api_key")?,
@@ -164,9 +180,25 @@ impl Profile {
                 reasoning_effort: optional(reasoning_effort, provider, "reasoning_effort")?,
                 max_tokens: *max_tokens,
                 bytes: positive(*bytes, provider, "bytes")?,
+                maintenance: capacity(*bytes, *maintenance_bytes, provider)?,
             })),
         }
     }
+}
+
+fn capacity(
+    bytes: Option<usize>,
+    maintenance: Option<usize>,
+    provider: &str,
+) -> Result<usize, String> {
+    let bytes = positive(bytes, provider, "bytes")?;
+    let maintenance = maintenance.unwrap_or_else(|| bytes.saturating_mul(2));
+    if maintenance <= bytes {
+        return Err(format!(
+            "provider {provider} maintenance_bytes must exceed bytes"
+        ));
+    }
+    Ok(maintenance)
 }
 
 fn required(value: &Option<String>, provider: &str, field: &str) -> Result<String, String> {
