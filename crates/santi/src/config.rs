@@ -89,10 +89,7 @@ fn file() -> Result<Option<PathBuf>> {
     let local = plumb::config::discover(&cwd, "plumb.toml")
         .ok()
         .and_then(|product| Some(product.parent()?.join(".local/secrets/santi.toml")));
-    let home = env("SANTI_HOME")
-        .map(PathBuf::from)
-        .or_else(|| plumb::config::data("santi"))
-        .map(|home| home.join("client.toml"));
+    let home = home().map(|home| home.join("client.toml"));
     Ok(local.into_iter().chain(home).find(|path| path.is_file()))
 }
 
@@ -128,4 +125,10 @@ pub fn resume(command: &mut std::process::Command, resume: Resume<'_>) {
 
 pub fn executable() -> Result<PathBuf> {
     std::env::current_exe().context("resolve the current executable")
+}
+
+pub fn home() -> Option<PathBuf> {
+    env("SANTI_HOME")
+        .map(PathBuf::from)
+        .or_else(|| plumb::config::data("santi"))
 }
