@@ -92,6 +92,28 @@ impl Service {
             {
                 self.press(turn);
             }
+            if self.settlement(turn).is_none() {
+                let brain = provider_try!(Operation::Assembly, self.store.strand(strand).await)
+                    .ok_or_else(|| {
+                        Failure::runtime(Operation::Assembly, "strand not found".into(), &prose)
+                    })?;
+                if let crate::service::flow::memory::Gate::Pause {
+                    maintenance_strand_id,
+                } = provider_try!(
+                    Operation::Admission(Admission::Context),
+                    self.gate(&brain).await
+                ) {
+                    let pause = message::Content::text(format!(
+                        "<system_message>\nkind: soul_memory_pause\nturn: {turn}\nmaintenance_strand: {maintenance_strand_id}\nstate: This turn paused because shared memory exceeds its allowance. Recorded history and tool results remain available.\n</system_message>"
+                    ));
+                    return Ok(Finish {
+                        last,
+                        response: None,
+                        settled: false,
+                        pause: Some(pause),
+                    });
+                }
+            }
             let input = provider_try!(Operation::Assembly, self.assembled(strand, turn).await);
             let metadata = self.provider.metadata();
             let family = metadata.provider.to_string();
@@ -245,6 +267,7 @@ impl Service {
                         last,
                         response: completed,
                         settled: true,
+                        pause: None,
                     });
                 }
                 continue;
@@ -271,6 +294,7 @@ impl Service {
             last,
             response,
             settled: false,
+            pause: None,
         })
     }
 }

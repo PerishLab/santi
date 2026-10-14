@@ -9,7 +9,9 @@ use santi_core::soul;
 
 pub mod context;
 mod execution;
+mod memory;
 pub use execution::Execution;
+pub use memory::Memory;
 
 #[derive(Debug, Cascade)]
 #[cascade(section)]
@@ -53,6 +55,8 @@ pub struct Config {
     pub capability: Capability,
     #[cascade(section)]
     pub execution: Execution,
+    #[cascade(section)]
+    pub memory: Memory,
     pub environment: BTreeMap<String, String>,
     pub providers: BTreeMap<String, Profile>,
     pub souls: BTreeMap<String, soul::Identity>,
@@ -69,6 +73,7 @@ impl Default for Config {
             webhooks: Webhooks::default(),
             capability: Capability::default(),
             execution: Execution::default(),
+            memory: Memory::default(),
             environment: BTreeMap::new(),
             providers: BTreeMap::new(),
             souls: BTreeMap::new(),
@@ -271,6 +276,7 @@ fn runtime(held: Config) -> Result<Runtime, String> {
         },
         capability: held.capability.issuer()?,
         execution: held.execution.budget()?,
+        memory: held.memory.capacity()?,
         constitution: held.paths.charter,
         souls: held.souls,
     })

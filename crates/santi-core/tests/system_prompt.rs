@@ -98,7 +98,7 @@ async fn projects() {
     let text = harness.system_prompt().await.text;
 
     assert!(text.contains("kind: soul_memory_projection"));
-    assert!(text.contains("allowance_bytes: 250000"));
+    assert!(text.contains("allowance_bytes: 32768"));
     assert!(!text.contains("SOURCE_TAIL"));
     let source = fs::read_to_string(harness.runtime.join("souls/soul_default/memory/MEMORY.md"))
         .expect("read source memory");

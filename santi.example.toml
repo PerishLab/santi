@@ -5,6 +5,11 @@ name = "Adam Santi"
 
 [souls.soul_default.channels]
 
+# Shared Soul MEMORY source bytes, independent of provider/compact capacity.
+# Oversize pauses ordinary requests while the Soul consolidates its source.
+[memory]
+bytes = 32768
+
 [jobs]
 acknowledged_retention_seconds = 604800
 

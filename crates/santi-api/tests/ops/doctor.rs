@@ -101,6 +101,7 @@ fn runtime_under(root: &Path, budget: Option<usize>) -> Runtime {
         },
         constitution: None,
         souls: Default::default(),
+        memory: santi_core::service::MEMORY,
     }
 }
 

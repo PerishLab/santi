@@ -6,6 +6,7 @@ pub(super) struct Finish {
     pub(super) last: Option<message::Placed>,
     pub(super) response: Option<String>,
     pub(super) settled: bool,
+    pub(super) pause: Option<message::Content>,
 }
 
 impl Service {
@@ -14,6 +15,7 @@ impl Service {
             last,
             response,
             settled: _,
+            pause,
         } = finish;
         if let Some(message) = last.as_ref() {
             self.publish(
@@ -33,7 +35,24 @@ impl Service {
             response: response.as_deref(),
             occurred: &crate::now(),
         };
-        let completed = self.store.finish_turn(draft).await;
+        let completed = if let Some(content) = pause.as_ref() {
+            let source = crate::ingest::Source::new("soul_memory_pause").with_ref(turn.to_string());
+            self.store
+                .handoff(
+                    draft,
+                    santi_estate::InboxDraft {
+                        tag: &crate::tag("inbox"),
+                        strand,
+                        kind: message::Kind::SantiSystem,
+                        content,
+                        source: Some(&source),
+                        created: &crate::now(),
+                    },
+                )
+                .await
+        } else {
+            self.store.finish_turn(draft).await
+        };
         match completed {
             Ok(completion) => {
                 self.dispatched().await;

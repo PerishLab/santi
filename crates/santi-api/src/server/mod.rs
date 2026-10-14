@@ -60,6 +60,7 @@ pub async fn serve() -> Result<(), String> {
     .identified(held.souls.clone())
     .await?
     .bounded(held.execution.clone())?
+    .memory(held.memory)?
     .authorized(held.capability.clone())
     .retain(held.retention)?;
     let address: SocketAddr = bind

@@ -21,6 +21,7 @@ pub struct Runtime {
     pub capability: Option<santi_core::capability::Issuer>,
     pub execution: santi_core::budget::Execution,
     pub constitution: Option<PathBuf>,
+    pub memory: usize,
     pub souls: BTreeMap<String, soul::Identity>,
 }
 
