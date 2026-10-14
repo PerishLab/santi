@@ -12,6 +12,11 @@ spans turns and external work items.
 Keep changes centered on souls, strands, execution, and their durable evidence.
 Product roles and workflows belong to consumers of the runtime.
 
+Santi supplies authoritative runtime facts on demand. System prompts express
+stable structural understanding; soul memory preserves individual identity,
+judgment and learned experience. Prefer references and runtime retrieval for
+information with an existing authority.
+
 ## Working constraints
 
 Treat the Keel estate and its sudo possession as one recovery unit when backing
