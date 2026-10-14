@@ -266,3 +266,13 @@ acknowledged_retention_seconds = 0
     );
     assert!(held.jobs.retention().is_err());
 }
+
+#[test]
+fn memory() {
+    assert_eq!(read("").memory.capacity().unwrap(), 32_768);
+    assert_eq!(
+        read("[memory]\nbytes = 65536\n").memory.capacity().unwrap(),
+        65_536
+    );
+    assert!(read("[memory]\nbytes = 0\n").memory.capacity().is_err());
+}

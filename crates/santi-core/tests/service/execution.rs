@@ -209,3 +209,6 @@ async fn rounds() {
     assert_eq!(incident.latest.context["reason"], "provider_rounds");
     assert_eq!(provider.requests.lock().unwrap().len(), 2);
 }
+
+#[path = "../execution/memory.rs"]
+mod memory;

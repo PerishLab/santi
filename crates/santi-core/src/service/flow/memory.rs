@@ -39,7 +39,7 @@ impl Service {
             .metadata()
             .budget
             .map_or(FALLBACK, |budget| budget.bytes);
-        let allowance = (bytes / 2).max(1);
+        let allowance = self.memory_bytes;
         let threshold = (bytes.saturating_mul(3) / 4).max(allowance.saturating_add(1));
         Policy {
             allowance,
@@ -246,14 +246,9 @@ fn metaprompt(snapshot: &Snapshot, policy: Policy) -> message::Content {
                 "operator_threshold_bytes: {}",
                 policy.threshold
             ),
-            "state: Other strands for this soul are suspended; their inbound messages remain durably queued.".to_string(),
-            format!(
-                "instruction: Inspect your full memory at {} and decide whether and how to organize it.",
-                soulward()
-            ),
-            "advice: Use bounded reads or file-local processing. Do not echo the whole file into provider context.".to_string(),
-            "boundary: Runtime has not changed the source and will never author, archive, summarize, or replace it.".to_string(),
-            "resume_condition: Reducing the source below allowance_bytes automatically resumes queued strands.".to_string(),
+            "state: Ordinary requests for this soul are paused; inbound messages remain durably queued.".to_string(),
+            "source_state: The full source is preserved and available for your own consolidation.".to_string(),
+            "resume_condition: Source size at or below allowance_bytes clears the memory restriction; queued strands remain subject to execution admission.".to_string(),
             "</system_message>".to_string(),
         ]
         .join("\n"),

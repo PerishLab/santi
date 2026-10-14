@@ -130,3 +130,56 @@ fn legacy() {
     assert_eq!(cap.maintenance, None);
     assert_eq!(cap.ceiling(), 500_000);
 }
+
+#[tokio::test]
+async fn capacity() {
+    let temp = tempfile::tempdir().unwrap();
+    bootstrap(&temp).await;
+    let bytes = Arc::new(AtomicUsize::new(200_000));
+    let provider = Arc::new(Bounded {
+        inner: FakeProvider::default(),
+        bytes: bytes.clone(),
+    });
+    let service = Service::open(
+        service::Config {
+            database: temp.path().join("santi.sqlite").display().to_string(),
+            runtime: temp.path().join("runtime").display().to_string(),
+            execution: temp.path().join("execution").display().to_string(),
+            bind: None,
+            constitution: None,
+            environment: Default::default(),
+        },
+        provider,
+    )
+    .await
+    .unwrap();
+    let strand = service.weave().await.unwrap().strand;
+    let source = temp
+        .path()
+        .join("runtime/souls/soul_default/memory/MEMORY.md");
+    std::fs::create_dir_all(source.parent().unwrap()).unwrap();
+    std::fs::write(&source, "x".repeat(32_769)).unwrap();
+    for capacity in [200_000, 500_000] {
+        bytes.store(capacity, Ordering::SeqCst);
+        let prompt = service
+            .material(
+                &strand.id,
+                santi_core::material::Request {
+                    kind: santi_core::material::Kind::SystemPrompt,
+                },
+            )
+            .await
+            .unwrap();
+        assert!(prompt.text.contains("allowance_bytes: 32768"));
+        let cap = service
+            .audit(&strand.id)
+            .await
+            .unwrap()
+            .unwrap()
+            .budget
+            .unwrap();
+        assert_eq!(cap.bytes, capacity as i64);
+        assert_eq!(cap.maintenance, Some((capacity * 2) as i64));
+    }
+    assert_eq!(std::fs::metadata(source).unwrap().len(), 32_769);
+}

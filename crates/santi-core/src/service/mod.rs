@@ -28,6 +28,8 @@ use crate::{Ruled, Transition};
 use crate::{budget, material, stream};
 use santi_estate::Store;
 
+pub const MEMORY: usize = 32_768;
+
 pub const RETENTION: u64 = 7 * 24 * 60 * 60;
 
 #[derive(Clone)]
@@ -43,6 +45,7 @@ pub struct Service {
     inboxes: Arc<Mutex<HashMap<String, String>>>,
     budgets: Arc<Mutex<HashMap<String, budget::Execution>>>,
     limit: Option<budget::Execution>,
+    memory_bytes: usize,
     identities: Arc<BTreeMap<String, crate::soul::Identity>>,
     settlements: Arc<Mutex<HashMap<String, Settlement>>>,
     pressure: Arc<tokio::sync::Mutex<()>>,
@@ -121,6 +124,7 @@ impl Service {
             inboxes: Arc::new(Mutex::new(HashMap::new())),
             budgets: Arc::new(Mutex::new(HashMap::new())),
             limit: None,
+            memory_bytes: MEMORY,
             identities: Arc::new(BTreeMap::new()),
             settlements: Arc::new(Mutex::new(HashMap::new())),
             pressure: Arc::new(tokio::sync::Mutex::new(())),
@@ -145,6 +149,14 @@ impl Service {
     pub fn bounded(mut self, limit: budget::Execution) -> Result<Self, String> {
         limit.validate()?;
         self.limit = Some(limit);
+        Ok(self)
+    }
+
+    pub fn memory(mut self, bytes: usize) -> Result<Self, String> {
+        if bytes == 0 {
+            return Err("shared memory bytes must be greater than zero".into());
+        }
+        self.memory_bytes = bytes;
         Ok(self)
     }
 
