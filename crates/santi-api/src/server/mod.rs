@@ -57,6 +57,8 @@ pub async fn serve() -> Result<(), String> {
         supervisor,
     )
     .await?
+    .identified(held.souls.clone())
+    .await?
     .bounded(held.execution.clone())?
     .authorized(held.capability.clone())
     .retain(held.retention)?;

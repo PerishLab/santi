@@ -70,6 +70,13 @@ pub(crate) async fn run(
             ))
             .await
         }
+        Command::Soul { id } => {
+            let soul = id
+                .as_deref()
+                .map(Ok)
+                .unwrap_or_else(|| defaults.require())?;
+            http.get(&format!("{base}/api/v1/souls/{soul}")).await
+        }
         Command::Receipt { inbox } => http.get(&format!("{base}/api/v1/receipts/{inbox}")).await,
         Command::Effect(EffectCommand::Query { effect }) => {
             http.get(&format!("{base}/api/v1/effects/{effect}")).await

@@ -87,6 +87,17 @@ fn example() {
 }
 
 #[test]
+fn identity() {
+    let held = read(
+        "[souls.soul_default]\nname = 'Adam Santi'\n[souls.soul_default.channels]\ngithub = 'adam-example'\n",
+    );
+    let identity = &held.souls["soul_default"];
+    assert_eq!(identity.name, "Adam Santi");
+    assert_eq!(identity.channels["github"], "adam-example");
+    assert!(Config::default().souls.is_empty());
+}
+
+#[test]
 fn execution() {
     let held = read(
         r#"

@@ -62,6 +62,8 @@ pub struct Cli {
 pub enum Command {
     #[command(about = "GET /api/v1/health")]
     Health,
+    #[command(about = "Query a soul's configured identity and channel bindings")]
+    Soul { id: Option<String> },
     #[command(
         about = "Enter an interactive terminal seat for one soul and strand",
         long_about = "Enter an interactive terminal seat for one soul and strand. Use /jobs to list current-strand Jobs and /job N [stdout|stderr] [cursor] to inspect state, origin and bounded logs. Without explicit identities, tui creates server-assigned soul and strand ids exactly once. A newly listed soul has already published the exact requested initial memory. Ambiguous creation responses report outcome=state_unknown with do-not-retry list/resume guidance; recover a listed soul without --memory-file, and preserve a known soul when strand creation is ambiguous."

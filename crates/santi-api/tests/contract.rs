@@ -26,6 +26,20 @@ fn api() {
         assert!(document["components"]["schemas"].get(schema).is_some());
     }
     let cap = &document["components"]["schemas"]["budget.Cap"];
+    let soul = &document["components"]["schemas"]["soul.Soul"];
+    assert!(soul["properties"].get("identity").is_some());
+    assert!(
+        !soul["required"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|field| field == "identity")
+    );
+    assert!(
+        document["components"]["schemas"]
+            .get("soul.Identity")
+            .is_some()
+    );
     assert!(cap["properties"].get("maintenance").is_some());
     assert!(
         !cap["required"]
@@ -37,6 +51,6 @@ fn api() {
     let hash = format!("{:x}", Sha256::digest(text.as_bytes()));
     assert_eq!(
         hash,
-        "a33146145bfd718848a35d6b92b8df8f0b6a599f4972ba112dda6bb71395b9a7"
+        "fd703f5b3834edd3dc6fdf0dd4e0118691498a1557de2086025f9646b79cc77f"
     );
 }

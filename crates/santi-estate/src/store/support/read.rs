@@ -41,6 +41,7 @@ pub(in crate::store) fn int(row: &Row, field: &str) -> Result<i64, String> {
 pub(in crate::store) fn soul(row: &Row) -> Result<santi_model::soul::Soul, String> {
     Ok(santi_model::soul::Soul {
         id: text(row, "tag")?.to_string(),
+        identity: None,
         created: text(row, "created")?.to_string(),
         updated: text(row, "updated")?.to_string(),
     })

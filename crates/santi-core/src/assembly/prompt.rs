@@ -25,6 +25,7 @@ You are a soul — a cyber-individual. This memory is your mutable self: develop
 
 pub(crate) struct Prompting<'a> {
     pub id: &'a str,
+    pub identity: Option<&'a crate::soul::Identity>,
     pub strand: &'a Strand,
     pub constitution: PathBuf,
     pub memoir: PathBuf,
@@ -74,12 +75,15 @@ fn described() -> String {
 }
 
 fn met(request: &Prompting<'_>) -> String {
-    [
+    let mut fields = vec![
         "[santi-meta]".to_string(),
         format!("soul: {}", request.strand.soul),
         format!("strand: {}", request.id),
-    ]
-    .join("\n")
+    ];
+    if let Some(identity) = request.identity {
+        fields.push(format!("name: {}", serde_json::json!(identity.name)));
+    }
+    fields.join("\n")
 }
 
 fn forked(request: &Prompting<'_>) -> Option<String> {
