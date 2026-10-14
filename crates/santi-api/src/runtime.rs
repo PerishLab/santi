@@ -4,6 +4,7 @@ use std::sync::OnceLock;
 use std::time::Duration;
 
 use crate::config::{Layout, Profile, Resolved};
+use santi_core::soul;
 
 #[derive(Debug)]
 pub struct Runtime {
@@ -20,6 +21,7 @@ pub struct Runtime {
     pub capability: Option<santi_core::capability::Issuer>,
     pub execution: santi_core::budget::Execution,
     pub constitution: Option<PathBuf>,
+    pub souls: BTreeMap<String, soul::Identity>,
 }
 
 #[derive(Debug, Default)]

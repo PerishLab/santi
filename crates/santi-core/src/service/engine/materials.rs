@@ -39,6 +39,7 @@ impl Service {
         let id = strand.id.as_str();
         let text = prompted(Prompting {
             id,
+            identity: self.identities.get(&strand.soul),
             strand,
             constitution: self.charter(),
             memoir: self.memoir(&strand.soul),

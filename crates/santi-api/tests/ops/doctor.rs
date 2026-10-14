@@ -100,6 +100,7 @@ fn runtime_under(root: &Path, budget: Option<usize>) -> Runtime {
             feedback_cwd: None,
         },
         constitution: None,
+        souls: Default::default(),
     }
 }
 

@@ -1,5 +1,10 @@
 provider = "openai"
 
+[souls.soul_default]
+name = "Adam Santi"
+
+[souls.soul_default.channels]
+
 [jobs]
 acknowledged_retention_seconds = 604800
 

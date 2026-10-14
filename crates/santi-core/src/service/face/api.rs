@@ -46,11 +46,35 @@ impl Service {
     }
 
     pub async fn souls(&self) -> Result<Vec<Soul>, String> {
-        self.store.souls().await
+        let mut souls = self.store.souls().await?;
+        for soul in &mut souls {
+            soul.identity = self.identities.get(&soul.id).cloned();
+        }
+        Ok(souls)
     }
 
     pub async fn soul(&self, soul: &str) -> Result<Option<Soul>, String> {
-        self.store.soul(soul).await
+        let mut soul = self.store.soul(soul).await?;
+        if let Some(soul) = &mut soul {
+            soul.identity = self.identities.get(&soul.id).cloned();
+        }
+        Ok(soul)
+    }
+
+    pub async fn identified(
+        mut self,
+        identities: std::collections::BTreeMap<String, soul::Identity>,
+    ) -> Result<Self, String> {
+        for (id, identity) in &identities {
+            if self.store.soul(id).await?.is_none() {
+                return Err(format!("configured soul {id} not found"));
+            }
+            identity
+                .validate()
+                .map_err(|error| format!("soul {id}: {error}"))?;
+        }
+        self.identities = std::sync::Arc::new(identities);
+        Ok(self)
     }
 
     pub async fn subscribe(

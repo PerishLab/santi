@@ -143,6 +143,9 @@ async fn excludes() {
     assert!(!second_text.contains("github:ops:issue:PerishCode/santi#1"));
 }
 
+#[path = "system_prompt/identity.rs"]
+mod identity;
+
 struct PromptHarness {
     _temp: tempfile::TempDir,
     service: Service,

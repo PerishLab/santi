@@ -5,6 +5,7 @@ use std::time::Duration;
 use plumb::config::Cascade;
 use santi_api::config::{Layout, Profile, env, home};
 use santi_api::runtime::{self, Runtime};
+use santi_core::soul;
 
 pub mod context;
 mod execution;
@@ -54,6 +55,7 @@ pub struct Config {
     pub execution: Execution,
     pub environment: BTreeMap<String, String>,
     pub providers: BTreeMap<String, Profile>,
+    pub souls: BTreeMap<String, soul::Identity>,
 }
 
 impl Default for Config {
@@ -69,6 +71,7 @@ impl Default for Config {
             execution: Execution::default(),
             environment: BTreeMap::new(),
             providers: BTreeMap::new(),
+            souls: BTreeMap::new(),
         }
     }
 }
@@ -269,5 +272,6 @@ fn runtime(held: Config) -> Result<Runtime, String> {
         capability: held.capability.issuer()?,
         execution: held.execution.budget()?,
         constitution: held.paths.charter,
+        souls: held.souls,
     })
 }
