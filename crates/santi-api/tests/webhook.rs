@@ -20,7 +20,7 @@ mod github {
     fn signature() {
         let body = github_body();
         let signature = sign(SECRET, body);
-        let adaptor = GithubAdaptor::configured(None, None);
+        let adaptor = GithubAdaptor::configured(None, None).addressed(Some("AdamSanti"));
         assert!(
             adaptor
                 .verify(
@@ -48,6 +48,7 @@ mod github {
     fn normalizes() {
         let event = expect_event(
             GithubAdaptor::configured(None, None)
+                .addressed(Some("AdamSanti"))
                 .normalize(
                     &github_headers("issue_comment", None),
                     github_body(),
@@ -59,9 +60,17 @@ mod github {
         assert!(event.in_scope);
         assert_eq!(event.label, "github:ops:issue:PerishCode/santi#42");
         assert_eq!(event.delivery.as_deref(), Some("issuecomment-1"));
-        assert!(event.santi_system_text.contains("issue_comment.created"));
-        assert!(event.santi_system_text.contains("issuecomment-1"));
-        assert!(event.santi_system_text.contains("requested work"));
+        assert!(
+            event
+                .text
+                .contains("posted a comment on an Issue assigned to you")
+        );
+        assert_eq!(
+            event.metadata.as_ref().unwrap()["delivery"],
+            "issuecomment-1"
+        );
+        assert!(!event.text.contains("delivery:"));
+        assert!(event.text.contains("requested work"));
     }
 
     #[test]
@@ -69,18 +78,21 @@ mod github {
         let headers = github_headers("issue_comment", None);
         let allowed = expect_event(
             GithubAdaptor::configured(None, Some("SomeHuman"))
+                .addressed(Some("AdamSanti"))
                 .normalize(&headers, github_body(), SECRET, "ops")
                 .expect("normalize"),
         );
         assert!(allowed.in_scope);
         let rejected = expect_event(
             GithubAdaptor::configured(None, Some("someone-else"))
+                .addressed(Some("AdamSanti"))
                 .normalize(&headers, github_body(), SECRET, "ops")
                 .expect("normalize"),
         );
         assert!(!rejected.in_scope);
         let own = expect_event(
             GithubAdaptor::configured(Some("somehuman"), None)
+                .addressed(Some("AdamSanti"))
                 .normalize(&headers, github_body(), SECRET, "ops")
                 .expect("normalize"),
         );
@@ -91,6 +103,7 @@ mod github {
     fn ping() {
         let event = expect_event(
             GithubAdaptor::configured(None, None)
+                .addressed(Some("AdamSanti"))
                 .normalize(
                     &github_headers("ping", None),
                     br#"{"zen":"ok"}"#,
@@ -142,8 +155,8 @@ mod feishu {
         );
         assert!(event.in_scope);
         assert_eq!(event.label, "feishu:chat:chat:oc_chat1");
-        assert!(event.santi_system_text.contains("message: om_msg1"));
-        assert!(!event.santi_system_text.contains("top secret"));
+        assert!(event.text.contains("message: om_msg1"));
+        assert!(!event.text.contains("top secret"));
 
         let result = FeishuAdaptor::configured(None, None).normalize(
             &HeaderMap::new(),
@@ -250,7 +263,7 @@ fn github_body() -> &'static [u8] {
     br#"{
         "action":"created",
         "repository":{"full_name":"PerishCode/santi"},
-        "issue":{"number":42,"title":"title"},
+        "issue":{"number":42,"title":"title","assignees":[{"login":"AdamSanti"}]},
         "comment":{"body":"requested work","html_url":"https://github.com/PerishCode/santi/issues/42#issuecomment-1"},
         "sender":{"login":"somehuman"}
     }"#

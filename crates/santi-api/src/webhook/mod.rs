@@ -9,7 +9,7 @@ use github::GithubAdaptor;
 
 #[derive(Debug, Clone)]
 pub struct NormalizedEvent {
-    pub santi_system_text: String,
+    pub text: String,
     pub label: String,
     pub metadata: Option<Value>,
     pub delivery: Option<String>,
@@ -27,6 +27,7 @@ pub enum WebhookOutcome {
 pub enum WebhookError {
     Unauthorized(String),
     BadRequest(String),
+    Unavailable(String),
 }
 
 pub trait WebhookAdaptor: Send + Sync {
@@ -46,14 +47,17 @@ pub trait WebhookAdaptor: Send + Sync {
     ) -> Result<WebhookOutcome, WebhookError>;
 }
 
-pub(crate) fn adaptor_for(adaptor: &str) -> Option<Box<dyn WebhookAdaptor>> {
+pub(crate) fn adaptor_for(adaptor: &str, account: Option<&str>) -> Option<Box<dyn WebhookAdaptor>> {
     match adaptor {
         "github" => {
             let held = crate::runtime::held();
-            Some(Box::new(GithubAdaptor::configured(
-                held.github.login.as_deref(),
-                held.github.allow.as_deref(),
-            )))
+            Some(Box::new(
+                GithubAdaptor::configured(
+                    held.github.login.as_deref(),
+                    held.github.allow.as_deref(),
+                )
+                .addressed(account),
+            ))
         }
         "feishu" => {
             let held = crate::runtime::held();

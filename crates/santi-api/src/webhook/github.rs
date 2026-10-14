@@ -7,11 +7,15 @@ use super::{
     NormalizedEvent, WebhookAdaptor, WebhookError, WebhookOutcome, sender_allowed, string_at,
 };
 
+mod render;
+mod scope;
+
 type HmacSha256 = Hmac<Sha256>;
 
 pub struct GithubAdaptor {
     self_login: Option<String>,
     allow: Option<String>,
+    recipient: Option<String>,
 }
 
 impl GithubAdaptor {
@@ -19,7 +23,15 @@ impl GithubAdaptor {
         Self {
             self_login: normalized(self_login),
             allow: normalized(allow),
+            recipient: None,
         }
+    }
+}
+
+impl GithubAdaptor {
+    pub fn addressed(mut self, recipient: Option<&str>) -> Self {
+        self.recipient = normalized(recipient);
+        self
     }
 }
 
@@ -63,7 +75,7 @@ impl WebhookAdaptor for GithubAdaptor {
 
         if event_type != "issues" && event_type != "issue_comment" {
             return Ok(WebhookOutcome::Event(NormalizedEvent {
-                santi_system_text: String::new(),
+                text: String::new(),
                 label: format!("github:{webhook_name}:{event_type}"),
                 metadata: None,
                 delivery: None,
@@ -95,15 +107,32 @@ impl WebhookAdaptor for GithubAdaptor {
             .to_string();
         let replay = (!delivery.is_empty()).then(|| delivery.clone());
         let sender = string_at(&payload, &["sender", "login"]).unwrap_or_default();
-        let self_authored = self
-            .self_login
-            .as_ref()
-            .is_some_and(|login| login.eq_ignore_ascii_case(&sender));
-        let in_scope = sender_allowed(&sender, self.allow.as_deref());
-        let santi_system_text = format!(
-            "[github] {event_type}.{action} on {repo}#{number}\nurl: {url}\ndelivery: {delivery}\n{}",
-            content(&payload, &event_type)
-        );
+        let self_authored = [self.self_login.as_deref(), self.recipient.as_deref()]
+            .into_iter()
+            .flatten()
+            .any(|login| login.eq_ignore_ascii_case(&sender));
+        let allowed = sender_allowed(&sender, self.allow.as_deref());
+        let relation = if allowed && !self_authored {
+            let recipient = self.recipient.as_deref().ok_or_else(|| WebhookError::Unavailable(
+                "Configure the receiving Soul's channels.github account before accepting GitHub Issue events".into()
+            ))?;
+            scope::related(&payload, &event_type, recipient)?
+        } else {
+            scope::Relation::Unrelated
+        };
+        let in_scope = allowed && relation != scope::Relation::Unrelated;
+        if in_scope && !scope::topic(&repo, number) {
+            return Err(WebhookError::BadRequest(
+                "GitHub Issue repository/number is unavailable or invalid".into(),
+            ));
+        }
+        let (text, material) = render::rendered(render::Event {
+            payload: &payload,
+            event: &event_type,
+            actor: &sender,
+            recipient: self.recipient.as_deref(),
+            relation,
+        });
         let label = format!("github:{webhook_name}:issue:{repo}#{number}");
         let metadata = json!({
             "adaptor": "github",
@@ -115,10 +144,14 @@ impl WebhookAdaptor for GithubAdaptor {
             "issue_number": number,
             "url": url,
             "label": label,
+            "actor": sender,
+            "recipient": self.recipient,
+            "relationship": relation.label(),
+            "content": material,
         });
 
         Ok(WebhookOutcome::Event(NormalizedEvent {
-            santi_system_text,
+            text,
             label,
             metadata: Some(metadata),
             delivery: replay,
@@ -126,37 +159,6 @@ impl WebhookAdaptor for GithubAdaptor {
             self_authored,
         }))
     }
-}
-
-fn content(payload: &Value, event: &str) -> String {
-    let source = if event == "issue_comment" {
-        "comment"
-    } else {
-        "issue"
-    };
-    let title = string_at(payload, &["issue", "title"]).unwrap_or_default();
-    let body = string_at(payload, &[source, "body"]);
-    let available = body.is_some();
-    let body = body.unwrap_or_default();
-    let updated =
-        string_at(payload, &[source, "updated_at"]).unwrap_or_else(|| "unknown".to_string());
-    let visible = clipped(&body, 8192);
-    format!(
-        "title: {}\ntitle_truncated: {}\ncontent_source: {source}\nupdated: {updated}\nbody_available: {available}\nbody_bytes: {}\nvisible_bytes: {}\ntruncated: {}\nbody:\n{visible}",
-        clipped(&title, 512),
-        title.len() > 512,
-        body.len(),
-        visible.len(),
-        visible.len() < body.len()
-    )
-}
-
-fn clipped(text: &str, limit: usize) -> &str {
-    let mut end = text.len().min(limit);
-    while !text.is_char_boundary(end) {
-        end -= 1;
-    }
-    &text[..end]
 }
 
 fn normalized(value: Option<&str>) -> Option<String> {

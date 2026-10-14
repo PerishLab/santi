@@ -44,6 +44,7 @@ async fn ingests() {
         .iter()
         .find(|message| message.text == "an external request arrived")
         .expect("original event");
+    assert_eq!(inbound.message.kind, message::Kind::Text);
     let projection = format!(
         "[message {}]\nan external request arrived",
         inbound.message.id
@@ -73,7 +74,7 @@ async fn ingests() {
             matches!(
                 item,
                 Item::Message { role, content }
-                    if role == "system" && content == &projection
+                    if role == "user" && content == &projection
             )
         })
     }));
