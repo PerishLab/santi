@@ -65,7 +65,7 @@ impl Service {
                 &strand,
                 Ingest {
                     content: message::Content::text(input.text),
-                    kind: message::Kind::SantiSystem,
+                    kind: message::Kind::Text,
                     trigger: "system",
                     source: input.source,
                     replay,

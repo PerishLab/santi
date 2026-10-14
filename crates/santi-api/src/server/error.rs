@@ -233,6 +233,7 @@ impl ApiError {
         match error {
             WebhookError::Unauthorized(message) => Self::unauthorized(message),
             WebhookError::BadRequest(message) => Self::bad_request(message),
+            WebhookError::Unavailable(message) => Self::unavailable(message),
         }
     }
 

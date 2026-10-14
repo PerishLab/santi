@@ -76,7 +76,7 @@ impl WebhookAdaptor for FeishuAdaptor {
             .to_string();
         if event_type != "im.message.receive_v1" {
             return Ok(WebhookOutcome::Event(NormalizedEvent {
-                santi_system_text: String::new(),
+                text: String::new(),
                 label: format!("feishu:{webhook_name}:{event_type}"),
                 metadata: None,
                 delivery: None,
@@ -98,7 +98,7 @@ impl WebhookAdaptor for FeishuAdaptor {
         let allowed = sender_allowed(&open_id, self.allow.as_deref())
             || sender_allowed(&user_id, self.allow.as_deref());
         let in_scope = sender_type == "user" && allowed;
-        let santi_system_text = format!(
+        let text = format!(
             "[feishu] im.message.receive_v1 in chat {chat_id} ({chat_type})\nmessage: {message}\nevent: {event_id}"
         );
         let label = format!("feishu:{webhook_name}:chat:{chat_id}");
@@ -115,7 +115,7 @@ impl WebhookAdaptor for FeishuAdaptor {
         });
 
         Ok(WebhookOutcome::Event(NormalizedEvent {
-            santi_system_text,
+            text,
             label,
             metadata: Some(metadata),
             delivery: None,

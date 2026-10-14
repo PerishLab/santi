@@ -2,10 +2,19 @@ use axum::http::{HeaderMap, HeaderValue};
 use santi_api::webhook::{NormalizedEvent, WebhookAdaptor, WebhookOutcome, github::GithubAdaptor};
 use serde_json::{Value, json};
 
-fn received(event: &str, payload: Value) -> NormalizedEvent {
+fn received(event: &str, mut payload: Value) -> NormalizedEvent {
+    payload["issue"]
+        .as_object_mut()
+        .unwrap()
+        .entry("assignees")
+        .or_insert(json!([{"login":"AdamSanti"}]));
+    if payload.get("repository").is_none() {
+        payload["repository"] = json!({"full_name":"PerishLab/santi"});
+    }
     let mut headers = HeaderMap::new();
     headers.insert("X-GitHub-Event", HeaderValue::from_str(event).unwrap());
     let outcome = GithubAdaptor::configured(None, None)
+        .addressed(Some("AdamSanti"))
         .normalize(
             &headers,
             &serde_json::to_vec(&payload).unwrap(),
@@ -34,16 +43,15 @@ fn sources() {
     let issue = received("issues", payload.clone());
     let comment = received("issue_comment", payload);
     assert_eq!(issue.label, comment.label);
-    assert!(issue.santi_system_text.contains("body:\nissue work"));
-    assert!(comment.santi_system_text.contains("body:\nfollow-up work"));
-    assert!(!comment.santi_system_text.contains("body:\nissue work"));
-    assert!(
-        comment
-            .santi_system_text
-            .contains("updated: 2026-10-12T08:02:00Z")
+    assert!(issue.text.contains("body:\nissue work"));
+    assert!(comment.text.contains("body:\nfollow-up work"));
+    assert!(!comment.text.contains("body:\nissue work"));
+    assert!(comment.text.contains("Updated: 2026-10-12T08:02:00Z"));
+    assert!(comment.text.contains("#issuecomment-1"));
+    assert_eq!(
+        comment.metadata.as_ref().unwrap()["content"]["truncated"],
+        false
     );
-    assert!(comment.santi_system_text.contains("#issuecomment-1"));
-    assert!(comment.santi_system_text.contains("truncated: false"));
 }
 
 #[test]
@@ -55,22 +63,26 @@ fn bounds() {
             "issue": {"number": 96, "title": "题".repeat(1000), "body": body}
         }),
     );
-    let text = event.santi_system_text;
-    let (_, visible) = text.split_once("body:\n").unwrap();
-    assert!(visible.len() <= 8192);
-    assert_eq!(visible, "界".repeat(2730));
-    assert!(text.contains("body_bytes: 12000"));
-    assert!(text.contains("visible_bytes: 8190"));
-    assert!(text.contains("truncated: true"));
-    assert!(text.contains("title_truncated: true"));
-    assert!(text.len() < 9000);
+    let text = event.text;
+    assert!(text.contains(&"界".repeat(2730)));
+    assert!(text.len() < 9500);
+    let content = &event.metadata.as_ref().unwrap()["content"];
+    assert_eq!(content["bytes"], 12000);
+    assert_eq!(content["visible_bytes"], 8190);
+    assert_eq!(content["truncated"], true);
+    assert_eq!(content["title_truncated"], true);
+    assert!(text.contains("Body truncated"));
+    assert!(text.contains("Title truncated"));
 }
 
 #[test]
 fn absent() {
     let event = received("issues", json!({"issue": {"number": 96, "body": null}}));
-    assert!(event.santi_system_text.contains("updated: unknown"));
-    assert!(event.santi_system_text.contains("body_bytes: 0"));
-    assert!(event.santi_system_text.contains("body_available: false"));
-    assert!(event.santi_system_text.ends_with("body:\n"));
+    let content = &event.metadata.as_ref().unwrap()["content"];
+    assert_eq!(content["bytes"], 0);
+    assert_eq!(content["available"], false);
+    assert!(event.text.contains("Body unavailable"));
 }
+
+#[path = "github/scope.rs"]
+mod scope;

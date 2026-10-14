@@ -42,7 +42,16 @@ pub(super) async fn ingest_webhook(
         .await
         .map_err(ApiError::from_service)?
         .ok_or_else(|| ApiError::not_found("webhook not found"))?;
-    let adaptor = adaptor_for(&subscription.adaptor)
+    let soul = service
+        .soul(&subscription.soul)
+        .await
+        .map_err(ApiError::from_service)?
+        .ok_or_else(|| ApiError::not_found("soul not found"))?;
+    let account = soul
+        .identity
+        .as_ref()
+        .and_then(|identity| identity.channels.get(&subscription.adaptor));
+    let adaptor = adaptor_for(&subscription.adaptor, account.map(String::as_str))
         .ok_or_else(|| ApiError::internal(format!("unknown adaptor {}", subscription.adaptor)))?;
     let secret = crate::config::env(&subscription.credential).ok_or_else(|| {
         ApiError::unauthorized(format!(
@@ -86,7 +95,7 @@ pub(super) async fn ingest_webhook(
                     santi_core::service::Envelope {
                         soul: &subscription.soul,
                         label: &label,
-                        text: event.santi_system_text,
+                        text: event.text,
                         source: Some(source),
                     },
                     santi_core::service::Delivery {
@@ -102,12 +111,7 @@ pub(super) async fn ingest_webhook(
         }
         None => {
             service
-                .sourced(
-                    &subscription.soul,
-                    &label,
-                    event.santi_system_text,
-                    Some(source),
-                )
+                .sourced(&subscription.soul, &label, event.text, Some(source))
                 .await
         }
     }
