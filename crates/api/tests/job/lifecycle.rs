@@ -5,14 +5,14 @@ use santi_core::{
     service::{self, JobDraft, JobRead, Service},
 };
 
-use super::support::{Silent, Unit, available, bootstrap, seed, service, stamp};
+use super::support::{Silent, Unit, bootstrap, seed, service, stamp};
 
 #[tokio::test]
+#[cfg_attr(
+    any(target_os = "linux", target_os = "macos"),
+    ignore = "requires a user supervisor; run with --ignored for native job evidence"
+)]
 async fn vertical() {
-    if !available() {
-        eprintln!("skipping native job test: user supervisor is unavailable");
-        return;
-    }
     let temp = tempfile::tempdir().expect("temp dir");
     let database = temp.path().join("santi.sqlite");
     bootstrap(&database).await;
@@ -122,11 +122,11 @@ async fn vertical() {
 }
 
 #[tokio::test]
+#[cfg_attr(
+    any(target_os = "linux", target_os = "macos"),
+    ignore = "requires a user supervisor; run with --ignored for native job evidence"
+)]
 async fn restarts() {
-    if !available() {
-        eprintln!("skipping native job test: user supervisor is unavailable");
-        return;
-    }
     let temp = tempfile::tempdir().expect("temp dir");
     let database = temp.path().join("santi.sqlite");
     let runtime = service(&temp, &database).await;

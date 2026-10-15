@@ -2,32 +2,6 @@
 use std::path::PathBuf;
 use std::process::Command;
 
-#[cfg(any(target_os = "linux", target_os = "macos"))]
-pub fn available() -> bool {
-    #[cfg(target_os = "linux")]
-    let mut command = {
-        let mut command = Command::new("systemctl");
-        command.args(["--user", "show-environment"]);
-        command
-    };
-    #[cfg(target_os = "macos")]
-    let mut command = {
-        let mut command = Command::new("launchctl");
-        command.args(["print", &domain()]);
-        command
-    };
-    command
-        .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::null())
-        .status()
-        .is_ok_and(|status| status.success())
-}
-
-#[cfg(target_os = "windows")]
-pub fn available() -> bool {
-    true
-}
-
 #[cfg(unix)]
 pub fn alive(pid: &str) -> bool {
     Command::new("kill")
