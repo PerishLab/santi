@@ -19,7 +19,7 @@ use sha2::{Digest, Sha256};
 
 mod native;
 
-pub use native::{alive, available, state};
+pub use native::{alive, state};
 
 pub struct Silent;
 

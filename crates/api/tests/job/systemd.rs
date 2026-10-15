@@ -5,14 +5,14 @@ use santi_core::{
     service::{JobLaunch, JobSupervisor},
 };
 
-use super::support::{Guard, alive, available, launch, path, state, terminal};
+use super::support::{Guard, alive, launch, path, state, terminal};
 
 #[test]
+#[cfg_attr(
+    any(target_os = "linux", target_os = "macos"),
+    ignore = "requires a user supervisor; run with --ignored for native job evidence"
+)]
 fn retains() {
-    if !available() {
-        eprintln!("skipping native job test: user supervisor is unavailable");
-        return;
-    }
     let temp = tempfile::tempdir().expect("temp dir");
     let id = format!("job_{}", uuid::Uuid::new_v4().simple());
     let stamp = format!("stamp_{}", uuid::Uuid::new_v4().simple());
@@ -85,11 +85,11 @@ fn retains() {
 }
 
 #[test]
+#[cfg_attr(
+    any(target_os = "linux", target_os = "macos"),
+    ignore = "requires a user supervisor; run with --ignored for native job evidence"
+)]
 fn bounds() {
-    if !available() {
-        eprintln!("skipping native job test: user supervisor is unavailable");
-        return;
-    }
     let temp = tempfile::tempdir().expect("temp dir");
     #[cfg(unix)]
     let command = "while true; do printf '0123456789abcdef'; done";
@@ -116,11 +116,11 @@ fn bounds() {
 }
 
 #[test]
+#[cfg_attr(
+    any(target_os = "linux", target_os = "macos"),
+    ignore = "requires a user supervisor; run with --ignored for native job evidence"
+)]
 fn times() {
-    if !available() {
-        eprintln!("skipping native job test: user supervisor is unavailable");
-        return;
-    }
     let temp = tempfile::tempdir().expect("temp dir");
     #[cfg(unix)]
     let command = "sleep 30";
@@ -144,11 +144,11 @@ fn times() {
 }
 
 #[test]
+#[cfg_attr(
+    any(target_os = "linux", target_os = "macos"),
+    ignore = "requires a user supervisor; run with --ignored for native job evidence"
+)]
 fn cancels() {
-    if !available() {
-        eprintln!("skipping native job test: user supervisor is unavailable");
-        return;
-    }
     let temp = tempfile::tempdir().expect("temp dir");
     #[cfg(unix)]
     let command = r#"printf '%s\n' $$ > main.pid; bash -c 'printf "%s\n" $$ > child.pid; sleep 300 & printf "%s\n" $! > grandchild.pid; wait' & wait"#;
