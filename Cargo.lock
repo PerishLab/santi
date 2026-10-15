@@ -772,7 +772,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -1437,9 +1437,9 @@ dependencies = [
 
 [[package]]
 name = "keel"
-version = "0.18.0"
+version = "0.19.0"
 source = "sparse+https://cargo.perish.uk/"
-checksum = "3c97c2874e75388d49096e8ad6329a729a94fef93b65d1b8c8b721c81e89e499"
+checksum = "d9b8f09a3973c6efe70651db3f9db2d80eff2a31b28378cd1a7c560e5c3458a3"
 dependencies = [
  "axum",
  "getrandom 0.3.4",
@@ -1454,9 +1454,9 @@ dependencies = [
 
 [[package]]
 name = "keel-macro"
-version = "0.18.0"
+version = "0.19.0"
 source = "sparse+https://cargo.perish.uk/"
-checksum = "9152c79694d6691115ed98ce0353ef88551d2a13522ba0dd4407932655eff4b1"
+checksum = "e32a3373fba831c16c0fca10bb7090ca1fa9b367fc9599f816dde397a4e0304b"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1524,9 +1524,9 @@ dependencies = [
 
 [[package]]
 name = "locus"
-version = "0.9.0"
+version = "0.9.1"
 source = "sparse+https://cargo.perish.uk/"
-checksum = "a2ab8aa52e8f53fc9e69079c97850b0fb6c4c43c7e30f1aa78ee8a439fb6d736"
+checksum = "1e57c88cfffd6c5a625d1efcdb7e6a91f7917738d396b8f0aa15d46137a95d00"
 dependencies = [
  "getrandom 0.3.4",
  "locus-macro",
@@ -1536,9 +1536,9 @@ dependencies = [
 
 [[package]]
 name = "locus-macro"
-version = "0.9.0"
+version = "0.9.1"
 source = "sparse+https://cargo.perish.uk/"
-checksum = "20e48f6bf77a9ce1044ce242a1467b170c0bca77c870d98fd3f235ed5b00d431"
+checksum = "9d08065cea7381d7c2f0d241c9f11b0fc7b6a46d44187cf7afd8eb0cc53158d2"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -2139,7 +2139,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -2196,7 +2196,7 @@ dependencies = [
  "security-framework",
  "security-framework-sys",
  "webpki-root-certs",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -2826,7 +2826,7 @@ dependencies = [
  "getrandom 0.4.3",
  "once_cell",
  "rustix",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -3397,7 +3397,7 @@ version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
 dependencies = [
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
