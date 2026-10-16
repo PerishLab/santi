@@ -36,7 +36,7 @@ async fn projects() {
             )
             .await
             .expect("send held turn");
-        held.push((strand, accepted_turn(&posted).id.clone()));
+        held.push((strand, accepted_turn(&service, &posted).await.id.clone()));
     }
     let foreign = service
         .awaken(soul::Draft { memory: None })
@@ -58,7 +58,7 @@ async fn projects() {
         )
         .await
         .expect("send foreign turn");
-    let foreign = (strand.id, accepted_turn(&posted).id.clone());
+    let foreign = (strand.id, accepted_turn(&service, &posted).await.id.clone());
     let excluded = held[0].0.id.clone();
     let mut projection = None;
     for _ in 0..200 {
