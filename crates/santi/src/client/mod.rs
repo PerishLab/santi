@@ -38,7 +38,7 @@ struct Capsule<'a> {
     soul: Option<&'a str>,
 }
 
-#[locus::trace(with = crate::observation::view())]
+#[locus::trace(with = plumb::observation::view())]
 pub(crate) async fn run(
     base_url: &str,
     bearer: Option<&str>,

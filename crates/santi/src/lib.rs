@@ -15,7 +15,7 @@ use cli::{BASE, Cli, ClientDefaults};
 use config::ClientPartial;
 pub async fn run() -> Result<()> {
     let cli = Cli::parse();
-    let observation = observation::Run::start(observation::name(&cli.command));
+    let observation = observation::start(&cli.command);
     let result = execute(cli).await;
     if let Some(observation) = observation {
         observation.finish(if result.is_ok() { 0 } else { 1 });
@@ -23,7 +23,7 @@ pub async fn run() -> Result<()> {
     result
 }
 
-#[locus::trace(with = observation::view())]
+#[locus::trace(with = plumb::observation::view())]
 async fn execute(cli: Cli) -> Result<()> {
     let Cli {
         base_url,

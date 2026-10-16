@@ -4,12 +4,14 @@ use std::net::TcpListener;
 use std::path::Path;
 use std::process::{Command, Output};
 
+const RESPONSE: &str = "{\"status\":\"private-response\"}";
 const ENABLED: &str = "[locus]\nenabled = true\nendpoint = 'http://127.0.0.1:0'\n";
 
-fn run(home: &Path, status: &str) -> Output {
+fn run(home: &Path, status: &str, body: &str) -> Output {
     let listener = TcpListener::bind("127.0.0.1:0").unwrap();
     let endpoint = format!("http://{}", listener.local_addr().unwrap());
     let status = status.to_string();
+    let body = body.to_string();
     let server = std::thread::spawn(move || {
         listener.set_nonblocking(true).unwrap();
         let until = std::time::Instant::now() + std::time::Duration::from_secs(5);
@@ -31,7 +33,6 @@ fn run(home: &Path, status: &str) -> Output {
             request.extend_from_slice(&chunk[..length]);
         }
         let request = String::from_utf8_lossy(&request).to_string();
-        let body = "{\"status\":\"private-response\"}";
         write!(stream, "HTTP/1.1 {status}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}", body.len()).unwrap();
         request
     });
@@ -81,9 +82,9 @@ fn records(home: &Path) -> Vec<Value> {
 #[test]
 fn disabled() {
     let home = tempfile::tempdir().unwrap();
-    let absent = run(home.path(), "200 OK");
+    let absent = run(home.path(), "200 OK", RESPONSE);
     configure(home.path(), "[locus]\nenabled = false\n");
-    let disabled = run(home.path(), "200 OK");
+    let disabled = run(home.path(), "200 OK", RESPONSE);
     assert_eq!(absent.status.code(), disabled.status.code());
     assert_eq!(absent.stdout, disabled.stdout);
     assert_eq!(absent.stderr, disabled.stderr);
@@ -95,7 +96,7 @@ fn buffered() {
     let home = tempfile::tempdir().unwrap();
     configure(home.path(), ENABLED);
     for (status, code) in [("200 OK", 0), ("403 Forbidden", 1)] {
-        let result = run(home.path(), status);
+        let result = run(home.path(), status, RESPONSE);
         assert_eq!(result.status.code(), Some(code));
     }
     let unavailable = Command::new(env!("CARGO_BIN_EXE_santi"))
@@ -146,14 +147,14 @@ fn buffered() {
 #[test]
 fn isolated() {
     let home = tempfile::tempdir().unwrap();
-    let baseline = run(home.path(), "200 OK");
+    let baseline = run(home.path(), "200 OK", RESPONSE);
     for config in [
         ENABLED,
         "[locus]\nenabled = 'private-token'\n",
         "[locus]\nenabled = true\nendpoint = ''\n",
     ] {
         configure(home.path(), config);
-        let result = run(home.path(), "200 OK");
+        let result = run(home.path(), "200 OK", RESPONSE);
         assert_eq!(result.status.code(), baseline.status.code());
         assert_eq!(result.stdout, baseline.stdout);
         assert!(!result.stderr.is_empty());
@@ -162,8 +163,45 @@ fn isolated() {
     let blocked = tempfile::tempdir().unwrap();
     std::fs::write(blocked.path().join("state"), "occupied").unwrap();
     configure(blocked.path(), ENABLED);
-    let result = run(blocked.path(), "200 OK");
+    let result = run(blocked.path(), "200 OK", RESPONSE);
     assert!(result.status.success());
     assert_eq!(result.stdout, baseline.stdout);
     assert!(!result.stderr.is_empty());
+}
+
+#[test]
+fn faulted() {
+    let home = tempfile::tempdir().unwrap();
+    let refusal = "{\"code\":\"request.unauthorized\",\"message\":\"private-refusal\"}";
+    let baseline = run(home.path(), "401 Unauthorized", refusal);
+    assert_eq!(baseline.status.code(), Some(1));
+    configure(home.path(), ENABLED);
+    let refused = run(home.path(), "401 Unauthorized", refusal);
+    assert_eq!(refused.status.code(), baseline.status.code());
+    assert_eq!(refused.stdout, baseline.stdout);
+    assert_eq!(run(home.path(), "200 OK", RESPONSE).status.code(), Some(0));
+    assert_eq!(
+        run(home.path(), "403 Forbidden", RESPONSE).status.code(),
+        Some(1)
+    );
+    let finishes: Vec<Value> = records(home.path())
+        .into_iter()
+        .filter(|atom| atom["payload"]["event"] == "cli.finish")
+        .collect();
+    assert_eq!(finishes.len(), 3);
+    let faults: Vec<&Value> = finishes
+        .iter()
+        .filter_map(|atom| atom["context"].get("santi.fault"))
+        .collect();
+    assert_eq!(faults, [&Value::from("request.unauthorized")]);
+    for atom in &finishes {
+        if atom["payload"]["code"] == 0 {
+            assert!(atom["context"].get("santi.fault").is_none());
+        }
+    }
+    assert!(
+        !serde_json::to_string(&finishes)
+            .unwrap()
+            .contains("private-refusal")
+    );
 }
