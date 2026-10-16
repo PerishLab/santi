@@ -81,7 +81,8 @@ fn maintenance(requests: &Mutex<Vec<Request>>, round: usize) -> bool {
         .tools
         .as_ref()
         .is_some_and(|tools| {
-            tools.len() == 1
-                && serde_json::to_value(&tools[0]).unwrap()["Function"]["name"] == "compact"
+            tools
+                .iter()
+                .any(|tool| serde_json::to_value(tool).unwrap()["Function"]["name"] == "compact")
         })
 }

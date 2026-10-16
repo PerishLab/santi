@@ -42,7 +42,10 @@ impl Provider for OpenAI {
             model: self.config.model.clone(),
             budget: self.config.bytes.map(|bytes| crate::Cap {
                 bytes,
-                maintenance: self.config.maintenance.unwrap_or(bytes.saturating_mul(2)),
+                maintenance: self
+                    .config
+                    .maintenance
+                    .unwrap_or(bytes.saturating_add(bytes / 2)),
                 source: "provider_config".to_string(),
             }),
         }

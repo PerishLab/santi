@@ -19,7 +19,7 @@ mod wake;
 mod workspace;
 
 pub(crate) fn tools() -> Vec<Tool> {
-    vec![shell::definition()]
+    vec![shell::definition(), room::query::definition()]
 }
 
 struct Shell<'a> {
@@ -63,7 +63,7 @@ impl Service {
         let allowed = if clock {
             call.name == "wake"
         } else if maintaining {
-            compact || call.name == "shell"
+            compact || call.name == "query" || call.name == "shell"
         } else {
             true
         };
@@ -141,6 +141,8 @@ impl Service {
                 control,
             )
             .await?
+        } else if call.name == "query" {
+            self.read(strand, &call, output_limit).await?
         } else if escape {
             self.compacted(strand, &call, output_limit).await?
         } else if call.name == "wake" {

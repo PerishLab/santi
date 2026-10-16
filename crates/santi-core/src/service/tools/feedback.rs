@@ -125,7 +125,10 @@ impl Service {
         if turn.and_then(|turn| self.settlement(turn)).is_some()
             || self.crowded(strand).await?.is_some()
         {
-            return Ok(vec![super::room::definition()]);
+            return Ok(vec![
+                super::room::definition(),
+                super::room::query::definition(),
+            ]);
         }
         match self.barrier(strand).await? {
             Some(barrier) if barrier.due() => Ok(vec![

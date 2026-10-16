@@ -192,7 +192,8 @@ fn capacity(
     provider: &str,
 ) -> Result<usize, String> {
     let bytes = positive(bytes, provider, "bytes")?;
-    let maintenance = maintenance.unwrap_or_else(|| bytes.saturating_mul(2));
+    let ceiling = bytes.saturating_add(bytes / 2);
+    let maintenance = maintenance.unwrap_or(ceiling).min(ceiling);
     if maintenance <= bytes {
         return Err(format!(
             "provider {provider} maintenance_bytes must exceed bytes"

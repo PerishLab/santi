@@ -24,6 +24,7 @@ impl Service {
         }
         let calls = self
             .staged(draft.address, draft.calls, draft.limits)
+            .await
             .map_err(|error| Failure::runtime(Operation::Tool, error, ""))?;
         if let Some(cause) = self.halted(control) {
             return Err(Failure::stopped(cause, ""));

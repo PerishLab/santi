@@ -3,6 +3,7 @@ pub(super) mod clock;
 mod definition;
 mod escalate;
 mod maintenance;
+pub(super) mod query;
 
 use apply::asked;
 pub(super) use definition::definition;
@@ -52,18 +53,18 @@ impl Service {
 
 fn pressed(active: i64, ceiling: i64, settled: i64, held: usize) -> String {
     format!(
-        "context refused: the live part of this strand is {active} bytes against a ceiling of {ceiling}, with {held} slots holding {settled} bytes already. Use the compact tool with summary alone to collapse settled history since the last slot, keeping the most recent message live. When all slots are occupied, supply absorb with two or more contiguous Compact IDs from projection headers to merge them. Ordinary tools return when the context fits."
+        "context refused: the live part of this strand is {active} bytes against a ceiling of {ceiling}, with {held} slots holding {settled} bytes already. Query slots shows current occupied slots and default boundaries. Use the compact tool with summary alone to collapse settled history since the last slot, keeping the most recent message live. When all slots are occupied, supply absorb with two or more contiguous Compact IDs from query slots to merge them. Ordinary tools return when the context fits."
     )
 }
 
 fn crowded(held: usize, ceiling: usize, settled: i64) -> String {
     format!(
-        "context refused: {held} slots hold the compacted timeline against a ceiling of {ceiling}, carrying {settled} bytes. Use the compact tool with summary and absorb containing two or more contiguous Compact IDs from projection headers to merge slots. A precise range uses first and last Message IDs. Ordinary tools return when the context fits."
+        "context refused: {held} slots hold the compacted timeline against a ceiling of {ceiling}, carrying {settled} bytes. Use the compact tool with summary and absorb containing two or more contiguous Compact IDs from query slots to merge slots. A precise range uses first and last Message IDs. Ordinary tools return when the context fits."
     )
 }
 
 fn overfull(settled: i64, ceiling: i64, held: usize) -> String {
     format!(
-        "context refused: the compacted timeline carries {settled} bytes across {held} slots against a ceiling of {ceiling}. Use the compact tool with a shorter summary and absorb containing occupied Compact IDs from projection headers. One ID rewrites a slot; two or more contiguous IDs merge slots. Ordinary tools return when the context fits."
+        "context refused: the compacted timeline carries {settled} bytes across {held} slots against a ceiling of {ceiling}. Use the compact tool with a shorter summary and absorb containing occupied Compact IDs from query slots. One ID rewrites a slot; two or more contiguous IDs merge slots. Ordinary tools return when the context fits."
     )
 }

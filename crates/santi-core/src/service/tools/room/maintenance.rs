@@ -12,7 +12,7 @@ impl Service {
         Ok(self.settlement(turn).is_some() && !clock::selected(self, strand).await?)
     }
 
-    pub(in crate::service) fn staged(
+    pub(in crate::service) async fn staged(
         &self,
         address: Address<&str>,
         calls: Vec<Call>,
@@ -26,6 +26,10 @@ impl Service {
             let attempt = match call.name.as_str() {
                 "compact" => match asked(&call) {
                     Ok(request) => Attempt::Compact(Box::new(request)),
+                    Err(error) => Attempt::Rejected(error),
+                },
+                "query" => match self.queried(address.strand, &call).await {
+                    Ok(value) => Attempt::Query(value),
                     Err(error) => Attempt::Rejected(error),
                 },
                 "shell" => Attempt::Rejected(detail.clone()),
