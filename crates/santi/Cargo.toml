@@ -26,6 +26,7 @@ unicode-width.workspace = true
 locus = { version = "0", registry = "perish" }
 
 [dev-dependencies]
+plumb = { workspace = true, features = ["testing"] }
 sha2.workspace = true
 tempfile = "3.27.0"
 tokio = { workspace = true, features = ["test-util"] }
