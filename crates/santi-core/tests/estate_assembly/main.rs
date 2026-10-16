@@ -5,6 +5,8 @@ use santi_estate::{
 };
 use santi_model::{message, thinking, turn};
 
+mod timing;
+
 const FIRST: &str = "2026-07-28T00:00:00.000Z";
 const LATER: &str = "2026-07-28T00:01:00.000Z";
 
@@ -135,6 +137,10 @@ async fn assembles_ordered_estate() {
     };
     assert_eq!(call, "call_test");
     assert!(output.contains("done"));
+    let facts: serde_json::Value = serde_json::from_str(output).expect("result facts");
+    assert_eq!(facts["timing"]["called_at"], LATER);
+    assert_eq!(facts["timing"]["replied_at"], LATER);
+    assert_eq!(facts["timing"]["call_to_result_ms"], 0);
     assert_message(&input[4], "assistant", "[message message_last]\ndone");
     let child = store
         .fork(ForkDraft {
@@ -147,6 +153,10 @@ async fn assembles_ordered_estate() {
         .expect("fork");
     let inherited = provider_input(&store, &child.id).await.expect("fork input");
     assert_eq!(inherited.len(), 5);
+    let Item::Output { output: replay, .. } = &inherited[3] else {
+        panic!("expected inherited output");
+    };
+    assert_eq!(replay, output);
     assert_message(&inherited[0], "user", "[message message_first]\nrun");
     assert_message(&inherited[4], "assistant", "[message message_last]\ndone");
     assert_eq!(
