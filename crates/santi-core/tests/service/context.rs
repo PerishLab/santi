@@ -1,5 +1,7 @@
 #[path = "../execution/context.rs"]
 mod maintenance;
+#[path = "../execution/pause.rs"]
+mod pause;
 use super::support::*;
 use santi_core::service::{self, Service};
 use santi_core::{Store, message};
@@ -63,16 +65,24 @@ async fn reuse() {
     let service = Service::open(config, provider)
         .await
         .expect("reopen service");
-    service.resume().await.expect("changed recovery");
-    assert_eq!(occurrences(&service, &strand.id).await, 2);
+    service
+        .resume()
+        .await
+        .expect("changed recovery remains held");
+    assert_eq!(occurrences(&service, &strand.id).await, 1);
     service
         .drive(&strand.id)
         .await
         .expect_err("explicit drive held");
-    assert_eq!(occurrences(&service, &strand.id).await, 3);
+    assert_eq!(occurrences(&service, &strand.id).await, 2);
 
     bytes.store(1_000_000, Ordering::SeqCst);
-    service.resume().await.expect("expanded recovery");
+    service
+        .resume()
+        .await
+        .expect("expanded recovery remains held");
+    assert_eq!(occurrences(&service, &strand.id).await, 2);
+    service.drive(&strand.id).await.expect("explicit recovery");
     Probe::new(&service).any_completed(&strand.id).await;
     let incidents = service
         .stranded(&strand.id, 10)
@@ -179,7 +189,7 @@ async fn capacity() {
             .budget
             .unwrap();
         assert_eq!(cap.bytes, capacity as i64);
-        assert_eq!(cap.maintenance, Some((capacity * 2) as i64));
+        assert_eq!(cap.maintenance, Some((capacity + capacity / 2) as i64));
     }
     assert_eq!(std::fs::metadata(source).unwrap().len(), 32_769);
 }

@@ -139,7 +139,9 @@ impl Service {
             }
         }
         self.absolve(&strand.id, "ingest_remeasurement").await?;
-        if let Some(error) = self.gated(&strand.id, "ingest_active_guard").await? {
+        if self.held(&strand.id).await?.is_none()
+            && let Some(error) = self.gated(&strand.id, "ingest_active_guard").await?
+        {
             self.dispatched().await;
             logged(&error, &strand.id, &audit);
             return Ok((

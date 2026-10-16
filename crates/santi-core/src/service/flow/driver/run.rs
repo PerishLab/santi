@@ -69,7 +69,6 @@ impl Service {
                 ));
             }
         };
-
         let response = loop {
             let next = round + 1;
             if let Some(error) = provider_try!(
@@ -119,13 +118,14 @@ impl Service {
             let family = metadata.provider.to_string();
             let offered = provider_try!(Operation::Assembly, self.offers(strand, Some(turn)).await);
             let ceiling = metadata.budget.as_ref().map(|cap| cap.bytes);
-            let request = Request {
+            let mut request = Request {
                 model: metadata.model,
                 instructions: Some(provider_try!(Operation::Prompt, self.wording(strand).await)),
                 input,
                 tools: Some(offered),
                 previous: None,
             };
+            self.suffix(&mut request);
             let estimate = gauged(&request);
             if let Some(error) = provider_try!(
                 Operation::Admission(Admission::Context),

@@ -53,7 +53,7 @@ impl Scope {
             .messages
             .iter()
             .find(|message| message.tag == tag)
-            .ok_or_else(|| format!("compact {label} message not in this strand"))?;
+            .ok_or_else(|| format!("compact {label} message not in this strand; query slots or messages for current references"))?;
         if !message.fixed {
             return Err(format!(
                 "compact {label} boundary must be a fixed projected message"
@@ -64,7 +64,7 @@ impl Scope {
 
     fn seated(&self, label: &str, sequence: i64) -> Result<String, String> {
         self.messages.iter().find(|message| message.sequence == sequence).map(|message| message.tag.clone())
-            .ok_or_else(|| format!("compact {label} {sequence} is not a message sequence in this strand; from/to take message sequences, while tool and turn records carry sequences of their own and are not messages; read the strand's messages to pick a boundary, or pass first/last with message ids instead"))
+            .ok_or_else(|| format!("compact {label} {sequence} is not a message sequence in this strand; from/to take message sequences, while tool and turn records carry sequences of their own and are not messages; query messages to pick a boundary, or pass first/last with message ids instead"))
     }
 
     fn settled(&self) -> Result<(String, String), String> {
@@ -90,7 +90,7 @@ impl Scope {
         let mut chosen = Vec::new();
         for name in named {
             let found = self.spans.iter().find(|span| span.compact == *name)
-                .ok_or_else(|| format!("absorb names {name}, which is not an occupied slot on this strand; read the slot occupancy beside the budget for the ids that are"))?;
+                .ok_or_else(|| format!("absorb names {name}, which is not an occupied slot on this strand; query slots for current occupied ids"))?;
             chosen.push(found);
         }
         chosen.sort_by_key(|span| span.from);

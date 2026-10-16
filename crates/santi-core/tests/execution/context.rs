@@ -25,19 +25,29 @@ impl Provider for Recovery {
     }
 
     async fn stream(&self, request: Request) -> Result<Streaming, String> {
-        let compact = matches!(request.tools.as_deref(), Some([Tool::Function(tool)]) if tool.name == "compact");
+        let compact = matches!(request.tools.as_deref(), Some(tools) if tools.iter().any(|Tool::Function(tool)| tool.name == "compact"));
+        let round = self.requests.lock().unwrap().len();
+        let slots = request.input.iter().find_map(|item| match item {
+            Item::Output { call, output } if call == "call_recovery_1" => Some(
+                serde_json::from_str::<serde_json::Value>(output).unwrap()["output"]["slots"]
+                    .clone(),
+            ),
+            _ => None,
+        });
         self.requests.lock().unwrap().push(request);
         if compact {
-            self.entered.notify_one();
-            self.release.notified().await;
-            let arguments = json!({"summary":"Keep issue #96 acceptance and live Job job_kept; original history remains queryable."});
+            if round == 0 {
+                self.entered.notify_one();
+                self.release.notified().await;
+            }
+            let (name, arguments) = choice(round, slots);
             return Ok(Box::pin(stream::iter(vec![
                 Ok(Event::Called(Call {
                     response: "recovery".into(),
                     mark: None,
                     item: json!({"type":"function_call"}),
-                    call: "call_recovery".into(),
-                    name: "compact".into(),
+                    call: format!("call_recovery_{round}"),
+                    name: name.into(),
                     raw: arguments.to_string(),
                     arguments,
                 })),
@@ -79,6 +89,36 @@ async fn pending() {
         .unwrap();
     let strand = service.weave().await.unwrap().strand;
     let store = Store::open(&config.database).await.unwrap();
+    for index in 0..5 {
+        let tag = format!("msg_slot_{index}");
+        store
+            .place(santi_estate::MessageDraft {
+                tag: &tag,
+                strand: &strand.id,
+                actor: message::Role::System,
+                actor_id: santi_core::SYSTEM,
+                kind: message::Kind::Text,
+                content: &message::Content::text("prior memory"),
+                state: message::State::Fixed,
+                request: false,
+                created: &santi_core::now(),
+            })
+            .await
+            .unwrap();
+        store
+            .create_compact(santi_estate::CompactDraft {
+                tag: &format!("compact_slot_{index}"),
+                strand: &strand.id,
+                first: &tag,
+                last: &tag,
+                summary: "prior memory; live Job job_kept",
+                metadata: None,
+                expected: None,
+                created: &santi_core::now(),
+            })
+            .await
+            .unwrap();
+    }
     for (tag, text) in [
         ("msg_history", "x".repeat(160_000)),
         ("msg_recent", "issue #96 acceptance; job_kept".into()),
@@ -160,11 +200,33 @@ async fn pending() {
         160_000
     );
     let requests = provider.requests.lock().unwrap();
-    assert_eq!(requests.len(), 2);
+    assert_eq!(requests.len(), 5);
+    assert!(requests[1].input.iter().any(|item| matches!(item, Item::Output { output, .. } if output.contains("query slots or messages"))));
     assert!(
-        requests[1].input.iter().any(
+        requests[4].input.iter().any(
             |item| matches!(item, Item::Message { content, .. } if content.contains("job_kept"))
         )
     );
-    assert!(requests[1].input.iter().any(|item| matches!(item, Item::Message { content, .. } if content.contains("pending external input"))));
+    assert!(requests[4].input.iter().any(|item| matches!(item, Item::Message { content, .. } if content.contains("pending external input"))));
+}
+
+fn choice(round: usize, slots: Option<serde_json::Value>) -> (&'static str, serde_json::Value) {
+    match round {
+        0 => (
+            "compact",
+            json!({"summary":"retry with current references", "first":"missing", "last":"missing"}),
+        ),
+        1 => ("query", json!({})),
+        2 => {
+            let slots = slots.unwrap();
+            (
+                "compact",
+                json!({"summary":"Keep both prior memories and Job job_kept", "absorb":[slots[0]["id"],slots[1]["id"]]}),
+            )
+        }
+        _ => (
+            "compact",
+            json!({"summary":"Keep issue #96 acceptance and live Job job_kept; original history remains queryable."}),
+        ),
+    }
 }

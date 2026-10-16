@@ -31,7 +31,7 @@ impl Service {
                     bytes: Some(cap.ceiling()),
                     estimate: &estimate,
                     observed: Some(turn),
-                    metadata: json!({"provider_round": round}),
+                    metadata: json!({"provider_round": round, "maintenance_pause": true}),
                 })
                 .await;
         }
@@ -56,6 +56,11 @@ impl Service {
         turn: &str,
         next: usize,
     ) -> Result<Option<Fault>, String> {
+        if self.budget().is_some()
+            && (self.settlement(turn).is_some() || self.pressured(strand).await?)
+        {
+            return Ok(None);
+        }
         let Some(budget) = self.rationed(strand) else {
             return Ok(None);
         };
@@ -82,6 +87,9 @@ impl Service {
         round: usize,
         calls: usize,
     ) -> Result<Verdict, String> {
+        if self.budget().is_some() && self.settlement(turn).is_some() {
+            return Ok(Verdict::Unbounded);
+        }
         let Some(budget) = self.rationed(strand) else {
             return Ok(Verdict::Unbounded);
         };

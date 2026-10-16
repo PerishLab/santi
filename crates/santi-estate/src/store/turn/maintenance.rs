@@ -8,6 +8,7 @@ use santi_model::{compact, event, tool};
 
 pub enum Attempt {
     Compact(Box<compact::Exec>),
+    Query(serde_json::Value),
     Rejected(String),
 }
 
@@ -59,7 +60,7 @@ impl Store {
                     )
                     .await?;
                     let result = applied(tx, draft.inbox.strand, invocation, draft.limits).await?;
-                    compacted |= result.is_ok();
+                    compacted |= invocation.call.tool == "compact" && result.is_ok();
                     let reply = replied(tx, invocation, result).await?;
                     calls.push(invocation.call.clone());
                     replies.push(reply);
@@ -86,7 +87,7 @@ async fn applied(
     strand: &str,
     invocation: &Invocation,
     limits: Limits,
-) -> Result<Result<compact::Report, String>, Error> {
+) -> Result<Result<serde_json::Value, String>, Error> {
     let request = match &invocation.attempt {
         Attempt::Compact(request) => {
             if invocation.call.tool != "compact" {
@@ -95,6 +96,14 @@ async fn applied(
                 ));
             }
             request
+        }
+        Attempt::Query(value) => {
+            if invocation.call.tool != "query" {
+                return Err(Error::Adapt(
+                    "maintenance query differs from call tool".into(),
+                ));
+            }
+            return Ok(Ok(value.clone()));
         }
         Attempt::Rejected(error) => return Ok(Err(error.clone())),
     };
@@ -124,22 +133,18 @@ async fn applied(
         None,
     )
     .await?;
-    Ok(Ok(report))
+    Ok(Ok(
+        serde_json::to_value(report).map_err(|error| Error::Adapt(error.to_string()))?
+    ))
 }
 
 async fn replied(
     tx: &mut Tx<'_, Sqlite>,
     invocation: &Invocation,
-    result: Result<compact::Report, String>,
+    result: Result<serde_json::Value, String>,
 ) -> Result<tool::Reply, Error> {
     let (output, error) = match result {
-        Ok(report) => (
-            Some(crate::store::bounded(
-                serde_json::to_value(report).map_err(|error| Error::Adapt(error.to_string()))?,
-                invocation.limit,
-            )),
-            None,
-        ),
+        Ok(report) => (Some(crate::store::bounded(report, invocation.limit)), None),
         Err(error) => (None, Some(crate::store::curbed(error, invocation.limit))),
     };
     let serialized = output

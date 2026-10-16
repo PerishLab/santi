@@ -13,6 +13,7 @@ mod measure;
 mod observation;
 #[cfg(test)]
 mod ownership;
+mod window;
 pub(super) use execution::Verdict;
 
 const PROVIDER: &str = "provider_request_exceeds_budget";
@@ -35,7 +36,11 @@ impl Service {
     pub(in crate::service) fn budget(&self) -> Option<budget::Cap> {
         self.provider.metadata().budget.map(|budget| budget::Cap {
             bytes: budget.bytes as i64,
-            maintenance: Some(budget.maintenance as i64),
+            maintenance: Some(
+                (budget
+                    .maintenance
+                    .min(budget.bytes.saturating_add(budget.bytes / 2))) as i64,
+            ),
             source: budget.source,
         })
     }
@@ -49,6 +54,9 @@ impl Service {
         let Some(budget) = self.budget() else {
             return Ok(None);
         };
+        if self.held(strand).await?.is_some() {
+            return Ok(None);
+        }
         let mut input = crate::provider_input(&self.store, strand).await?;
         input.extend(self.pending_input(strand).await?);
         if let Some(candidate) = crate::context::budget::inbound(kind, content) {
@@ -93,6 +101,11 @@ impl Service {
         let active = self.store.incident(&key).await?;
         let mut observed = None;
         if let Some(incident) = active.as_ref() {
+            if incident.latest.context["details"]["maintenance_pause"] == true
+                && operation != "operator_redrive"
+            {
+                return Ok(Some(crate::engine().fault(incident)));
+            }
             let current = observation::observe(self, strand, &budget).await?;
             if operation == "cold_start_resume" && current.matches(incident) {
                 return Ok(Some(crate::engine().fault(incident)));
@@ -130,6 +143,7 @@ impl Service {
             metadata: serde_json::json!({
                 "estimator": estimate.estimator,
                 "observation": observed,
+                "maintenance_pause": maintenance,
             }),
         })
         .await
@@ -172,6 +186,7 @@ impl Service {
                     "phase": "provider_preflight",
                     "estimator": estimate.estimator,
                     "observed_at_seq": strand.next - 1,
+                    "maintenance_pause": self.settlement(turn).is_some(),
                 }),
             })
             .await?;
@@ -214,7 +229,12 @@ impl Service {
         let key = crate::budget::Error::Context
             .descriptor()
             .key("strand", strand);
-        if self.store.incident(&key).await?.is_none() {
+        let Some(incident) = self.store.incident(&key).await? else {
+            return Ok(false);
+        };
+        if incident.latest.context["details"]["maintenance_pause"] == true
+            && cleared_by != "compact_exec"
+        {
             return Ok(false);
         }
         let Some(budget) = self.budget() else {
