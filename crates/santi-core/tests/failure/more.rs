@@ -16,8 +16,9 @@ async fn preserves() {
     assert_ne!(soul.id, santi_core::GENESIS);
     let strand = service.seat(&soul.id).await.expect("seat soul").strand;
     let response = send_text(&service, &strand.id, "trigger stream failure").await;
+    let failed = turn(&service, &response).await.id;
 
-    let runtime = wait_for_aborted_output(&service, &strand.id, &turn(&response).id).await;
+    let runtime = wait_for_aborted_output(&service, &strand.id, &failed).await;
     let partial_message = runtime
         .messages
         .iter()
@@ -34,7 +35,8 @@ async fn preserves() {
     assert_eq!(runtime.errors[0].first.context["stage"], "stream");
 
     let retry = send_text(&service, &strand.id, "continue with preserved partial").await;
-    wait_for_turn(&service, &strand.id, &turn(&retry).id, turn::Status::Failed).await;
+    let failed = turn(&service, &retry).await.id;
+    wait_for_turn(&service, &strand.id, &failed, turn::Status::Failed).await;
 
     let projection = format!(
         "[message {}]\npartial runtime output",
@@ -60,14 +62,9 @@ async fn classifies() {
     let service = open_service(&temp, provider).await;
     let strand = service.weave().await.expect("create strand").strand;
     let response = send_text(&service, &strand.id, "trigger response failure").await;
+    let failed = turn(&service, &response).await.id;
 
-    let runtime = wait_for_turn(
-        &service,
-        &strand.id,
-        &turn(&response).id,
-        turn::Status::Failed,
-    )
-    .await;
+    let runtime = wait_for_turn(&service, &strand.id, &failed, turn::Status::Failed).await;
     assert_no_failure_projection(&runtime);
     assert_eq!(runtime.errors.len(), 1);
     assert_eq!(runtime.errors[0].first.source.operation, "turn.response");
@@ -85,23 +82,13 @@ async fn resolves() {
     let service = open_service(&temp, provider.clone()).await;
     let strand = service.weave().await.expect("create strand").strand;
     let failed = send_text(&service, &strand.id, "first attempt").await;
-    let before = wait_for_turn(
-        &service,
-        &strand.id,
-        &turn(&failed).id,
-        turn::Status::Failed,
-    )
-    .await;
+    let original = turn(&service, &failed).await.id;
+    let before = wait_for_turn(&service, &strand.id, &original, turn::Status::Failed).await;
     let held = before.errors[0].id.clone();
 
     let recovered = send_text(&service, &strand.id, "retry after recovery").await;
-    let after = wait_for_turn(
-        &service,
-        &strand.id,
-        &turn(&recovered).id,
-        turn::Status::Completed,
-    )
-    .await;
+    let resumed = turn(&service, &recovered).await.id;
+    let after = wait_for_turn(&service, &strand.id, &resumed, turn::Status::Completed).await;
 
     assert_no_failure_projection(&after);
     assert_eq!(provider.requests.lock().unwrap().len(), 2);
@@ -115,7 +102,10 @@ async fn resolves() {
         incident.resolution.as_ref().unwrap().by.as_deref(),
         Some("provider.turn_succeeded")
     );
-    assert_eq!(incident.latest.context["turn"], turn(&recovered).id);
+    assert_eq!(
+        incident.latest.context["turn"],
+        turn(&service, &recovered).await.id
+    );
     assert_eq!(incident.latest.context["provider"], "fake-provider");
     assert_eq!(incident.latest.context["model"], "fake-model");
     assert_eq!(

@@ -141,7 +141,7 @@ async fn rings() {
     assert!(!pulse.text.contains("diagnos"));
 
     service
-        .stop(&accepted_turn(&posted).id)
+        .stop(&accepted_turn(&service, &posted).await.id)
         .await
         .expect("stop held turn");
     service.close();
@@ -162,7 +162,7 @@ async fn coalesces() {
         .window(Duration::from_secs(60))
         .expect("set observation window");
     let strand = service.weave().await.expect("create strand").strand;
-    service
+    let posted = service
         .send(
             &strand.id,
             strand::Post {
@@ -172,7 +172,8 @@ async fn coalesces() {
             },
         )
         .await
-        .expect("start held turn");
+        .expect("accept held turn");
+    let _turn = accepted_turn(&service, &posted).await;
     let watcher = {
         let service = service.clone();
         tokio::spawn(async move { service.watch().await })
