@@ -13,7 +13,7 @@ anyhow.workspace = true
 clap.workspace = true
 futures-util.workspace = true
 jiff.workspace = true
-plumb.workspace = true
+plumb = { workspace = true, features = ["observation"] }
 ratatui.workspace = true
 reqwest.workspace = true
 serde.workspace = true

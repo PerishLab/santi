@@ -2,6 +2,14 @@ use anyhow::Result;
 
 use super::*;
 
+const REFUSALS: [&str; 5] = [
+    "request.invalid_argument",
+    "request.unauthorized",
+    "resource.not_found",
+    "runtime.unavailable",
+    "runtime.internal",
+];
+
 pub(super) fn compact_capsule_body(capsule: Capsule<'_>) -> Result<serde_json::Value> {
     let Capsule {
         first,
@@ -74,7 +82,7 @@ pub(super) struct Http<'a> {
 }
 
 impl Http<'_> {
-    #[locus::trace(with = crate::observation::view())]
+    #[locus::trace(with = plumb::observation::view())]
     pub(super) async fn get(&self, url: &str) -> Result<()> {
         let response = self
             .client
@@ -86,7 +94,7 @@ impl Http<'_> {
         print_json(response).await
     }
 
-    #[locus::trace(with = crate::observation::view())]
+    #[locus::trace(with = plumb::observation::view())]
     pub(super) async fn post(&self, url: &str, body: Option<serde_json::Value>) -> Result<()> {
         let mut request = self.client.post(url).timeout(TIMEOUT);
         if let Some(body) = body {
@@ -99,7 +107,7 @@ impl Http<'_> {
         print_json(response).await
     }
 
-    #[locus::trace(with = crate::observation::view())]
+    #[locus::trace(with = plumb::observation::view())]
     pub(super) async fn delete(&self, url: &str) -> Result<()> {
         let response = self
             .client
@@ -196,9 +204,18 @@ pub(super) async fn print_json(response: reqwest::Response) -> Result<()> {
         Err(_) => println!("{text}"),
     }
     if !status.is_success() {
+        if let Some(code) = refusal(&text) {
+            plumb::observation::fault(code);
+        }
         anyhow::bail!("request failed with status {status}");
     }
     Ok(())
+}
+
+fn refusal(text: &str) -> Option<&'static str> {
+    let value: serde_json::Value = serde_json::from_str(text).ok()?;
+    let code = value.get("code")?.as_str()?;
+    REFUSALS.into_iter().find(|known| *known == code)
 }
 
 pub(super) fn strand_send_body(text: String, soul: Option<&str>) -> serde_json::Value {
