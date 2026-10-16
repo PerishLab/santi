@@ -84,17 +84,20 @@ async fn aggregates() {
     let mut events = service.listen().await;
     let strand = service.weave().await.expect("create strand").strand;
     let first = send_text(&service, &strand.id, "trigger failure").await;
+    let turn_id = turn(&service, &first).await.id;
+    let incident = turn_id.clone();
 
-    let runtime = wait_for_turn(&service, &strand.id, &turn(&first).id, turn::Status::Failed).await;
+    let runtime = wait_for_turn(&service, &strand.id, &incident, turn::Status::Failed).await;
     let failed_turn = runtime
         .turns
         .iter()
-        .find(|candidate| candidate.id == turn(&first).id)
+        .find(|candidate| candidate.id == incident)
         .expect("failed turn");
     assert_eq!(failed_turn.error.as_deref(), Some(raw_error.as_str()));
     assert_no_failure_projection(&runtime);
 
     assert_eq!(runtime.errors.len(), 1);
+    let identity = runtime.errors[0].id.clone();
     let incident = &runtime.errors[0];
     assert_eq!(incident.code, "provider.turn.failed");
     assert_eq!(incident.status, santi_core::Status::Active);
@@ -103,7 +106,7 @@ async fn aggregates() {
     assert_eq!(incident.revision, 1);
     assert_eq!(incident.first.source.component, "santi-provider");
     assert_eq!(incident.first.source.operation, "turn.request");
-    assert_eq!(incident.first.context["turn"], turn(&first).id);
+    assert_eq!(incident.first.context["turn"], turn_id);
     assert_eq!(incident.first.context["provider"], "fake-provider");
     assert_eq!(incident.first.context["model"], "fake-model");
     assert_eq!(incident.first.context["stage"], "request");
@@ -115,7 +118,7 @@ async fn aggregates() {
             santi_core::stream::Payload::Turn(santi_core::turn::Beat::Failed {
                 turn: held,
                 error,
-            }) if held == turn(&first).id => Some(error),
+            }) if held == turn_id => Some(error),
             _ => None,
         })
         .expect("turn_failed event");
@@ -124,13 +127,17 @@ async fn aggregates() {
     assert_eq!(failed_event.source.operation, "turn.request");
 
     let retry = send_text(&service, &strand.id, "continue after failure").await;
-    let runtime = wait_for_turn(&service, &strand.id, &turn(&retry).id, turn::Status::Failed).await;
+
+    let runtime = wait(&service, &strand.id, &retry, turn::Status::Failed).await;
     assert_no_failure_projection(&runtime);
     assert_eq!(runtime.errors.len(), 1);
-    assert_eq!(runtime.errors[0].id, incident.id);
+    assert_eq!(runtime.errors[0].id, identity);
     assert_eq!(runtime.errors[0].occurrences, 2);
     assert_eq!(runtime.errors[0].revision, 1);
-    assert_eq!(runtime.errors[0].latest.context["turn"], turn(&retry).id);
+    assert_eq!(
+        runtime.errors[0].latest.context["turn"],
+        turn(&service, &retry).await.id
+    );
     let requests = provider.requests.lock().unwrap();
     assert_eq!(requests.len(), 2);
     assert!(requests[1].input.iter().all(|item| {
@@ -150,68 +157,18 @@ fn assert_no_failure_projection(runtime: &santi_core::stream::Snapshot) {
     );
 }
 
-fn turn(response: &santi_core::strand::Posted) -> &santi_core::turn::Turn {
-    response.turn.as_ref().expect("send should start a turn")
-}
+#[path = "failure/receipt.rs"]
+mod receipt;
+use receipt::{open_service, send_text, turn, wait_for_turn};
 
-async fn open_service(temp: &tempfile::TempDir, provider: Arc<FailureProvider>) -> Service {
-    santi_core::Store::bootstrap(
-        temp.path().join("santi.sqlite"),
-        "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
-    )
-    .await
-    .expect("bootstrap");
-    Service::open(
-        service::Config {
-            database: temp.path().join("santi.sqlite").display().to_string(),
-            runtime: temp.path().join("runtime").display().to_string(),
-            execution: temp.path().join("execution").display().to_string(),
-            bind: Some("127.0.0.1:0".to_string()),
-            constitution: None,
-            environment: Default::default(),
-        },
-        provider,
-    )
-    .await
-    .expect("open service")
-}
-
-async fn send_text(service: &Service, strand: &str, text: &str) -> santi_core::strand::Posted {
-    service
-        .send(
-            strand,
-            strand::Post {
-                content: vec![message::Part::Text {
-                    text: text.to_string(),
-                }],
-            },
-        )
-        .await
-        .expect("send strand")
-}
-
-async fn wait_for_turn(
+async fn wait(
     service: &Service,
     strand: &str,
-    turn: &str,
+    posted: &santi_core::strand::Posted,
     status: turn::Status,
 ) -> santi_core::stream::Snapshot {
-    for _ in 0..100 {
-        let runtime = service
-            .snapshot(strand)
-            .await
-            .expect("runtime snapshot")
-            .expect("strand runtime");
-        if runtime
-            .turns
-            .iter()
-            .any(|held| held.id == turn && held.status == status)
-        {
-            return runtime;
-        }
-        sleep(Duration::from_millis(20)).await;
-    }
-    panic!("turn {turn} did not reach {status:?}");
+    let turn = turn(service, posted).await;
+    wait_for_turn(service, strand, &turn.id, status).await
 }
 
 async fn wait_for_aborted_output(

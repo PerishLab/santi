@@ -60,7 +60,7 @@ impl Service {
                 &crate::now(),
             )
             .await?;
-        let (outcome, _driven) = self
+        let outcome = self
             .enqueue(
                 &strand,
                 Ingest {

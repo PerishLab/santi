@@ -41,24 +41,6 @@ pub(crate) fn estimated(
     }
 }
 
-pub(crate) fn inbound(
-    kind: &crate::message::Kind,
-    content: &crate::message::Content,
-) -> Option<Item> {
-    let text = content.rendered();
-    if text.trim().is_empty() {
-        return None;
-    }
-    let role = match kind {
-        crate::message::Kind::Text => "user",
-        crate::message::Kind::SantiSystem => "system",
-    };
-    Some(Item::Message {
-        role: role.to_string(),
-        content: text,
-    })
-}
-
 fn valued(item: &Item) -> Value {
     match item {
         Item::Message { role, content } => json!({

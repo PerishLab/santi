@@ -146,7 +146,7 @@ async fn authority() {
         .await
         .expect("send strand");
     let runtime = Probe::new(&service)
-        .completed_turn(&strand.id, &accepted_turn(&posted).id)
+        .completed_turn(&strand.id, &accepted_turn(&service, &posted).await.id)
         .await;
 
     assert_eq!(

@@ -1,3 +1,4 @@
+mod reopen;
 use super::support::*;
 use santi_core::message;
 use santi_core::service::{self, Service};

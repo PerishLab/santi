@@ -108,7 +108,7 @@ async fn bytes() {
     let strand = service.weave().await.unwrap().strand;
     let posted = service.send(&strand.id, post()).await.unwrap();
     Probe::new(&service)
-        .completed_turn(&strand.id, &posted.turn.unwrap().id)
+        .completed_turn(&strand.id, &accepted_turn(&service, &posted).await.id)
         .await;
     assert_eq!(requests(&provider, &strand.id), 1);
     let source = memory(&temp, "界界a");
@@ -134,10 +134,8 @@ async fn growth() {
     let service = open(&temp, provider.clone()).await.memory(6).unwrap();
     let strand = service.weave().await.unwrap().strand;
     let posted = service.send(&strand.id, post()).await.unwrap();
-    let turn = posted.turn.unwrap();
-    let runtime = Probe::new(&service)
-        .completed_turn(&strand.id, &turn.id)
-        .await;
+    let turn = accepted_turn(&service, &posted).await.id;
+    let runtime = Probe::new(&service).completed_turn(&strand.id, &turn).await;
     assert_eq!(
         requests(&provider, &strand.id),
         1,

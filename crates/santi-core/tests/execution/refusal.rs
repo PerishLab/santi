@@ -56,7 +56,7 @@ async fn verify(work: usize, rounds: usize, calls: usize, batch: usize) {
         .await
         .unwrap();
     let runtime = Probe::new(&service)
-        .failed_turn(&strand.id, &accepted_turn(&posted).id)
+        .failed_turn(&strand.id, &accepted_turn(&service, &posted).await.id)
         .await;
     assert_eq!(runtime.turns.len(), 1);
     assert!(runtime.compacts.is_empty());

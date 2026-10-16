@@ -1,5 +1,4 @@
 use crate::Ruled;
-use crate::context::budget::estimated;
 use serde_json::json;
 
 use crate::Fault;
@@ -43,47 +42,6 @@ impl Service {
             ),
             source: budget.source,
         })
-    }
-
-    pub(in crate::service) async fn admit_candidate(
-        &self,
-        strand: &str,
-        kind: &crate::message::Kind,
-        content: &crate::message::Content,
-    ) -> Result<Option<Fault>, String> {
-        let Some(budget) = self.budget() else {
-            return Ok(None);
-        };
-        if self.held(strand).await?.is_some() {
-            return Ok(None);
-        }
-        let mut input = crate::provider_input(&self.store, strand).await?;
-        input.extend(self.pending_input(strand).await?);
-        if let Some(candidate) = crate::context::budget::inbound(kind, content) {
-            input.push(candidate);
-        }
-        let tools = self.offered(strand).await?;
-        let estimate = estimated(&input, Some(&self.wording(strand).await?), Some(&tools));
-        if estimate.total <= budget.ceiling() {
-            return Ok(None);
-        }
-        let metadata = self.provider.metadata();
-        let reason = reason(estimate.total, budget.ceiling());
-        self.pressure(Pressure {
-            strand,
-            code: "candidate_input_exceeds_budget",
-            text: &reason,
-            operation: "ingest_admission",
-            provider: Some(metadata.provider.as_ref()),
-            model: Some(&metadata.model),
-            source: Some(&budget.source),
-            bytes: Some(budget.ceiling()),
-            estimate: &estimate,
-            observed: None,
-            metadata: serde_json::json!({"estimator": estimate.estimator}),
-        })
-        .await
-        .map(Some)
     }
 
     pub(in crate::service) async fn admit_pending(

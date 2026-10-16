@@ -128,7 +128,7 @@ async fn settles() {
         )
         .await
         .expect("start prior turn");
-    let first = accepted_turn(&first).id.clone();
+    let first = accepted_turn(&service, &first).await.id.clone();
     Probe::new(&service)
         .completed_turn(&strand.id, &first)
         .await;
@@ -144,7 +144,7 @@ async fn settles() {
         )
         .await
         .expect("start current turn");
-    let current = accepted_turn(&current).id.clone();
+    let current = accepted_turn(&service, &current).await.id.clone();
     let projection = service
         .running(&strand.soul, None)
         .await

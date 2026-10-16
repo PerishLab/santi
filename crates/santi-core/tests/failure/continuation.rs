@@ -66,13 +66,8 @@ async fn continues() {
     let service = open(&temp, provider.clone()).await;
     let strand = service.weave().await.unwrap().strand;
     let original = send_text(&service, &strand.id, "perform one external action").await;
-    let failed = wait_for_turn(
-        &service,
-        &strand.id,
-        &turn(&original).id,
-        turn::Status::Failed,
-    )
-    .await;
+    let prior = turn(&service, &original).await.id;
+    let failed = wait_for_turn(&service, &strand.id, &prior, turn::Status::Failed).await;
     assert_eq!(failed.calls.len(), 1);
     assert_eq!(failed.effects.len(), 1);
     assert_eq!(
@@ -95,13 +90,8 @@ async fn continues() {
     service.resume().await.unwrap();
     assert_eq!(provider.requests.lock().unwrap().len(), 2);
     let fresh = send_text(&service, &strand.id, "continue from the retained result").await;
-    let completed = wait_for_turn(
-        &service,
-        &strand.id,
-        &turn(&fresh).id,
-        turn::Status::Completed,
-    )
-    .await;
+    let resumed = turn(&service, &fresh).await.id;
+    let completed = wait_for_turn(&service, &strand.id, &resumed, turn::Status::Completed).await;
     assert_eq!(std::fs::read_to_string(marker).unwrap(), "applied");
     assert_eq!(completed.calls.len(), 1);
     assert_eq!(completed.effects.len(), 1);

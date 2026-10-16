@@ -154,20 +154,10 @@ async fn sends() {
         .await
         .expect("send strand");
 
-    assert_eq!(
-        response
-            .message
-            .as_ref()
-            .expect("driven synchronously")
-            .text,
-        "hello provider"
-    );
-    assert_eq!(
-        accepted_turn(&response).status,
-        santi_core::turn::Status::Running
-    );
+    assert!(response.message.is_none());
+    assert!(response.turn.is_none());
     let runtime = Probe::new(&service)
-        .completed_turn(&strand.id, &accepted_turn(&response).id)
+        .completed_turn(&strand.id, &accepted_turn(&service, &response).await.id)
         .await;
     let reply = runtime
         .messages
@@ -187,7 +177,13 @@ async fn sends() {
                 content,
                 &format!(
                     "[message {}]\nhello provider",
-                    response.message.as_ref().expect("message").message.id
+                    runtime
+                        .messages
+                        .iter()
+                        .find(|message| message.text == "hello provider")
+                        .expect("drained input")
+                        .message
+                        .id
                 )
             );
         }
@@ -258,7 +254,7 @@ async fn sends() {
     let mut traces = Vec::new();
     for _ in 0..50 {
         traces = store
-            .traces("turn", &accepted_turn(&response).id)
+            .traces("turn", &accepted_turn(&service, &response).await.id)
             .await
             .expect("turn traces");
         if !traces.is_empty() {

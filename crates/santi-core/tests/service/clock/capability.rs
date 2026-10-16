@@ -105,7 +105,7 @@ async fn rejects() {
     assert!(runtime.effects.is_empty());
 
     service
-        .stop(&accepted_turn(&posted).id)
+        .stop(&accepted_turn(&service, &posted).await.id)
         .await
         .expect("stop held turn");
     service.close();

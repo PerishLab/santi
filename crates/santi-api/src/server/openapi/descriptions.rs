@@ -75,7 +75,7 @@ pub const PROPERTY_DESCRIPTIONS: [(&str, &str, &str); 13] = [
     (
         "strand::Posted",
         "message",
-        "The content this send just enqueued, once the driver has actually\ncommitted it to the timeline. Absent when this send coalesced into an\nalready-running turn — durably enqueued, but the driver has not drained\nit yet (it will, when that turn completes and re-pokes).",
+        "Absent at durable acknowledgment. Processing drains the accepted inbox later;\nquery the exact receipt or strand runtime to follow its message and turn.",
     ),
     (
         "receipt::Transition",
