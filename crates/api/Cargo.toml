@@ -20,6 +20,7 @@ serde_json.workspace = true
 tokio.workspace = true
 
 [dev-dependencies]
+plumb = { workspace = true, features = ["testing"] }
 async-trait.workspace = true
 futures-util.workspace = true
 santi-estate.workspace = true

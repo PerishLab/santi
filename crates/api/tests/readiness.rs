@@ -40,12 +40,10 @@ impl Fixture {
         );
         fixture.tool("systemd-run", "printf invoked > unexpected-job\nexit 3");
         let client = fixture.shell.join("santi");
-        std::fs::write(
+        plumb::testing::executable(
             &client,
             "#!/bin/sh\nprintf invoked > unexpected-client\nexit 3\n",
-        )
-        .unwrap();
-        std::fs::set_permissions(&client, std::fs::Permissions::from_mode(0o755)).unwrap();
+        );
         fixture.config(&fixture.shell.display().to_string());
         let output = fixture.command().arg("bootstrap").output().unwrap();
         assert!(
@@ -74,15 +72,13 @@ impl Fixture {
     fn tool(&self, name: &str, body: &str) {
         let path = self.tools.join(name);
         let log = self.root.path().join("queries");
-        std::fs::write(
+        plumb::testing::executable(
             &path,
             format!(
                 "#!/bin/sh\nprintf '%s\\n' '{name}' \"$*\" >> '{log}'\n{body}\n",
                 log = log.display()
             ),
-        )
-        .unwrap();
-        std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o755)).unwrap();
+        );
     }
 
     fn command(&self) -> Command {

@@ -77,7 +77,6 @@ impl Plan {
 #[cfg(test)]
 mod tests {
     use std::fs;
-    use std::os::unix::fs::PermissionsExt;
     use std::path::PathBuf;
     use std::process::Command;
 
@@ -139,12 +138,10 @@ mod tests {
         let directory = tempfile::tempdir().expect("probe directory");
         let report = directory.path().join("report");
         let script = directory.path().join("probe.sh");
-        fs::write(
+        plumb::testing::executable(
             &script,
             "#!/bin/sh\nprintf 'pid=%s\\n' \"$$\" > \"$SANTI_RELOAD_EXEC_PROBE_OUTPUT\"\nprintf 'arg=%s\\n' \"$@\" >> \"$SANTI_RELOAD_EXEC_PROBE_OUTPUT\"\nprintf 'base=%s\\n' \"$SANTI_BASE_URL\" >> \"$SANTI_RELOAD_EXEC_PROBE_OUTPUT\"\nprintf 'soul=%s\\n' \"$SANTI_SOUL_ID\" >> \"$SANTI_RELOAD_EXEC_PROBE_OUTPUT\"\nprintf 'strand=%s\\n' \"$SANTI_STRAND_ID\" >> \"$SANTI_RELOAD_EXEC_PROBE_OUTPUT\"\nprintf 'bearer=%s\\n' \"$SANTI_API_KEY\" >> \"$SANTI_RELOAD_EXEC_PROBE_OUTPUT\"\n",
-        )
-        .expect("write probe");
-        fs::set_permissions(&script, fs::Permissions::from_mode(0o700)).expect("chmod probe");
+        );
 
         let mut child = Command::new(config::executable().expect("test executable"))
             .arg("--exact")
