@@ -203,19 +203,10 @@ async fn exercise(cwd: Option<&str>, native: bool) {
     if !native {
         assert_eq!(*supervisor.launches.lock().unwrap(), 1);
     } else {
-        let completed = tokio::time::timeout(std::time::Duration::from_secs(15), async {
-            loop {
-                let held = service
-                    .job(&strand.soul, &first.job.id)
-                    .await
-                    .expect("observe")
-                    .expect("job");
-                if held.state.terminal() {
-                    break held;
-                }
-                tokio::time::sleep(std::time::Duration::from_millis(50)).await;
-            }
-        })
+        let completed = tokio::time::timeout(
+            std::time::Duration::from_secs(15),
+            terminal(&service, &strand.soul, &first.job.id),
+        )
         .await
         .expect("native job finishes");
         assert_eq!(completed.state, job::State::Succeeded);
@@ -258,4 +249,14 @@ async fn exercise(cwd: Option<&str>, native: bool) {
         .await
         .unwrap_or_else(|error| panic!("get failed: {}", error.message()));
     assert_eq!(queried.id, first.job.id);
+}
+
+async fn terminal(service: &Service, soul: &str, id: &str) -> job::Job {
+    loop {
+        let held = service.job(soul, id).await.expect("observe").expect("job");
+        if held.state.terminal() {
+            return held;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+    }
 }

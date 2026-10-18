@@ -568,6 +568,13 @@ term = [
   { name = "feedback_after_calls", description = "Optional execution-budget cadence for the feedback barrier." },
   { name = "feedback_command", description = "Caller-owned feedback effect command in the execution budget." },
   { name = "feedback_cwd", description = "Caller-owned feedback effect workspace in the execution budget." },
+  { name = "ERROR_LOCK_VIOLATION", description = "Windows defines this file-lock error code spelling." },
+  { name = "storage_only", description = "The santi-api doctor --storage-only flag is a public CLI field." },
+  { name = "maintenance_bytes", description = "Profile configuration exposes the maintenance input budget in bytes." },
+  { name = "summary_file", description = "The santi compact --summary-file flag is a public CLI field." },
+  { name = "watch_format", description = "The santi strand send --watch-format flag is a public CLI field." },
+  { name = "mime_type", description = "The image message part serializes this public wire field." },
+  { name = "data_base64", description = "The image message part serializes this public wire field." },
 ]
 
 [word]

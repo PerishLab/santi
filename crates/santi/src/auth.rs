@@ -125,20 +125,21 @@ fn edge_token_cache_path(token_url: &str, client_id: &str, username: &str) -> st
     dir.join(format!("edge-jwt-{key}.json"))
 }
 
-pub fn form_urlencode(pairs: &[(&str, &str)]) -> String {
-    fn enc(input: &str) -> String {
-        let mut out = String::with_capacity(input.len());
-        for byte in input.bytes() {
-            match byte {
-                b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => {
-                    out.push(byte as char)
-                }
-                b' ' => out.push('+'),
-                _ => out.push_str(&format!("%{byte:02X}")),
+fn enc(input: &str) -> String {
+    let mut out = String::with_capacity(input.len());
+    for byte in input.bytes() {
+        match byte {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => {
+                out.push(byte as char)
             }
+            b' ' => out.push('+'),
+            _ => out.push_str(&format!("%{byte:02X}")),
         }
-        out
     }
+    out
+}
+
+pub fn form_urlencode(pairs: &[(&str, &str)]) -> String {
     pairs
         .iter()
         .map(|(k, v)| format!("{}={}", enc(k), enc(v)))

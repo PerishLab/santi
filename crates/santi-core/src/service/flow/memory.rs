@@ -24,7 +24,7 @@ pub(in crate::service) struct Policy {
 
 pub(super) enum Gate {
     Allow,
-    Pause { maintenance_strand_id: String },
+    Pause { maintainer: String },
 }
 
 struct Snapshot {
@@ -67,7 +67,7 @@ impl Service {
             Ok(Gate::Allow)
         } else {
             Ok(Gate::Pause {
-                maintenance_strand_id: maintenance.id,
+                maintainer: maintenance.id,
             })
         }
     }
@@ -255,19 +255,14 @@ fn metaprompt(snapshot: &Snapshot, policy: Policy) -> message::Content {
     )
 }
 
-pub(super) async fn maintain(service: &Service, maintenance_strand_id: &str) {
+pub(super) async fn maintain(service: &Service, maintainer: &str) {
     if let drive::Outcome::Held(error) | drive::Outcome::Failed(error) = service
-        .poke(
-            maintenance_strand_id,
-            "system",
-            None,
-            "soul_memory_maintenance",
-        )
+        .poke(maintainer, "system", None, "soul_memory_maintenance")
         .await
     {
         eprintln!(
             "santi: memory maintenance drive failed strand={} code={}",
-            maintenance_strand_id, error.code
+            maintainer, error.code
         );
     }
 }

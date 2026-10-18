@@ -123,9 +123,7 @@ impl Service {
         let audit = Audit::new(&input.content, &input.source);
         match self.gate(strand).await? {
             Gate::Allow => {}
-            Gate::Pause {
-                maintenance_strand_id,
-            } => {
+            Gate::Pause { maintainer } => {
                 let intake = self.intake(&strand.id, input).await?;
                 let outcome = intake.outcome;
                 self.dispatched().await;
@@ -133,7 +131,7 @@ impl Service {
                     logged(error, &strand.id, &audit);
                 }
                 if intake.inserted {
-                    maintain(self, &maintenance_strand_id).await;
+                    maintain(self, &maintainer).await;
                 }
                 return Ok((outcome, drive::Outcome::Paused));
             }

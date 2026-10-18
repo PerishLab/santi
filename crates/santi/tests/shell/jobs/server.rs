@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use tokio::net::TcpListener;
+use tokio::net::{TcpListener, TcpStream};
 
 pub(super) struct Server {
     pub(super) base: String,
@@ -24,16 +24,7 @@ pub(super) async fn spawn(routes: HashMap<String, serde_json::Value>) -> Server 
     let task = tokio::spawn(async move {
         loop {
             let (mut stream, _) = listener.accept().await.unwrap();
-            let mut bytes = Vec::new();
-            let mut chunk = [0; 1024];
-            while !bytes.windows(4).any(|held| held == b"\r\n\r\n") {
-                let read = stream.read(&mut chunk).await.unwrap();
-                if read == 0 {
-                    break;
-                }
-                bytes.extend_from_slice(&chunk[..read]);
-            }
-            let request = String::from_utf8(bytes).unwrap();
+            let request = head(&mut stream).await;
             let path = request.split_whitespace().nth(1).unwrap_or("").to_string();
             recorded.lock().unwrap().push(request);
             let value = routes.get(&path);
@@ -58,4 +49,17 @@ pub(super) async fn spawn(routes: HashMap<String, serde_json::Value>) -> Server 
         requests,
         task,
     }
+}
+
+async fn head(stream: &mut TcpStream) -> String {
+    let mut bytes = Vec::new();
+    let mut chunk = [0; 1024];
+    while !bytes.windows(4).any(|held| held == b"\r\n\r\n") {
+        let read = stream.read(&mut chunk).await.unwrap();
+        if read == 0 {
+            break;
+        }
+        bytes.extend_from_slice(&chunk[..read]);
+    }
+    String::from_utf8(bytes).unwrap()
 }

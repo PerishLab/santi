@@ -39,9 +39,11 @@ pub async fn provider_preview(
     };
     let preview = overlay::Preview {
         compact,
-        from: preview.report.from,
-        to: preview.report.to,
-        collapsed: preview.report.collapsed,
+        range: render::Range {
+            from: preview.report.from,
+            to: preview.report.to,
+            collapsed: preview.report.collapsed,
+        },
         absorbed: &preview.report.absorbed,
     };
     Timeline { store, strand }.assemble(Some(preview)).await

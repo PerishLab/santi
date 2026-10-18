@@ -8,6 +8,8 @@ use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     net::{TcpListener, TcpStream},
 };
+#[path = "send_watch/redirect.rs"]
+mod redirect;
 #[path = "send_watch/server.rs"]
 mod server;
 use server::{Scenario, invoke, spawn};
@@ -247,29 +249,12 @@ async fn redirect() {
     tokio::spawn(async move {
         loop {
             let (stream, _) = origin.accept().await.expect("accept origin request");
-            let posts = post.clone();
-            let events = event.clone();
-            tokio::spawn(async move {
-                let mut wire = Wire(stream);
-                let (method, path) = wire.read().await.expect("read origin request");
-                if method == "GET" && path == "/api/v1/strands/ss_cli/events" {
-                    events.fetch_add(1, Ordering::SeqCst);
-                    wire.0
-                        .write_all(b"HTTP/1.1 200 OK\r\ncontent-type: text/event-stream\r\n\r\n")
-                        .await
-                        .expect("event headers");
-                    std::future::pending::<()>().await;
-                } else if method == "POST" && path == "/api/v1/strands/ss_cli/send" {
-                    posts.fetch_add(1, Ordering::SeqCst);
-                    let response = format!(
-                        "HTTP/1.1 307 Temporary Redirect\r\nlocation: http://{location}/replayed\r\ncontent-length: 0\r\nconnection: close\r\n\r\n"
-                    );
-                    wire.0
-                        .write_all(response.as_bytes())
-                        .await
-                        .expect("redirect");
-                }
-            });
+            tokio::spawn(redirect::origin(
+                stream,
+                post.clone(),
+                event.clone(),
+                location,
+            ));
         }
     });
     let output = tokio::process::Command::new(env!("CARGO_BIN_EXE_santi"))

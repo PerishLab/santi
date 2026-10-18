@@ -80,7 +80,7 @@ pub fn shelter() -> PathBuf {
 
 pub fn client(over: ClientPartial) -> Result<Client> {
     let file = file()?;
-    Client::resolve_with(file.as_deref(), over)
+    Client::layered(file.as_deref(), over)
         .map_err(|error| anyhow::anyhow!("resolve santi client configuration: {error}"))
 }
 
