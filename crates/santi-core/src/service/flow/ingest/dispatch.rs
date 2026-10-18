@@ -48,129 +48,129 @@ impl Service {
         strand: &'a str,
         drive: Drive<'a>,
     ) -> Pin<Box<dyn Future<Output = drive::Outcome> + Send + 'a>> {
-        Box::pin(async move {
-            if self.closing() {
+        Box::pin(self.steer(strand, drive))
+    }
+
+    async fn steer(&self, strand: &str, drive: Drive<'_>) -> drive::Outcome {
+        if self.closing() {
+            return drive::Outcome::Paused;
+        }
+        let strand = match self.store.strand(strand).await {
+            Ok(Some(strand)) => strand,
+            Ok(None) => {
+                return drive::Outcome::Failed(
+                    self.stumbled(strand, drive, "strand not found".to_string())
+                        .await,
+                );
+            }
+            Err(error) => {
+                return drive::Outcome::Failed(self.stumbled(strand, drive, error).await);
+            }
+        };
+        match self.gate(&strand).await {
+            Ok(Gate::Allow) => {}
+            Ok(Gate::Pause { maintainer }) => {
+                maintain(self, &maintainer).await;
                 return drive::Outcome::Paused;
             }
-            let strand = match self.store.strand(strand).await {
-                Ok(Some(strand)) => strand,
-                Ok(None) => {
-                    return drive::Outcome::Failed(
-                        self.stumbled(strand, drive, "strand not found".to_string())
-                            .await,
-                    );
-                }
-                Err(error) => {
-                    return drive::Outcome::Failed(self.stumbled(strand, drive, error).await);
-                }
-            };
-            match self.gate(&strand).await {
-                Ok(Gate::Allow) => {}
-                Ok(Gate::Pause {
-                    maintenance_strand_id,
-                }) => {
-                    maintain(self, &maintenance_strand_id).await;
-                    return drive::Outcome::Paused;
-                }
-                Err(error) => {
-                    return drive::Outcome::Failed(self.stumbled(&strand.id, drive, error).await);
-                }
+            Err(error) => {
+                return drive::Outcome::Failed(self.stumbled(&strand.id, drive, error).await);
             }
-            let maintenance = match self.pressured(&strand.id).await {
-                Ok(maintenance) => maintenance,
-                Err(error) => {
-                    return drive::Outcome::Failed(self.stumbled(&strand.id, drive, error).await);
-                }
-            };
-            let held = match self
-                .admit_pending(&strand, drive.operation, maintenance)
-                .await
-            {
-                Ok(held) => held,
-                Err(error) => {
-                    return drive::Outcome::Failed(self.stumbled(&strand.id, drive, error).await);
-                }
-            };
-            if let Some(error) = held {
-                return drive::Outcome::Held(error);
+        }
+        let maintenance = match self.pressured(&strand.id).await {
+            Ok(maintenance) => maintenance,
+            Err(error) => {
+                return drive::Outcome::Failed(self.stumbled(&strand.id, drive, error).await);
             }
-            let turn_tag = crate::tag("turn");
-            let trigger = match if maintenance { "system" } else { drive.trigger } {
-                "system" => crate::turn::Trigger::System,
-                _ => crate::turn::Trigger::StrandSend,
-            };
-            let draft = santi_estate::DrainDraft {
-                turn: &turn_tag,
-                strand: &strand.id,
-                trigger,
-                source: None,
-                actor: crate::SYSTEM,
-                created: &crate::now(),
-            };
-            let started = if maintenance {
-                self.store.pause(draft).await
-            } else if drive.operation == "operator_redrive" {
-                self.store.redrive(draft).await
-            } else {
-                self.store.drain_turn(draft).await
-            };
-            self.dispatched().await;
-            match started {
-                Ok(santi_estate::Opening::Refused(refusal)) => {
-                    drive::Outcome::Failed(self.declined(&strand.id, drive, refusal).await)
+        };
+        let held = match self
+            .admit_pending(&strand, drive.operation, maintenance)
+            .await
+        {
+            Ok(held) => held,
+            Err(error) => {
+                return drive::Outcome::Failed(self.stumbled(&strand.id, drive, error).await);
+            }
+        };
+        if let Some(error) = held {
+            return drive::Outcome::Held(error);
+        }
+        let tag = crate::tag("turn");
+        let trigger = match if maintenance { "system" } else { drive.trigger } {
+            "system" => crate::turn::Trigger::System,
+            _ => crate::turn::Trigger::StrandSend,
+        };
+        let draft = santi_estate::DrainDraft {
+            turn: &tag,
+            strand: &strand.id,
+            trigger,
+            source: None,
+            actor: crate::SYSTEM,
+            created: &crate::now(),
+        };
+        let started = if maintenance {
+            self.store.pause(draft).await
+        } else if drive.operation == "operator_redrive" {
+            self.store.redrive(draft).await
+        } else {
+            self.store.drain_turn(draft).await
+        };
+        self.dispatched().await;
+        match started {
+            Ok(santi_estate::Opening::Refused(refusal)) => {
+                drive::Outcome::Failed(self.declined(&strand.id, drive, refusal).await)
+            }
+            Ok(santi_estate::Opening::Started(started)) => {
+                let key = crate::drive::Error::Failed
+                    .descriptor()
+                    .key("strand", &strand.id);
+                let _ = self
+                    .store
+                    .resolve(
+                        &key,
+                        "strand.drive_started",
+                        serde_json::json!({
+                            "schema": "santi.error.strand_drive.resolution.v1",
+                            "turn": started.turn.id,
+                            "drained_count": started.drained.len(),
+                        }),
+                        &crate::now(),
+                    )
+                    .await;
+                self.refreshed().await;
+                let background = self.clone();
+                let strand = strand.id.clone();
+                let turn = started.turn.id.clone();
+                let control = background.register(&turn);
+                if maintenance {
+                    self.press(&turn);
                 }
-                Ok(santi_estate::Opening::Started(started)) => {
-                    let key = crate::drive::Error::Failed
-                        .descriptor()
-                        .key("strand", &strand.id);
-                    let _ = self
-                        .store
-                        .resolve(
-                            &key,
-                            "strand.drive_started",
-                            serde_json::json!({
-                                "schema": "santi.error.strand_drive.resolution.v1",
-                                "turn": started.turn.id,
-                                "drained_count": started.drained.len(),
-                            }),
-                            &crate::now(),
-                        )
-                        .await;
-                    self.refreshed().await;
-                    let background = self.clone();
-                    let strand = strand.id.clone();
-                    let turn = started.turn.id.clone();
-                    let control = background.register(&turn);
-                    if maintenance {
-                        self.press(&turn);
-                    }
-                    for message in started.drained.iter().cloned() {
-                        self.publish(
-                            &strand,
-                            stream::Payload::Message(crate::message::Beat::Created { message }),
-                        );
-                    }
+                for message in started.drained.iter().cloned() {
                     self.publish(
                         &strand,
-                        stream::Payload::Turn(crate::turn::Beat::Started {
-                            turn: started.turn.clone(),
-                        }),
+                        stream::Payload::Message(crate::message::Beat::Created { message }),
                     );
-                    let context = {
-                        let _entered = background.context.enter();
-                        background.context.with(plumb::trace::Span::open("turn"))
-                    };
-                    tokio::spawn(context.carry(async move {
-                        plumb::trace::Span::note("turn", &turn);
-                        plumb::trace::Span::note("strand", &strand);
-                        background.conduct(strand, turn, control).await;
-                    }));
-                    drive::Outcome::Started(started.turn, started.drained)
                 }
-                Ok(santi_estate::Opening::Running(turn)) => drive::Outcome::Running(turn),
-                Ok(santi_estate::Opening::Idle) => drive::Outcome::Idle,
-                Err(error) => drive::Outcome::Failed(self.stumbled(&strand.id, drive, error).await),
+                self.publish(
+                    &strand,
+                    stream::Payload::Turn(crate::turn::Beat::Started {
+                        turn: started.turn.clone(),
+                    }),
+                );
+                let context = {
+                    let _entered = background.context.enter();
+                    background.context.with(plumb::trace::Span::open("turn"))
+                };
+                tokio::spawn(context.carry(async move {
+                    plumb::trace::Span::note("turn", &turn);
+                    plumb::trace::Span::note("strand", &strand);
+                    background.conduct(strand, turn, control).await;
+                }));
+                drive::Outcome::Started(started.turn, started.drained)
             }
-        })
+            Ok(santi_estate::Opening::Running(turn)) => drive::Outcome::Running(turn),
+            Ok(santi_estate::Opening::Idle) => drive::Outcome::Idle,
+            Err(error) => drive::Outcome::Failed(self.stumbled(&strand.id, drive, error).await),
+        }
     }
 }

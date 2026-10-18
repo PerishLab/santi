@@ -19,17 +19,12 @@ impl Service {
     ) -> Pin<Box<dyn Future<Output = ()> + Send + '_>> {
         Box::pin(async move {
             match self.run(&strand, &turn, &control).await {
-                Err(failure) => {
-                    self.bury(&strand, &turn, failure).await;
-                }
+                Err(failure) => self.bury(&strand, &turn, failure).await,
                 Ok(finish) if finish.settled => {}
-                Ok(finish) => {
-                    if let Some(cause) = self.halted(&control) {
-                        self.bury(&strand, &turn, Failure::stopped(cause, "")).await;
-                    } else {
-                        self.land(&strand, &turn, finish).await;
-                    }
-                }
+                Ok(finish) => match self.halted(&control) {
+                    Some(cause) => self.bury(&strand, &turn, Failure::stopped(cause, "")).await,
+                    None => self.land(&strand, &turn, finish).await,
+                },
             }
             self.noticed(&turn).await;
             self.release(&turn);
@@ -45,7 +40,7 @@ impl Service {
         let mut last: Option<message::Placed> = None;
         let mut timing = timing::Turn::new(turn);
         let mut round = 0;
-        macro_rules! provider_try {
+        macro_rules! attempt {
             ($operation:expr, $expr:expr) => {
                 match $expr {
                     Ok(value) => value,
@@ -56,7 +51,7 @@ impl Service {
             };
         }
 
-        let actor = match provider_try!(
+        let actor = match attempt!(
             Operation::Persistence(Persistence::Assistant),
             self.store.strand(strand).await
         ) {
@@ -71,7 +66,7 @@ impl Service {
         };
         let response = loop {
             let next = round + 1;
-            if let Some(error) = provider_try!(
+            if let Some(error) = attempt!(
                 Operation::Admission(Admission::Execution),
                 self.readmit(strand, turn, next).await
             ) {
@@ -82,28 +77,26 @@ impl Service {
                 return Err(Failure::stopped(cause, &prose));
             }
             self.noticed(turn).await;
-            provider_try!(
+            attempt!(
                 Operation::Assembly,
                 self.settling(strand, turn, round).await
             );
             if self.settlement(turn).is_none()
-                && provider_try!(Operation::Assembly, self.pressured(strand).await)
+                && attempt!(Operation::Assembly, self.pressured(strand).await)
             {
                 self.press(turn);
             }
             if self.settlement(turn).is_none() {
-                let brain = provider_try!(Operation::Assembly, self.store.strand(strand).await)
+                let brain = attempt!(Operation::Assembly, self.store.strand(strand).await)
                     .ok_or_else(|| {
                         Failure::runtime(Operation::Assembly, "strand not found".into(), &prose)
                     })?;
-                if let crate::service::flow::memory::Gate::Pause {
-                    maintenance_strand_id,
-                } = provider_try!(
+                if let crate::service::flow::memory::Gate::Pause { maintainer } = attempt!(
                     Operation::Admission(Admission::Context),
                     self.gate(&brain).await
                 ) {
                     let pause = message::Content::text(format!(
-                        "<system_message>\nkind: soul_memory_pause\nturn: {turn}\nmaintenance_strand: {maintenance_strand_id}\nstate: This turn paused because shared memory exceeds its allowance. Recorded history and tool results remain available.\n</system_message>"
+                        "<system_message>\nkind: soul_memory_pause\nturn: {turn}\nmaintenance_strand: {maintainer}\nstate: This turn paused because shared memory exceeds its allowance. Recorded history and tool results remain available.\n</system_message>"
                     ));
                     return Ok(Finish {
                         last,
@@ -113,21 +106,21 @@ impl Service {
                     });
                 }
             }
-            let input = provider_try!(Operation::Assembly, self.assembled(strand, turn).await);
+            let input = attempt!(Operation::Assembly, self.assembled(strand, turn).await);
             let metadata = self.provider.metadata();
             let family = metadata.provider.to_string();
-            let offered = provider_try!(Operation::Assembly, self.offers(strand, Some(turn)).await);
+            let offered = attempt!(Operation::Assembly, self.offers(strand, Some(turn)).await);
             let ceiling = metadata.budget.as_ref().map(|cap| cap.bytes);
             let mut request = Request {
                 model: metadata.model,
-                instructions: Some(provider_try!(Operation::Prompt, self.wording(strand).await)),
+                instructions: Some(attempt!(Operation::Prompt, self.wording(strand).await)),
                 input,
                 tools: Some(offered),
                 previous: None,
             };
             self.suffix(&mut request);
             let estimate = gauged(&request);
-            if let Some(error) = provider_try!(
+            if let Some(error) = attempt!(
                 Operation::Admission(Admission::Context),
                 self.overdrawn(strand, turn, &request, &estimate).await
             ) {
@@ -139,7 +132,7 @@ impl Service {
                 request.input.len(),
                 request.instructions.as_ref().map_or(0, |text| text.len()),
             );
-            let occupied = provider_try!(Operation::Assembly, self.occupied(strand).await);
+            let occupied = attempt!(Operation::Assembly, self.occupied(strand).await);
             self.observed(Observation {
                 budget: ceiling,
                 held: occupied,
@@ -204,7 +197,7 @@ impl Service {
             .await?;
 
             if !speech.is_empty() {
-                last = Some(provider_try!(
+                last = Some(attempt!(
                     Operation::Persistence(Persistence::Assistant),
                     self.store
                         .place(santi_estate::MessageDraft {
@@ -224,7 +217,7 @@ impl Service {
 
             if calls.is_empty() {
                 if self.settlement(turn).is_some() {
-                    let error = provider_try!(
+                    let error = attempt!(
                         Operation::Admission(Admission::Execution),
                         self.incomplete(strand, turn, round).await
                     );
@@ -233,7 +226,7 @@ impl Service {
                 break completed;
             }
 
-            let limits = match provider_try!(
+            let limits = match attempt!(
                 Operation::Admission(Admission::Execution),
                 self.judge(strand, turn, round, calls.len()).await
             ) {
@@ -244,7 +237,7 @@ impl Service {
                     return Err(Failure::execution(*error, &prose));
                 }
             };
-            if provider_try!(Operation::Assembly, self.maintaining(strand, turn).await) {
+            if attempt!(Operation::Assembly, self.maintaining(strand, turn).await) {
                 timing.outputting(round, calls.len());
                 let count = calls.len();
                 self.stirred(strand, turn, turn::Motion::Running, active.clone());
@@ -285,7 +278,7 @@ impl Service {
                 if let Some(cause) = self.halted(control) {
                     return Err(Failure::stopped(cause, &prose));
                 }
-                provider_try!(Operation::Tool, result);
+                attempt!(Operation::Tool, result);
             }
             timing.outputted(round, count);
         };

@@ -5,9 +5,7 @@ use std::collections::HashMap;
 
 pub(super) struct Preview<'a> {
     pub(super) compact: compact::Compact,
-    pub(super) from: i64,
-    pub(super) to: i64,
-    pub(super) collapsed: i64,
+    pub(super) range: Range,
     pub(super) absorbed: &'a [String],
 }
 
@@ -53,16 +51,9 @@ pub(super) async fn build(
     }
     if let Some(preview) = preview {
         overlays.push(Overlay {
-            from: preview.from,
-            to: preview.to,
-            content: condensed(
-                &preview.compact,
-                Range {
-                    from: preview.from,
-                    to: preview.to,
-                    collapsed: preview.collapsed,
-                },
-            ),
+            from: preview.range.from,
+            to: preview.range.to,
+            content: condensed(&preview.compact, preview.range),
         });
     }
     overlays.sort_by(|left, right| {
