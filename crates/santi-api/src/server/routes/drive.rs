@@ -59,15 +59,12 @@ pub async fn drive(
         (status = 500, body = Fault)
     )
 )]
-pub(super) async fn fork(
-    State(service): State<Service>,
-    Path(strand): Path<String>,
-) -> Result<Json<strand::Forked>, ApiError> {
-    service
-        .fork(&strand)
-        .await
-        .map(Json)
-        .map_err(ApiError::from_service)
+pub(super) fn fork() -> MethodRouter<Service> {
+    routing::post(
+        |State(service): State<Service>, Path(strand): Path<String>| async move {
+            Drive(service).fork(strand).await
+        },
+    )
 }
 
 #[utoipa::path(
@@ -83,16 +80,14 @@ pub(super) async fn fork(
         (status = 500, body = Fault)
     )
 )]
-pub(super) async fn exec(
-    State(service): State<Service>,
-    Path(strand): Path<String>,
-    Json(request): Json<compact::Exec>,
-) -> Result<Json<compact::Report>, ApiError> {
-    service
-        .exec(&strand, request)
-        .await
-        .map(Json)
-        .map_err(ApiError::from_service)
+pub(super) fn exec() -> MethodRouter<Service> {
+    routing::post(
+        |State(service): State<Service>,
+         Path(strand): Path<String>,
+         Json(request): Json<compact::Exec>| async move {
+            Drive(service).exec(strand, request).await
+        },
+    )
 }
 
 #[utoipa::path(
@@ -110,22 +105,14 @@ pub(super) async fn exec(
         (status = 500, body = Fault)
     )
 )]
-pub(super) async fn page(
-    State(service): State<Service>,
-    Path(compact): Path<String>,
-    Query(params): Query<CompactQueryParams>,
-) -> Result<Json<compact::Page>, ApiError> {
-    service
-        .page(
-            &compact,
-            params.keyword.as_deref(),
-            params.page_index.unwrap_or(0),
-            params.page_size.unwrap_or(50),
-        )
-        .await
-        .map_err(ApiError::from_service)?
-        .map(Json)
-        .ok_or_else(|| ApiError::not_found("compact not found"))
+pub(super) fn page() -> MethodRouter<Service> {
+    routing::get(
+        |State(service): State<Service>,
+         Path(compact): Path<String>,
+         Query(params): Query<CompactQueryParams>| async move {
+            Drive(service).page(compact, params).await
+        },
+    )
 }
 
 #[derive(serde::Deserialize)]
@@ -145,16 +132,12 @@ pub(super) struct CompactQueryParams {
         (status = 500, body = Fault)
     )
 )]
-pub(super) async fn snapshot(
-    State(service): State<Service>,
-    Path(strand): Path<String>,
-) -> Result<Json<stream::Snapshot>, ApiError> {
-    service
-        .snapshot(&strand)
-        .await
-        .map_err(ApiError::from_service)?
-        .map(Json)
-        .ok_or_else(|| ApiError::not_found("strand not found"))
+pub(super) fn snapshot() -> MethodRouter<Service> {
+    routing::get(
+        |State(service): State<Service>, Path(strand): Path<String>| async move {
+            Drive(service).snapshot(strand).await
+        },
+    )
 }
 
 #[utoipa::path(
@@ -167,16 +150,12 @@ pub(super) async fn snapshot(
         (status = 500, body = Fault)
     )
 )]
-pub(super) async fn execution_tail(
-    State(service): State<Service>,
-    Path(strand): Path<String>,
-) -> Result<Json<stream::ExecutionTail>, ApiError> {
-    service
-        .execution_tail(&strand)
-        .await
-        .map_err(ApiError::from_service)?
-        .map(Json)
-        .ok_or_else(|| ApiError::not_found("strand not found"))
+pub(super) fn execution_tail() -> MethodRouter<Service> {
+    routing::get(
+        |State(service): State<Service>, Path(strand): Path<String>| async move {
+            Drive(service).execution_tail(strand).await
+        },
+    )
 }
 
 #[utoipa::path(
@@ -189,18 +168,86 @@ pub(super) async fn execution_tail(
         (status = 500, body = Fault)
     )
 )]
-pub(super) async fn audit(
-    State(service): State<Service>,
-    Path(strand): Path<String>,
-) -> Result<Json<budget::Snapshot>, ApiError> {
-    service
-        .audit(&strand)
-        .await
-        .map_err(ApiError::from_service)?
-        .map(Json)
-        .ok_or_else(|| ApiError::not_found("strand not found"))
+pub(super) fn audit() -> MethodRouter<Service> {
+    routing::get(
+        |State(service): State<Service>, Path(strand): Path<String>| async move {
+            Drive(service).audit(strand).await
+        },
+    )
 }
 
 pub(super) async fn openapi() -> Json<utoipa::openapi::OpenApi> {
     Json(crate::server::openapi::document())
+}
+
+struct Drive(Service);
+
+impl Drive {
+    async fn fork(&self, strand: String) -> Result<Json<strand::Forked>, ApiError> {
+        self.0
+            .fork(&strand)
+            .await
+            .map(Json)
+            .map_err(ApiError::from_service)
+    }
+
+    async fn exec(
+        &self,
+        strand: String,
+        request: compact::Exec,
+    ) -> Result<Json<compact::Report>, ApiError> {
+        self.0
+            .exec(&strand, request)
+            .await
+            .map(Json)
+            .map_err(ApiError::from_service)
+    }
+
+    async fn page(
+        &self,
+        compact: String,
+        params: CompactQueryParams,
+    ) -> Result<Json<compact::Page>, ApiError> {
+        self.0
+            .page(
+                &compact,
+                params.keyword.as_deref(),
+                params.page_index.unwrap_or(0),
+                params.page_size.unwrap_or(50),
+            )
+            .await
+            .map_err(ApiError::from_service)?
+            .map(Json)
+            .ok_or_else(|| ApiError::not_found("compact not found"))
+    }
+
+    async fn snapshot(&self, strand: String) -> Result<Json<stream::Snapshot>, ApiError> {
+        self.0
+            .snapshot(&strand)
+            .await
+            .map_err(ApiError::from_service)?
+            .map(Json)
+            .ok_or_else(|| ApiError::not_found("strand not found"))
+    }
+
+    async fn execution_tail(
+        &self,
+        strand: String,
+    ) -> Result<Json<stream::ExecutionTail>, ApiError> {
+        self.0
+            .execution_tail(&strand)
+            .await
+            .map_err(ApiError::from_service)?
+            .map(Json)
+            .ok_or_else(|| ApiError::not_found("strand not found"))
+    }
+
+    async fn audit(&self, strand: String) -> Result<Json<budget::Snapshot>, ApiError> {
+        self.0
+            .audit(&strand)
+            .await
+            .map_err(ApiError::from_service)?
+            .map(Json)
+            .ok_or_else(|| ApiError::not_found("strand not found"))
+    }
 }

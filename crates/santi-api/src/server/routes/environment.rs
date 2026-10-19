@@ -11,11 +11,12 @@ use santi_core::environ;
         (status = 500, body = Fault)
     )
 )]
-pub async fn soul_environs(
-    State(service): State<Service>,
-    Path(owner): Path<String>,
-) -> Result<Json<Vec<environ::Variable>>, ApiError> {
-    list(service, environ::Scope::Soul, owner).await
+pub fn soul_environs() -> MethodRouter<Service> {
+    routing::get(
+        |State(service): State<Service>, Path(owner): Path<String>| async move {
+            Environs(service).soul_environs(owner).await
+        },
+    )
 }
 
 #[utoipa::path(
@@ -30,12 +31,14 @@ pub async fn soul_environs(
         (status = 500, body = Fault)
     )
 )]
-pub async fn set_soul_environ(
-    State(service): State<Service>,
-    Path(owner): Path<String>,
-    Json(request): Json<environ::Draft>,
-) -> Result<Json<environ::Variable>, ApiError> {
-    set(service, environ::Scope::Soul, owner, request).await
+pub fn set_soul_environ() -> MethodRouter<Service> {
+    routing::post(
+        |State(service): State<Service>,
+         Path(owner): Path<String>,
+         Json(request): Json<environ::Draft>| async move {
+            Environs(service).set_soul_environ(owner, request).await
+        },
+    )
 }
 
 #[utoipa::path(
@@ -49,11 +52,12 @@ pub async fn set_soul_environ(
         (status = 500, body = Fault)
     )
 )]
-pub async fn end_soul_environ(
-    State(service): State<Service>,
-    Path((owner, name)): Path<(String, String)>,
-) -> Result<StatusCode, ApiError> {
-    end(service, environ::Scope::Soul, owner, name).await
+pub fn end_soul_environ() -> MethodRouter<Service> {
+    routing::delete(
+        |State(service): State<Service>, Path((owner, name)): Path<(String, String)>| async move {
+            Environs(service).end_soul_environ(owner, name).await
+        },
+    )
 }
 
 #[utoipa::path(
@@ -66,11 +70,12 @@ pub async fn end_soul_environ(
         (status = 500, body = Fault)
     )
 )]
-pub async fn strand_environs(
-    State(service): State<Service>,
-    Path(owner): Path<String>,
-) -> Result<Json<Vec<environ::Variable>>, ApiError> {
-    list(service, environ::Scope::Strand, owner).await
+pub fn strand_environs() -> MethodRouter<Service> {
+    routing::get(
+        |State(service): State<Service>, Path(owner): Path<String>| async move {
+            Environs(service).strand_environs(owner).await
+        },
+    )
 }
 
 #[utoipa::path(
@@ -85,12 +90,14 @@ pub async fn strand_environs(
         (status = 500, body = Fault)
     )
 )]
-pub async fn set_strand_environ(
-    State(service): State<Service>,
-    Path(owner): Path<String>,
-    Json(request): Json<environ::Draft>,
-) -> Result<Json<environ::Variable>, ApiError> {
-    set(service, environ::Scope::Strand, owner, request).await
+pub fn set_strand_environ() -> MethodRouter<Service> {
+    routing::post(
+        |State(service): State<Service>,
+         Path(owner): Path<String>,
+         Json(request): Json<environ::Draft>| async move {
+            Environs(service).set_strand_environ(owner, request).await
+        },
+    )
 }
 
 #[utoipa::path(
@@ -104,47 +111,98 @@ pub async fn set_strand_environ(
         (status = 500, body = Fault)
     )
 )]
-pub async fn end_strand_environ(
-    State(service): State<Service>,
-    Path((owner, name)): Path<(String, String)>,
-) -> Result<StatusCode, ApiError> {
-    end(service, environ::Scope::Strand, owner, name).await
+pub fn end_strand_environ() -> MethodRouter<Service> {
+    routing::delete(
+        |State(service): State<Service>, Path((owner, name)): Path<(String, String)>| async move {
+            Environs(service).end_strand_environ(owner, name).await
+        },
+    )
 }
 
-async fn list(
-    service: Service,
-    scope: environ::Scope,
-    owner: String,
-) -> Result<Json<Vec<environ::Variable>>, ApiError> {
-    service
-        .environs(scope, &owner)
-        .await
-        .map(Json)
-        .map_err(ApiError::from_service)
-}
+pub struct Environs(pub Service);
 
-async fn set(
-    service: Service,
-    scope: environ::Scope,
-    owner: String,
-    request: environ::Draft,
-) -> Result<Json<environ::Variable>, ApiError> {
-    service
-        .set_environ(scope, &owner, request)
-        .await
-        .map(Json)
-        .map_err(ApiError::from_service)
-}
+impl Environs {
+    pub async fn soul_environs(
+        &self,
+        owner: String,
+    ) -> Result<Json<Vec<environ::Variable>>, ApiError> {
+        self.list(environ::Scope::Soul, owner).await
+    }
 
-async fn end(
-    service: Service,
-    scope: environ::Scope,
-    owner: String,
-    name: String,
-) -> Result<StatusCode, ApiError> {
-    service
-        .end_environ(scope, &owner, &name)
-        .await
-        .map(|_| StatusCode::NO_CONTENT)
-        .map_err(ApiError::from_service)
+    pub async fn set_soul_environ(
+        &self,
+        owner: String,
+        request: environ::Draft,
+    ) -> Result<Json<environ::Variable>, ApiError> {
+        self.set(environ::Scope::Soul, owner, request).await
+    }
+
+    pub async fn end_soul_environ(
+        &self,
+        owner: String,
+        name: String,
+    ) -> Result<StatusCode, ApiError> {
+        self.end(environ::Scope::Soul, owner, name).await
+    }
+
+    pub async fn strand_environs(
+        &self,
+        owner: String,
+    ) -> Result<Json<Vec<environ::Variable>>, ApiError> {
+        self.list(environ::Scope::Strand, owner).await
+    }
+
+    pub async fn set_strand_environ(
+        &self,
+        owner: String,
+        request: environ::Draft,
+    ) -> Result<Json<environ::Variable>, ApiError> {
+        self.set(environ::Scope::Strand, owner, request).await
+    }
+
+    pub async fn end_strand_environ(
+        &self,
+        owner: String,
+        name: String,
+    ) -> Result<StatusCode, ApiError> {
+        self.end(environ::Scope::Strand, owner, name).await
+    }
+
+    async fn list(
+        &self,
+        scope: environ::Scope,
+        owner: String,
+    ) -> Result<Json<Vec<environ::Variable>>, ApiError> {
+        self.0
+            .environs(scope, &owner)
+            .await
+            .map(Json)
+            .map_err(ApiError::from_service)
+    }
+
+    async fn set(
+        &self,
+        scope: environ::Scope,
+        owner: String,
+        request: environ::Draft,
+    ) -> Result<Json<environ::Variable>, ApiError> {
+        self.0
+            .set_environ(scope, &owner, request)
+            .await
+            .map(Json)
+            .map_err(ApiError::from_service)
+    }
+
+    async fn end(
+        &self,
+        scope: environ::Scope,
+        owner: String,
+        name: String,
+    ) -> Result<StatusCode, ApiError> {
+        self.0
+            .end_environ(scope, &owner, &name)
+            .await
+            .map(|_| StatusCode::NO_CONTENT)
+            .map_err(ApiError::from_service)
+    }
 }
