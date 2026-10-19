@@ -28,12 +28,27 @@ pub struct JobDraft<'a> {
 }
 
 pub struct TransitionDraft<'a> {
+    pub base: Option<&'a job::State>,
     pub state: job::State,
     pub reason: Option<&'a str>,
     pub exit_code: Option<i32>,
     pub occurred: &'a str,
     pub started_millis: Option<i64>,
     pub next_reminder: Option<&'a str>,
+}
+
+impl<'a> TransitionDraft<'a> {
+    pub fn new(state: job::State, occurred: &'a str) -> Self {
+        Self {
+            base: None,
+            state,
+            reason: None,
+            exit_code: None,
+            occurred,
+            started_millis: None,
+            next_reminder: None,
+        }
+    }
 }
 
 #[derive(Clone, Copy)]

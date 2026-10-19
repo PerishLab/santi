@@ -1,7 +1,4 @@
-use std::{
-    sync::{Arc, Mutex},
-    time::{SystemTime, UNIX_EPOCH},
-};
+use std::sync::{Arc, Mutex};
 
 use axum::http::HeaderMap;
 use santi_api::{CreateJobRequest, create_job_handler, get_job_handler};
@@ -9,10 +6,11 @@ use santi_core::{
     job,
     service::{self, JobLaunch, JobObservation, JobSupervisor, Service},
 };
-use santi_estate::{CallDraft, CapabilityDraft, EffectDraft, TurnDraft};
-use sha2::{Digest, Sha256};
 
 use super::*;
+
+mod fixture;
+mod race;
 
 struct FakeSupervisor {
     launches: Mutex<usize>,
@@ -67,88 +65,19 @@ async fn boots() {
 
 async fn exercise(cwd: Option<&str>, native: bool) {
     let temp = tempfile::tempdir().expect("temp dir");
-    let database = temp.path().join("santi.sqlite");
-    super::support::bootstrap(&database).await;
     let supervisor = Arc::new(FakeSupervisor {
         launches: Mutex::new(0),
     });
-    let service = Service::supervised(
-        service::Config {
-            database: database.display().to_string(),
-            runtime: temp.path().join("runtime").display().to_string(),
-            execution: temp.path().join("execution").display().to_string(),
-            bind: Some("127.0.0.1:0".to_string()),
-            constitution: None,
-            environment: Default::default(),
-        },
-        Arc::new(DriverProvider),
-        if native {
-            Arc::new(santi_api::jobs::Native::new(
-                std::env::var("SANTI_NATIVE_TEST_EXECUTABLE")
-                    .expect("explicit built santi-api executable"),
-            )) as Arc<dyn JobSupervisor>
-        } else {
-            supervisor.clone()
-        },
-    )
-    .await
-    .expect("open service");
-    let strand = service.weave().await.expect("create strand").strand;
-    let capability = "jobcap_http_probe";
-    let digest = format!("{:x}", Sha256::digest(capability.as_bytes()));
-    let expiry = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .expect("clock")
-        .as_millis() as i64
-        + 60_000;
-    let store = santi_core::Store::open(&database)
-        .await
-        .expect("open estate");
-    store
-        .create_turn(TurnDraft {
-            tag: "turn_http",
-            strand: &strand.id,
-            trigger: santi_core::turn::Trigger::System,
-            source: None,
-            from: 0,
-            created: &santi_core::now(),
-        })
-        .await
-        .expect("turn");
-    store
-        .create_call(CallDraft {
-            tag: "call_http",
-            turn: "turn_http",
-            tool: "shell",
-            arguments: &serde_json::json!({"command": "printf ok"}),
-            created: &santi_core::now(),
-        })
-        .await
-        .expect("call");
-    store
-        .prepare_effect(EffectDraft {
-            tag: "effect_http",
-            turn: "turn_http",
-            call: Some("call_http"),
-            kind: "shell",
-            metadata: None,
-            created: &santi_core::now(),
-        })
-        .await
-        .expect("effect");
-    store
-        .create_capability(CapabilityDraft {
-            digest: &digest,
-            expires: expiry,
-            soul: &strand.soul,
-            strand: &strand.id,
-            turn: "turn_http",
-            call: "call_http",
-            effect: "effect_http",
-            created: &santi_core::now(),
-        })
-        .await
-        .expect("seed capability");
+    let endpoint: Arc<dyn JobSupervisor> = if native {
+        Arc::new(santi_api::jobs::Native::new(
+            std::env::var("SANTI_NATIVE_TEST_EXECUTABLE")
+                .expect("explicit built santi-api executable"),
+        ))
+    } else {
+        supervisor.clone()
+    };
+    let (service, strand, store) = fixture::prepare(&temp, endpoint).await;
+    let capability = fixture::CAPABILITY;
     let mut headers = HeaderMap::new();
     headers.insert(
         "x-santi-job-capability",
