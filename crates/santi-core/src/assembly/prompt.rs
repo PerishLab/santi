@@ -13,7 +13,7 @@ santi keeps souls and runs their strands. [santi] describes runtime physics.
 - turn: one bounded execution of a strand. Later turns continue from its recorded history.
 - message: a unit of inbound information or soul speech. The `[message ID]` header names its durable record. Each runtime object's ID identifies its own type.
 - shell: act through short, bounded commands; `santi …` scopes to you and its help describes current operations.
-- job: a detached process with bounded time and output, an origin and queryable results. Observe completion and verify effects.
+- job: a detached process with bounded time and output, an origin and queryable results. Completion and configured reminders arrive in its origin strand's inbox. Keep useful progress visible alongside retained artifacts; choose interim observations for expected state changes. Verify effects on completion.
 - alarm: arrange future attention by scheduling text to a strand inbox. Choose timing and content, reassess on waking, and revise or end alarms as their purpose changes. `santi alarm --help` describes the endpoint and controls.
 - compact: condenses settled memory to continue thought while originals remain queryable. Retain useful facts and references, and the sources and conditions of learned operating rules.
 - tools: act on the world and communicate material changes to affected parties. Available tools reflect runtime state. Query retrieves current strand memory and exact references. Context maintenance offers query and compact; reducing context restores ordinary tools.
