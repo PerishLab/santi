@@ -238,20 +238,36 @@ pub(super) fn print_watch_line(stdout: &mut impl std::io::Write, event: &str, da
 async fn refuse(mut response: reqwest::Response) -> Result<()> {
     const LIMIT: usize = 4096;
     const CWD: &str = "job cwd must be a workspace URI: use soul://, soul://<path>, strand://, or strand://<path> with no parent traversal; omit cwd to use the runtime execution directory (not the creating shell cwd)";
+    const CONFLICT: &str = "job capability conflicts with its accepted request";
     let status = response.status();
-    if status == reqwest::StatusCode::BAD_REQUEST {
-        let mut body = Vec::new();
-        while let Ok(Some(chunk)) = response.chunk().await {
-            if chunk.len() > LIMIT - body.len() {
-                break;
-            }
-            body.extend_from_slice(&chunk);
+    if !matches!(
+        status,
+        reqwest::StatusCode::BAD_REQUEST | reqwest::StatusCode::CONFLICT
+    ) {
+        anyhow::bail!("job creation failed with status {status}");
+    }
+    let mut body = Vec::new();
+    while let Ok(Some(chunk)) = response.chunk().await {
+        if chunk.len() > LIMIT - body.len() {
+            break;
         }
-        if let Ok(value) = serde_json::from_slice::<serde_json::Value>(&body)
-            && value.get("message").and_then(serde_json::Value::as_str) == Some(CWD)
-        {
+        body.extend_from_slice(&chunk);
+    }
+    let value =
+        serde_json::from_slice::<serde_json::Value>(&body).unwrap_or(serde_json::Value::Null);
+    match (
+        status,
+        value.get("message").and_then(serde_json::Value::as_str),
+    ) {
+        (reqwest::StatusCode::BAD_REQUEST, Some(CWD)) => {
             anyhow::bail!("job creation refused with status {status}: {CWD}");
         }
+        (reqwest::StatusCode::CONFLICT, Some(CONFLICT)) => {
+            anyhow::bail!(
+                "job creation refused with status {status}: {CONFLICT}. Each shell tool call can create one distinct Job; use a new shell tool call for another Job. Identical request retries reuse the original Job."
+            );
+        }
+        _ => {}
     }
     anyhow::bail!("job creation failed with status {status}")
 }

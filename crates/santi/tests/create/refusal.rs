@@ -53,6 +53,14 @@ async fn refusal() {
             "500 Internal Server Error",
             r#"{"message":"secret-internal"}"#.to_string(),
         ),
+        (
+            "409 Conflict",
+            r#"{"message":"secret-conflict"}"#.to_string(),
+        ),
+        (
+            "409 Conflict",
+            format!("{}secret-oversize", " ".repeat(4097)),
+        ),
     ] {
         let server = serve(status, &body).await;
         let output = tokio::time::timeout(
@@ -93,4 +101,31 @@ async fn refusal() {
     }
     assert!(text.contains("runtime execution directory"));
     assert!(text.contains("not the creating shell cwd"));
+    assert!(text.contains("one distinct Job"));
+}
+
+#[tokio::test]
+async fn conflict() {
+    let server = serve(
+        "409 Conflict",
+        r#"{"message":"job capability conflicts with its accepted request","detail":"secret-detail"}"#,
+    )
+    .await;
+    let output = tokio::time::timeout(
+        std::time::Duration::from_secs(10),
+        tokio::process::Command::new(env!("CARGO_BIN_EXE_santi"))
+            .args(["--base-url", &server.base, "job", "create", "test", "true"])
+            .env("SANTI_JOB_CREATE_CAPABILITY", "secret-capability")
+            .output(),
+    )
+    .await
+    .expect("bounded conflict")
+    .expect("run create");
+    assert!(!output.status.success());
+    let text = String::from_utf8_lossy(&output.stderr);
+    assert!(text.contains("409 Conflict"));
+    assert!(text.contains("job capability conflicts with its accepted request"));
+    assert!(text.contains("new shell tool call"));
+    assert!(!text.contains("secret"));
+    assert!(output.stdout.is_empty());
 }
