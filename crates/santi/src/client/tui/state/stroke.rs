@@ -145,18 +145,21 @@ impl State {
     }
 
     fn entered(&mut self) -> Step {
-        if self.typed == "/exit" {
-            self.take();
-            return Step::Leave;
-        }
-        if self.typed == "/reload" {
-            self.take();
-            return self.reload();
-        }
-        if self.typed == "/status" {
-            self.take();
-            self.context = "context: refreshing".to_string();
-            return Step::Refresh;
+        match self.typed.as_str() {
+            "/exit" => {
+                self.take();
+                return Step::Leave;
+            }
+            "/reload" => {
+                self.take();
+                return self.reload();
+            }
+            "/status" => {
+                self.take();
+                self.context = "context: refreshing".to_string();
+                return Step::Refresh;
+            }
+            _ => {}
         }
         if let Some(rest) = self.typed.strip_prefix("/strand") {
             let want = rest.trim().to_string();
