@@ -91,6 +91,11 @@ impl<'a> Projection<'a> {
         let soul = read::related(&self.0.core, "Soul", read::int(&strand, "soul")?).await?;
         let strand_tag = read::text(&strand, "tag")?.to_string();
         Ok(JobRecord {
+            environment: row
+                .text("environment")
+                .map(serde_json::from_str)
+                .transpose()
+                .map_err(|_| "invalid job environment snapshot".to_string())?,
             job: job::Job {
                 id: read::text(row, "tag")?.to_string(),
                 origin: job::Origin {

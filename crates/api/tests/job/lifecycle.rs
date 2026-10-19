@@ -24,7 +24,11 @@ async fn vertical() {
             execution: temp.path().join("execution").display().to_string(),
             bind: Some("127.0.0.1:0".to_string()),
             constitution: None,
-            environment: Default::default(),
+            environment: std::collections::BTreeMap::from([
+                ("JOB_SCOPE_PROBE".to_string(), "global".to_string()),
+                ("JOB_GLOBAL_PROBE".to_string(), "global".to_string()),
+                ("JOB_REFERENCE_PROBE".to_string(), "env://HOME".to_string()),
+            ]),
         },
         Arc::new(Silent),
         Arc::new(supervisor),
@@ -32,6 +36,39 @@ async fn vertical() {
     .await
     .expect("open service");
     let strand = service.weave().await.expect("create strand").strand;
+    service
+        .set_environ(
+            santi_core::environ::Scope::Soul,
+            &strand.soul,
+            santi_core::environ::Draft {
+                name: "JOB_SCOPE_PROBE".to_string(),
+                value: "soul".to_string(),
+            },
+        )
+        .await
+        .expect("soul declaration");
+    service
+        .set_environ(
+            santi_core::environ::Scope::Soul,
+            &strand.soul,
+            santi_core::environ::Draft {
+                name: "JOB_SOUL_PROBE".to_string(),
+                value: "soul".to_string(),
+            },
+        )
+        .await
+        .expect("soul-only declaration");
+    service
+        .set_environ(
+            santi_core::environ::Scope::Strand,
+            &strand.id,
+            santi_core::environ::Draft {
+                name: "JOB_SCOPE_PROBE".to_string(),
+                value: "strand".to_string(),
+            },
+        )
+        .await
+        .expect("strand declaration");
     let capability = "jobcap_vertical_probe";
     seed(&database, capability, &strand.soul, &strand.id).await;
 
@@ -49,6 +86,32 @@ async fn vertical() {
         )
         .await
         .expect("accept job");
+    service
+        .set_environ(
+            santi_core::environ::Scope::Strand,
+            &strand.id,
+            santi_core::environ::Draft {
+                name: "JOB_SCOPE_PROBE".to_string(),
+                value: "changed".to_string(),
+            },
+        )
+        .await
+        .expect("later declaration");
+    let replayed = service
+        .spawn(
+            capability,
+            JobDraft {
+                description: "vertical slice probe".to_string(),
+                command: vertical_command().to_string(),
+                cwd: None,
+                timeout: Some(30),
+                output: Some(4096),
+                remind: None,
+            },
+        )
+        .await
+        .expect("retry acceptance");
+    assert_eq!(accepted.job.id, replayed.job.id);
     let stamp = stamp(&database, &accepted.job.id).await;
     let guard = Unit {
         #[cfg(unix)]
@@ -198,12 +261,12 @@ async fn restarts() {
 
 #[cfg(unix)]
 fn vertical_command() -> &'static str {
-    "printf 'vertical-ok\\n'"
+    r#"test "$JOB_SCOPE_PROBE" = strand && test "$JOB_GLOBAL_PROBE" = global && test "$JOB_SOUL_PROBE" = soul && test "$JOB_REFERENCE_PROBE" = "$HOME" && test -n "$SANTI_JOB_ID" && test -z "${SANTI_JOB_CREATE_CAPABILITY-}" && printf 'vertical-ok\n'"#
 }
 
 #[cfg(target_os = "windows")]
 fn vertical_command() -> &'static str {
-    r#"Write-Output "vertical-ok""#
+    r#"if ($env:JOB_SCOPE_PROBE -ne 'strand' -or $env:JOB_GLOBAL_PROBE -ne 'global' -or $env:JOB_SOUL_PROBE -ne 'soul' -or $env:JOB_REFERENCE_PROBE -ne $env:HOME -or !$env:SANTI_JOB_ID -or $env:SANTI_JOB_CREATE_CAPABILITY) { exit 9 }; Write-Output "vertical-ok""#
 }
 
 #[cfg(unix)]

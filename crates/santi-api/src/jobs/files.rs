@@ -51,7 +51,14 @@ impl Directory<'_> {
 
     pub fn spec(&self) -> Result<Spec, String> {
         let bytes = fs::read(self.0.join(SPEC)).map_err(|error| error.to_string())?;
-        serde_json::from_slice(&bytes).map_err(|error| error.to_string())
+        serde_json::from_slice(&bytes).map_err(|error| {
+            format!(
+                "invalid job spec.json ({:?}) at line {} column {}",
+                error.classify(),
+                error.line(),
+                error.column()
+            )
+        })
     }
 
     pub fn state(&self) -> Result<Option<Snapshot>, String> {

@@ -1,4 +1,15 @@
 use santi_model::job;
+use std::collections::BTreeMap;
+
+#[derive(Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(transparent)]
+pub struct Environment(pub BTreeMap<String, String>);
+
+impl std::fmt::Debug for Environment {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str("Environment(<private>)")
+    }
+}
 
 #[derive(Clone, Copy)]
 pub struct CapabilityDraft<'a> {
@@ -14,6 +25,7 @@ pub struct CapabilityDraft<'a> {
 
 #[derive(Clone, Copy)]
 pub struct JobDraft<'a> {
+    pub environment: Option<&'a Environment>,
     pub tag: &'a str,
     pub description: &'a str,
     pub command: &'a str,
@@ -65,6 +77,7 @@ pub struct AttentionDraft<'a> {
 
 #[derive(Debug, Clone)]
 pub struct JobRecord {
+    pub environment: Option<Environment>,
     pub job: job::Job,
     pub generation: String,
     pub supervisor: String,

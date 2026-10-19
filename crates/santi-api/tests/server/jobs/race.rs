@@ -70,6 +70,7 @@ async fn prepare(store: &santi_core::Store) {
                 tag: "job_race",
                 description: "stale observer",
                 command: "true",
+                environment: None,
                 cwd: None,
                 timeout_seconds: 30,
                 output_limit_bytes: 4096,
