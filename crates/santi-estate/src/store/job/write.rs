@@ -126,6 +126,12 @@ impl<'a, 'tx> Writer<'a, 'tx> {
         draft: TransitionDraft<'_>,
     ) -> Result<(), keel::adapt::Error> {
         let job = self.relation("Job", tag).await?;
+        if draft
+            .base
+            .is_some_and(|base| job.text("state") != Some(state(base)))
+        {
+            return Ok(());
+        }
         let mut fields = vec![("state", state(&draft.state)), ("updated", draft.occurred)];
         if let Some(reason) = draft.reason {
             fields.push(("reason", reason));

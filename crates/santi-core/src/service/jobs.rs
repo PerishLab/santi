@@ -6,6 +6,7 @@ use crate::job;
 mod attention;
 mod control;
 mod draft;
+mod handoff;
 mod logs;
 mod paths;
 mod retention;

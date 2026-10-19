@@ -1,6 +1,7 @@
 use sha2::{Digest, Sha256};
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use super::handoff::Handoff;
 use super::*;
 use santi_estate::{JobRecord, Prepared};
 
@@ -56,6 +57,7 @@ impl Service {
         let generation = crate::tag("stamp");
         let supervisor = crate::tag("sidecar");
         let now = crate::now();
+        let preparing = Handoff::new(&self.handoffs, &generation);
         let prepared = self
             .store
             .prepare_job(
@@ -79,6 +81,8 @@ impl Service {
         let record = match prepared {
             Prepared::New(record) | Prepared::Existing(record) => record,
         };
+        let _handoff = Handoff::new(&self.handoffs, &record.generation);
+        drop(preparing);
         if record.job.state == job::State::Submitting {
             self.detach(&record)?;
         }
@@ -138,12 +142,8 @@ impl Service {
             .transition_job(
                 id,
                 santi_estate::TransitionDraft {
-                    state: job::State::Cancelling,
                     reason: Some("cancel_requested"),
-                    exit_code: None,
-                    occurred: &crate::now(),
-                    started_millis: None,
-                    next_reminder: None,
+                    ..santi_estate::TransitionDraft::new(job::State::Cancelling, &crate::now())
                 },
             )
             .await?;
@@ -196,6 +196,14 @@ impl Service {
         if record.job.acknowledged.is_some() {
             return Ok(record);
         }
+        if self
+            .handoffs
+            .lock()
+            .unwrap()
+            .contains_key(&record.generation)
+        {
+            return Ok(record);
+        }
         let observation = self.supervisor.observe(&self.launch(&record)?)?;
         let claimed = matches!(
             &observation,
@@ -218,15 +226,9 @@ impl Service {
                 None,
             )),
             Observation::Missing if record.job.state.terminal() => None,
-            Observation::Missing
-                if record.job.state == job::State::Submitting
-                    && self.handoffs.lock().unwrap().contains(&record.generation) =>
-            {
-                None
-            }
             Observation::Missing if record.job.state == job::State::Submitting => Some((
-                job::State::Failed,
-                Some("submission_aborted".to_string()),
+                job::State::Unknown,
+                Some("submission_unknown".to_string()),
                 None,
             )),
             Observation::Missing => Some((
@@ -258,27 +260,19 @@ impl Service {
             .transition_job(
                 &record.job.id,
                 santi_estate::TransitionDraft {
-                    state,
+                    base: Some(&record.job.state),
                     reason: reason.as_deref(),
                     exit_code: exit,
-                    occurred: &crate::now(),
                     started_millis: incomplete.then(epoch).transpose()?,
-                    next_reminder: None,
+                    ..santi_estate::TransitionDraft::new(state, &crate::now())
                 },
             )
             .await
     }
 
     fn detach(&self, record: &JobRecord) -> Result<(), String> {
-        self.handoffs
-            .lock()
-            .unwrap()
-            .insert(record.generation.clone());
-        let result = self
-            .launch(record)
-            .and_then(|launch| self.supervisor.detach(&launch));
-        self.handoffs.lock().unwrap().remove(&record.generation);
-        result
+        self.launch(record)
+            .and_then(|launch| self.supervisor.detach(&launch))
     }
 }
 

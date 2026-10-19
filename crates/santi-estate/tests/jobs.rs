@@ -130,12 +130,9 @@ async fn lifecycle() {
         .transition_job(
             "job_test",
             TransitionDraft {
-                state: job::State::Running,
-                reason: None,
-                exit_code: None,
-                occurred: LATER,
                 started_millis: Some(700),
                 next_reminder: Some(FINISHED),
+                ..TransitionDraft::new(job::State::Running, LATER)
             },
         )
         .await
@@ -229,12 +226,9 @@ async fn lifecycle() {
         .transition_job(
             "job_test",
             TransitionDraft {
-                state: job::State::Succeeded,
                 reason: Some("completed"),
                 exit_code: Some(0),
-                occurred: FINISHED,
-                started_millis: None,
-                next_reminder: None,
+                ..TransitionDraft::new(job::State::Succeeded, FINISHED)
             },
         )
         .await

@@ -16,7 +16,7 @@ mod traces;
 
 use santi_provider::Provider;
 use std::{
-    collections::{BTreeMap, HashMap, HashSet},
+    collections::{BTreeMap, HashMap},
     sync::{
         Arc, Mutex,
         atomic::{AtomicBool, Ordering},
@@ -56,7 +56,7 @@ pub struct Service {
     deadline: Arc<Mutex<Option<Instant>>>,
     degraded: Arc<AtomicBool>,
     supervisor: Arc<dyn jobs::Supervisor>,
-    handoffs: Arc<Mutex<HashSet<String>>>,
+    handoffs: Arc<Mutex<HashMap<String, usize>>>,
     retention: Duration,
     alarms: Arc<alarms::Lifecycle>,
     pub(crate) capability: Option<Arc<crate::capability::Issuer>>,
@@ -135,7 +135,7 @@ impl Service {
             deadline: Arc::new(Mutex::new(None)),
             degraded: Arc::new(AtomicBool::new(degraded)),
             supervisor,
-            handoffs: Arc::new(Mutex::new(HashSet::new())),
+            handoffs: Arc::new(Mutex::new(HashMap::new())),
             retention: Duration::from_secs(RETENTION),
             alarms: Arc::new(alarms::Lifecycle::new(Arc::new(alarms::Unavailable))),
             capability: None,
