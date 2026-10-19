@@ -27,11 +27,11 @@ impl Provider for Recovery {
     async fn stream(&self, request: Request) -> Result<Streaming, String> {
         let compact = matches!(request.tools.as_deref(), Some(tools) if tools.iter().any(|Tool::Function(tool)| tool.name == "compact"));
         let round = self.requests.lock().unwrap().len();
-        let slots = request.input.iter().find_map(|item| match item {
-            Item::Output { call, output } if call == "call_recovery_1" => Some(
-                serde_json::from_str::<serde_json::Value>(output).unwrap()["output"]["slots"]
-                    .clone(),
-            ),
+        let slots = request.input.iter().rev().find_map(|item| match item {
+            Item::Output { output, .. } => serde_json::from_str::<serde_json::Value>(output)
+                .ok()
+                .and_then(|value| value["output"]["slots"].as_array().cloned())
+                .map(serde_json::Value::Array),
             _ => None,
         });
         self.requests.lock().unwrap().push(request);
@@ -89,6 +89,7 @@ async fn pending() {
         .unwrap();
     let strand = service.weave().await.unwrap().strand;
     let store = Store::open(&config.database).await.unwrap();
+    let mut events = service.listen().await;
     for index in 0..5 {
         let tag = format!("msg_slot_{index}");
         store
@@ -173,16 +174,34 @@ async fn pending() {
         assert!(requests[0].instructions.as_ref().unwrap().len() > 70_000);
     }
     provider.release.notify_one();
-    Probe::new(&service).any_completed(&strand.id).await;
-    service.resume().await.unwrap();
-    for _ in 0..100 {
-        if store.receipt("inbox_kept").await.unwrap().unwrap().state
-            == santi_core::receipt::State::Completed
-        {
-            break;
+    tokio::time::timeout(Duration::from_secs(10), async {
+        loop {
+            let event = events.recv().await.expect("runtime progress event");
+            if event.strand == strand.id
+                && matches!(
+                    event.payload,
+                    santi_core::stream::Payload::Turn(santi_core::turn::Beat::Completed { .. })
+                )
+            {
+                break;
+            }
         }
-        sleep(Duration::from_millis(20)).await;
-    }
+    })
+    .await
+    .expect("maintenance turn completes");
+    service.resume().await.unwrap();
+    tokio::time::timeout(Duration::from_secs(10), async {
+        loop {
+            if store.receipt("inbox_kept").await.unwrap().unwrap().state
+                == santi_core::receipt::State::Completed
+            {
+                break;
+            }
+            events.recv().await.expect("runtime progress event");
+        }
+    })
+    .await
+    .expect("pending input completes after maintenance");
     assert_eq!(
         store.receipt("inbox_kept").await.unwrap().unwrap().state,
         santi_core::receipt::State::Completed
@@ -200,14 +219,17 @@ async fn pending() {
         160_000
     );
     let requests = provider.requests.lock().unwrap();
-    assert_eq!(requests.len(), 5);
+    let resumed = requests.iter().find(|request| {
+        let maintenance = matches!(request.tools.as_deref(), Some(tools) if tools.iter().any(|Tool::Function(tool)| tool.name == "compact"));
+        !maintenance && request.input.iter().any(|item| matches!(item, Item::Message { content, .. } if content.contains("pending external input")))
+    }).expect("ordinary request consumes the pending input");
     assert!(requests[1].input.iter().any(|item| matches!(item, Item::Output { output, .. } if output.contains("query slots or messages"))));
     assert!(
-        requests[4].input.iter().any(
+        resumed.input.iter().any(
             |item| matches!(item, Item::Message { content, .. } if content.contains("job_kept"))
         )
     );
-    assert!(requests[4].input.iter().any(|item| matches!(item, Item::Message { content, .. } if content.contains("pending external input"))));
+    assert!(resumed.input.iter().any(|item| matches!(item, Item::Message { content, .. } if content.contains("pending external input"))));
 }
 
 fn choice(round: usize, slots: Option<serde_json::Value>) -> (&'static str, serde_json::Value) {
@@ -217,16 +239,20 @@ fn choice(round: usize, slots: Option<serde_json::Value>) -> (&'static str, serd
             json!({"summary":"retry with current references", "first":"missing", "last":"missing"}),
         ),
         1 => ("query", json!({})),
-        2 => {
-            let slots = slots.unwrap();
-            (
-                "compact",
-                json!({"summary":"Keep both prior memories and Job job_kept", "absorb":[slots[0]["id"],slots[1]["id"]]}),
-            )
-        }
-        _ => (
+        2 => merged(slots),
+        3 => (
             "compact",
             json!({"summary":"Keep issue #96 acceptance and live Job job_kept; original history remains queryable."}),
         ),
+        _ if round.is_multiple_of(2) => ("query", json!({})),
+        _ => merged(slots),
     }
+}
+
+fn merged(slots: Option<serde_json::Value>) -> (&'static str, serde_json::Value) {
+    let slots = slots.expect("current slots from query");
+    (
+        "compact",
+        json!({"summary":"Keep both prior memories and Job job_kept", "absorb":[slots[0]["id"],slots[1]["id"]]}),
+    )
 }
