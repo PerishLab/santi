@@ -47,7 +47,7 @@ pub struct Cli {
     pub strand: Option<String>,
 
     #[arg(
-        help = "Default soul addressed by `strand create`, `strand send`, and soul-owned job or wake commands. Falls back to SANTI_SOUL_ID, the session context Santi sets for its jobs and resumes. Empty/absent → strand create/send use the runtime default; job and wake reads or controls require one",
+        help = "Default soul addressed by `strand create`, `strand send`, and soul-owned job or alarm commands. Falls back to SANTI_SOUL_ID, the session context Santi sets for its jobs and resumes. Empty/absent → strand create/send use the runtime default; job and alarm reads or controls require one",
         long,
         global = true,
         env = "SANTI_SOUL_ID"
@@ -101,9 +101,9 @@ pub enum Command {
     Job(Job),
     #[command(
         subcommand,
-        about = "Inspect or control one soul's autonomous wake lease"
+        about = "Arrange future text inputs through the runtime's local cron endpoint"
     )]
-    Wake(wake::Wake),
+    Alarm(alarm::Alarm),
     #[command(about = "Turn controls under /api/v1/turns")]
     #[command(subcommand)]
     Turn(Turn),
@@ -264,11 +264,11 @@ pub fn split_send_args(
     }
 }
 
+pub mod alarm;
 mod compact;
 mod defaults;
 mod job;
 mod strand;
-pub mod wake;
 pub use compact::*;
 pub use defaults::*;
 pub use job::*;

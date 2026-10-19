@@ -1,7 +1,7 @@
+#[path = "service/alarms.rs"]
+mod alarms;
 #[path = "service/basic.rs"]
 mod basic;
-#[path = "service/clock/mod.rs"]
-mod clock;
 #[path = "service/compact.rs"]
 mod compact;
 #[path = "service/context.rs"]
@@ -14,8 +14,6 @@ mod execution;
 mod intake;
 #[path = "service/objects.rs"]
 mod objects;
-#[path = "service/wake.rs"]
-mod wake;
 
 #[path = "service/support/mod.rs"]
 mod support;

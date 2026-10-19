@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
+pub mod alarm;
 pub mod budget;
 mod codec;
 mod edge;

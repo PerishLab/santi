@@ -1,5 +1,6 @@
 use keel::Graph;
 
+mod alarm;
 mod edge;
 mod history;
 mod inbox;
@@ -48,5 +49,6 @@ pub(super) fn graph() -> Graph {
         .plug::<ops::error::ErrorTransition>()
         .plug::<ops::error::ErrorAcknowledgement>();
     graph.plug::<wake::WakeLease>();
+    graph.plug::<alarm::Alarm>().plug::<alarm::AlarmDelivery>();
     graph
 }

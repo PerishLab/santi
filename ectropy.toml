@@ -40,6 +40,16 @@ include = ["crates/**/*.rs"]
 
 [vocabulary]
 term = [
+  { name = "AlarmDelivery", description = "Immutable accepted Alarm occurrence and receipt evidence." },
+  { name = "set_alarm", description = "Set one named Alarm declaration through Keel." },
+  { name = "end_alarm", description = "End an Alarm and reconcile its platform projection." },
+  { name = "fire_alarm", description = "Accept one Alarm occurrence into its declared inbox." },
+  { name = "accept_alarm", description = "Atomically retain an Alarm occurrence and inbox receipt." },
+  { name = "reconcile_alarms", description = "Recover the declared Alarm platform projection." },
+  { name = "apply_alarms", description = "Converge the endpoint from authoritative Alarm declarations." },
+  { name = "project_alarms", description = "Apply the complete declared Alarm endpoint projection." },
+  { name = "alarm_row", description = "Project a Keel Alarm row into its public observation." },
+
   { name = "PageUp", description = "The terminal key name is one established atom." },
   { name = "PageDown", description = "The terminal key name is one established atom." },
   { name = "ScrollUp", description = "The terminal mouse wheel event is one established atom." },

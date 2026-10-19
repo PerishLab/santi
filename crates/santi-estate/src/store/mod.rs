@@ -3,6 +3,7 @@ use keel::{Core, bind};
 use std::path::Path;
 use std::sync::Arc;
 
+mod alarm;
 mod effect;
 mod error;
 mod inbox;
@@ -11,7 +12,6 @@ mod support;
 mod timeline;
 mod tool;
 mod turn;
-mod wake;
 
 pub use effect::{EffectDraft, RedemptionDraft};
 pub use inbox::{
@@ -22,6 +22,7 @@ pub use job::{
     AttentionDraft, CapabilityDraft, ExpiredJob, JobDraft, JobRecord, Prepared, TransitionDraft,
 };
 pub use support::{Bootstrap, EnvironDraft, Status, TraceDraft};
+pub use support::{WakeLease, WakeOfferDraft};
 use support::{read, write};
 pub use timeline::{CompactDraft, ForkDraft, Limits, MessageDraft, ThinkingDraft};
 pub use tool::{CallDraft, ReplyDraft, Spent, Tally, bounded, curbed};
@@ -29,7 +30,6 @@ pub use turn::{
     Attempt, ClassifiedFailure, ClassifiedFailureDraft, Completion, CompletionDraft, Interruption,
     InterruptionDraft, Invocation, Maintenance, OutboxDraft, Settlement, TurnDraft,
 };
-pub use wake::{WakeLease, WakeOfferDraft};
 
 #[derive(Clone)]
 pub struct Store {

@@ -289,11 +289,11 @@ mod effects {
     }
 }
 
+mod alarms;
 mod environment;
 mod jobs;
 mod recovery;
 mod support;
-mod wake;
 
 fn status(message: &str) -> StatusCode {
     ApiError::from_service(message.to_string()).status()

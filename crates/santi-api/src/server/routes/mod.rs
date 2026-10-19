@@ -25,14 +25,16 @@ use super::{
 pub(super) fn router(service: Service) -> Router {
     let api = Router::new()
         .route("/api/v1/openapi.json", get(openapi))
+        .route("/api/v1/alarms", post(alarms::set).get(alarms::list))
+        .route(
+            "/api/v1/alarms/{alarm}",
+            get(alarms::get).delete(alarms::end),
+        )
+        .route("/api/v1/alarms/{alarm}/fire", post(alarms::fire))
         .route("/api/v1/strands", post(weave).get(strands))
         .route("/api/v1/souls", post(awaken).get(souls))
         .route("/api/v1/souls/{soul}", get(get_soul))
         .route("/api/v1/souls/{soul}/active-turns", get(running))
-        .route(
-            "/api/v1/souls/{soul}/wake",
-            get(wake_status).post(control_wake),
-        )
         .route("/api/v1/souls/{soul}/strands", post(seat))
         .route(
             "/api/v1/souls/{soul}/environment",
@@ -144,6 +146,7 @@ pub async fn health(State(service): State<Service>) -> impl IntoResponse {
 }
 
 mod active;
+pub(super) mod alarms;
 mod downstream;
 mod drive;
 mod environment;

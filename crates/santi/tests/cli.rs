@@ -1,6 +1,6 @@
 use clap::Parser;
 use santi::auth::form_urlencode;
-use santi::cli::wake::Wake;
+use santi::cli::alarm::Alarm;
 use santi::cli::{Cli, ClientDefaults, Command, StrandCommand, split_send_args};
 
 fn defaults(strand: Option<&str>, soul: Option<&str>) -> ClientDefaults {
@@ -98,22 +98,32 @@ fn drive() {
 }
 
 #[test]
-fn wake() {
-    let parsed = Cli::try_parse_from(["santi", "--soul", "soul_1", "wake", "status"]).unwrap();
-    assert!(matches!(parsed.command, Command::Wake(Wake::Status)));
+fn alarm() {
+    let parsed = Cli::try_parse_from([
+        "santi",
+        "--soul",
+        "soul_1",
+        "--strand",
+        "ss_1",
+        "alarm",
+        "set",
+        "follow",
+        "--cron",
+        "*/15 * * * *",
+        "--text",
+        "查看进展",
+    ])
+    .unwrap();
+    assert!(matches!(
+        parsed.command,
+        Command::Alarm(Alarm::Set {
+            generation: None,
+            ..
+        })
+    ));
     assert_eq!(parsed.soul.as_deref(), Some("soul_1"));
-    assert!(matches!(
-        Cli::try_parse_from(["santi", "wake", "enable"])
-            .unwrap()
-            .command,
-        Command::Wake(Wake::Enable)
-    ));
-    assert!(matches!(
-        Cli::try_parse_from(["santi", "wake", "disable"])
-            .unwrap()
-            .command,
-        Command::Wake(Wake::Disable)
-    ));
+    assert_eq!(parsed.strand.as_deref(), Some("ss_1"));
+    assert!(Cli::try_parse_from(["santi", "wake", "enable"]).is_err());
 }
 
 #[test]

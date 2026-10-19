@@ -53,6 +53,30 @@ impl Check {
     }
 }
 
+pub(crate) fn clients(declared: &BTreeMap<String, String>) -> Vec<std::path::PathBuf> {
+    #[cfg(target_os = "linux")]
+    {
+        environment::clients(declared)
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        let _ = declared;
+        Vec::new()
+    }
+}
+
+pub(crate) fn runnable(path: &std::path::Path) -> bool {
+    #[cfg(target_os = "linux")]
+    {
+        environment::runnable(path)
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        let _ = path;
+        false
+    }
+}
+
 pub async fn inspect(declared: &BTreeMap<String, String>) -> Report {
     #[cfg(target_os = "linux")]
     {

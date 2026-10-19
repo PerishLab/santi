@@ -56,12 +56,13 @@ const UNAVAILABLE: &[Rule] = &[
 const MISSING: &[Rule] = &[
     Rule::Starts("missing resource:"),
     Rule::Exact("strand not found"),
+    Rule::Contains("alarm not found or ended"),
     Rule::Exact("soul not found"),
     Rule::Ends("not found"),
 ];
 
 const CONFLICT: &[Rule] = &[
-    Rule::Starts("wake lease generation conflicts"),
+    Rule::Contains("alarm generation conflicts"),
     Rule::Contains("compact plan conflicts"),
     Rule::Starts("downstream request conflicts"),
     Rule::Starts("downstream id conflicts"),
@@ -78,7 +79,7 @@ const CONFLICT: &[Rule] = &[
 ];
 
 const INVALID: &[Rule] = &[
-    Rule::Starts("wake "),
+    Rule::Starts("alarm "),
     Rule::Around {
         start: "compact ",
         fragment: " is not a message sequence",

@@ -15,7 +15,6 @@ mod reply;
 pub(super) use reply::curbed;
 mod room;
 mod shell;
-mod wake;
 mod workspace;
 
 pub(crate) fn tools() -> Vec<Tool> {
@@ -40,12 +39,7 @@ impl Service {
         control: &Control,
     ) -> Result<bool, String> {
         let Address { strand, turn } = address;
-        let clock = room::clock::selected(self, strand).await?;
-        let barrier = if clock {
-            None
-        } else {
-            self.barrier(strand).await?
-        };
+        let barrier = self.barrier(strand).await?;
         let crowded = self.crowded(strand).await?;
         let maintenance = self.settlement(turn);
         let compact = call.name == "compact";
@@ -60,9 +54,7 @@ impl Service {
         let fixed = due
             .then(|| barrier.as_ref().and_then(feedback::Barrier::owned))
             .flatten();
-        let allowed = if clock {
-            call.name == "wake"
-        } else if maintaining {
+        let allowed = if maintaining {
             compact || call.name == "query" || call.name == "shell"
         } else {
             true
@@ -95,11 +87,7 @@ impl Service {
             strand,
             stream::Payload::Tool(crate::tool::Beat::Called { call: held.clone() }),
         );
-        let scope = if clock {
-            "clock attention strand"
-        } else {
-            "current runtime state"
-        };
+        let scope = "current runtime state";
         let result = if !allowed {
             reply::rejected(
                 self,
@@ -145,8 +133,6 @@ impl Service {
             self.read(strand, &call, output_limit).await?
         } else if escape {
             self.compacted(strand, &call, output_limit).await?
-        } else if call.name == "wake" {
-            self.waked(strand, &call, output_limit).await?
         } else {
             reply::rejected(
                 self,

@@ -1,15 +1,11 @@
-use super::{asked, clock};
+use super::asked;
 use crate::service::{Service, address::Address};
 use santi_estate::{Attempt, Invocation};
 use santi_provider::Call;
 
 impl Service {
-    pub(in crate::service) async fn maintaining(
-        &self,
-        strand: &str,
-        turn: &str,
-    ) -> Result<bool, String> {
-        Ok(self.settlement(turn).is_some() && !clock::selected(self, strand).await?)
+    pub(in crate::service) async fn maintaining(&self, turn: &str) -> Result<bool, String> {
+        Ok(self.settlement(turn).is_some())
     }
 
     pub(in crate::service) async fn staged(

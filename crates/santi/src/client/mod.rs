@@ -4,7 +4,6 @@ use std::time::Duration;
 use anyhow::{Context, Result};
 use futures_util::StreamExt;
 
-use crate::cli::wake::Wake;
 use crate::cli::{
     ClientDefaults, Command, CompactCommand, EffectCommand, Job, Turn, WatchFormat, Webhook,
 };
@@ -12,7 +11,7 @@ use crate::text::source::read_summary_file;
 use crate::watch::{next_sse_frame, render_watch_event};
 
 mod create;
-mod environment;
+mod declarations;
 mod jobs;
 mod send;
 mod strand;
@@ -235,26 +234,7 @@ pub(crate) async fn run(
             http.act(&format!("{base}/api/v1/jobs/{id}/ack"), defaults.require()?)
                 .await
         }
-        Command::Wake(Wake::Status) => {
-            let soul = defaults.require()?;
-            http.get(&format!("{base}/api/v1/souls/{soul}/wake")).await
-        }
-        Command::Wake(Wake::Enable) => {
-            let soul = defaults.require()?;
-            http.post(
-                &format!("{base}/api/v1/souls/{soul}/wake"),
-                Some(serde_json::json!({"action": "enable"})),
-            )
-            .await
-        }
-        Command::Wake(Wake::Disable) => {
-            let soul = defaults.require()?;
-            http.post(
-                &format!("{base}/api/v1/souls/{soul}/wake"),
-                Some(serde_json::json!({"action": "disable"})),
-            )
-            .await
-        }
+        Command::Alarm(command) => declarations::alarm::run(&http, &base, defaults, command).await,
         Command::Turn(Turn::Stop { id }) => {
             http.post(&format!("{base}/api/v1/turns/{id}/stop"), None)
                 .await
@@ -272,7 +252,9 @@ pub(crate) async fn run(
             }
             http.get(&url).await
         }
-        Command::Environment(command) => environment::run(&http, &base, command).await,
+        Command::Environment(command) => {
+            declarations::environment::run(&http, &base, command).await
+        }
         Command::Webhook(Webhook::List) => http.get(&format!("{base}/api/v1/webhooks")).await,
         Command::Webhook(Webhook::Ensure {
             name,
