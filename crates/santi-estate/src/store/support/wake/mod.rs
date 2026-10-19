@@ -1,5 +1,5 @@
-use super::inbox::offer_in;
-use super::{Store, read};
+use crate::store::inbox::offer_in;
+use crate::store::{Store, read};
 use keel::{Op, Rank, form};
 
 mod support;

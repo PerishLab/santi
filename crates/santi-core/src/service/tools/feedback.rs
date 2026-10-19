@@ -2,7 +2,7 @@ use santi_provider::{Call, Function, Tool};
 use serde::Deserialize;
 use std::collections::HashSet;
 
-use super::{Service, argued, shell, tools, wake};
+use super::{Service, argued, shell, tools};
 use crate::effect;
 
 const OWNED: &str = r#"{
@@ -119,9 +119,6 @@ impl Service {
         strand: &str,
         turn: Option<&str>,
     ) -> Result<Vec<Tool>, String> {
-        if super::room::clock::selected(self, strand).await? {
-            return Ok(vec![wake::definition()]);
-        }
         if turn.and_then(|turn| self.settlement(turn)).is_some()
             || self.crowded(strand).await?.is_some()
         {
@@ -131,10 +128,9 @@ impl Service {
             ]);
         }
         match self.barrier(strand).await? {
-            Some(barrier) if barrier.due() => Ok(vec![
-                definition(barrier.limit, barrier.command.is_some()),
-                wake::definition(),
-            ]),
+            Some(barrier) if barrier.due() => {
+                Ok(vec![definition(barrier.limit, barrier.command.is_some())])
+            }
             _ => Ok(tools()),
         }
     }

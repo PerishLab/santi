@@ -1,3 +1,5 @@
+mod alarm;
+
 use santi_estate::{
     DownstreamDraft, DrainDraft, InboxDraft, Opening, ReplayDraft, Store, StrandDraft, WebhookDraft,
 };

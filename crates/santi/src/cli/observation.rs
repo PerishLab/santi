@@ -24,7 +24,7 @@ fn name(command: &crate::cli::Command) -> &'static str {
         Command::Strand(_) => "strand",
         Command::Compact(_) => "compact",
         Command::Job(_) => "job",
-        Command::Wake(_) => "wake",
+        Command::Alarm(_) => "alarm",
         Command::Turn(_) => "turn",
         Command::Environment(_) => "env",
         Command::Webhook(_) => "webhook",

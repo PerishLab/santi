@@ -237,7 +237,7 @@ impl Service {
                     return Err(Failure::execution(*error, &prose));
                 }
             };
-            if attempt!(Operation::Assembly, self.maintaining(strand, turn).await) {
+            if attempt!(Operation::Assembly, self.maintaining(turn).await) {
                 timing.outputting(round, calls.len());
                 let count = calls.len();
                 self.stirred(strand, turn, turn::Motion::Running, active.clone());

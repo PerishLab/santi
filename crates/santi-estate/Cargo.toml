@@ -16,3 +16,7 @@ sqlx.workspace = true
 [dev-dependencies]
 tempfile = "3.27.0"
 tokio.workspace = true
+
+[[test]]
+name = "edge"
+path = "tests/edge/main.rs"

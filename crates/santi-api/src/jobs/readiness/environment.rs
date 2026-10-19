@@ -17,7 +17,7 @@ pub(super) fn executable(name: &str, path: &OsStr) -> Option<PathBuf> {
         .and_then(|path| std::path::absolute(path).ok())
 }
 
-fn runnable(path: &Path) -> bool {
+pub(super) fn runnable(path: &Path) -> bool {
     if !path.is_file() {
         return false;
     }
@@ -35,10 +35,7 @@ pub(super) fn shell(declared: &BTreeMap<String, String>) -> (Shell, Vec<Check>) 
         entries: 0,
         client: None,
     };
-    let path = match declared.get("PATH") {
-        Some(value) => configured(value, &mut shell),
-        None => std::env::var_os("PATH"),
-    };
+    let path = path(declared, &mut shell);
     if let Some(path) = path.filter(|path| !path.is_empty()) {
         shell.entries = std::env::split_paths(&path).count();
         shell.client = executable("santi", &path);
@@ -55,6 +52,30 @@ pub(super) fn shell(declared: &BTreeMap<String, String>) -> (Shell, Vec<Check>) 
         Check::missing("client", "No executable santi client is reachable through the global shell PATH.", "Install the client through its stable manager and include its bin directory in environment.PATH for the runtime user.")
     });
     (shell, checks)
+}
+
+pub(super) fn clients(declared: &BTreeMap<String, String>) -> Vec<PathBuf> {
+    let mut shell = Shell {
+        source: "process",
+        reference: None,
+        entries: 0,
+        client: None,
+    };
+    path(declared, &mut shell)
+        .map(|paths| {
+            std::env::split_paths(&paths)
+                .map(|directory| directory.join("santi"))
+                .filter_map(|path| std::path::absolute(path).ok())
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+fn path(declared: &BTreeMap<String, String>, shell: &mut Shell) -> Option<OsString> {
+    match declared.get("PATH") {
+        Some(value) => configured(value, shell),
+        None => std::env::var_os("PATH"),
+    }
 }
 
 fn configured(value: &str, shell: &mut Shell) -> Option<OsString> {

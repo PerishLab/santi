@@ -9,6 +9,10 @@ and sustains thought. External channels are communication windows; their
 strand mappings express adaptable working preferences. Brain continuity
 spans turns and external work items.
 
+Explicit alarms arrange future inputs to an existing brain. Keel owns their
+declarations; adaptors own idempotent platform convergence and recovery.
+Inbox acceptance settles delivery independently of later consumption.
+
 Keep changes centered on souls, strands, execution, and their durable evidence.
 Product roles and workflows belong to consumers of the runtime.
 

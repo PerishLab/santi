@@ -1,9 +1,13 @@
 use anyhow::Result;
 
-use super::Http;
+use super::super::Http;
 use crate::cli::Environment;
 
-pub(super) async fn run(http: &Http<'_>, base: &str, command: Environment) -> Result<()> {
+pub(in crate::client) async fn run(
+    http: &Http<'_>,
+    base: &str,
+    command: Environment,
+) -> Result<()> {
     match command {
         Environment::List { scope, owner } => {
             http.get(&format!(

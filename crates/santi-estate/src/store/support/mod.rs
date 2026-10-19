@@ -1,3 +1,5 @@
+mod wake;
+pub use wake::{WakeLease, WakeOfferDraft};
 mod bootstrap;
 mod environ;
 pub(super) mod read;
