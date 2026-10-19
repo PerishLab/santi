@@ -12,8 +12,8 @@ pub(in crate::client) async fn run(
         Alarm::Set { name, cron, text, generation } => {
             http.post(&format!("{base}/api/v1/alarms"), Some(serde_json::json!({"soul":defaults.require()?,"strand":defaults.resolve_strand(None)?,"name":name,"cron":cron,"text":text,"generation":generation}))).await
         }
-        Alarm::List => http.owned(&format!("{base}/api/v1/alarms"), defaults.require()?).await,
-        Alarm::Get { id } => http.owned(&format!("{base}/api/v1/alarms/{id}"), defaults.require()?).await,
+        Alarm::List => http.get(&format!("{base}/api/v1/alarms?soul={}", super::super::urlencoding_encode(defaults.require()?))).await,
+        Alarm::Get { id } => http.get(&format!("{base}/api/v1/alarms/{id}?soul={}", super::super::urlencoding_encode(defaults.require()?))).await,
         Alarm::End { id } => {
             http.delete(&format!("{base}/api/v1/alarms/{id}?soul={}", super::super::urlencoding_encode(defaults.require()?))).await
         }
