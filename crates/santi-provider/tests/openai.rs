@@ -208,17 +208,17 @@ async fn absorbed() {
         );
     });
     let events = collected(url, Some(2)).await;
-    server.join().expect("server thread");
     let retried = events
         .iter()
         .position(|event| matches!(event, Event::Traced(Trace::Retried { attempt: 1, .. })))
-        .expect("retry is traced");
+        .unwrap_or_else(|| panic!("retry is traced: {events:?}"));
     let spoken = events
         .iter()
         .position(|event| matches!(event, Event::Text(text) if text == "recovered"))
-        .expect("recovered text arrives");
+        .unwrap_or_else(|| panic!("recovered text arrives: {events:?}"));
     assert!(retried < spoken);
     assert!(!events.iter().any(|event| matches!(event, Event::Failed(_))));
+    server.join().expect("server thread");
 }
 
 #[tokio::test]
