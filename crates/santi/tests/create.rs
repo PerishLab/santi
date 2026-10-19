@@ -294,6 +294,7 @@ async fn redirects() {
     assert_eq!(server.committed.load(Ordering::SeqCst), 1);
     assert_eq!(server.redirected.load(Ordering::SeqCst), 0);
 }
-
+#[path = "create/alarm.rs"]
+mod alarm;
 #[path = "create/refusal.rs"]
 mod refusal;
