@@ -100,6 +100,26 @@ mod tests {
 
     #[test]
     fn refuses() {
+        if config::env("SANTI_RELOAD_REFUSAL_PROBE").is_none() {
+            let output = Command::new(config::executable().expect("test executable"))
+                .args([
+                    "--exact",
+                    "client::tui::reload::tests::refuses",
+                    "--nocapture",
+                ])
+                .env("SANTI_RELOAD_REFUSAL_PROBE", "1")
+                .output()
+                .expect("spawn refusal probe");
+            assert!(
+                output.status.success(),
+                "refusal probe failed: {}\n{}\n{}",
+                output.status,
+                String::from_utf8_lossy(&output.stdout),
+                String::from_utf8_lossy(&output.stderr)
+            );
+            return;
+        }
+
         let directory = tempfile::tempdir().expect("probe directory");
         let missing = directory.path().join("missing");
         let plan = Plan {
