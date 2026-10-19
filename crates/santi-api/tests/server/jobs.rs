@@ -1,7 +1,7 @@
 use std::sync::{Arc, Mutex};
 
 use axum::http::HeaderMap;
-use santi_api::{CreateJobRequest, create_job_handler, get_job_handler};
+use santi_api::{CreateJobRequest, Jobs};
 use santi_core::{
     job,
     service::{self, JobLaunch, JobObservation, JobSupervisor, Service},
@@ -101,7 +101,8 @@ async fn exercise(cwd: Option<&str>, native: bool) {
     ] {
         let mut invalid = request();
         invalid.cwd = Some(cwd.to_string());
-        let error = create_job_handler(State(service.clone()), headers.clone(), Json(invalid))
+        let error = Jobs(service.clone())
+            .create(headers.clone(), invalid)
             .await
             .expect_err("invalid cwd refused");
         assert_eq!(error.status(), StatusCode::BAD_REQUEST);
@@ -116,16 +117,17 @@ async fn exercise(cwd: Option<&str>, native: bool) {
         assert!(!temp.path().join("runtime/jobs").exists());
     }
 
-    let (status, Json(first)) =
-        create_job_handler(State(service.clone()), headers.clone(), Json(request()))
-            .await
-            .unwrap_or_else(|error| panic!("create failed: {}", error.message()));
+    let (status, Json(first)) = Jobs(service.clone())
+        .create(headers.clone(), request())
+        .await
+        .unwrap_or_else(|error| panic!("create failed: {}", error.message()));
     assert_eq!(status, StatusCode::ACCEPTED);
     assert_eq!(first.job.state, job::State::Accepted);
     assert_eq!(first.job.origin.soul, strand.soul);
     assert_eq!(first.job.remind, Some(5));
 
-    let (_, Json(retried)) = create_job_handler(State(service.clone()), headers, Json(request()))
+    let (_, Json(retried)) = Jobs(service.clone())
+        .create(headers, request())
         .await
         .unwrap_or_else(|error| panic!("retry failed: {}", error.message()));
     assert_eq!(retried.job.id, first.job.id);
@@ -174,7 +176,8 @@ async fn exercise(cwd: Option<&str>, native: bool) {
 
     let mut owner = HeaderMap::new();
     owner.insert("x-santi-soul-id", strand.soul.parse().expect("soul header"));
-    let Json(queried) = get_job_handler(State(service), owner, Path(first.job.id.clone()))
+    let Json(queried) = Jobs(service)
+        .get(owner, first.job.id.clone())
         .await
         .unwrap_or_else(|error| panic!("get failed: {}", error.message()));
     assert_eq!(queried.id, first.job.id);

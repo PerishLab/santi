@@ -3,7 +3,7 @@ use axum::{
     extract::{Path, Query, State},
     http::StatusCode,
     response::IntoResponse,
-    routing::{delete, get, post},
+    routing::{self, MethodRouter, get, post},
 };
 use santi_core::service::Service;
 use santi_core::{
@@ -25,67 +25,61 @@ use super::{
 pub(super) fn router(service: Service) -> Router {
     let api = Router::new()
         .route("/api/v1/openapi.json", get(openapi))
-        .route("/api/v1/alarms", post(alarms::set).get(alarms::list))
-        .route(
-            "/api/v1/alarms/{alarm}",
-            get(alarms::get).delete(alarms::end),
-        )
-        .route("/api/v1/alarms/{alarm}/fire", post(alarms::fire))
-        .route("/api/v1/strands", post(weave).get(strands))
-        .route("/api/v1/souls", post(awaken).get(souls))
-        .route("/api/v1/souls/{soul}", get(get_soul))
+        .route("/api/v1/alarms", alarms::set().merge(alarms::list()))
+        .route("/api/v1/alarms/{alarm}", alarms::get().merge(alarms::end()))
+        .route("/api/v1/alarms/{alarm}/fire", alarms::fire())
+        .route("/api/v1/strands", weave().merge(strands()))
+        .route("/api/v1/souls", awaken().merge(souls()))
+        .route("/api/v1/souls/{soul}", get_soul())
         .route("/api/v1/souls/{soul}/active-turns", get(running))
-        .route("/api/v1/souls/{soul}/strands", post(seat))
+        .route("/api/v1/souls/{soul}/strands", seat())
         .route(
             "/api/v1/souls/{soul}/environment",
-            post(set_soul_environ).get(soul_environs),
+            set_soul_environ().merge(soul_environs()),
         )
         .route(
             "/api/v1/souls/{soul}/environment/{name}",
-            delete(end_soul_environ),
+            end_soul_environ(),
         )
-        .route("/api/v1/webhooks", post(subscribe).get(webhooks))
+        .route("/api/v1/webhooks", subscribe().merge(webhooks()))
         .route(
             "/api/v1/jobs",
-            post(super::jobs::create).get(super::jobs::list),
+            super::jobs::create().merge(super::jobs::list()),
         )
-        .route("/api/v1/jobs/{job}", get(super::jobs::get))
-        .route("/api/v1/jobs/{job}/cancel", post(super::jobs::cancel))
-        .route("/api/v1/jobs/{job}/logs", get(super::jobs::logs))
-        .route("/api/v1/jobs/{job}/ack", post(super::jobs::acknowledge))
-        .route("/api/v1/strands/{strand}", get(get_strand))
+        .route("/api/v1/jobs/{job}", super::jobs::get())
+        .route("/api/v1/jobs/{job}/cancel", super::jobs::cancel())
+        .route("/api/v1/jobs/{job}/logs", super::jobs::logs())
+        .route("/api/v1/jobs/{job}/ack", super::jobs::acknowledge())
+        .route("/api/v1/strands/{strand}", get_strand())
         .route(
             "/api/v1/strands/{strand}/environment",
-            post(set_strand_environ).get(strand_environs),
+            set_strand_environ().merge(strand_environs()),
         )
         .route(
             "/api/v1/strands/{strand}/environment/{name}",
-            delete(end_strand_environ),
+            end_strand_environ(),
         )
-        .route("/api/v1/strands/{strand}/messages", get(list_messages))
-        .route("/api/v1/strands/{strand}/materials", post(material))
+        .route("/api/v1/strands/{strand}/messages", list_messages())
+        .route("/api/v1/strands/{strand}/materials", material())
         .route("/api/v1/strands/{strand}/events", get(strand_events))
         .route("/api/v1/strands/{strand}/send", post(send))
         .route("/api/v1/strands/{strand}/drive", post(drive))
-        .route("/api/v1/strands/{strand}/fork", post(fork))
-        .route("/api/v1/strands/{strand}/compact", post(exec))
-        .route("/api/v1/strands/{strand}/budget", get(audit))
+        .route("/api/v1/strands/{strand}/fork", fork())
+        .route("/api/v1/strands/{strand}/compact", exec())
+        .route("/api/v1/strands/{strand}/budget", audit())
         .route("/api/v1/strands/{strand}/errors", get(stranded))
         .route("/api/v1/errors/events", get(transitions))
         .route("/api/v1/errors/{scope_kind}/{scope_id}", get(errors))
-        .route("/api/v1/receipts/{inbox}", get(receipt))
+        .route("/api/v1/receipts/{inbox}", receipt())
         .route("/api/v1/effects/{effect}", get(super::effects::effect))
         .route("/api/v1/effects/{effect}/trace", get(super::effects::trail))
         .route(
             "/api/v1/effects/{effect}/resolve",
             post(super::effects::settle),
         )
-        .route("/api/v1/compacts/{compact}", get(page))
-        .route("/api/v1/strands/{strand}/runtime", get(snapshot))
-        .route(
-            "/api/v1/strands/{strand}/execution-tail",
-            get(execution_tail),
-        )
+        .route("/api/v1/compacts/{compact}", page())
+        .route("/api/v1/strands/{strand}/runtime", snapshot())
+        .route("/api/v1/strands/{strand}/execution-tail", execution_tail())
         .route("/api/v1/turn-events", get(turn_events))
         .route("/api/v1/turn-events/stream", get(turn_event_stream))
         .route("/api/v1/turns/{turn}/stop", post(stop))

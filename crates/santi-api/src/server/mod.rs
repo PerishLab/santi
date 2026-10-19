@@ -15,16 +15,8 @@ use crate::provider;
 
 pub use effects::{ResolveEffectRequest, effect, settle};
 pub use error::ApiError;
-pub use jobs::{
-    CreateJobRequest, acknowledge as acknowledge_job, cancel as cancel_job, create as create_job,
-    get as get_job, list as list_jobs, logs as job_logs,
-};
-pub use routes::{drive, health, receipt, send};
-pub use routes::{
-    end_soul_environ as end_soul_environ_handler, end_strand_environ as end_strand_environ_handler,
-    set_soul_environ as set_soul_environ_handler, set_strand_environ as set_strand_environ_handler,
-    soul_environs as soul_environs_handler, strand_environs as strand_environs_handler,
-};
+pub use jobs::{CreateJobRequest, Jobs};
+pub use routes::{Environs, drive, health, send};
 
 pub fn export_openapi_json() -> Result<String, String> {
     serde_json::to_string_pretty(&openapi::document()).map_err(|error| error.to_string())

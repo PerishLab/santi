@@ -11,16 +11,12 @@ use santi_core::{material, receipt, soul, strand, webhook};
         (status = 500, body = Fault)
     )
 )]
-pub async fn receipt(
-    State(service): State<Service>,
-    Path(inbox): Path<String>,
-) -> Result<Json<receipt::Status>, ApiError> {
-    let receipt = service
-        .receipt(&inbox)
-        .await
-        .map_err(ApiError::from_service)?
-        .ok_or_else(|| ApiError::not_found("receipt not found"))?;
-    Ok(Json(receipt))
+pub fn receipt() -> MethodRouter<Service> {
+    routing::get(
+        |State(service): State<Service>, Path(inbox): Path<String>| async move {
+            Receipts(service).receipt(inbox).await
+        },
+    )
 }
 
 #[utoipa::path(
@@ -28,14 +24,8 @@ pub async fn receipt(
     path = "/api/v1/strands",
     responses((status = 200, body = strand::Created), (status = 500, body = Fault))
 )]
-pub(super) async fn weave(
-    State(service): State<Service>,
-) -> Result<Json<strand::Created>, ApiError> {
-    service
-        .weave()
-        .await
-        .map(Json)
-        .map_err(ApiError::from_service)
+pub(super) fn weave() -> MethodRouter<Service> {
+    routing::post(|State(service): State<Service>| async move { Receipts(service).weave().await })
 }
 
 #[utoipa::path(
@@ -49,15 +39,12 @@ pub(super) async fn weave(
         (status = 500, body = Fault)
     )
 )]
-pub(super) async fn seat(
-    State(service): State<Service>,
-    Path(soul): Path<String>,
-) -> Result<Json<strand::Created>, ApiError> {
-    service
-        .seat(&soul)
-        .await
-        .map(Json)
-        .map_err(ApiError::from_service)
+pub(super) fn seat() -> MethodRouter<Service> {
+    routing::post(
+        |State(service): State<Service>, Path(soul): Path<String>| async move {
+            Receipts(service).seat(soul).await
+        },
+    )
 }
 
 #[utoipa::path(
@@ -65,12 +52,8 @@ pub(super) async fn seat(
     path = "/api/v1/strands",
     responses((status = 200, body = [Strand]), (status = 500, body = Fault))
 )]
-pub(super) async fn strands(State(service): State<Service>) -> Result<Json<Vec<Strand>>, ApiError> {
-    service
-        .strands()
-        .await
-        .map(Json)
-        .map_err(ApiError::from_service)
+pub(super) fn strands() -> MethodRouter<Service> {
+    routing::get(|State(service): State<Service>| async move { Receipts(service).strands().await })
 }
 
 #[utoipa::path(
@@ -79,15 +62,12 @@ pub(super) async fn strands(State(service): State<Service>) -> Result<Json<Vec<S
     request_body = soul::Draft,
     responses((status = 200, body = Soul), (status = 500, body = Fault))
 )]
-pub(super) async fn awaken(
-    State(service): State<Service>,
-    Json(request): Json<soul::Draft>,
-) -> Result<Json<Soul>, ApiError> {
-    service
-        .awaken(request)
-        .await
-        .map(Json)
-        .map_err(ApiError::from_service)
+pub(super) fn awaken() -> MethodRouter<Service> {
+    routing::post(
+        |State(service): State<Service>, Json(request): Json<soul::Draft>| async move {
+            Receipts(service).awaken(request).await
+        },
+    )
 }
 
 #[utoipa::path(
@@ -95,12 +75,8 @@ pub(super) async fn awaken(
     path = "/api/v1/souls",
     responses((status = 200, body = [Soul]), (status = 500, body = Fault))
 )]
-pub(super) async fn souls(State(service): State<Service>) -> Result<Json<Vec<Soul>>, ApiError> {
-    service
-        .souls()
-        .await
-        .map(Json)
-        .map_err(ApiError::from_service)
+pub(super) fn souls() -> MethodRouter<Service> {
+    routing::get(|State(service): State<Service>| async move { Receipts(service).souls().await })
 }
 
 #[utoipa::path(
@@ -113,14 +89,12 @@ pub(super) async fn souls(State(service): State<Service>) -> Result<Json<Vec<Sou
         (status = 500, body = Fault)
     )
 )]
-pub(super) async fn get_soul(
-    State(service): State<Service>,
-    Path(soul): Path<String>,
-) -> Result<Json<Soul>, ApiError> {
-    match service.soul(&soul).await.map_err(ApiError::from_service)? {
-        Some(soul) => Ok(Json(soul)),
-        None => Err(ApiError::not_found("soul not found")),
-    }
+pub(super) fn get_soul() -> MethodRouter<Service> {
+    routing::get(
+        |State(service): State<Service>, Path(soul): Path<String>| async move {
+            Receipts(service).get_soul(soul).await
+        },
+    )
 }
 
 #[utoipa::path(
@@ -135,15 +109,12 @@ pub(super) async fn get_soul(
         (status = 500, body = Fault)
     )
 )]
-pub(super) async fn subscribe(
-    State(service): State<Service>,
-    Json(request): Json<webhook::Draft>,
-) -> Result<Json<webhook::Subscription>, ApiError> {
-    service
-        .subscribe(request)
-        .await
-        .map(Json)
-        .map_err(ApiError::from_service)
+pub(super) fn subscribe() -> MethodRouter<Service> {
+    routing::post(
+        |State(service): State<Service>, Json(request): Json<webhook::Draft>| async move {
+            Receipts(service).subscribe(request).await
+        },
+    )
 }
 
 #[utoipa::path(
@@ -151,14 +122,8 @@ pub(super) async fn subscribe(
     path = "/api/v1/webhooks",
     responses((status = 200, body = [webhook::Subscription]), (status = 500, body = Fault))
 )]
-pub(super) async fn webhooks(
-    State(service): State<Service>,
-) -> Result<Json<Vec<webhook::Subscription>>, ApiError> {
-    service
-        .webhooks()
-        .await
-        .map(Json)
-        .map_err(ApiError::from_service)
+pub(super) fn webhooks() -> MethodRouter<Service> {
+    routing::get(|State(service): State<Service>| async move { Receipts(service).webhooks().await })
 }
 
 #[utoipa::path(
@@ -171,16 +136,12 @@ pub(super) async fn webhooks(
         (status = 500, body = Fault)
     )
 )]
-pub(super) async fn get_strand(
-    State(service): State<Service>,
-    Path(strand): Path<String>,
-) -> Result<Json<strand::Detail>, ApiError> {
-    service
-        .strand(&strand)
-        .await
-        .map_err(ApiError::from_service)?
-        .map(Json)
-        .ok_or_else(|| ApiError::not_found("strand not found"))
+pub(super) fn get_strand() -> MethodRouter<Service> {
+    routing::get(
+        |State(service): State<Service>, Path(strand): Path<String>| async move {
+            Receipts(service).get_strand(strand).await
+        },
+    )
 }
 
 #[utoipa::path(
@@ -193,16 +154,12 @@ pub(super) async fn get_strand(
         (status = 500, body = Fault)
     )
 )]
-pub(super) async fn list_messages(
-    State(service): State<Service>,
-    Path(strand): Path<String>,
-) -> Result<Json<Vec<santi_core::message::Placed>>, ApiError> {
-    service
-        .strand(&strand)
-        .await
-        .map_err(ApiError::from_service)?
-        .map(|detail| Json(detail.messages))
-        .ok_or_else(|| ApiError::not_found("strand not found"))
+pub(super) fn list_messages() -> MethodRouter<Service> {
+    routing::get(
+        |State(service): State<Service>, Path(strand): Path<String>| async move {
+            Receipts(service).list_messages(strand).await
+        },
+    )
 }
 
 #[utoipa::path(
@@ -216,14 +173,125 @@ pub(super) async fn list_messages(
         (status = 500, body = Fault)
     )
 )]
-pub(super) async fn material(
-    State(service): State<Service>,
-    Path(strand): Path<String>,
-    Json(request): Json<material::Request>,
-) -> Result<Json<material::Material>, ApiError> {
-    service
-        .material(&strand, request)
-        .await
-        .map(Json)
-        .map_err(ApiError::from_service)
+pub(super) fn material() -> MethodRouter<Service> {
+    routing::post(
+        |State(service): State<Service>,
+         Path(strand): Path<String>,
+         Json(request): Json<material::Request>| async move {
+            Receipts(service).material(strand, request).await
+        },
+    )
+}
+
+struct Receipts(Service);
+
+impl Receipts {
+    async fn receipt(&self, inbox: String) -> Result<Json<receipt::Status>, ApiError> {
+        let receipt = self
+            .0
+            .receipt(&inbox)
+            .await
+            .map_err(ApiError::from_service)?
+            .ok_or_else(|| ApiError::not_found("receipt not found"))?;
+        Ok(Json(receipt))
+    }
+
+    async fn weave(&self) -> Result<Json<strand::Created>, ApiError> {
+        self.0
+            .weave()
+            .await
+            .map(Json)
+            .map_err(ApiError::from_service)
+    }
+
+    async fn seat(&self, soul: String) -> Result<Json<strand::Created>, ApiError> {
+        self.0
+            .seat(&soul)
+            .await
+            .map(Json)
+            .map_err(ApiError::from_service)
+    }
+
+    async fn strands(&self) -> Result<Json<Vec<Strand>>, ApiError> {
+        self.0
+            .strands()
+            .await
+            .map(Json)
+            .map_err(ApiError::from_service)
+    }
+
+    async fn awaken(&self, request: soul::Draft) -> Result<Json<Soul>, ApiError> {
+        self.0
+            .awaken(request)
+            .await
+            .map(Json)
+            .map_err(ApiError::from_service)
+    }
+
+    async fn souls(&self) -> Result<Json<Vec<Soul>>, ApiError> {
+        self.0
+            .souls()
+            .await
+            .map(Json)
+            .map_err(ApiError::from_service)
+    }
+
+    async fn get_soul(&self, soul: String) -> Result<Json<Soul>, ApiError> {
+        match self.0.soul(&soul).await.map_err(ApiError::from_service)? {
+            Some(soul) => Ok(Json(soul)),
+            None => Err(ApiError::not_found("soul not found")),
+        }
+    }
+
+    async fn subscribe(
+        &self,
+        request: webhook::Draft,
+    ) -> Result<Json<webhook::Subscription>, ApiError> {
+        self.0
+            .subscribe(request)
+            .await
+            .map(Json)
+            .map_err(ApiError::from_service)
+    }
+
+    async fn webhooks(&self) -> Result<Json<Vec<webhook::Subscription>>, ApiError> {
+        self.0
+            .webhooks()
+            .await
+            .map(Json)
+            .map_err(ApiError::from_service)
+    }
+
+    async fn get_strand(&self, strand: String) -> Result<Json<strand::Detail>, ApiError> {
+        self.0
+            .strand(&strand)
+            .await
+            .map_err(ApiError::from_service)?
+            .map(Json)
+            .ok_or_else(|| ApiError::not_found("strand not found"))
+    }
+
+    async fn list_messages(
+        &self,
+        strand: String,
+    ) -> Result<Json<Vec<santi_core::message::Placed>>, ApiError> {
+        self.0
+            .strand(&strand)
+            .await
+            .map_err(ApiError::from_service)?
+            .map(|detail| Json(detail.messages))
+            .ok_or_else(|| ApiError::not_found("strand not found"))
+    }
+
+    async fn material(
+        &self,
+        strand: String,
+        request: material::Request,
+    ) -> Result<Json<material::Material>, ApiError> {
+        self.0
+            .material(&strand, request)
+            .await
+            .map(Json)
+            .map_err(ApiError::from_service)
+    }
 }
