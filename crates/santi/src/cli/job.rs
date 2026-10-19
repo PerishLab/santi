@@ -2,7 +2,10 @@ use clap::{Subcommand, ValueEnum};
 
 #[derive(Subcommand)]
 pub enum Job {
-    #[command(about = "Create a durable detached job from the current runtime shell invocation")]
+    #[command(
+        about = "Create a durable detached job from the current runtime shell invocation",
+        long_about = "Create a durable detached job from the current runtime shell invocation. Each shell tool call can create one distinct Job. Identical request retries reuse that Job; use a new shell tool call for another Job."
+    )]
     Create {
         description: String,
         command: String,

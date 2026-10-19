@@ -239,12 +239,13 @@ impl ApiError {
     }
 
     pub fn from_service(message: String) -> Self {
-        match kind(message.as_str()) {
-            Kind::Unauthorized => Self::unauthorized(message),
-            Kind::Unavailable => Self::unavailable(message),
-            Kind::Missing => Self::not_found(message),
-            Kind::Conflict => Self::conflict(message),
-            Kind::Invalid => Self::bad_request(message),
+        let detail = message.strip_prefix("adapt: ").unwrap_or(&message);
+        match kind(detail) {
+            Kind::Unauthorized => Self::unauthorized(detail),
+            Kind::Unavailable => Self::unavailable(detail),
+            Kind::Missing => Self::not_found(detail),
+            Kind::Conflict => Self::conflict(detail),
+            Kind::Invalid => Self::bad_request(detail),
             Kind::Internal => Self::internal(message),
         }
     }
@@ -264,5 +265,24 @@ impl IntoResponse for ApiError {
             response.headers_mut().insert("retry-after", value);
         }
         response
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn conflict() {
+        for prefix in ["", "adapt: "] {
+            let error = ApiError::from_service(format!(
+                "{prefix}job capability conflicts with its accepted request"
+            ));
+            assert_eq!(error.status(), StatusCode::CONFLICT);
+            assert_eq!(
+                error.message(),
+                "job capability conflicts with its accepted request"
+            );
+        }
     }
 }
