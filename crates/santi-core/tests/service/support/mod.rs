@@ -7,8 +7,34 @@ pub(crate) use santi_core::{SOULSPACE, STRANDSPACE, soulward, strandward};
 mod probe;
 pub(crate) use probe::*;
 
-pub(crate) fn accepted_turn(response: &strand::Posted) -> &santi_core::turn::Turn {
-    response.turn.as_ref().expect("send should land on a turn")
+pub(crate) async fn accepted_turn(
+    service: &Service,
+    response: &strand::Posted,
+) -> santi_core::turn::Turn {
+    for _ in 0..100 {
+        let receipt = service
+            .receipt(&response.receipt.inbox)
+            .await
+            .expect("receipt")
+            .expect("accepted");
+        if let Some(turn) = receipt
+            .transitions
+            .iter()
+            .find_map(|transition| transition.turn.as_ref())
+        {
+            return service
+                .snapshot(&response.strand.id)
+                .await
+                .expect("snapshot")
+                .expect("strand")
+                .turns
+                .into_iter()
+                .find(|held| &held.id == turn)
+                .expect("receipt turn");
+        }
+        sleep(Duration::from_millis(20)).await;
+    }
+    panic!("accepted receipt did not start processing");
 }
 pub(crate) use santi_provider::{Event, Item, Metadata, Provider, Request, Streaming};
 pub(crate) use std::sync::{Arc, Mutex};

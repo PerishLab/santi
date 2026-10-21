@@ -20,7 +20,7 @@ impl Service {
             .map_err(|message| erred(catalog::INTERNAL, strand, message))?
             .ok_or_else(|| erred(catalog::NOT_FOUND, strand, "strand not found".to_string()))?;
 
-        let (outcome, drive) = self
+        let outcome = self
             .enqueue(
                 &strand,
                 Ingest {
@@ -39,20 +39,11 @@ impl Service {
             ingest::Outcome::Accepted { receipt } => receipt,
             ingest::Outcome::Rejected { error } => return Err(*error),
         };
-        let (turn, message) = match drive {
-            drive::Outcome::Started(turn, mut drained) => (Some(turn), drained.pop()),
-            drive::Outcome::Running(turn) => (Some(turn), None),
-            drive::Outcome::Idle
-            | drive::Outcome::Held(_)
-            | drive::Outcome::Paused
-            | drive::Outcome::Failed(_) => (None, None),
-        };
-
         Ok(strand::Posted {
             strand,
             receipt,
-            turn,
-            message,
+            turn: None,
+            message: None,
         })
     }
 
@@ -72,7 +63,7 @@ impl Service {
             .poked(strand, "strand_send", None, "operator_redrive")
             .await
         {
-            drive::Outcome::Started(turn, _) => Ok(crate::drive::Response {
+            drive::Outcome::Started(turn) => Ok(crate::drive::Response {
                 strand: strand.to_string(),
                 state: crate::drive::State::Started,
                 turn: Some(turn),

@@ -1,7 +1,6 @@
 use crate::{Fault, engine, strand::Strand};
 
 use super::super::{Service, drive};
-use super::memory::{Gate, maintain};
 use crate::{ingest, message, strand};
 
 pub(in crate::service) struct Ingest<'a> {
@@ -20,30 +19,6 @@ pub(in crate::service) struct External<'a> {
 struct Intake {
     outcome: ingest::Outcome,
     inserted: bool,
-}
-
-struct Audit {
-    kind: String,
-    source: String,
-    weight: usize,
-}
-
-impl Audit {
-    fn new(content: &message::Content, source: &Option<ingest::Source>) -> Self {
-        Self {
-            kind: source
-                .as_ref()
-                .map(|source| source.kind.as_str())
-                .unwrap_or("unknown")
-                .to_string(),
-            source: source
-                .as_ref()
-                .and_then(|source| source.source.as_deref())
-                .unwrap_or("-")
-                .to_string(),
-            weight: content.rendered().len(),
-        }
-    }
 }
 
 #[derive(Clone, Copy)]
@@ -111,83 +86,28 @@ impl Service {
         input: Ingest<'_>,
     ) -> Result<ingest::Outcome, String> {
         let strand = self.store.selected(&selector, &crate::now()).await?;
-        let (outcome, _driven) = self.enqueue(&strand, input).await?;
+        let outcome = self.enqueue(&strand, input).await?;
         Ok(outcome)
     }
 
-    async fn enqueue(
-        &self,
-        strand: &Strand,
-        input: Ingest<'_>,
-    ) -> Result<(ingest::Outcome, drive::Outcome), String> {
-        let audit = Audit::new(&input.content, &input.source);
-        match self.gate(strand).await? {
-            Gate::Allow => {}
-            Gate::Pause { maintainer } => {
-                let intake = self.intake(&strand.id, input).await?;
-                let outcome = intake.outcome;
-                self.dispatched().await;
-                if let ingest::Outcome::Rejected { error } = &outcome {
-                    logged(error, &strand.id, &audit);
-                }
-                if intake.inserted {
-                    maintain(self, &maintainer).await;
-                }
-                return Ok((outcome, drive::Outcome::Paused));
-            }
-        }
-        self.absolve(&strand.id, "ingest_remeasurement").await?;
-        if self.held(&strand.id).await?.is_none()
-            && let Some(error) = self.gated(&strand.id, "ingest_active_guard").await?
-        {
-            self.dispatched().await;
-            logged(&error, &strand.id, &audit);
-            return Ok((
-                ingest::Outcome::Rejected {
-                    error: Box::new(error),
-                },
-                drive::Outcome::Idle,
-            ));
-        }
-        if let Some(error) = self
-            .admit_candidate(&strand.id, &input.kind, &input.content)
-            .await?
-        {
-            self.dispatched().await;
-            logged(&error, &strand.id, &audit);
-            return Ok((
-                ingest::Outcome::Rejected {
-                    error: Box::new(error),
-                },
-                drive::Outcome::Idle,
-            ));
-        }
-        let trigger = input.trigger;
+    async fn enqueue(&self, strand: &Strand, input: Ingest<'_>) -> Result<ingest::Outcome, String> {
+        let trigger = input.trigger.to_string();
         let intake = self.intake(&strand.id, input).await?;
-        let outcome = intake.outcome;
-        self.dispatched().await;
-        if let ingest::Outcome::Rejected { error } = &outcome {
-            logged(error, &strand.id, &audit);
+        if intake.inserted
+            && let ingest::Outcome::Accepted { receipt } = &intake.outcome
+        {
+            let service = self.clone();
+            let strand = strand.id.clone();
+            let inbox = receipt.inbox.clone();
+            let context = self.context.clone();
+            tokio::spawn(context.carry(async move {
+                service.dispatched().await;
+                service
+                    .poke(&strand, &trigger, Some(&inbox), "ingest_poke")
+                    .await;
+            }));
         }
-        let drive = match &outcome {
-            ingest::Outcome::Accepted { receipt } if intake.inserted => {
-                self.poke(&strand.id, trigger, Some(&receipt.inbox), "ingest_poke")
-                    .await
-            }
-            ingest::Outcome::Accepted { .. } | ingest::Outcome::Rejected { .. } => {
-                drive::Outcome::Idle
-            }
-        };
-        let mut outcome = outcome;
-        if let ingest::Outcome::Accepted { receipt } = &mut outcome {
-            receipt.warning = match &drive {
-                drive::Outcome::Failed(error) | drive::Outcome::Held(error) => {
-                    Some(Box::new(error.clone()))
-                }
-                _ => None,
-            };
-        }
-        Ok((outcome, drive))
+        Ok(intake.outcome)
     }
 
     async fn intake(&self, strand: &str, input: Ingest<'_>) -> Result<Intake, String> {
@@ -232,18 +152,6 @@ mod dispatch;
 mod external;
 mod face;
 mod failure;
-
-fn logged(error: &Fault, strand: &str, audit: &Audit) {
-    eprintln!(
-        "santi: ingest rejected code={} incident_id={} strand={} kind={} source={} content_bytes={}",
-        error.code,
-        error.incident.as_deref().unwrap_or("-"),
-        strand,
-        audit.kind,
-        audit.source,
-        audit.weight,
-    );
-}
 
 pub(super) fn erred(descriptor: santi_error::Descriptor, strand: &str, message: String) -> Fault {
     engine().transient(crate::Signal {

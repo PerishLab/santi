@@ -139,28 +139,34 @@ async fn pending() {
             .await
             .unwrap();
     }
-    store
-        .accept_inbox(
-            santi_core::InboxDraft {
-                tag: "inbox_kept",
-                strand: &strand.id,
-                kind: message::Kind::Text,
-                content: &message::Content::text("pending external input"),
-                source: None,
-                created: &santi_core::now(),
+    let posted = service
+        .send(
+            &strand.id,
+            santi_core::strand::Post {
+                content: vec![message::Part::Text {
+                    text: "pending external input".into(),
+                }],
             },
-            500,
         )
         .await
         .unwrap();
-    service.resume().await.unwrap();
+    assert!(posted.turn.is_none());
+    assert!(posted.message.is_none());
+    let accepted = store.receipt(&posted.receipt.inbox).await.unwrap().unwrap();
+    assert_eq!(accepted.state, santi_core::receipt::State::Accepted);
+    assert!(
+        accepted
+            .transitions
+            .iter()
+            .all(|transition| transition.turn.is_none())
+    );
     tokio::time::timeout(Duration::from_secs(5), provider.entered.notified())
         .await
         .unwrap();
-    assert!(store.inbox("inbox_kept").await.unwrap().is_some());
+    assert!(store.inbox(&posted.receipt.inbox).await.unwrap().is_some());
     assert!(
         store
-            .receipt("inbox_kept")
+            .receipt(&posted.receipt.inbox)
             .await
             .unwrap()
             .unwrap()
@@ -192,7 +198,12 @@ async fn pending() {
     service.resume().await.unwrap();
     tokio::time::timeout(Duration::from_secs(10), async {
         loop {
-            if store.receipt("inbox_kept").await.unwrap().unwrap().state
+            if store
+                .receipt(&posted.receipt.inbox)
+                .await
+                .unwrap()
+                .unwrap()
+                .state
                 == santi_core::receipt::State::Completed
             {
                 break;
@@ -203,7 +214,12 @@ async fn pending() {
     .await
     .expect("pending input completes after maintenance");
     assert_eq!(
-        store.receipt("inbox_kept").await.unwrap().unwrap().state,
+        store
+            .receipt(&posted.receipt.inbox)
+            .await
+            .unwrap()
+            .unwrap()
+            .state,
         santi_core::receipt::State::Completed
     );
     assert_eq!(

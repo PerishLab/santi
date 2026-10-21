@@ -14,13 +14,9 @@ async fn recovers() {
     let service = open_service(&temp, provider.clone()).await;
     let strand = service.weave().await.expect("strand").strand;
     let accepted = send_text(&service, &strand.id, "recover original accepted text").await;
-    wait_for_turn(
-        &service,
-        &strand.id,
-        &turn(&accepted).id,
-        turn::Status::Failed,
-    )
-    .await;
+    assert!(accepted.turn.is_none());
+    let original = turn(&service, &accepted).await.id;
+    wait_for_turn(&service, &strand.id, &original, turn::Status::Failed).await;
     let prior = service
         .receipt(&accepted.receipt.inbox)
         .await
@@ -31,7 +27,7 @@ async fn recovers() {
     let driven = service.drive(&strand.id).await.expect("explicit drive");
     assert_eq!(driven.state, santi_core::drive::State::Started);
     let retried = driven.turn.expect("new turn");
-    assert_ne!(retried.id, turn(&accepted).id);
+    assert_ne!(retried.id, original);
     let runtime = wait_for_turn(&service, &strand.id, &retried.id, turn::Status::Completed).await;
     let status = service
         .receipt(&accepted.receipt.inbox)
@@ -71,13 +67,9 @@ async fn refuses() {
     let service = open_service(&temp, provider.clone()).await;
     let strand = service.weave().await.expect("strand").strand;
     let accepted = send_text(&service, &strand.id, "external effect").await;
-    wait_for_turn(
-        &service,
-        &strand.id,
-        &turn(&accepted).id,
-        turn::Status::Failed,
-    )
-    .await;
+    assert!(accepted.turn.is_none());
+    let original = turn(&service, &accepted).await.id;
+    wait_for_turn(&service, &strand.id, &original, turn::Status::Failed).await;
     drop(service);
     let store = santi_core::Store::open(temp.path().join("santi.sqlite"))
         .await
@@ -86,14 +78,14 @@ async fn refuses() {
         .prepare_invocation(
             santi_estate::CallDraft {
                 tag: "call_refusal",
-                turn: &turn(&accepted).id,
+                turn: &original,
                 tool: "shell",
                 arguments: &serde_json::json!({"command": "external effect"}),
                 created: &santi_core::now(),
             },
             Some(santi_estate::EffectDraft {
                 tag: "effect_refusal",
-                turn: &turn(&accepted).id,
+                turn: &original,
                 call: Some("call_refusal"),
                 kind: "shell",
                 metadata: None,
@@ -192,13 +184,8 @@ async fn refuses() {
         .expect_err("retained refusal");
     guidance(&refusal, &accepted.receipt.inbox, "settled_applied");
     let fresh = send_text(&reopened, &strand.id, "continue from current knowledge").await;
-    let after = wait_for_turn(
-        &reopened,
-        &strand.id,
-        &turn(&fresh).id,
-        turn::Status::Completed,
-    )
-    .await;
+    let resumed = turn(&reopened, &fresh).await.id;
+    let after = wait_for_turn(&reopened, &strand.id, &resumed, turn::Status::Completed).await;
     assert_eq!(after.turns.len(), 2);
     assert_eq!(after.calls.len(), 1);
     assert_eq!(after.effects.len(), 1);
