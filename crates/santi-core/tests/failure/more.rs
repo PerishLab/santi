@@ -36,10 +36,7 @@ async fn preserves() {
     let retry = send_text(&service, &strand.id, "continue with preserved partial").await;
     wait_for_turn(&service, &strand.id, &turn(&retry).id, turn::Status::Failed).await;
 
-    let projection = format!(
-        "[message {}]\npartial runtime output",
-        partial_message.message.id
-    );
+    let projection = "partial runtime output";
     let requests = provider.requests.lock().unwrap();
     assert_eq!(requests.len(), 2);
     assert!(requests[1].input.iter().any(|message| {
