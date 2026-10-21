@@ -225,7 +225,7 @@ async fn cascade() {
         .await
         .expect("send strand");
     let runtime = Probe::new(&service)
-        .completed_turn(&strand.id, &accepted_turn(&response).id)
+        .completed_turn(&strand.id, &accepted_turn(&service, &response).await.id)
         .await;
     assert_eq!(
         runtime.results[0].output.as_ref().unwrap()["cwd"],

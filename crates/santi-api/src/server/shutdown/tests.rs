@@ -128,13 +128,17 @@ async fn settles() {
         panic!("shutdown timed out: {:?}", runtime.turns);
     }
     result.unwrap().unwrap();
-    let turn = posted.turn.unwrap();
-    let runtime = service.snapshot(&strand.id).await.unwrap().unwrap();
-    let held = runtime
-        .turns
+    let turn = service
+        .receipt(&posted.receipt.inbox)
+        .await
+        .unwrap()
+        .unwrap()
+        .transitions
         .iter()
-        .find(|held| held.id == turn.id)
-        .unwrap();
+        .find_map(|transition| transition.turn.clone())
+        .expect("shutdown receipt identifies its turn");
+    let runtime = service.snapshot(&strand.id).await.unwrap().unwrap();
+    let held = runtime.turns.iter().find(|held| held.id == turn).unwrap();
     assert_eq!(held.status, turn::Status::Failed);
     assert_eq!(held.error.as_deref(), Some("interrupted by shutdown"));
     let receipt = service
@@ -147,7 +151,7 @@ async fn settles() {
     let store = santi_core::Store::open(temp.path().join("db"))
         .await
         .unwrap();
-    let stop = store.stop(&turn.id).await.unwrap().unwrap();
+    let stop = store.stop(&turn).await.unwrap().unwrap();
     assert_eq!(stop.cause, Some(turn::Cause::Shutdown));
     assert!(stop.settled.is_some());
     assert!(runtime.effects.is_empty());

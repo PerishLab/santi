@@ -39,7 +39,7 @@ async fn secrets() {
         .await
         .expect("send strand");
     let runtime = Probe::new(&service)
-        .completed_turn(&strand.id, &accepted_turn(&posted).id)
+        .completed_turn(&strand.id, &accepted_turn(&service, &posted).await.id)
         .await;
     let output = runtime.results[0].output.as_ref().expect("tool output");
     let stdout = output["stdout"].as_str().expect("stdout");

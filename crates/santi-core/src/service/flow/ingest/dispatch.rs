@@ -67,6 +67,15 @@ impl Service {
                 return drive::Outcome::Failed(self.stumbled(strand, drive, error).await);
             }
         };
+        if drive.operation != "operator_redrive" {
+            match self.gated(&strand.id, drive.operation).await {
+                Ok(Some(error)) => return drive::Outcome::Held(error),
+                Ok(None) => {}
+                Err(error) => {
+                    return drive::Outcome::Failed(self.stumbled(&strand.id, drive, error).await);
+                }
+            }
+        }
         match self.gate(&strand).await {
             Ok(Gate::Allow) => {}
             Ok(Gate::Pause { maintainer }) => {
@@ -166,7 +175,7 @@ impl Service {
                     plumb::trace::Span::note("strand", &strand);
                     background.conduct(strand, turn, control).await;
                 }));
-                drive::Outcome::Started(started.turn, started.drained)
+                drive::Outcome::Started(started.turn)
             }
             Ok(santi_estate::Opening::Running(turn)) => drive::Outcome::Running(turn),
             Ok(santi_estate::Opening::Idle) => drive::Outcome::Idle,

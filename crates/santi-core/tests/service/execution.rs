@@ -66,7 +66,7 @@ async fn bounds() {
         .await
         .expect("send strand");
     let runtime = Probe::new(&service)
-        .completed_turn(&strand.id, &accepted_turn(&posted).id)
+        .completed_turn(&strand.id, &accepted_turn(&service, &posted).await.id)
         .await;
     assert_eq!(runtime.results.len(), 1);
     let output = runtime.results[0].output.as_ref().expect("tool output");
@@ -130,7 +130,7 @@ async fn normalizes() {
         .await
         .expect("send strand");
     let runtime = Probe::new(&service)
-        .completed_turn(&strand.id, &accepted_turn(&posted).id)
+        .completed_turn(&strand.id, &accepted_turn(&service, &posted).await.id)
         .await;
     assert_eq!(runtime.results.len(), 1);
     let output = runtime.results[0].output.as_ref().expect("tool output");
@@ -197,7 +197,7 @@ async fn rounds() {
         .await
         .expect("send strand");
     let runtime = Probe::new(&service)
-        .failed_turn(&strand.id, &accepted_turn(&posted).id)
+        .failed_turn(&strand.id, &accepted_turn(&service, &posted).await.id)
         .await;
     assert_eq!(runtime.results.len(), 2);
     assert!(runtime.results[1].error.is_some());

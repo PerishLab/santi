@@ -1,18 +1,6 @@
 use super::*;
 
 impl Service {
-    pub(in crate::service) async fn held(&self, strand: &str) -> Result<Option<Fault>, String> {
-        let key = crate::budget::Error::Context
-            .descriptor()
-            .key("strand", strand);
-        Ok(self
-            .store
-            .incident(&key)
-            .await?
-            .filter(|incident| incident.latest.context["details"]["maintenance_pause"] == true)
-            .map(|incident| crate::engine().fault(&incident)))
-    }
-
     pub(in crate::service) fn suffix(&self, request: &mut santi_provider::Request) {
         let Some(cap) = self.budget() else {
             return;

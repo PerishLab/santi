@@ -5,6 +5,7 @@ use santi_core::{budget, compact, strand, stream};
     post,
     path = "/api/v1/strands/{strand}/send",
     params(("strand" = String, Path)),
+    summary = "Persist valid input and acknowledge its durable receipt without waiting for context assembly or strand processing. Follow the receipt for subsequent progress; do not resend accepted input.",
     request_body = strand::Post,
     responses(
         (status = 200, body = strand::Posted),

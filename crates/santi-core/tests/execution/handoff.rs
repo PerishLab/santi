@@ -65,7 +65,7 @@ async fn verify(rounds: usize, calls: usize, output: usize, compacts: usize) {
         )
         .await
         .unwrap();
-    assert!(posted.turn.is_some());
+    assert!(posted.turn.is_none());
     let mut runtime = service.snapshot(&strand.id).await.unwrap().unwrap();
     for _ in 0..300 {
         if provider.requests.lock().unwrap().len() > 10
@@ -208,7 +208,7 @@ async fn confines() {
         .await
         .unwrap();
     let runtime = Probe::new(&service)
-        .failed_turn(&strand.id, &accepted_turn(&posted).id)
+        .failed_turn(&strand.id, &accepted_turn(&service, &posted).await.id)
         .await;
     assert!(!marker.exists());
     assert_eq!(runtime.effects.len(), 1);
