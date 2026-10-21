@@ -20,7 +20,10 @@ profile = "runtime_v1"
 rounds = 64
 calls = 256
 output = 4194304
-shell = 65536
+# Each shell call keeps at most this many bytes or lines; a cut result keeps
+# its head and tail and saves the complete output under strand://outputs/.
+shell = 4096
+lines = 256
 # Optional experiment: after this many ordinary shell calls, the next provider
 # round offers only the feedback tool. Without a caller command, the Soul may
 # choose a native gate or product slice.

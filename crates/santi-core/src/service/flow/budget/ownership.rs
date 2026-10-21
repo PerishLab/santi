@@ -50,6 +50,7 @@ async fn isolates() {
             calls: 32,
             output: 10000,
             shell: 1000,
+            lines: 256,
             feedback_after_calls: None,
             feedback_command: None,
             feedback_cwd: None,

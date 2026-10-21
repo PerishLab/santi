@@ -87,3 +87,77 @@ async fn capsule() {
     assert!(metadata["forecast"]["after"]["total"].is_number());
     assert!(metadata["forecast"]["ratio"].is_number());
 }
+
+#[tokio::test]
+async fn overlaps() {
+    let temp = tempfile::tempdir().expect("temp dir");
+    bootstrap(&temp).await;
+    let service = Service::open(
+        service::Config {
+            database: temp.path().join("santi.sqlite").display().to_string(),
+            runtime: temp.path().join("runtime").display().to_string(),
+            execution: temp.path().join("execution").display().to_string(),
+            bind: Some("127.0.0.1:0".to_string()),
+            constitution: None,
+            environment: Default::default(),
+        },
+        Arc::new(FakeProvider::default()),
+    )
+    .await
+    .expect("open service");
+    let strand = service.weave().await.expect("create strand").strand;
+    for text in ["first exchange", "second exchange"] {
+        let posted = service
+            .send(
+                &strand.id,
+                strand::Post {
+                    content: vec![message::Part::Text {
+                        text: text.to_string(),
+                    }],
+                },
+            )
+            .await
+            .expect("send strand");
+        Probe::new(&service)
+            .completed_turn(&strand.id, &accepted_turn(&service, &posted).await.id)
+            .await;
+    }
+    let messages = service
+        .strand(&strand.id)
+        .await
+        .expect("read strand")
+        .expect("strand")
+        .messages;
+    let ids = messages
+        .iter()
+        .map(|held| held.message.id.clone())
+        .collect::<Vec<_>>();
+    let exec = |first: Option<&String>, last: Option<&String>| compact::Exec {
+        first: first.cloned(),
+        last: last.cloned(),
+        from: None,
+        to: None,
+        summary: "settled exchange".to_string(),
+        absorb: Vec::new(),
+        capsule: None,
+        dry: false,
+    };
+    service
+        .exec(&strand.id, exec(ids.first(), ids.get(1)))
+        .await
+        .expect("compact first exchange");
+    let refused = service
+        .exec(&strand.id, exec(ids.get(1), ids.get(2)))
+        .await
+        .expect_err("partial overlap refuses");
+    assert!(refused.contains("compact range partially overlaps an existing compact"));
+    assert!(refused.contains(&format!(
+        "settled history after the latest occupied slot runs from {} to {}",
+        ids[2], ids[2]
+    )));
+    assert!(refused.contains("omit first and last to compact all of it"));
+    service
+        .exec(&strand.id, exec(None, None))
+        .await
+        .expect("summary-only compact");
+}

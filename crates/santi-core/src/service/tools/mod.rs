@@ -227,7 +227,12 @@ impl Service {
                 .await;
         }
         self.store.dispatch_effect(effect, &crate::now()).await?;
-        match shell::ran(prepared, output_limit, control).await {
+        let bounds = shell::Bounds {
+            bytes: output_limit,
+            lines: self.rationed(strand).map(|budget| budget.lines),
+            saved: output_limit.map(|_| shell::Saved::at(self.strandhome(strand), &call.call)),
+        };
+        match shell::ran(prepared, bounds, control).await {
             shell::Outcome::Captured(output) => {
                 self.store
                     .redeem_effect(
