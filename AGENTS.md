@@ -36,7 +36,9 @@ operational work.
 
 The workspace manifests own crate membership and dependency boundaries.
 `crates/santi-core/src/assembly/prompt.rs` owns the built-in soul and strand
-constitution; `crates/santi-core/src/service/flow/memory.rs` owns memory pressure
+constitution; Issue [#187](https://github.com/PerishLab/santi/issues/187) records
+the reference method for diagnosing soul behavior through its observable inputs.
+`crates/santi-core/src/service/flow/memory.rs` owns memory pressure
 and maintenance.
 
 For execution and recovery changes, follow
