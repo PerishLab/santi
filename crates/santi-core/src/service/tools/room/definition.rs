@@ -20,11 +20,11 @@ fn parameters() -> serde_json::Value {
             "absorb": absorb(),
             "first": {
                 "type": "string",
-                "description": "First Message ID from a [message ID] header or compact covered_message_range. Supply with last."
+                "description": "First Message ID from an inbound [message ID] header or compact covered_message_range. Supply with last."
             },
             "last": {
                 "type": "string",
-                "description": "Last Message ID from a [message ID] header or compact covered_message_range. Supply with first."
+                "description": "Last Message ID from an inbound [message ID] header or compact covered_message_range. Supply with first."
             }
         },
         "required": ["summary"],

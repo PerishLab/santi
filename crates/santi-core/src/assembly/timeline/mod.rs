@@ -104,10 +104,17 @@ impl Timeline<'_> {
             (message::Role::System, message::Kind::Text) => "user",
             (message::Role::System, message::Kind::SantiSystem) => "system",
         };
-        let content = placed.message.content.rendered();
+        let rendered = placed.message.content.rendered();
+        let content = match placed.message.role {
+            message::Role::Soul => spoken(&rendered),
+            message::Role::System => rendered.as_str(),
+        };
         Ok((!content.trim().is_empty()).then(|| Item::Message {
             role: role.to_string(),
-            content: format!("[message {}]\n{content}", placed.message.id),
+            content: match placed.message.role {
+                message::Role::Soul => content.to_string(),
+                message::Role::System => format!("[message {}]\n{content}", placed.message.id),
+            },
         }))
     }
 
@@ -169,4 +176,24 @@ impl Timeline<'_> {
             output,
         }))
     }
+}
+
+fn spoken(content: &str) -> &str {
+    let mut rest = content;
+    loop {
+        let (line, tail) = rest.split_once('\n').unwrap_or((rest, ""));
+        if !headed(line) {
+            return rest;
+        }
+        rest = tail;
+    }
+}
+
+fn headed(line: &str) -> bool {
+    line.trim()
+        .strip_prefix("[message ")
+        .and_then(|rest| rest.strip_suffix(']'))
+        .is_some_and(|id| {
+            !id.is_empty() && !id.contains(|c: char| c.is_whitespace() || c == '[' || c == ']')
+        })
 }

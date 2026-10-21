@@ -5,6 +5,7 @@ use santi_estate::{
 };
 use santi_model::{message, thinking, turn};
 
+mod speech;
 mod timing;
 
 const FIRST: &str = "2026-07-28T00:00:00.000Z";
@@ -141,7 +142,7 @@ async fn assembles_ordered_estate() {
     assert_eq!(facts["timing"]["called_at"], LATER);
     assert_eq!(facts["timing"]["replied_at"], LATER);
     assert_eq!(facts["timing"]["call_to_result_ms"], 0);
-    assert_message(&input[4], "assistant", "[message message_last]\ndone");
+    assert_message(&input[4], "assistant", "done");
     let child = store
         .fork(ForkDraft {
             tag: "strand_child",
@@ -158,7 +159,7 @@ async fn assembles_ordered_estate() {
     };
     assert_eq!(replay, output);
     assert_message(&inherited[0], "user", "[message message_first]\nrun");
-    assert_message(&inherited[4], "assistant", "[message message_last]\ndone");
+    assert_message(&inherited[4], "assistant", "done");
     assert_eq!(
         store
             .message("message_first")
@@ -171,7 +172,7 @@ async fn assembles_ordered_estate() {
         "run"
     );
     let first = identity(&input[0]);
-    let last = identity(&input[4]);
+    let last = "message_last";
 
     let report = store
         .preview_compact("compact_preview", "strand_test", first, last)
