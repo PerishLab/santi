@@ -4,7 +4,7 @@ use super::{Origin, Service};
 use crate::{environ, environment, service::address::Address};
 
 impl Service {
-    pub(super) async fn resolved_environment(
+    pub(in crate::service) async fn resolved_environment(
         &self,
         origin: &Origin<&str>,
     ) -> Result<BTreeMap<String, String>, String> {

@@ -72,6 +72,8 @@ pub(crate) struct Job {
     generation: string,
     #[field(string, unique)]
     supervisor_ref: string,
+    #[field(string, opt)]
+    environment: string,
     #[field(
         string,
         default = "submitting",

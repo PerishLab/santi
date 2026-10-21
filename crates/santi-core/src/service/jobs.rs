@@ -26,6 +26,7 @@ pub struct Draft {
 
 #[derive(Debug, Clone)]
 pub struct Launch {
+    pub environment: Option<santi_estate::Environment>,
     pub job: job::Job,
     pub stamp: String,
     pub sidecar: String,

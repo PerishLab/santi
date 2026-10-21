@@ -1,6 +1,8 @@
+mod privacy;
+
 use santi_estate::{
-    AttentionDraft, CallDraft, CapabilityDraft, EffectDraft, JobDraft, NoticeDraft, Prepared,
-    Store, StrandDraft, TransitionDraft, TurnDraft,
+    AttentionDraft, CallDraft, CapabilityDraft, EffectDraft, Environment, JobDraft, NoticeDraft,
+    Prepared, Store, StrandDraft, TransitionDraft, TurnDraft,
 };
 use santi_model::{ingest, job, message, turn};
 
@@ -73,7 +75,13 @@ async fn lifecycle() {
         .await
         .expect("capability");
 
+    let environment = Environment(std::collections::BTreeMap::from([(
+        "PRIVATE_PROBE".to_string(),
+        "frozen-secret-probe".to_string(),
+    )]));
+    let changed = Environment(std::collections::BTreeMap::new());
     let draft = JobDraft {
+        environment: Some(&environment),
         tag: "job_test",
         description: "test job",
         command: "true",
@@ -96,18 +104,27 @@ async fn lifecycle() {
     assert_eq!(created.job.state, job::State::Submitting);
     assert_eq!(created.job.origin.soul, "soul_test");
     let Prepared::Existing(replayed) = store
-        .prepare_job("capability_digest", draft, 500)
+        .prepare_job(
+            "capability_digest",
+            JobDraft {
+                environment: Some(&changed),
+                ..draft
+            },
+            2000,
+        )
         .await
         .expect("replay")
     else {
         panic!("replay must reuse");
     };
     assert_eq!(replayed.job.id, "job_test");
+    privacy::verify(&path, &replayed, &environment).await;
     assert!(
         store
             .prepare_job(
                 "capability_digest",
                 JobDraft {
+                    environment: None,
                     request_sha256: "conflict",
                     ..draft
                 },
@@ -268,26 +285,7 @@ async fn lifecycle() {
             .is_err()
     );
 
-    store
-        .create_capability(CapabilityDraft {
-            digest: "expired_capability",
-            expires: 10,
-            soul: "soul_test",
-            strand: &strand.id,
-            turn: &turn.id,
-            call: &call.id,
-            effect: &effect.id,
-            created: FIRST,
-        })
-        .await
-        .expect("expiring capability");
-    assert_eq!(
-        store
-            .expire_capabilities(11)
-            .await
-            .expect("expire capabilities"),
-        1
-    );
+    privacy::expire(&store, [&strand.id, &turn.id, &call.id, &effect.id]).await;
 
     drop(store);
     Store::open(path).await.expect("open again");

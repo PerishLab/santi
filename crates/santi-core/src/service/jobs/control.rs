@@ -53,6 +53,21 @@ impl Service {
     pub async fn spawn(&self, capability: &str, draft: Draft) -> Result<job::Accepted, String> {
         let normalized = draft::normalize(draft)?;
         let capability = hex::encode(Sha256::digest(capability.as_bytes()));
+        let (origin, consumed) = self.store.capability(&capability, epoch()?).await?;
+        let environment = if consumed {
+            None
+        } else {
+            Some(santi_estate::Environment(
+                self.resolved_environment(&job::Origin {
+                    soul: origin.soul.as_str(),
+                    strand: origin.strand.as_str(),
+                    turn: origin.turn.as_str(),
+                    call: origin.call.as_str(),
+                    effect: origin.effect.as_str(),
+                })
+                .await?,
+            ))
+        };
         let tag = crate::tag("job");
         let generation = crate::tag("stamp");
         let supervisor = crate::tag("sidecar");
@@ -63,6 +78,7 @@ impl Service {
             .prepare_job(
                 &capability,
                 santi_estate::JobDraft {
+                    environment: environment.as_ref(),
                     tag: &tag,
                     description: &normalized.description,
                     command: &normalized.command,
@@ -174,22 +190,6 @@ impl Service {
             .acknowledge_job(id, &crate::now())
             .await
             .map(|record| Some(record.job))
-    }
-
-    fn launch(&self, record: &JobRecord) -> Result<Launch, String> {
-        let cwd = self.situated(
-            &record.job.origin.strand,
-            &record.job.origin.soul,
-            record.job.cwd.as_deref(),
-        )?;
-        std::fs::create_dir_all(&cwd).map_err(|error| error.to_string())?;
-        Ok(Launch {
-            job: record.job.clone(),
-            stamp: record.generation.clone(),
-            sidecar: record.supervisor.clone(),
-            cwd: cwd.display().to_string(),
-            directory: self.jobhome(record).display().to_string(),
-        })
     }
 
     pub(super) async fn refresh(&self, record: JobRecord) -> Result<JobRecord, String> {

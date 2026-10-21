@@ -23,6 +23,15 @@ fn retains() {
     #[cfg(target_os = "windows")]
     let command = r#"Write-Output "capability=$env:SANTI_JOB_CREATE_CAPABILITY"; Write-Output "soul=$env:SANTI_SOUL_ID"; [Console]::Error.WriteLine("stderr-probe"); exit 7"#;
     let launch = JobLaunch {
+        environment: Some(santi_estate::Environment(std::collections::BTreeMap::from(
+            [
+                ("SANTI_SOUL_ID".to_string(), "forged".to_string()),
+                (
+                    "SANTI_JOB_CREATE_CAPABILITY".to_string(),
+                    "forged-capability".to_string(),
+                ),
+            ],
+        ))),
         job: job::Job {
             id: id.clone(),
             origin: job::Origin {
@@ -65,6 +74,26 @@ fn retains() {
     assert_eq!(terminal.state, job::State::Failed);
     assert_eq!(terminal.exit, Some(7));
 
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        assert_eq!(
+            std::fs::metadata(path(&launch))
+                .expect("directory")
+                .permissions()
+                .mode()
+                & 0o777,
+            0o700
+        );
+        assert_eq!(
+            std::fs::metadata(path(&launch).join("spec.json"))
+                .expect("spec")
+                .permissions()
+                .mode()
+                & 0o777,
+            0o600
+        );
+    }
     let stdout = std::fs::read_to_string(path(&launch).join("stdout.log")).expect("stdout");
     let stderr = std::fs::read_to_string(path(&launch).join("stderr.log")).expect("stderr");
     #[cfg(unix)]

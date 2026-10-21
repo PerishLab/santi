@@ -40,6 +40,14 @@ pub(super) fn run() -> Result<(), String> {
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
     santi_core::environment::allow(&mut command);
+    if let Some(environment) = &spec.environment {
+        command.envs(
+            environment
+                .0
+                .iter()
+                .filter(|(name, _)| !name.starts_with(santi_core::environment::RESERVED)),
+        );
+    }
     command
         .env("SANTI_SOUL_ID", &spec.origin.soul)
         .env("SANTI_STRAND_ID", &spec.origin.strand)
