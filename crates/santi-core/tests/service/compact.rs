@@ -150,12 +150,9 @@ async fn overlaps() {
         .exec(&strand.id, exec(ids.get(1), ids.get(2)))
         .await
         .expect_err("partial overlap refuses");
-    assert!(refused.contains("compact range partially overlaps an existing compact"));
-    assert!(refused.contains(&format!(
-        "settled history after the latest occupied slot runs from {} to {}",
-        ids[2], ids[2]
-    )));
-    assert!(refused.contains("omit first and last to compact all of it"));
+    assert!(refused.starts_with("[compact.overlap]"), "{refused}");
+    assert!(refused.contains(&format!("first: {}, last: {}", ids[0], ids[2])));
+    assert!(refused.contains(&format!("first: {}, last: {}", ids[2], ids[2])));
     service
         .exec(&strand.id, exec(None, None))
         .await

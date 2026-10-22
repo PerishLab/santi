@@ -80,17 +80,9 @@ const CONFLICT: &[Rule] = &[
 
 const INVALID: &[Rule] = &[
     Rule::Starts("alarm "),
-    Rule::Around {
-        start: "compact ",
-        fragment: " is not a message sequence",
-    },
-    Rule::Starts("compact requires either"),
-    Rule::Starts("compact refused:"),
-    Rule::Starts("absorb names"),
+    Rule::Starts("[compact."),
     Rule::Starts("compact summary is"),
-    Rule::Starts("compact has no settled range"),
     Rule::Starts("context refused:"),
-    Rule::Contains("boundary must be a fixed projected message"),
     Rule::Starts("unknown soul"),
     Rule::Contains("must not be empty"),
     Rule::Around {

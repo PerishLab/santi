@@ -48,9 +48,7 @@ pub(super) async fn load(tx: &mut Tx<'_, Sqlite>, strand: &str) -> Result<Scope,
             key: row.key(),
             tag: tag.into(),
             sequence: number(&entry, "sequence")?,
-            fixed: row.text("state") == Some("fixed")
-                && matches!(row.text("actor_type"), Some("soul" | "system"))
-                && matches!(row.text("kind"), Some("text" | "santi_system")),
+            fixed: eligible(&row),
         });
     }
     let rows = tx
@@ -77,6 +75,12 @@ pub(super) async fn load(tx: &mut Tx<'_, Sqlite>, strand: &str) -> Result<Scope,
         .cloned()
         .collect();
     Ok(Scope { spans, messages })
+}
+
+pub(super) fn eligible(message: &keel::Row) -> bool {
+    message.text("state") == Some("fixed")
+        && matches!(message.text("actor_type"), Some("soul" | "system"))
+        && matches!(message.text("kind"), Some("text" | "santi_system"))
 }
 
 fn covered(span: &Span, spans: &[Span]) -> bool {
