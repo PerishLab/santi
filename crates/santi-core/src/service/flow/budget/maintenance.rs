@@ -1,10 +1,13 @@
 use crate::service::{Service, Settlement};
 
+const REPLIES: usize = 2;
+
 impl Service {
     pub(in crate::service) fn press(&self, turn: &str) {
         self.settlements.lock().unwrap().insert(turn.to_string(), Settlement {
             reason: "context_budget".into(),
-            detail: "<system_message>\nkind: context_maintenance\nstate: Query and compact are available. A successful compact ends this turn and queues a pause notice for this strand.\n</system_message>".into(),
+            detail: "<system_message>\nkind: context_maintenance\nstate: Query and compact are available. This turn ends only through a successful compact; a reply without a tool call does not end it. A successful compact queues a pause notice for this strand.\n</system_message>".into(),
+            replies: 0,
         });
     }
 
@@ -42,6 +45,7 @@ impl Service {
             Settlement {
                 reason: reason.into(),
                 detail,
+                replies: 0,
             },
         );
         Ok(true)
@@ -53,6 +57,17 @@ impl Service {
             .unwrap()
             .get(turn)
             .map(|state| state.detail.clone())
+    }
+
+    pub(in crate::service) fn replied(&self, turn: &str) -> bool {
+        let mut settlements = self.settlements.lock().unwrap();
+        match settlements.get_mut(turn) {
+            Some(state) if state.reason == "context_budget" && state.replies < REPLIES => {
+                state.replies += 1;
+                true
+            }
+            _ => false,
+        }
     }
 
     pub(in crate::service) fn reason(&self, turn: &str) -> Option<String> {
@@ -99,6 +114,7 @@ impl Service {
                 Settlement {
                     reason: reason.into(),
                     detail,
+                    replies: 0,
                 },
             );
         }

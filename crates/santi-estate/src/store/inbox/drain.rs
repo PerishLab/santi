@@ -188,7 +188,7 @@ impl Writer<'_, '_> {
         strand: &Row,
         draft: &DrainDraft<'_>,
     ) -> Result<Opened, keel::adapt::Error> {
-        let content = serde_json::to_string(&santi_model::message::Content::text("<system_message>\nkind: context_maintenance\nstate: This strand is paused for context maintenance. Pending inbox input remains queued. Only compact is available.\n</system_message>"))
+        let content = serde_json::to_string(&santi_model::message::Content::text("<system_message>\nkind: context_maintenance\nstate: This strand is paused for context maintenance. Pending inbox input remains queued.\n</system_message>"))
         .map_err(|error| keel::adapt::Error::Adapt(error.to_string()))?;
         let message = self
             .insert(Message {
