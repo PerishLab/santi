@@ -216,14 +216,17 @@ impl Service {
             }
 
             if calls.is_empty() {
-                if self.settlement(turn).is_some() {
-                    let error = attempt!(
-                        Operation::Admission(Admission::Execution),
-                        self.incomplete(strand, turn, round).await
-                    );
-                    return Err(Failure::execution(error, &prose));
+                if self.settlement(turn).is_none() {
+                    break completed;
                 }
-                break completed;
+                if self.replied(turn) {
+                    continue;
+                }
+                let error = attempt!(
+                    Operation::Admission(Admission::Execution),
+                    self.incomplete(strand, turn, round).await
+                );
+                return Err(Failure::execution(error, &prose));
             }
 
             let limits = match attempt!(

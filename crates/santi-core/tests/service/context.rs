@@ -1,6 +1,6 @@
 #[path = "../execution/context.rs"]
 mod maintenance;
-#[path = "../execution/pause.rs"]
+#[path = "../execution/pause/mod.rs"]
 mod pause;
 use super::support::*;
 use santi_core::service::{self, Service};

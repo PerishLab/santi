@@ -65,6 +65,7 @@ pub struct Service {
 struct Settlement {
     reason: String,
     detail: String,
+    replies: usize,
 }
 
 #[derive(Debug, Clone)]
