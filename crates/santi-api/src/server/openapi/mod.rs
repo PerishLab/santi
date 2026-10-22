@@ -130,6 +130,7 @@ use santi_core::{material, soul, strand, stream};
         santi_core::compact::Capsule,
         santi_core::compact::Exec,
         santi_core::compact::Report,
+        santi_core::compact::Range,
         santi_core::compact::Entry,
         santi_core::compact::Page,
         santi_core::budget::Cap,

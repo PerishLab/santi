@@ -179,14 +179,16 @@ impl Store {
         strand: &str,
         request: &compact::Exec,
         limits: Limits,
-    ) -> Result<(String, String), String> {
+    ) -> Result<compact::Choice, String> {
         self.core
-            .batch(async |tx| {
-                let scope = scope::load(tx, strand).await?;
-                scope
-                    .select(request, limits)
-                    .map_err(keel::adapt::Error::Adapt)
-            })
+            .batch(async |tx| Ok(scope::load(tx, strand).await?.select(request, limits)))
+            .await
+            .map_err(read::error)?
+    }
+
+    pub async fn settled(&self, strand: &str) -> Result<Option<compact::Range>, String> {
+        self.core
+            .batch(async |tx| Ok(scope::load(tx, strand).await?.settled().ok()))
             .await
             .map_err(read::error)
     }
@@ -197,6 +199,6 @@ pub(in crate::store) async fn selected(
     strand: &str,
     request: &compact::Exec,
     limits: Limits,
-) -> Result<Result<(String, String), String>, keel::adapt::Error> {
+) -> Result<Result<compact::Choice, String>, keel::adapt::Error> {
     Ok(scope::load(tx, strand).await?.select(request, limits))
 }

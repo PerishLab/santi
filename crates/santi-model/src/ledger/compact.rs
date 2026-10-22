@@ -68,6 +68,21 @@ pub struct Report {
     pub after: Option<crate::budget::Estimate>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub ratio: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub requested: Option<Range>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[schema(as = compact::Range)]
+pub struct Range {
+    pub first: String,
+    pub last: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct Choice {
+    pub range: Range,
+    pub requested: Option<Range>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]

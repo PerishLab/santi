@@ -54,26 +54,15 @@ impl Service {
     async fn slots(&self, strand: &str) -> Result<Value, String> {
         let spans = self.spans(strand).await?;
         let mut slots = Vec::new();
-        let mut floor = 0;
         for compact in self.store.compacts(strand).await? {
             if let Some(span) = spans.iter().find(|span| span.compact == compact.id)
                 && !crate::service::face::compact::slots::covered(span, &spans)
             {
-                floor = floor.max(span.to);
                 slots.push(json!({"id": compact.id, "first": compact.first, "last": compact.last, "from": span.from, "to": span.to, "bytes": compact.summary.len()}));
             }
         }
         slots.sort_by_key(|slot| slot["from"].as_i64());
-        let messages = self.store.messages(strand).await?;
-        let loose = messages
-            .iter()
-            .filter(|message| message.relation.seq > floor)
-            .collect::<Vec<_>>();
-        let settled = loose.split_last().map(|(_, rest)| rest).unwrap_or_default();
-        let default = settled
-            .first()
-            .zip(settled.last())
-            .map(|(first, last)| json!({"first": first.message.id, "last": last.message.id}));
+        let default = self.store.settled(strand).await?;
         let policy = self.regimen();
         Ok(
             json!({"slots": slots, "capacity": policy.slots, "default": default, "read": "query kind content with an id; compact summary alone uses default, absorb uses occupied slot ids"}),

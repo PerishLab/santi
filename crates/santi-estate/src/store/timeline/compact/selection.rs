@@ -1,6 +1,6 @@
 use super::{
     Limits,
-    scope::{Scope, Span},
+    scope::{Boundary, Scope, Span},
 };
 use santi_model::compact;
 
@@ -9,10 +9,10 @@ impl Scope {
         &self,
         request: &compact::Exec,
         limits: Limits,
-    ) -> Result<(String, String), String> {
+    ) -> Result<compact::Choice, String> {
         let summary = request.summary.trim();
         if summary.is_empty() {
-            return Err("compact summary must not be empty".into());
+            return Err("[compact.summary] compact summary must not be empty".into());
         }
         self.admit(request, limits)?;
         let input = Bounds {
@@ -21,61 +21,169 @@ impl Scope {
             from: request.from,
             to: request.to,
         };
-        let bounds = match input {
-            Bounds {first: Some(first), last: Some(last), from: None, to: None} => (first.into(), last.into()),
-            Bounds {first: None, last: None, from: Some(from), to: Some(to)} => (self.seated("from", from)?, self.seated("to", to)?),
-            Bounds {first: None, last: None, from: None, to: None} if !request.absorb.is_empty() => self.merged(&request.absorb)?,
-            Bounds {first: None, last: None, from: None, to: None} => self.settled()?,
-            _ => return Err("compact requires either first/last as message ids or from/to as message sequences, and never a mixture of the two".into()),
+        let named = match input {
+            Bounds {first: Some(first), last: Some(last), from: None, to: None} => Some((self.located("first", first)?, self.located("last", last)?)),
+            Bounds {first: None, last: None, from: Some(from), to: Some(to)} => Some((self.seated("from", from)?, self.seated("to", to)?)),
+            Bounds {first: None, last: None, from: None, to: None} => None,
+            _ => return Err("[compact.form] compact takes first and last together as message ids, or from and to together as message sequences, never one end alone or a mixture; omit them all to compact the settled history since the last occupied slot".into()),
         };
-        self.validate(&bounds)?;
-        Ok(bounds)
+        let slots = self.chosen(&request.absorb, named.is_none())?;
+        let Some((first, last)) = named else {
+            let range = match hull(&slots) {
+                Some((from, to)) => self.resolve(from, to)?,
+                None => self.settled()?,
+            };
+            return Ok(compact::Choice {
+                range,
+                requested: None,
+            });
+        };
+        if first.sequence > last.sequence {
+            return Err(self.reversed(first, last, &slots));
+        }
+        let range = self.reach(first, last, &slots)?;
+        let requested = compact::Range {
+            first: first.tag.clone(),
+            last: last.tag.clone(),
+        };
+        Ok(compact::Choice {
+            requested: (range != requested).then_some(requested),
+            range,
+        })
     }
 
-    fn validate(&self, bounds: &(String, String)) -> Result<(), String> {
-        let first = self.message(&bounds.0, "from")?;
-        let last = self.message(&bounds.1, "to")?;
-        if first > last {
-            return Err("compact from must not be after to".into());
-        }
-        let partial = self
-            .spans
-            .iter()
-            .any(|span| span.overlaps(first, last) && !span.enclosed(first, last));
-        if partial {
-            let remedy = match self.settled() {
-                Ok((first, last)) => format!(
-                    "settled history after the latest occupied slot runs from {first} to {last}; omit first and last to compact all of it"
+    fn reach(
+        &self,
+        first: &Boundary,
+        last: &Boundary,
+        slots: &[&Span],
+    ) -> Result<compact::Range, String> {
+        let Some((from, to)) = self.inward(first.sequence, last.sequence) else {
+            let named = slots
+                .iter()
+                .map(|span| span.compact.clone())
+                .collect::<Vec<_>>();
+            let absorb = match self.chosen(&named, true) {
+                Ok(_) if !slots.is_empty() => format!(
+                    "; to compact only the named slots, submit absorb: [{}] without first and last",
+                    names(slots)
                 ),
-                Err(_) => "no settled history remains after the latest occupied slot".to_string(),
+                _ => String::new(),
             };
             return Err(format!(
-                "compact range partially overlaps an existing compact; {remedy}"
+                "[compact.empty] no eligible boundary lies between {} and {}: a boundary must be fixed soul or system text, so pending and aborted messages never are; query messages to choose boundaries{absorb}",
+                first.tag, last.tag
             ));
-        }
-        Ok(())
+        };
+        let (from, to) = match hull(slots) {
+            Some((low, high)) => (from.min(low), to.max(high)),
+            None => (from, to),
+        };
+        self.resolve(from, to)
     }
 
-    fn message(&self, tag: &str, label: &str) -> Result<i64, String> {
-        let message = self
+    fn reversed(&self, first: &Boundary, last: &Boundary, slots: &[&Span]) -> String {
+        let swapped = match self.reach(last, first, slots) {
+            Ok(range) => format!("; ready to submit: {}", argued(&range)),
+            Err(_) => String::new(),
+        };
+        format!(
+            "[compact.order] compact first {} (sequence {}) comes after last {} (sequence {}){swapped}",
+            first.tag, first.sequence, last.tag, last.sequence
+        )
+    }
+
+    fn resolve(&self, from: i64, to: i64) -> Result<compact::Range, String> {
+        let partial = self.partial(from, to);
+        if partial.is_empty() {
+            return Ok(self.range(from, to));
+        }
+        let slots = partial
+            .iter()
+            .map(|span| format!("{} (covering {} to {})", span.compact, span.head, span.tail))
+            .collect::<Vec<_>>()
+            .join(", ");
+        let mut forward = vec![format!(
+            "{} (encloses and absorbs the slot)",
+            argued(&self.enclosed(from, to))
+        )];
+        if let Some(range) = self.excluded(from, to) {
+            forward.push(format!("{} (leaves the slot out)", argued(&range)));
+        }
+        Err(format!(
+            "[compact.overlap] compact range {} to {} partially overlaps occupied slot {slots}; a range must enclose a slot or leave it out. Ready to submit: {}",
+            self.tag(from),
+            self.tag(to),
+            forward.join("; or ")
+        ))
+    }
+
+    fn enclosed(&self, mut from: i64, mut to: i64) -> compact::Range {
+        while let Some(span) = self.partial(from, to).first() {
+            from = from.min(span.from);
+            to = to.max(span.to);
+        }
+        self.range(from, to)
+    }
+
+    fn excluded(&self, mut from: i64, mut to: i64) -> Option<compact::Range> {
+        while let Some(span) = self.partial(from, to).first() {
+            if span.from <= from {
+                from = self.inward(span.to + 1, to)?.0;
+            } else {
+                to = self.inward(from, span.from - 1)?.1;
+            }
+        }
+        Some(self.range(from, to))
+    }
+
+    fn partial(&self, from: i64, to: i64) -> Vec<&Span> {
+        self.spans
+            .iter()
+            .filter(|span| span.overlaps(from, to) && !span.enclosed(from, to))
+            .collect()
+    }
+
+    fn inward(&self, from: i64, to: i64) -> Option<(i64, i64)> {
+        let mut eligible = self
             .messages
             .iter()
-            .find(|message| message.tag == tag)
-            .ok_or_else(|| format!("compact {label} message not in this strand; query slots or messages for current references"))?;
-        if !message.fixed {
-            return Err(format!(
-                "compact {label} boundary must be a fixed projected message"
-            ));
+            .filter(|message| message.fixed && (from..=to).contains(&message.sequence));
+        let first = eligible.next()?.sequence;
+        let last = eligible
+            .next_back()
+            .map_or(first, |message| message.sequence);
+        Some((first, last))
+    }
+
+    fn range(&self, from: i64, to: i64) -> compact::Range {
+        compact::Range {
+            first: self.tag(from),
+            last: self.tag(to),
         }
-        Ok(message.sequence)
     }
 
-    fn seated(&self, label: &str, sequence: i64) -> Result<String, String> {
-        self.messages.iter().find(|message| message.sequence == sequence).map(|message| message.tag.clone())
-            .ok_or_else(|| format!("compact {label} {sequence} is not a message sequence in this strand; from/to take message sequences, while tool and turn records carry sequences of their own and are not messages; query messages to pick a boundary, or pass first/last with message ids instead"))
+    fn tag(&self, sequence: i64) -> String {
+        self.messages
+            .iter()
+            .find(|message| message.sequence == sequence)
+            .map(|message| message.tag.clone())
+            .unwrap_or_default()
     }
 
-    fn settled(&self) -> Result<(String, String), String> {
+    fn located(&self, label: &str, tag: &str) -> Result<&Boundary, String> {
+        self.messages
+            .iter()
+            .find(|message| message.tag == tag)
+            .ok_or_else(|| format!("[compact.unknown] compact {label} {tag} is not a message in this strand; query slots or messages for current references"))
+    }
+
+    fn seated(&self, label: &str, sequence: i64) -> Result<&Boundary, String> {
+        self.messages.iter().find(|message| message.sequence == sequence)
+            .ok_or_else(|| format!("[compact.unknown] compact {label} {sequence} is not a message sequence in this strand; from/to take message sequences, while tool and turn records carry sequences of their own and are not messages; query messages to pick a boundary, or pass first/last with message ids instead"))
+    }
+
+    pub(super) fn settled(&self) -> Result<compact::Range, String> {
         let floor = self.spans.iter().map(|span| span.to).max().unwrap_or(0);
         let loose = self
             .messages
@@ -86,42 +194,62 @@ impl Scope {
             .split_last()
             .map(|(_, settled)| settled)
             .unwrap_or_default();
-        match (settled.first(), settled.last()) {
-            (Some(first), Some(last)) => Ok((first.tag.clone(), last.tag.clone())),
-            _ => Err(format!(
-                "compact has no settled range to collapse: every message after sequence {floor} is still the live exchange, and the most recent message is always kept out of a default range; name first/last or from/to to choose a range yourself"
-            )),
-        }
+        settled
+            .first()
+            .zip(settled.last())
+            .and_then(|(first, last)| self.inward(first.sequence, last.sequence))
+            .map(|(from, to)| self.range(from, to))
+            .ok_or_else(|| format!(
+                "[compact.settled] compact has no settled range to collapse: no eligible boundary lies after sequence {floor} outside the live exchange, and the most recent message is always kept out of a default range; name first/last or absorb occupied slots to choose a range yourself"
+            ))
     }
 
-    fn merged(&self, named: &[String]) -> Result<(String, String), String> {
+    fn chosen(&self, named: &[String], alone: bool) -> Result<Vec<&Span>, String> {
         let mut chosen = Vec::new();
         for name in named {
             let found = self.spans.iter().find(|span| span.compact == *name)
-                .ok_or_else(|| format!("absorb names {name}, which is not an occupied slot on this strand; query slots for current occupied ids"))?;
+                .ok_or_else(|| format!("[compact.absorb] absorb names {name}, which is not an occupied slot on this strand; occupied slots are {}", names(&self.ordered())))?;
             chosen.push(found);
         }
         chosen.sort_by_key(|span| span.from);
-        let first = chosen
-            .first()
-            .ok_or_else(|| "absorb names no slot".to_string())?;
-        let last = chosen
-            .last()
-            .ok_or_else(|| "absorb names no slot".to_string())?;
         let missed = self
             .spans
             .iter()
             .filter(|span| between(span, &chosen))
             .map(|span| span.compact.clone())
             .collect::<Vec<_>>();
-        if !missed.is_empty() {
+        if alone && !missed.is_empty() {
             return Err(format!(
-                "absorb names a set that is not contiguous: {} lies between the slots you named and would be collapsed without being chosen; name it too, or choose adjacent slots",
+                "[compact.absorb] absorb names a set that is not contiguous: {} lies between the slots you named and would be collapsed without being chosen; name it too, or choose adjacent slots",
                 missed.join(", ")
             ));
         }
-        Ok((first.head.clone(), last.tail.clone()))
+        Ok(chosen)
     }
+
+    pub(super) fn ordered(&self) -> Vec<&Span> {
+        let mut spans = self.spans.iter().collect::<Vec<_>>();
+        spans.sort_by_key(|span| span.from);
+        spans
+    }
+}
+
+fn hull(slots: &[&Span]) -> Option<(i64, i64)> {
+    let from = slots.iter().map(|span| span.from).min()?;
+    let to = slots.iter().map(|span| span.to).max()?;
+    Some((from, to))
+}
+
+pub(super) fn names(spans: &[&Span]) -> String {
+    spans
+        .iter()
+        .map(|span| span.compact.as_str())
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+fn argued(range: &compact::Range) -> String {
+    format!("first: {}, last: {}", range.first, range.last)
 }
 
 fn between(span: &Span, chosen: &[&Span]) -> bool {

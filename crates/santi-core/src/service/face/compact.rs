@@ -23,7 +23,7 @@ impl Service {
             .await?
             .ok_or_else(|| "strand not found".to_string())?;
         let policy = self.regimen();
-        let (from, to) = self
+        let choice = self
             .store
             .selection(
                 &strand.id,
@@ -34,13 +34,15 @@ impl Service {
                 },
             )
             .await?;
+        let (from, to) = (&choice.range.first, &choice.range.last);
         let before = self.estimate(&strand.id).await?;
         if request.dry {
             let mut response = self
                 .store
-                .preview_compact(&crate::tag("compact"), &strand.id, &from, &to)
+                .preview_compact(&crate::tag("compact"), &strand.id, from, to)
                 .await?;
             response.before = Some(before.clone());
+            response.requested = choice.requested.clone();
             if let Some(capsule) = request.capsule.as_ref() {
                 let (_, after, ratio) = self
                     .encapsulated(&strand.id, &response, summary, capsule)
@@ -55,7 +57,7 @@ impl Service {
         let (metadata, expected) = if let Some(capsule) = request.capsule.as_ref() {
             let mut preview = self
                 .store
-                .preview_compact(&compact_tag, &strand.id, &from, &to)
+                .preview_compact(&compact_tag, &strand.id, from, to)
                 .await?;
             preview.before = Some(before.clone());
             let (metadata, _, _) = self
@@ -70,8 +72,8 @@ impl Service {
             .create_compact(santi_estate::CompactDraft {
                 tag: &compact_tag,
                 strand: &strand.id,
-                first: &from,
-                last: &to,
+                first: from,
+                last: to,
                 summary,
                 metadata: metadata.as_ref(),
                 expected: expected.as_ref(),
@@ -94,6 +96,7 @@ impl Service {
                 .await;
         }
         response.before = Some(before);
+        response.requested = choice.requested;
         Ok(response)
     }
 

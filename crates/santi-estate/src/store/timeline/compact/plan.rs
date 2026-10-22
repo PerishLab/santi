@@ -31,6 +31,7 @@ impl Plan {
             before: None,
             after: None,
             ratio: None,
+            requested: None,
         }
     }
 
@@ -84,7 +85,7 @@ pub(super) async fn build(
     let (last_row, to) = boundary(tx, strand.key(), last, "to").await?;
     if from > to {
         return Err(keel::adapt::Error::Adapt(
-            "compact from must not be after to".into(),
+            "[compact.order] compact from must not be after to".into(),
         ));
     }
     let mut absorbed = Vec::new();
@@ -110,7 +111,7 @@ pub(super) async fn build(
             continue;
         }
         return Err(keel::adapt::Error::Adapt(
-            "compact range partially overlaps an existing compact".into(),
+            "[compact.overlap] compact range partially overlaps an existing compact".into(),
         ));
     }
     let collapsed = tx
@@ -143,12 +144,9 @@ async fn boundary(
     label: &str,
 ) -> Result<(Row, i64), keel::adapt::Error> {
     let message = Reader(tx).need("Message", tag).await?;
-    if message.text("state") != Some("fixed")
-        || !matches!(message.text("actor_type"), Some("soul" | "system"))
-        || !matches!(message.text("kind"), Some("text" | "santi_system"))
-    {
+    if !super::scope::eligible(&message) {
         return Err(keel::adapt::Error::Adapt(format!(
-            "compact {label} boundary must be a fixed projected message"
+            "[compact.boundary] compact {label} boundary must be a fixed projected message"
         )));
     }
     let entry = tx
@@ -160,7 +158,9 @@ async fn boundary(
         )
         .await?
         .ok_or_else(|| {
-            keel::adapt::Error::Adapt(format!("compact {label} message not in this strand"))
+            keel::adapt::Error::Adapt(format!(
+                "[compact.unknown] compact {label} message not in this strand"
+            ))
         })?;
     let sequence = entry
         .int("sequence")

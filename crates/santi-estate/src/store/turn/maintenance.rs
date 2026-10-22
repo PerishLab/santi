@@ -113,18 +113,18 @@ async fn applied(
         ));
     }
     let bounds = crate::store::timeline::compact::selected(tx, strand, request, limits).await?;
-    let (first, last) = match bounds {
-        Ok(bounds) => bounds,
+    let choice = match bounds {
+        Ok(choice) => choice,
         Err(error) => return Ok(Err(error)),
     };
     let tag = santi_model::tag("compact");
-    let report = crate::store::timeline::compact::create(
+    let mut report = crate::store::timeline::compact::create(
         tx,
         &crate::store::CompactDraft {
             tag: &tag,
             strand,
-            first: &first,
-            last: &last,
+            first: &choice.range.first,
+            last: &choice.range.last,
             summary: request.summary.trim(),
             metadata: None,
             expected: None,
@@ -133,6 +133,7 @@ async fn applied(
         None,
     )
     .await?;
+    report.requested = choice.requested;
     Ok(Ok(
         serde_json::to_value(report).map_err(|error| Error::Adapt(error.to_string()))?
     ))
