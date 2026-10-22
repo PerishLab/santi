@@ -38,6 +38,7 @@ async fn verify(work: usize, rounds: usize, calls: usize, batch: usize) {
         calls,
         output: 10000,
         shell: 1000,
+        lines: 256,
         feedback_after_calls: None,
         feedback_command: None,
         feedback_cwd: None,

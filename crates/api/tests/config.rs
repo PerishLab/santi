@@ -16,7 +16,10 @@ profile = "runtime_v1"
 rounds = 16
 calls = 256
 output = 4194304
-shell = 65536
+# Each shell call keeps at most this many bytes or lines; a cut result keeps
+# its head and tail and saves the complete output under strand://outputs/.
+shell = 4096
+lines = 256
 # Optional experiment: after this many ordinary shell calls, the next provider
 # round offers only the feedback tool. Without a caller command, the Soul may
 # choose a native gate or product slice.
@@ -80,6 +83,9 @@ fn example() {
     assert_eq!(held.providers.len(), 3);
     assert_eq!(held.server.grace, 30);
     assert_eq!(held.execution.budget().unwrap().rounds, 16);
+    assert_eq!(held.execution.budget().unwrap().shell, 4096);
+    assert_eq!(held.execution.budget().unwrap().lines, 256);
+    assert_eq!(read("").execution.budget().unwrap().lines, 256);
     assert_eq!(
         held.jobs.retention().unwrap(),
         std::time::Duration::from_secs(604800)
@@ -107,6 +113,7 @@ rounds = 8
 calls = 64
 output = 1048576
 shell = 32768
+lines = 64
 feedback_after_calls = 6
 feedback_command = "cargo test --locked --workspace"
 feedback_cwd = "strand://product"
@@ -118,6 +125,7 @@ feedback_cwd = "strand://product"
     assert_eq!(budget.calls, 64);
     assert_eq!(budget.output, 1048576);
     assert_eq!(budget.shell, 32768);
+    assert_eq!(budget.lines, 64);
     assert_eq!(budget.feedback_after_calls, Some(6));
     assert_eq!(
         budget.feedback_command.as_deref(),

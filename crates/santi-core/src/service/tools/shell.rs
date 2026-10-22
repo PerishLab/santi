@@ -1,20 +1,15 @@
-use std::{
-    path::PathBuf,
-    process::Command,
-    sync::{
-        Arc,
-        atomic::{AtomicUsize, Ordering},
-    },
-};
+use std::{path::PathBuf, process::Command};
 
 use serde::Deserialize;
 use serde_json::{Value, json};
-use tokio::io::{AsyncRead, AsyncReadExt};
 
 use crate::service::interrupt::Control;
 
+mod bound;
 mod definition;
 mod redact;
+
+pub(super) use bound::{Bounds, Saved};
 
 pub(super) fn definition() -> santi_provider::Tool {
     definition::tool()
@@ -38,11 +33,7 @@ pub(super) enum Outcome {
     Stopped(String),
 }
 
-pub(super) async fn ran(
-    prepared: Prepared,
-    output_limit: Option<usize>,
-    control: &Control,
-) -> Outcome {
+pub(super) async fn ran(prepared: Prepared, bounds: Bounds, control: &Control) -> Outcome {
     let Prepared { command, cwd } = prepared;
     let mut command = tokio::process::Command::from(command);
     command.kill_on_drop(true);
@@ -56,9 +47,8 @@ pub(super) async fn ran(
         let _ = terminate(&mut child).await;
         return Outcome::Unknown("shell stdout or stderr pipe was unavailable".to_string());
     };
-    let remaining = output_limit.map(|limit| Arc::new(AtomicUsize::new(limit)));
-    let stdout = tokio::spawn(piped(stdout, remaining.clone()));
-    let stderr = tokio::spawn(piped(stderr, remaining));
+    let stdout = tokio::spawn(bound::piped(stdout, bounds.bytes));
+    let stderr = tokio::spawn(bound::piped(stderr, bounds.bytes));
     let mut stopped = None;
     let status = tokio::select! {
         status = child.wait() => status,
@@ -91,51 +81,16 @@ pub(super) async fn ran(
         stdout,
         stderr,
         cwd,
-        limit: output_limit,
+        bounds,
     })
-}
-
-struct Pipe {
-    bytes: Vec<u8>,
-    truncated: bool,
-}
-
-struct Text {
-    value: String,
-    truncated: bool,
-    redactions: usize,
-}
-
-async fn piped(
-    mut reader: impl AsyncRead + Unpin,
-    remaining: Option<Arc<AtomicUsize>>,
-) -> Result<Pipe, String> {
-    let mut bytes = Vec::new();
-    let mut truncated = false;
-    let mut chunk = [0u8; 8192];
-    loop {
-        let read = reader
-            .read(&mut chunk)
-            .await
-            .map_err(|error| error.to_string())?;
-        if read == 0 {
-            break;
-        }
-        let keep = remaining
-            .as_ref()
-            .map_or(read, |remaining| reserved(remaining, read));
-        bytes.extend_from_slice(&chunk[..keep]);
-        truncated |= keep < read;
-    }
-    Ok(Pipe { bytes, truncated })
 }
 
 struct Capture {
     status: std::process::ExitStatus,
-    stdout: Pipe,
-    stderr: Pipe,
+    stdout: bound::Pipe,
+    stderr: bound::Pipe,
     cwd: PathBuf,
-    limit: Option<usize>,
+    bounds: Bounds,
 }
 
 fn captured(capture: Capture) -> Outcome {
@@ -144,11 +99,14 @@ fn captured(capture: Capture) -> Outcome {
         stdout,
         stderr,
         cwd,
-        limit,
+        bounds,
     } = capture;
-    let mut remaining = limit;
-    let stdout = redacted(normalized(stdout, remaining.as_mut()));
-    let stderr = redacted(normalized(stderr, remaining.as_mut()));
+    let bytes = bounds.bytes.unwrap_or(usize::MAX);
+    let lines = bounds.lines.unwrap_or(usize::MAX);
+    let [(out, above), (err, below)] = bound::shared(&stdout, &stderr, bytes, lines);
+    let saved = bounds.saved.as_ref();
+    let stdout = bound::rendered(stdout, out, above, saved.map(|saved| (saved, "stdout")));
+    let stderr = bound::rendered(stderr, err, below, saved.map(|saved| (saved, "stderr")));
     let redactions = stdout.redactions + stderr.redactions;
     let mut output = json!({
         "exit_code": status.code().unwrap_or(-1),
@@ -157,9 +115,19 @@ fn captured(capture: Capture) -> Outcome {
         "shell": sheller(),
         "cwd": cwd.display().to_string(),
     });
-    if let Some(limit) = limit {
+    if let Some(limit) = bounds.bytes {
         output["output_truncated"] = Value::Bool(stdout.truncated || stderr.truncated);
         output["output_limit_bytes"] = Value::from(limit);
+    }
+    if let Some(limit) = bounds.lines {
+        output["output_limit_lines"] = Value::from(limit);
+    }
+    let saved = [("stdout", stdout.saved), ("stderr", stderr.saved)]
+        .into_iter()
+        .filter_map(|(stream, uri)| uri.map(|uri| (stream.to_string(), Value::from(uri))))
+        .collect::<serde_json::Map<_, _>>();
+    if !saved.is_empty() {
+        output["saved"] = Value::Object(saved);
     }
     if redactions > 0 {
         output["redacted"] = Value::Bool(true);
@@ -168,64 +136,10 @@ fn captured(capture: Capture) -> Outcome {
     Outcome::Captured(output)
 }
 
-fn normalized(pipe: Pipe, remaining: Option<&mut usize>) -> Text {
-    let Pipe { bytes, truncated } = pipe;
-    let value = String::from_utf8_lossy(&bytes);
-    let Some(remaining) = remaining else {
-        return Text {
-            value: value.into_owned(),
-            truncated,
-            redactions: 0,
-        };
-    };
-    let mut end = value.len().min(*remaining);
-    while !value.is_char_boundary(end) {
-        end -= 1;
-    }
-    *remaining -= end;
-    Text {
-        truncated: truncated || end < value.len(),
-        value: value[..end].to_string(),
-        redactions: 0,
-    }
-}
-
-fn redacted(mut text: Text) -> Text {
-    let ceiling = text.value.len();
-    let (mut value, redactions) = redact::text(&text.value);
-    if value.len() > ceiling {
-        let mut end = ceiling;
-        while !value.is_char_boundary(end) {
-            end -= 1;
-        }
-        value.truncate(end);
-        text.truncated = true;
-    }
-    text.value = value;
-    text.redactions = redactions;
-    text
-}
-
-fn reserved(remaining: &AtomicUsize, requested: usize) -> usize {
-    let mut available = remaining.load(Ordering::Acquire);
-    loop {
-        let reserved = available.min(requested);
-        match remaining.compare_exchange_weak(
-            available,
-            available - reserved,
-            Ordering::AcqRel,
-            Ordering::Acquire,
-        ) {
-            Ok(_) => return reserved,
-            Err(actual) => available = actual,
-        }
-    }
-}
-
 async fn joined(
-    handle: tokio::task::JoinHandle<Result<Pipe, String>>,
+    handle: tokio::task::JoinHandle<Result<bound::Pipe, String>>,
     name: &str,
-) -> Result<Pipe, String> {
+) -> Result<bound::Pipe, String> {
     handle
         .await
         .map_err(|_| format!("{name} capture task panicked"))?

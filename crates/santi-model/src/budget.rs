@@ -69,6 +69,8 @@ pub struct Execution {
     pub calls: usize,
     pub output: usize,
     pub shell: usize,
+    #[serde(default = "lined")]
+    pub lines: usize,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub feedback_after_calls: Option<usize>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -97,6 +99,9 @@ impl Execution {
         if self.shell > self.output {
             return Err("execution budget shell must not exceed output".to_string());
         }
+        if self.lines == 0 {
+            return Err("execution budget lines must be positive".to_string());
+        }
         if self.feedback_after_calls == Some(0) {
             return Err("execution feedback call threshold must be positive".to_string());
         }
@@ -122,6 +127,10 @@ impl Execution {
         }
         Ok(())
     }
+}
+
+fn lined() -> usize {
+    256
 }
 
 #[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, ToSchema, PartialEq, Eq)]

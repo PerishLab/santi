@@ -21,6 +21,9 @@ mod refusal;
 #[path = "../execution/handoff.rs"]
 mod handoff;
 
+#[path = "../execution/bounded.rs"]
+mod bounded;
+
 #[tokio::test]
 async fn bounds() {
     let temp = tempfile::tempdir().expect("temp dir");
@@ -46,8 +49,9 @@ async fn bounds() {
         profile: "test".to_string(),
         rounds: 3,
         calls: 4,
-        output: 20,
+        output: 1000,
         shell: 16,
+        lines: 256,
         feedback_after_calls: None,
         feedback_command: None,
         feedback_cwd: None,
@@ -70,16 +74,18 @@ async fn bounds() {
         .await;
     assert_eq!(runtime.results.len(), 1);
     let output = runtime.results[0].output.as_ref().expect("tool output");
+    let stdout = output["stdout"].as_str().unwrap();
     assert_eq!(output["output_truncated"], true);
     assert_eq!(output["output_limit_bytes"], 16);
-    assert_eq!(output["stdout"].as_str().unwrap().len(), 16);
+    assert!(stdout.starts_with("[… 92 bytes, 0 lines omitted; full output: strand://outputs/"));
+    assert!(stdout.ends_with(&format!("…]\n{}", "x".repeat(8))));
     let snapshot = service
         .audit(&strand.id)
         .await
         .expect("read budget")
         .expect("budget snapshot");
     assert_eq!(snapshot.execution.unwrap().profile, "test");
-    assert_eq!(snapshot.usage.unwrap().output, 16);
+    assert_eq!(snapshot.usage.unwrap().output, stdout.len());
     assert_eq!(provider.requests.lock().unwrap().len(), 2);
 }
 
@@ -87,7 +93,7 @@ async fn bounds() {
 async fn normalizes() {
     let temp = tempfile::tempdir().expect("temp dir");
     bootstrap(&temp).await;
-    let allotment = 8;
+    let allotment = 32;
     let provider = Arc::new(BudgetedProvider {
         rounds: 1,
         command: Some(r"printf '\377\377\377\377'; printf '\376\376\376\376' >&2".to_string()),
@@ -112,6 +118,7 @@ async fn normalizes() {
         calls: 4,
         output: 100,
         shell: allotment,
+        lines: 256,
         feedback_after_calls: None,
         feedback_command: None,
         feedback_cwd: None,
@@ -138,8 +145,8 @@ async fn normalizes() {
     let stderr = output["stderr"].as_str().expect("stderr string");
     let captured = stdout.len() + stderr.len();
     assert!(captured <= allotment);
-    assert!(stdout.contains('\u{fffd}') || stderr.contains('\u{fffd}'));
-    assert_eq!(output["output_truncated"], true);
+    assert!(stdout.contains('\u{fffd}') && stderr.contains('\u{fffd}'));
+    assert_eq!(output["output_truncated"], false);
     assert_eq!(output["output_limit_bytes"], allotment);
     let snapshot = service
         .audit(&strand.id)
@@ -179,6 +186,7 @@ async fn rounds() {
         calls: 4,
         output: 100,
         shell: 20,
+        lines: 256,
         feedback_after_calls: None,
         feedback_command: None,
         feedback_cwd: None,

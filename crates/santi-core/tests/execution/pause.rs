@@ -80,6 +80,7 @@ async fn holds() {
             calls: 1,
             output: 16,
             shell: 16,
+            lines: 256,
             feedback_after_calls: None,
             feedback_command: None,
             feedback_cwd: None,

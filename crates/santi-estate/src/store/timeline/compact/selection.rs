@@ -43,7 +43,15 @@ impl Scope {
             .iter()
             .any(|span| span.overlaps(first, last) && !span.enclosed(first, last));
         if partial {
-            return Err("compact range partially overlaps an existing compact".into());
+            let remedy = match self.settled() {
+                Ok((first, last)) => format!(
+                    "settled history after the latest occupied slot runs from {first} to {last}; omit first and last to compact all of it"
+                ),
+                Err(_) => "no settled history remains after the latest occupied slot".to_string(),
+            };
+            return Err(format!(
+                "compact range partially overlaps an existing compact; {remedy}"
+            ));
         }
         Ok(())
     }

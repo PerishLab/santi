@@ -48,9 +48,14 @@ fn api() {
             .iter()
             .any(|field| field == "maintenance")
     );
+    assert!(
+        document["components"]["schemas"]["budget.Execution"]["properties"]
+            .get("lines")
+            .is_some()
+    );
     let hash = format!("{:x}", Sha256::digest(text.as_bytes()));
     assert_eq!(
         hash,
-        "8aa91cb02001efb73af1fdd4b92c0a18658cdea1c1bc9475e2325c3166dc9a79"
+        "fb77f02bca0f80af97580cf924e74b765f06ffe983dd8b3d3f6904c53f1e1851"
     );
 }

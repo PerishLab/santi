@@ -145,6 +145,7 @@ async fn barrier() {
         calls: 8,
         output: 1024,
         shell: 256,
+        lines: 256,
         feedback_after_calls: Some(2),
         feedback_command: None,
         feedback_cwd: None,

@@ -128,6 +128,7 @@ async fn authority() {
         calls: 12,
         output: 4096,
         shell: 1024,
+        lines: 256,
         feedback_after_calls: Some(2),
         feedback_command: Some(effect.to_string()),
         feedback_cwd: Some(STRANDSPACE.to_string()),
