@@ -18,7 +18,7 @@ calls = 256
 output = 4194304
 # Each shell call keeps at most this many bytes or lines; a cut result keeps
 # its head and tail and saves the complete output under strand://outputs/.
-shell = 4096
+shell = 8192
 lines = 256
 # Optional experiment: after this many ordinary shell calls, the next provider
 # round offers only the feedback tool. Without a caller command, the Soul may
@@ -83,7 +83,8 @@ fn example() {
     assert_eq!(held.providers.len(), 3);
     assert_eq!(held.server.grace, 30);
     assert_eq!(held.execution.budget().unwrap().rounds, 16);
-    assert_eq!(held.execution.budget().unwrap().shell, 4096);
+    assert_eq!(held.execution.budget().unwrap().shell, 8192);
+    assert_eq!(read("").execution.budget().unwrap().shell, 8192);
     assert_eq!(held.execution.budget().unwrap().lines, 256);
     assert_eq!(read("").execution.budget().unwrap().lines, 256);
     assert_eq!(

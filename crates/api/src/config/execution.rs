@@ -22,7 +22,7 @@ impl Default for Execution {
             rounds: 64,
             calls: 256,
             output: 4 * 1024 * 1024,
-            shell: 4096,
+            shell: 8192,
             lines: 256,
             feedback_after_calls: None,
             feedback_command: None,
