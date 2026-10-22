@@ -1437,9 +1437,9 @@ dependencies = [
 
 [[package]]
 name = "keel"
-version = "0.20.2"
+version = "0.20.3"
 source = "sparse+https://cargo.perish.uk/"
-checksum = "8ef28031affe12ca64a7e4f1b6049e9afe1086977977b9b2d5360406a6ff0d8e"
+checksum = "85a8dda19ff7eed345cc023066a3d687dba2025d23a5a82a51ef9beb19ec249c"
 dependencies = [
  "axum",
  "getrandom 0.3.4",
@@ -1454,9 +1454,9 @@ dependencies = [
 
 [[package]]
 name = "keel-macro"
-version = "0.20.2"
+version = "0.20.3"
 source = "sparse+https://cargo.perish.uk/"
-checksum = "cfda6cfe9394d052c111c8666eb0b3097e40397301087622b6725069a6cd12e8"
+checksum = "20e59bb28e9ca440106bb75566c62facf4e5494f26f141bed0237d2e08cce263"
 dependencies = [
  "proc-macro2",
  "quote",
