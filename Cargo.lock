@@ -1739,12 +1739,13 @@ checksum = "19f132c84eca552bf34cab8ec81f1c1dcc229b811638f9d283dceabe58c5569e"
 
 [[package]]
 name = "plumb"
-version = "0.103.7"
+version = "0.105.1"
 source = "sparse+https://cargo.perish.uk/"
-checksum = "b510c34bb588cce0da60bc2cba9f6bda08bb05a4f9427dc9550db08b5420e5cc"
+checksum = "5e1bbf40467abba045d6e35fdf4ddbb63787e752ff2430ef26ad2dcc75179b72"
 dependencies = [
  "base64",
  "clap",
+ "dunce",
  "locus",
  "object",
  "pin-project-lite",
@@ -1758,13 +1759,14 @@ dependencies = [
  "toml 0.9.12+spec-1.1.0",
  "toml_edit",
  "which",
+ "winapi-util",
 ]
 
 [[package]]
 name = "plumb-macro"
-version = "0.103.7"
+version = "0.105.1"
 source = "sparse+https://cargo.perish.uk/"
-checksum = "bb9cc146aa3c1ce61ec44abd9d043c8a6784f8fd75e0d6e2622b0858d323022e"
+checksum = "79cdefb6649101d660a022db50e08cd9445e6e863100c98cd2920081cf817222"
 dependencies = [
  "proc-macro2",
  "quote",
