@@ -9,6 +9,7 @@ pub(super) struct BudgetedProvider {
     pub(super) compacts: usize,
     pub(super) second: Option<String>,
     pub(super) batch: usize,
+    pub(super) thought: Option<String>,
 }
 
 #[async_trait]
@@ -44,7 +45,14 @@ impl Provider for BudgetedProvider {
             } else {
                 self.batch.max(1)
             };
-            let mut events = vec![Ok(Event::Text(format!("round {round}")))];
+            let mut events = Vec::new();
+            if let Some(thought) = &self.thought {
+                events.push(Ok(Event::Started {
+                    response: Some(format!("response_{round}")),
+                }));
+                events.push(Ok(Event::Thought(thought.clone())));
+            }
+            events.push(Ok(Event::Text(format!("round {round}"))));
             for index in 0..count {
                 events.push(Ok(Event::Called(Call {
                     response: format!("response_{round}"),

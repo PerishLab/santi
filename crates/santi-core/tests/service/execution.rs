@@ -218,5 +218,56 @@ async fn rounds() {
     assert_eq!(provider.requests.lock().unwrap().len(), 2);
 }
 
+#[tokio::test]
+async fn stateless() {
+    let temp = tempfile::tempdir().expect("temp dir");
+    bootstrap(&temp).await;
+    let thought = "weighing which command to run";
+    let provider = Arc::new(BudgetedProvider {
+        rounds: 1,
+        command: Some("true".to_string()),
+        thought: Some(thought.to_string()),
+        ..Default::default()
+    });
+    let service = Service::open(
+        service::Config {
+            database: temp.path().join("santi.sqlite").display().to_string(),
+            runtime: temp.path().join("runtime").display().to_string(),
+            execution: temp.path().join("execution").display().to_string(),
+            bind: Some("127.0.0.1:0".to_string()),
+            constitution: None,
+            environment: Default::default(),
+        },
+        provider.clone(),
+    )
+    .await
+    .expect("open service");
+    let strand = service.weave().await.expect("create strand").strand;
+    let posted = service
+        .send(
+            &strand.id,
+            strand::Post {
+                content: vec![message::Part::Text {
+                    text: "run something".to_string(),
+                }],
+            },
+        )
+        .await
+        .expect("send strand");
+    let runtime = Probe::new(&service)
+        .completed_turn(&strand.id, &accepted_turn(&service, &posted).await.id)
+        .await;
+    assert_eq!(runtime.results.len(), 1);
+    assert!(
+        runtime
+            .thinking
+            .iter()
+            .any(|span| span.summary.as_deref() == Some(thought))
+    );
+    let requests = provider.requests.lock().unwrap();
+    assert_eq!(requests.len(), 2);
+    assert!(!format!("{:?}", requests[1].input).contains(thought));
+}
+
 #[path = "../execution/memory.rs"]
 mod memory;

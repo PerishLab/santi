@@ -149,6 +149,45 @@ async fn measures() {
 }
 
 #[tokio::test]
+async fn unweighed() {
+    let held = opened().await;
+    let before = held.service.audit(&held.strand).await.unwrap().unwrap();
+    let next = held.store.strand(&held.strand).await.unwrap().unwrap().next;
+    let created = santi_core::now();
+    held.store
+        .create_turn(santi_estate::TurnDraft {
+            tag: "turn_thought",
+            strand: &held.strand,
+            trigger: santi_core::turn::Trigger::System,
+            source: None,
+            from: next,
+            created: &created,
+        })
+        .await
+        .unwrap();
+    held.store
+        .create_thinking(santi_estate::ThinkingDraft {
+            tag: "thinking_thought",
+            turn: "turn_thought",
+            response: Some("response_thought"),
+            created: &created,
+        })
+        .await
+        .unwrap();
+    held.store
+        .update_thinking("thinking_thought", None, Some("a summary"), &created)
+        .await
+        .unwrap();
+    let projected = santi_core::provider_input(&held.store, &held.strand)
+        .await
+        .unwrap();
+    assert!(!format!("{projected:?}").contains("a summary"));
+    let after = held.service.audit(&held.strand).await.unwrap().unwrap();
+    assert_eq!(after.estimate.items, before.estimate.items);
+    assert_eq!(after.estimate.total, before.estimate.total);
+}
+
+#[tokio::test]
 async fn rearms() {
     let held = opened().await;
     held.fill("msg_first", 60).await;

@@ -86,7 +86,7 @@ impl Timeline<'_> {
     ) -> Result<Option<Item>, String> {
         match entry.kind {
             strand::Target::Message => self.message(&entry.target).await,
-            strand::Target::Thinking => self.thinking(&entry.target).await,
+            strand::Target::Thinking => Ok(None),
             strand::Target::ToolCall => self.call(&entry.target, calls).await,
             strand::Target::ToolResult => self.reply(&entry.target, calls).await,
             strand::Target::Compact => Err("compact cannot be a strand occurrence".to_string()),
@@ -115,21 +115,6 @@ impl Timeline<'_> {
                 message::Role::Soul => content.to_string(),
                 message::Role::System => format!("[message {}]\n{content}", placed.message.id),
             },
-        }))
-    }
-
-    async fn thinking(&self, target: &str) -> Result<Option<Item>, String> {
-        let span = self
-            .store
-            .thinking(target)
-            .await?
-            .ok_or_else(|| format!("thinking span {target} missing"))?;
-        let Some(content) = span.summary.filter(|text| !text.trim().is_empty()) else {
-            return Ok(None);
-        };
-        Ok(Some(Item::Reasoning {
-            id: span.response,
-            content,
         }))
     }
 

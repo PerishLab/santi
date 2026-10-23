@@ -48,11 +48,6 @@ fn valued(item: &Item) -> Value {
             "role": role,
             "content": content,
         }),
-        Item::Reasoning { id, content } => json!({
-            "type": "reasoning",
-            "id": id,
-            "content": content,
-        }),
         Item::Call {
             call,
             name,
