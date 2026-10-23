@@ -1,29 +1,17 @@
 use crate::message;
+use crate::service::tools::Gauge;
 
-use super::Observed;
+use super::{Band, Observed, REFERENCE};
 
-impl Observed {
-    fn share(&self) -> Option<usize> {
-        self.ceiling
-            .filter(|ceiling| *ceiling > 0)
-            .map(|ceiling| self.total().saturating_mul(100) / ceiling)
-    }
-
-    fn headroom(&self) -> Option<usize> {
-        self.ceiling
-            .map(|ceiling| ceiling.saturating_sub(self.total()))
-    }
-}
-
-fn urged(band: &str) -> &'static str {
+fn urged(band: Band) -> &'static str {
     match band {
-        "slots" => {
+        Band::Slots => {
             "Every compact slot is occupied. Merge two or more contiguous occupied Compact IDs into one summary to free a slot. Compact projection headers identify the slots and their covered Message IDs."
         }
-        "hard" => {
-            "Little headroom remains. Compact settled context through `santi compact exec` while shell is available, or the compact tool during context maintenance."
+        Band::Hard => {
+            "Little headroom remains before ordinary tools are withheld for context maintenance. Compact settled context through `santi compact exec` while shell is available."
         }
-        "firm" => {
+        Band::Firm => {
             "Headroom is shrinking. Compacting settled context now costs less than compacting under pressure later."
         }
         _ => {
@@ -32,46 +20,48 @@ fn urged(band: &str) -> &'static str {
     }
 }
 
-fn measured(event: &Observed) -> Vec<String> {
-    let mut out = vec![format!("total_input_bytes: {}", event.total())];
-    let Some(ceiling) = event.ceiling else {
-        out.push(format!("reference_threshold_bytes: {}", event.threshold));
-        return out;
-    };
-    out.push(format!("budget_bytes: {ceiling}"));
-    if let Some(share) = event.share() {
-        out.push(format!("share_percent: {share}"));
+fn measured(gauge: &Gauge) -> Vec<String> {
+    let mut out = vec![
+        format!("estimator: {}", gauge.estimator),
+        format!("active_bytes: {}", gauge.active),
+    ];
+    match gauge.ceiling {
+        Some(ceiling) => {
+            out.push(format!("active_ceiling_bytes: {ceiling}"));
+            if ceiling > 0 {
+                out.push(format!(
+                    "share_percent: {}",
+                    gauge.active.saturating_mul(100) / ceiling
+                ));
+            }
+            out.push(format!(
+                "headroom_bytes: {}",
+                ceiling.saturating_sub(gauge.active)
+            ));
+        }
+        None => out.push(format!("reference_threshold_bytes: {REFERENCE}")),
     }
-    if let Some(headroom) = event.headroom() {
-        out.push(format!("headroom_bytes: {headroom}"));
-    }
-    out.push(format!("band_floor_bytes: {}", event.threshold));
+    out.push(format!("settled_bytes: {}", gauge.settled));
+    out.push(format!("slots_held: {}", gauge.held));
+    out.push(format!("slots_ceiling: {}", gauge.slots));
     out
 }
 
-pub(super) fn reminded(event: &Observed) -> message::Content {
+pub(super) fn reminded(event: &Observed, gauge: &Gauge, band: Band) -> message::Content {
     let mut lines = vec![
         "<system_message>".to_string(),
         "kind: compact_reminder".to_string(),
         "scope: strand_local".to_string(),
         "wake: false".to_string(),
         "obligation: false".to_string(),
-        format!("band: {}", event.band),
+        format!("band: {}", band.name()),
         format!("trigger_turn_id: {}", event.address.turn),
         format!("round: {}", event.round),
         format!("provider: {}", event.provider),
         format!("model: {}", event.model),
-        format!("items: {}", event.items),
-        format!("input: {}", event.input),
-        format!("instructions: {}", event.instructions),
     ];
-    lines.push(format!("slots_held: {}", event.held));
-    lines.push(format!("slots_ceiling: {}", event.slots));
-    lines.extend(measured(event));
-    lines.push(format!("summary: {}", urged(&event.band)));
+    lines.extend(measured(gauge));
+    lines.push(format!("summary: {}", urged(band)));
     lines.push("</system_message>".to_string());
-    message::Content::text(lines.join(
-        "
-",
-    ))
+    message::Content::text(lines.join("\n"))
 }

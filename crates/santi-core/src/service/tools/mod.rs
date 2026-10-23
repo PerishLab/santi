@@ -14,6 +14,7 @@ mod feedback;
 mod reply;
 pub(super) use reply::curbed;
 mod room;
+pub(super) use room::Gauge;
 mod shell;
 mod workspace;
 

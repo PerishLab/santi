@@ -80,6 +80,7 @@ impl Service {
                 created: &crate::now(),
             })
             .await?;
+        self.rearm(&strand.id);
         match self.estimate(&strand.id).await {
             Ok(after) => {
                 response.ratio = squeezed(&before, &after);

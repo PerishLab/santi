@@ -70,10 +70,3 @@ impl Service {
         }))
     }
 }
-
-impl Service {
-    pub(in crate::service) async fn occupied(&self, strand: &str) -> Result<usize, String> {
-        let spans = self.spans(strand).await?;
-        Ok(spans.iter().filter(|span| !covered(span, &spans)).count())
-    }
-}
