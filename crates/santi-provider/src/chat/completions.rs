@@ -16,6 +16,7 @@ pub struct Config {
     pub ceiling: Option<u32>,
     pub bytes: Option<usize>,
     pub maintenance: Option<usize>,
+    pub headers: Vec<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -51,6 +52,7 @@ impl Provider for Chat {
     }
 
     async fn stream(&self, request: Request) -> Result<Streaming, String> {
+        let sent = std::time::Instant::now();
         let response = self
             .client
             .post(format!(
@@ -70,7 +72,8 @@ impl Provider for Chat {
                 self.config.provider
             ));
         }
-        Ok(Box::pin(frames(response.bytes_stream())))
+        let receipt = crate::receipt::received(&response, &self.config.headers, sent);
+        Ok(Box::pin(frames(receipt, response.bytes_stream())))
     }
 }
 

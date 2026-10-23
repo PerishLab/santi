@@ -34,6 +34,7 @@ pub(super) fn graph() -> Graph {
         .plug::<history::ThinkingSpan>()
         .plug::<history::ThinkingCompletion>()
         .plug::<history::ThinkingFailure>()
+        .plug::<history::Round>()
         .plug::<history::Compact>()
         .plug::<edge::Webhook>()
         .plug::<edge::WebhookDelivery>()

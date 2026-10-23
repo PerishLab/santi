@@ -48,6 +48,7 @@ async fn collect(url: String, attempts: Option<u32>) -> Vec<Event> {
         attempts,
         bytes: None,
         maintenance: None,
+        headers: Vec::new(),
     });
     let mut stream = provider
         .stream(Request {

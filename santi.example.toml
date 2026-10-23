@@ -56,6 +56,9 @@ reasoning_effort = ""
 summary = ""
 bytes = 500000
 maintenance_bytes = 750000
+# Response headers kept on each round's thinking span. Credentials and cookies
+# are always refused.
+headers = ["x-request-id"]
 
 [providers.deepseek]
 kind = "chat_completions"

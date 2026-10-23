@@ -22,9 +22,13 @@ fn api() {
         "stream.ExecutionOrder",
         "stream.ExecutionRecord",
         "stream.ExecutionTail",
+        "thinking.Round",
+        "thinking.Usage",
     ] {
         assert!(document["components"]["schemas"].get(schema).is_some());
     }
+    let span = &document["components"]["schemas"]["thinking.Span"];
+    assert!(span["properties"].get("round").is_some());
     let cap = &document["components"]["schemas"]["budget.Cap"];
     let soul = &document["components"]["schemas"]["soul.Soul"];
     assert!(soul["properties"].get("identity").is_some());
@@ -56,6 +60,6 @@ fn api() {
     let hash = format!("{:x}", Sha256::digest(text.as_bytes()));
     assert_eq!(
         hash,
-        "7d51eead69f39e4f3ffe9934c4ee3e3b91da8e7e86a583ec7536bc84120802ef"
+        "ff2a2b2fcb5aa5e7d1a722f66bb453f8a4b05871f94300cd68dfa57b8ac1c418"
     );
 }

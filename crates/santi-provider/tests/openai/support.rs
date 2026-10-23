@@ -113,6 +113,7 @@ pub(crate) async fn replayed() -> Value {
         ceiling: None,
         bytes: None,
         maintenance: None,
+        headers: Vec::new(),
         attempts: None,
     };
     let (tx, rx) = mpsc::channel();
@@ -181,6 +182,7 @@ pub(crate) async fn captured(lines: Vec<&'static str>) -> Vec<Event> {
         ceiling: None,
         bytes: None,
         maintenance: None,
+        headers: Vec::new(),
         attempts: None,
     };
     let server = thread::spawn(move || {

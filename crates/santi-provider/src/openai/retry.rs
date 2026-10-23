@@ -4,7 +4,7 @@ use futures_util::StreamExt;
 use reqwest::{Client, Response};
 use serde_json::Value;
 
-use crate::{Event, Trace};
+use crate::{Event, Receipt, Trace};
 
 use super::stream::frames;
 
@@ -14,6 +14,7 @@ pub(super) struct Attempt {
     pub(super) key: String,
     pub(super) body: Value,
     pub(super) rounds: u32,
+    pub(super) headers: Vec<String>,
 }
 
 enum Beat {
@@ -96,7 +97,8 @@ fn sorted(item: Result<Event, String>) -> Beat {
     }
 }
 
-async fn opened(attempt: &Attempt) -> Result<Response, String> {
+async fn opened(attempt: &Attempt) -> Result<(Response, Receipt), String> {
+    let sent = std::time::Instant::now();
     let response = attempt
         .client
         .post(&attempt.url)
@@ -106,7 +108,8 @@ async fn opened(attempt: &Attempt) -> Result<Response, String> {
         .await
         .map_err(|error| error.to_string())?;
     if response.status().is_success() {
-        return Ok(response);
+        let receipt = crate::receipt::received(&response, &attempt.headers, sent);
+        return Ok((response, receipt));
     }
     let status = response.status();
     let body = response.text().await.unwrap_or_default();
@@ -115,9 +118,10 @@ async fn opened(attempt: &Attempt) -> Result<Response, String> {
 
 pub(super) fn retried(
     attempt: Attempt,
-    first: Response,
+    (first, receipt): (Response, Receipt),
 ) -> impl Stream<Item = Result<Event, String>> + Send + 'static {
     stream! {
+        yield Ok(Event::Traced(Trace::Received(receipt)));
         let mut inner = Box::pin(frames(first.bytes_stream()));
         let mut gate = Gate::new();
         let mut round = 1;
@@ -140,10 +144,11 @@ pub(super) fn retried(
                 detail: failure.detail(),
             }));
             round += 1;
-            let Ok(next) = opened(&attempt).await else {
+            let Ok((next, receipt)) = opened(&attempt).await else {
                 yield failure.resent();
                 return;
             };
+            yield Ok(Event::Traced(Trace::Received(receipt)));
             inner = Box::pin(frames(next.bytes_stream()));
             gate = Gate::new();
         }

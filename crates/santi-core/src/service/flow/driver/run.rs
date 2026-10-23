@@ -186,6 +186,7 @@ impl Service {
                 summary: String::new(),
                 speech: String::new(),
                 seen: false,
+                ledger: Default::default(),
             }
             .consume(stream, control)
             .await?;

@@ -17,6 +17,7 @@ pub struct Config {
     pub bytes: Option<usize>,
     pub maintenance: Option<usize>,
     pub attempts: Option<u32>,
+    pub headers: Vec<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -54,6 +55,7 @@ impl Provider for OpenAI {
     async fn stream(&self, request: Request) -> Result<Streaming, String> {
         let url = format!("{}/responses", self.config.url.trim_end_matches('/'));
         let body = body(&self.config, request);
+        let sent = std::time::Instant::now();
         let response = self
             .client
             .post(&url)
@@ -69,6 +71,7 @@ impl Provider for OpenAI {
                 "openai responses request failed: {status} {detail}"
             ));
         }
+        let receipt = crate::receipt::received(&response, &self.config.headers, sent);
         Ok(Box::pin(retried(
             Attempt {
                 client: self.client.clone(),
@@ -76,8 +79,9 @@ impl Provider for OpenAI {
                 key: self.config.key.clone(),
                 body,
                 rounds: self.config.attempts.unwrap_or(2).max(1),
+                headers: self.config.headers.clone(),
             },
-            response,
+            (response, receipt),
         )))
     }
 }

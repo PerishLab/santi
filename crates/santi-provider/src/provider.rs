@@ -4,6 +4,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::{pin::Pin, sync::Arc};
 
+pub use santi_model::thinking::Usage;
+
 #[derive(Debug, Clone)]
 pub enum Item {
     Message {
@@ -58,6 +60,23 @@ pub enum Trace {
     Chunk { bytes: usize },
     Raw { kind: String, mapped: Vec<String> },
     Retried { attempt: u32, detail: String },
+    Received(Receipt),
+    Reported(Report),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Receipt {
+    pub status: u16,
+    pub elapsed: u64,
+    pub headers: Vec<(String, String)>,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Report {
+    pub status: Option<String>,
+    pub incomplete: Option<String>,
+    pub model: Option<String>,
+    pub usage: Option<Usage>,
 }
 
 #[derive(Debug, Clone)]

@@ -124,3 +124,40 @@ fn capacity() {
         );
     }
 }
+
+#[test]
+fn headers() {
+    for (kind, configured, expected) in [
+        ("openai_responses", "", Ok(vec!["x-request-id"])),
+        ("chat_completions", "", Ok(vec!["x-request-id"])),
+        ("openai_responses", "headers = []", Ok(vec![])),
+        (
+            "chat_completions",
+            r#"headers = [" X-Teamo-Actual-Model ", "x-request-id"]"#,
+            Ok(vec!["x-teamo-actual-model", "x-request-id"]),
+        ),
+        (
+            "openai_responses",
+            r#"headers = ["x-request-id", "Authorization"]"#,
+            Err("provider test field headers may not record authorization"),
+        ),
+        (
+            "chat_completions",
+            r#"headers = ["set-cookie"]"#,
+            Err("provider test field headers may not record set-cookie"),
+        ),
+    ] {
+        let profile: Profile = toml::from_str(&format!("kind = \"{kind}\"\napi_key = \"test\"\nmodel = \"test\"\nbase_url = \"http://test\"\nbytes = 100\n{configured}")).unwrap();
+        let resolved = profile.resolve("test").map(|resolved| match resolved {
+            santi_api::config::Resolved::OpenAiResponses(config) => config.headers,
+            santi_api::config::Resolved::ChatCompletions(config) => config.headers,
+        });
+        assert_eq!(
+            resolved,
+            expected
+                .map(|names| names.into_iter().map(str::to_string).collect())
+                .map_err(str::to_string),
+            "{kind} {configured}"
+        );
+    }
+}

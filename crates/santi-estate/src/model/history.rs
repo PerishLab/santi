@@ -86,6 +86,14 @@ pub(crate) struct ThinkingFailure {
 }
 
 #[resource(frozen)]
+pub(crate) struct Round {
+    #[field(string)]
+    record: string,
+    #[relation(ThinkingSpan, one2one, root)]
+    thinking: ThinkingSpan,
+}
+
+#[resource(frozen)]
 pub(crate) struct Compact {
     #[field(string, unique)]
     tag: string,

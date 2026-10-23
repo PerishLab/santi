@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 use utoipa::ToSchema;
 
 use crate::Timestamp;
@@ -34,6 +35,30 @@ pub struct Span {
     pub created: Timestamp,
     pub updated: Timestamp,
     pub finished: Option<Timestamp>,
+    pub round: Option<Round>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, ToSchema, PartialEq, Eq)]
+#[schema(as = thinking::Round)]
+pub struct Round {
+    pub code: Option<u16>,
+    pub millis: Option<u64>,
+    pub headers: BTreeMap<String, String>,
+    pub status: Option<String>,
+    pub incomplete: Option<String>,
+    pub model: Option<String>,
+    pub usage: Option<Usage>,
+    pub text: usize,
+    pub calls: Vec<String>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, ToSchema, PartialEq, Eq)]
+#[schema(as = thinking::Usage)]
+pub struct Usage {
+    pub input: Option<u64>,
+    pub cached: Option<u64>,
+    pub output: Option<u64>,
+    pub reasoning: Option<u64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]

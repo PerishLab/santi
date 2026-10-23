@@ -1,6 +1,6 @@
 mod assemble;
 use futures_util::StreamExt;
-use santi_provider::{Call, Event, Streaming};
+use santi_provider::{Call, Event, Streaming, Trace};
 
 use super::super::{Service, address::Address, text::delta, timing, timing::named};
 use super::failure::{Failure, Metadata, Operation, Persistence, Stage};
@@ -9,6 +9,7 @@ use crate::{thinking, turn};
 
 mod finish;
 mod maintenance;
+mod round;
 mod run;
 
 struct Output {
@@ -34,6 +35,7 @@ struct Driver<'a, 'turn> {
     summary: String,
     speech: String,
     seen: bool,
+    ledger: round::Ledger,
 }
 
 impl Driver<'_, '_> {
@@ -48,6 +50,7 @@ impl Driver<'_, '_> {
                 event = stream.next() => event,
             };
             let Some(event) = event else {
+                self.filed().await?;
                 break;
             };
             let Some(event) = self.received(event).await? else {
@@ -68,6 +71,15 @@ impl Driver<'_, '_> {
 
     async fn received(&mut self, event: Result<Event, String>) -> Result<Option<Event>, Failure> {
         match event {
+            Ok(Event::Traced(Trace::Received(receipt))) => {
+                self.ledger.received(receipt);
+                self.progressed(self.active.clone()).await?;
+                Ok(None)
+            }
+            Ok(Event::Traced(Trace::Reported(report))) => {
+                self.ledger.reported(report);
+                Ok(None)
+            }
             Ok(Event::Traced(trace)) => {
                 self.timing.traced(self.number, trace);
                 Ok(None)
@@ -75,6 +87,7 @@ impl Driver<'_, '_> {
             Ok(event) => Ok(Some(event)),
             Err(error) => {
                 self.timing.failed(self.number, "sse_event", &error);
+                self.filed().await?;
                 let result =
                     self.service
                         .abandon(self.address.strand, &mut self.span, error.clone());
@@ -109,6 +122,7 @@ impl Driver<'_, '_> {
                 Ok(false)
             }
             Event::Text(delta) => {
+                self.ledger.spoke(&delta);
                 self.delta(delta).await?;
                 Ok(false)
             }
@@ -132,6 +146,7 @@ impl Driver<'_, '_> {
         });
         let result = result.await;
         self.runtime(Operation::Persistence(Persistence::Thinking), result)?;
+        self.ledger.anchored(self.span.as_ref());
         self.service.stirred(
             self.address.strand,
             self.address.turn,
@@ -166,6 +181,7 @@ impl Driver<'_, '_> {
 
     async fn called(&mut self, call: Call) -> Result<(), Failure> {
         self.timing.called(self.number, &call.name);
+        self.ledger.called(&call.name);
         let result = self.service.conclude(
             self.address.strand,
             &mut self.span,
@@ -186,6 +202,7 @@ impl Driver<'_, '_> {
     async fn complete(&mut self, response: Option<String>) -> Result<bool, Failure> {
         self.timing.completed(self.number);
         self.active = response.clone();
+        self.filed().await?;
         let result = self.service.conclude(
             self.address.strand,
             &mut self.span,
@@ -199,6 +216,9 @@ impl Driver<'_, '_> {
 
     async fn failed(&mut self, error: String) -> Failure {
         self.timing.failed(self.number, "provider_response", &error);
+        if let Err(failure) = self.filed().await {
+            return failure;
+        }
         let result = self
             .service
             .abandon(self.address.strand, &mut self.span, error.clone());
@@ -207,6 +227,15 @@ impl Driver<'_, '_> {
             Ok(()) => self.faulted(error, Stage::Response),
             Err(failure) => failure,
         }
+    }
+
+    async fn filed(&mut self) -> Result<(), Failure> {
+        let Some((anchor, round)) = self.ledger.due() else {
+            return Ok(());
+        };
+        let result = self.service.file(self.address.strand, &anchor, round);
+        let result = result.await;
+        self.runtime(Operation::Persistence(Persistence::Thinking), result)
     }
 
     fn runtime<T>(&self, operation: Operation, result: Result<T, String>) -> Result<T, Failure> {
