@@ -213,6 +213,7 @@ impl Service {
                         })
                         .await
                 ));
+                prose.clear();
             }
 
             if calls.is_empty() {
