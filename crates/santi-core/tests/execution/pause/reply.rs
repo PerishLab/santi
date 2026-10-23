@@ -5,6 +5,7 @@ use serde_json::json;
 
 struct Speaker {
     replies: usize,
+    tail: Option<&'static str>,
     requests: Mutex<Vec<Request>>,
 }
 
@@ -46,6 +47,12 @@ impl Provider for Speaker {
                 Ok(Event::Completed { response: None }),
             ])));
         }
+        if let Some(tail) = self.tail {
+            return Ok(Box::pin(stream::iter(vec![
+                Ok(Event::Text(tail.into())),
+                Err("provider stream aborted".into()),
+            ])));
+        }
         let arguments = json!({"summary": "Settled history before the recent message."});
         Ok(Box::pin(stream::iter(vec![
             Ok(Event::Called(Call {
@@ -67,9 +74,10 @@ struct Spoken {
     provider: Arc<Speaker>,
     service: service::Service,
     strand: String,
+    events: tokio::sync::broadcast::Receiver<santi_core::stream::Event>,
 }
 
-async fn spoken(replies: usize) -> Spoken {
+async fn spoken(replies: usize, tail: Option<&'static str>) -> Spoken {
     let temp = tempfile::tempdir().unwrap();
     bootstrap(&temp).await;
     let config = service::Config {
@@ -82,11 +90,13 @@ async fn spoken(replies: usize) -> Spoken {
     };
     let provider = Arc::new(Speaker {
         replies,
+        tail,
         requests: Mutex::new(Vec::new()),
     });
     let service = service::Service::open(config.clone(), provider.clone())
         .await
         .unwrap();
+    let events = service.listen().await;
     let strand = service.weave().await.unwrap().strand;
     let store = Store::open(&config.database).await.unwrap();
     for (tag, text) in [
@@ -124,6 +134,7 @@ async fn spoken(replies: usize) -> Spoken {
         provider,
         service,
         strand: strand.id,
+        events,
     }
 }
 
@@ -143,6 +154,34 @@ async fn ended(service: &service::Service, strand: &str) -> santi_core::stream::
     panic!("no turn ended");
 }
 
+async fn buried(
+    service: &service::Service,
+    strand: &str,
+    events: &mut tokio::sync::broadcast::Receiver<santi_core::stream::Event>,
+) -> santi_core::stream::Snapshot {
+    tokio::time::timeout(Duration::from_secs(6), async {
+        loop {
+            if let santi_core::stream::Payload::Turn(santi_core::turn::Beat::Failed { .. }) =
+                events.recv().await.unwrap().payload
+            {
+                break;
+            }
+        }
+    })
+    .await
+    .expect("no turn failed");
+    service.snapshot(strand).await.unwrap().unwrap()
+}
+
+fn spoke(runtime: &santi_core::stream::Snapshot) -> Vec<(String, message::State)> {
+    runtime
+        .messages
+        .iter()
+        .filter(|message| message.message.role == message::Role::Soul)
+        .map(|message| (message.text.clone(), message.message.state.clone()))
+        .collect()
+}
+
 fn position(request: &Request, needle: &str) -> Option<usize> {
     request
         .input
@@ -157,7 +196,8 @@ async fn replies() {
         provider,
         service,
         strand,
-    } = spoken(2).await;
+        ..
+    } = spoken(2, None).await;
     let runtime = ended(&service, &strand).await;
     assert!(
         runtime
@@ -193,8 +233,9 @@ async fn exhausts() {
         provider,
         service,
         strand,
-    } = spoken(usize::MAX).await;
-    let runtime = ended(&service, &strand).await;
+        mut events,
+    } = spoken(usize::MAX, None).await;
+    let runtime = buried(&service, &strand, &mut events).await;
     assert!(runtime.compacts.is_empty());
     assert!(
         runtime
@@ -212,4 +253,30 @@ async fn exhausts() {
         .unwrap();
     assert_eq!(incident.latest.context["reason"], "compact_required");
     assert_eq!(provider.requests.lock().unwrap().len(), 3);
+    assert_eq!(
+        spoke(&runtime),
+        ["report 0", "report 1", "report 2"]
+            .map(|text| (text.to_string(), message::State::Fixed))
+            .to_vec()
+    );
+}
+
+#[tokio::test]
+async fn salvages() {
+    let Spoken {
+        _temp,
+        service,
+        strand,
+        mut events,
+        ..
+    } = spoken(2, Some("partial tail")).await;
+    let runtime = buried(&service, &strand, &mut events).await;
+    assert_eq!(
+        spoke(&runtime),
+        vec![
+            ("report 0".to_string(), message::State::Fixed),
+            ("report 1".to_string(), message::State::Fixed),
+            ("partial tail".to_string(), message::State::Aborted),
+        ]
+    );
 }
