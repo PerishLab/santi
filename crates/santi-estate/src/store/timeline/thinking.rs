@@ -204,7 +204,7 @@ impl Store {
                         tx.put(
                             "ThinkingCompletion",
                             &[
-                                ("reason", reason_text(&reason)),
+                                ("reason", reason.encode()),
                                 ("finished", finished),
                                 ("thinking", &key),
                             ],
@@ -271,6 +271,7 @@ impl Store {
             created: read::text(row, "created")?.to_string(),
             updated: read::text(row, "updated")?.to_string(),
             finished: outcome.finished,
+            round: super::round::rounded(&self.core, &key).await?,
         })
     }
 }
@@ -280,14 +281,6 @@ struct Outcome {
     reason: Option<thinking::Reason>,
     error: Option<String>,
     finished: Option<String>,
-}
-
-fn reason_text(reason: &thinking::Reason) -> &'static str {
-    match reason {
-        thinking::Reason::Spoke => "spoke",
-        thinking::Reason::Called => "called",
-        thinking::Reason::Finished => "finished",
-    }
 }
 
 fn decode_reason(value: &str) -> Result<thinking::Reason, String> {

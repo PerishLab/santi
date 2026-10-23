@@ -3,14 +3,16 @@ use futures_util::StreamExt;
 use serde::Deserialize;
 use serde_json::{Value, json};
 
-use crate::{Call, Event, Trace};
+use crate::{Call, Event, Receipt, Report, Trace};
 
 use super::*;
 
 pub(super) fn frames(
+    receipt: Receipt,
     mut bytes: impl Stream<Item = Result<bytes::Bytes, reqwest::Error>> + Unpin + Send + 'static,
 ) -> impl Stream<Item = Result<Event, String>> + Send + 'static {
     try_stream! {
+        yield Event::Traced(Trace::Received(receipt));
         let mut buffer = String::new();
         let mut accumulator = Gatherer::default();
         let mut response: Option<String> = None;
@@ -40,6 +42,7 @@ fn drained(
             kind: kind(payload),
             mapped: named(&events),
         }));
+        mapped.extend(reported(payload).map(|report| Event::Traced(Trace::Reported(report))));
         mapped.extend(events);
     }
     Ok(mapped)
@@ -79,6 +82,35 @@ fn framed(
         }
     }
     Ok(events)
+}
+
+fn reported(payload: &str) -> Option<Report> {
+    let chunk = serde_json::from_str::<Value>(payload).ok()?;
+    let status = chunk
+        .get("choices")
+        .and_then(Value::as_array)
+        .and_then(|choices| {
+            choices
+                .iter()
+                .find_map(|choice| choice.get("finish_reason")?.as_str())
+        })
+        .map(str::to_string);
+    let usage = chunk
+        .get("usage")
+        .filter(|usage| usage.is_object())
+        .map(|usage| crate::receipt::counted(usage, "prompt_tokens", "completion_tokens"));
+    if status.is_none() && usage.is_none() {
+        return None;
+    }
+    Some(Report {
+        status,
+        incomplete: None,
+        model: chunk
+            .get("model")
+            .and_then(Value::as_str)
+            .map(str::to_string),
+        usage,
+    })
 }
 
 fn kind(payload: &str) -> String {

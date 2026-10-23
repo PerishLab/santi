@@ -54,6 +54,7 @@ pub struct OpenAiResponses {
     pub bytes: usize,
     pub maintenance: usize,
     pub attempts: Option<u32>,
+    pub headers: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -67,6 +68,7 @@ pub struct ChatCompletions {
     pub max_tokens: Option<u32>,
     pub bytes: usize,
     pub maintenance: usize,
+    pub headers: Vec<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -92,6 +94,8 @@ pub enum Profile {
         maintenance_bytes: Option<usize>,
         #[serde(default)]
         attempts: Option<u32>,
+        #[serde(default)]
+        headers: Option<Vec<String>>,
     },
     ChatCompletions {
         #[serde(default)]
@@ -110,6 +114,8 @@ pub enum Profile {
         bytes: Option<usize>,
         #[serde(default)]
         maintenance_bytes: Option<usize>,
+        #[serde(default)]
+        headers: Option<Vec<String>>,
     },
 }
 
@@ -150,6 +156,7 @@ impl Profile {
                 bytes,
                 maintenance_bytes,
                 attempts,
+                headers,
             } => Ok(Resolved::OpenAiResponses(OpenAiResponses {
                 api_key: required(api_key, provider, "api_key")?,
                 model: required(model, provider, "model")?,
@@ -161,6 +168,7 @@ impl Profile {
                 bytes: positive(*bytes, provider, "bytes")?,
                 maintenance: capacity(*bytes, *maintenance_bytes, provider)?,
                 attempts: *attempts,
+                headers: super::headers::allowed(headers.as_deref(), provider)?,
             })),
             Profile::ChatCompletions {
                 api_key,
@@ -171,6 +179,7 @@ impl Profile {
                 max_tokens,
                 bytes,
                 maintenance_bytes,
+                headers,
             } => Ok(Resolved::ChatCompletions(ChatCompletions {
                 provider: provider.to_string(),
                 api_key: required(api_key, provider, "api_key")?,
@@ -181,6 +190,7 @@ impl Profile {
                 max_tokens: *max_tokens,
                 bytes: positive(*bytes, provider, "bytes")?,
                 maintenance: capacity(*bytes, *maintenance_bytes, provider)?,
+                headers: super::headers::allowed(headers.as_deref(), provider)?,
             })),
         }
     }

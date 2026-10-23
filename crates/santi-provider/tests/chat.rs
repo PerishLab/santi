@@ -13,6 +13,7 @@ async fn mapped() {
         ceiling: Some(512),
         bytes: None,
         maintenance: None,
+        headers: Vec::new(),
     })
     .await;
 

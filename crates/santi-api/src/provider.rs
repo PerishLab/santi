@@ -22,6 +22,7 @@ fn responses(config: OpenAiResponses) -> Arc<dyn Provider> {
         bytes: Some(config.bytes),
         maintenance: Some(config.maintenance),
         attempts: config.attempts,
+        headers: config.headers,
     }))
 }
 
@@ -36,5 +37,6 @@ fn completions(config: ChatCompletions) -> Arc<dyn Provider> {
         ceiling: config.max_tokens,
         bytes: Some(config.bytes),
         maintenance: Some(config.maintenance),
+        headers: config.headers,
     }))
 }

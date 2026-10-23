@@ -12,6 +12,7 @@ async fn sent() {
         ceiling: Some(4096),
         bytes: None,
         maintenance: None,
+        headers: Vec::new(),
         attempts: None,
     })
     .await;
@@ -38,6 +39,7 @@ async fn omitted() {
         ceiling: None,
         bytes: None,
         maintenance: None,
+        headers: Vec::new(),
         attempts: None,
     })
     .await;
@@ -58,6 +60,7 @@ async fn unstored() {
         ceiling: None,
         bytes: None,
         maintenance: None,
+        headers: Vec::new(),
         attempts: None,
     })
     .await;

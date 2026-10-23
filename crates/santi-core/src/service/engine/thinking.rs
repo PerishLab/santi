@@ -104,6 +104,21 @@ impl Service {
         Ok(())
     }
 
+    pub(in crate::service) async fn file(
+        &self,
+        strand: &str,
+        thinking: &str,
+        round: thinking::Round,
+    ) -> Result<(), String> {
+        if let Some(updated) = self.store.chronicle(thinking, &round).await? {
+            self.publish(
+                strand,
+                stream::Payload::Thinking(crate::thinking::Beat::Updated { thinking: updated }),
+            );
+        }
+        Ok(())
+    }
+
     pub(in crate::service) async fn abandon(
         &self,
         strand: &str,

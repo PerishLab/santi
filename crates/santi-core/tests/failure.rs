@@ -11,6 +11,8 @@ use tokio::time::{Duration, sleep};
 mod more;
 #[path = "failure/recovery.rs"]
 mod recovery;
+#[path = "failure/round.rs"]
+mod round;
 
 fn as_text(item: &Item) -> Option<(&str, &str)> {
     match item {

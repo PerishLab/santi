@@ -2,7 +2,7 @@ use async_stream::try_stream;
 use futures_util::StreamExt;
 use serde_json::Value;
 
-use crate::{Call, Event, Trace};
+use crate::{Call, Event, Report, Trace};
 
 use super::*;
 
@@ -34,9 +34,36 @@ fn drained(buffer: &mut String, response: &mut Option<String>) -> Result<Vec<Eve
             kind: kind(payload),
             mapped: named(&events),
         }));
+        mapped.extend(reported(payload).map(|report| Event::Traced(Trace::Reported(report))));
         mapped.extend(events);
     }
     Ok(mapped)
+}
+
+fn reported(payload: &str) -> Option<Report> {
+    let frame = serde_json::from_str::<Value>(payload).ok()?;
+    let kind = frame.get("type").and_then(Value::as_str)?;
+    if !matches!(
+        kind,
+        "response.completed" | "response.incomplete" | "response.failed"
+    ) {
+        return None;
+    }
+    let response = frame.get("response")?;
+    let text = |value: Option<&Value>| value.and_then(Value::as_str).map(str::to_string);
+    Some(Report {
+        status: text(response.get("status")),
+        incomplete: text(
+            response
+                .get("incomplete_details")
+                .and_then(|details| details.get("reason")),
+        ),
+        model: text(response.get("model")),
+        usage: response
+            .get("usage")
+            .filter(|usage| usage.is_object())
+            .map(|usage| crate::receipt::counted(usage, "input_tokens", "output_tokens")),
+    })
 }
 
 fn kind(payload: &str) -> String {

@@ -142,6 +142,7 @@ impl<'a> Turn<'a> {
                     );
                 }
             }
+            Trace::Received(_) | Trace::Reported(_) => {}
         }
     }
 
