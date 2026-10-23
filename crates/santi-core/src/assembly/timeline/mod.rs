@@ -134,8 +134,6 @@ impl Timeline<'_> {
             call: call.id,
             name: call.tool,
             raw,
-            item: None,
-            mark: None,
         }))
     }
 

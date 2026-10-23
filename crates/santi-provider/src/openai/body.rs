@@ -71,13 +71,7 @@ fn input(request: &Request) -> Value {
 fn item(item: &Item) -> Value {
     match item {
         Item::Message { role, content } => message(role, content),
-        Item::Call {
-            call,
-            name,
-            raw,
-            item,
-            ..
-        } => called(call, name, raw, item),
+        Item::Call { call, name, raw } => called(call, name, raw),
         Item::Output { call, output } => outputted(call, output),
     }
 }
@@ -94,35 +88,17 @@ fn message(role: &str, content: &str) -> Value {
     })
 }
 
-fn called(call: &str, name: &str, arguments: &str, item: &Option<Value>) -> Value {
-    validated(item).unwrap_or_else(|| {
-        eprintln!(
-            "santi-provider: ignored invalid openai replay cache for call {call}; regenerated from canonical event"
-        );
-        json!({
-            "type": "function_call",
-            "call_id": call,
-            "name": name,
-            "arguments": arguments,
-        })
+fn called(call: &str, name: &str, arguments: &str) -> Value {
+    json!({
+        "type": "function_call",
+        "call_id": call,
+        "name": name,
+        "arguments": arguments,
     })
 }
 
 fn outputted(call: &str, output: &str) -> Value {
     json!({ "type": "function_call_output", "call_id": call, "output": output })
-}
-
-fn validated(item: &Option<Value>) -> Option<Value> {
-    let item = item.as_ref()?;
-    if item.get("type").and_then(Value::as_str) != Some("function_call") {
-        return None;
-    }
-    if let Some(id) = item.get("id").and_then(Value::as_str)
-        && !id.starts_with("fc")
-    {
-        return None;
-    }
-    Some(item.clone())
 }
 
 fn tooled(tools: Vec<Tool>) -> Vec<Value> {

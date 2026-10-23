@@ -114,20 +114,12 @@ async fn assembles_ordered_estate() {
         .expect("assembly");
     assert_eq!(input.len(), 4);
     assert_message(&input[0], "user", "[message message_first]\nrun");
-    let Item::Call {
-        call,
-        raw,
-        item,
-        mark,
-        ..
-    } = &input[1]
-    else {
+    let Item::Call { call, name, raw } = &input[1] else {
         panic!("expected call");
     };
     assert_eq!(call, "call_test");
+    assert_eq!(name, "shell");
     assert_eq!(raw, r#"{"command":"true"}"#);
-    assert!(item.is_none());
-    assert!(mark.is_none());
     let Item::Output { call, output } = &input[2] else {
         panic!("expected output");
     };

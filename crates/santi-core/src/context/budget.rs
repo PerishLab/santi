@@ -48,19 +48,11 @@ fn valued(item: &Item) -> Value {
             "role": role,
             "content": content,
         }),
-        Item::Call {
-            call,
-            name,
-            raw,
-            item,
-            mark,
-        } => json!({
+        Item::Call { call, name, raw } => json!({
             "type": "function_call",
             "call": call,
             "name": name,
             "raw": raw,
-            "item": item,
-            "mark": mark,
         }),
         Item::Output { call, output } => json!({
             "type": "function_call_output",

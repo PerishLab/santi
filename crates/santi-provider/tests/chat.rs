@@ -34,8 +34,6 @@ async fn flattened() {
             call: "call_shell".to_string(),
             name: "shell".to_string(),
             raw: "{\"command\":\"pwd\"}".to_string(),
-            item: None,
-            mark: None,
         },
         Item::Output {
             call: "call_shell".to_string(),

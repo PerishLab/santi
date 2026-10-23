@@ -69,8 +69,6 @@ pub(crate) fn fixture(call: &str, command: &str) -> Item {
         call: call.to_string(),
         name: "shell".to_string(),
         raw: format!(r#"{{"command":"{command}"}}"#),
-        item: None,
-        mark: None,
     }
 }
 

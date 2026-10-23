@@ -1,6 +1,5 @@
 use santi_provider::openai::Config;
 use santi_provider::{Event, Trace};
-use serde_json::Value;
 
 #[tokio::test]
 async fn sent() {
@@ -149,41 +148,16 @@ async fn traced() {
 }
 
 #[tokio::test]
-async fn regenerated() {
-    let item = serde_json::json!({
-        "type": "function_call",
-        "call_id": "call_1",
-        "name": "shell",
-        "arguments": "{}",
-        "id": "item_deadbeef"
-    });
-    let called = replayed(Some(item)).await;
-    match called.get("id").and_then(Value::as_str) {
-        None => {}
-        Some(id) => assert!(id.starts_with("fc"), "must not forward invalid id: {id}"),
-    }
-    assert_eq!(called["call_id"], "call_1");
-    assert_eq!(called["name"], "shell");
-}
-
-#[tokio::test]
-async fn survived() {
-    let item = serde_json::json!({
-        "type": "function_call",
-        "call_id": "call_1",
-        "name": "shell",
-        "arguments": "{}",
-        "id": "fc_ok"
-    });
-    let called = replayed(Some(item)).await;
-    assert_eq!(called["id"], "fc_ok");
-}
-
-#[tokio::test]
-async fn synthesized() {
-    let called = replayed(None).await;
-    assert!(called.get("id").is_none());
-    assert_eq!(called["call_id"], "call_1");
+async fn replays() {
+    assert_eq!(
+        replayed().await,
+        serde_json::json!({
+            "type": "function_call",
+            "call_id": "call_1",
+            "name": "shell",
+            "arguments": "{}",
+        })
+    );
 }
 
 #[path = "openai/relay.rs"]
