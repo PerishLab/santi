@@ -2,6 +2,8 @@
 mod maintenance;
 #[path = "../execution/pause/mod.rs"]
 mod pause;
+#[path = "remind.rs"]
+mod remind;
 use super::support::*;
 use santi_core::service::{self, Service};
 use santi_core::{Store, message};

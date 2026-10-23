@@ -20,34 +20,65 @@ impl Service {
     }
 
     async fn room(&self, strand: &str, pending: bool) -> Result<Option<String>, String> {
-        let policy = self.regimen();
-        let Some(budget) = self.budget() else {
+        if self.budget().is_none() {
+            return Ok(None);
+        }
+        let gauge = self.gauge(strand, pending).await?;
+        let Some(ceiling) = gauge.ceiling else {
             return Ok(None);
         };
+        if gauge.settled > gauge.allowance {
+            return Ok(Some(overfull(gauge.settled, gauge.allowance, gauge.held)));
+        }
+        if gauge.held > gauge.slots {
+            return Ok(Some(crowded(gauge.held, gauge.slots, gauge.settled)));
+        }
+        if gauge.active <= ceiling {
+            return Ok(None);
+        }
+        Ok(Some(pressed(
+            gauge.active,
+            ceiling,
+            gauge.settled,
+            gauge.held,
+        )))
+    }
+
+    pub(in crate::service) async fn gauge(
+        &self,
+        strand: &str,
+        pending: bool,
+    ) -> Result<Gauge, String> {
+        let policy = self.regimen();
         let spans = self.spans(strand).await?;
         let live = spans
             .iter()
             .filter(|span| !crate::service::face::compact::slots::covered(span, &spans))
             .collect::<Vec<_>>();
         let settled = live.iter().map(|span| span.bytes).sum::<i64>();
-        let held = live.len();
-        let active = self
-            .weight(strand, pending)
-            .await?
-            .total
-            .saturating_sub(settled);
-        if settled > policy.settled as i64 {
-            return Ok(Some(overfull(settled, policy.settled as i64, held)));
-        }
-        if held > policy.slots {
-            return Ok(Some(crowded(held, policy.slots, settled)));
-        }
-        let ceiling = budget.bytes.saturating_sub(policy.settled as i64);
-        if active <= ceiling {
-            return Ok(None);
-        }
-        Ok(Some(pressed(active, ceiling, settled, held)))
+        let estimate = self.weight(strand, pending).await?;
+        Ok(Gauge {
+            estimator: estimate.estimator,
+            active: estimate.total.saturating_sub(settled),
+            ceiling: self
+                .budget()
+                .map(|budget| budget.bytes.saturating_sub(policy.settled as i64)),
+            settled,
+            allowance: policy.settled as i64,
+            held: live.len(),
+            slots: policy.slots,
+        })
     }
+}
+
+pub(in crate::service) struct Gauge {
+    pub(in crate::service) estimator: String,
+    pub(in crate::service) active: i64,
+    pub(in crate::service) ceiling: Option<i64>,
+    pub(in crate::service) settled: i64,
+    pub(in crate::service) allowance: i64,
+    pub(in crate::service) held: usize,
+    pub(in crate::service) slots: usize,
 }
 
 fn pressed(active: i64, ceiling: i64, settled: i64, held: usize) -> String {

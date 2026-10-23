@@ -110,7 +110,6 @@ impl Service {
             let metadata = self.provider.metadata();
             let family = metadata.provider.to_string();
             let offered = attempt!(Operation::Assembly, self.offers(strand, Some(turn)).await);
-            let ceiling = metadata.budget.as_ref().map(|cap| cap.bytes);
             let mut request = Request {
                 model: metadata.model,
                 instructions: Some(attempt!(Operation::Prompt, self.wording(strand).await)),
@@ -132,16 +131,11 @@ impl Service {
                 request.input.len(),
                 request.instructions.as_ref().map_or(0, |text| text.len()),
             );
-            let occupied = attempt!(Operation::Assembly, self.occupied(strand).await);
             self.observed(Observation {
-                budget: ceiling,
-                held: occupied,
                 address: Address { strand, turn },
                 round,
                 provider: &family,
                 model: &request.model,
-                input: &request.input,
-                instructions: request.instructions.as_deref(),
             });
             if let Some(cause) = self.halted(control) {
                 return Err(Failure::stopped(cause, &prose));

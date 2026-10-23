@@ -1,13 +1,11 @@
 use std::{
-    collections::{HashSet, VecDeque},
+    collections::{HashMap, HashSet, VecDeque},
     sync::{Arc, Mutex},
 };
 
-use santi_provider::Item;
-
 use super::{Service, address::Address};
 use crate::{environment, message, stream};
-use band::{banded, crowded, floor};
+use band::{Band, banded, refused};
 use remind::reminded;
 
 mod band;
@@ -15,14 +13,10 @@ mod remind;
 mod unresolved;
 
 pub(in crate::service) struct Observation<'a> {
-    pub(in crate::service) budget: Option<usize>,
-    pub(in crate::service) held: usize,
     pub(in crate::service) address: Address<&'a str>,
     pub(in crate::service) round: usize,
     pub(in crate::service) provider: &'a str,
     pub(in crate::service) model: &'a str,
-    pub(in crate::service) input: &'a [Item],
-    pub(in crate::service) instructions: Option<&'a str>,
 }
 
 const NOTICES: usize = 128;
@@ -44,7 +38,7 @@ impl Event {
 
     fn dedupe(&self) -> Option<String> {
         match self {
-            Self::Observed(event) => event.dedupe(),
+            Self::Observed(_) => None,
             Self::Environment(event) => Some(event.issue.dedupe(&event.address.strand)),
         }
     }
@@ -62,36 +56,6 @@ pub(in crate::service) struct Observed {
     pub(in crate::service) round: usize,
     pub(in crate::service) provider: String,
     pub(in crate::service) model: String,
-    pub(in crate::service) items: usize,
-    pub(in crate::service) input: usize,
-    pub(in crate::service) instructions: usize,
-    pub(in crate::service) threshold: usize,
-    pub(in crate::service) band: String,
-    pub(in crate::service) ceiling: Option<usize>,
-    pub(in crate::service) held: usize,
-    pub(in crate::service) slots: usize,
-}
-
-impl Observed {
-    fn total(&self) -> usize {
-        self.input.saturating_add(self.instructions)
-    }
-
-    fn remindable(&self) -> bool {
-        if self.band == "slots" {
-            return true;
-        }
-        self.band != "under" && self.total() >= self.threshold
-    }
-
-    fn dedupe(&self) -> Option<String> {
-        self.remindable().then(|| {
-            format!(
-                "compact_reminder:{}:{}:{}",
-                self.address.strand, self.threshold, self.band
-            )
-        })
-    }
 }
 
 #[derive(Clone, Debug)]
@@ -103,6 +67,7 @@ pub(in crate::service) struct Bus {
 struct State {
     queue: VecDeque<Event>,
     held: HashSet<String>,
+    bands: HashMap<String, Band>,
     capacity: usize,
 }
 
@@ -116,6 +81,7 @@ impl Bus {
             inner: Arc::new(Mutex::new(State {
                 queue: VecDeque::new(),
                 held: HashSet::new(),
+                bands: HashMap::new(),
                 capacity,
             })),
         }
@@ -129,6 +95,13 @@ impl Bus {
         {
             return false;
         }
+        if let Event::Observed(observed) = &event
+            && state.queue.iter().any(|queued| {
+                matches!(queued, Event::Observed(held) if held.address.turn == observed.address.turn)
+            })
+        {
+            return false;
+        }
         if state.queue.len() >= state.capacity {
             return false;
         }
@@ -137,6 +110,21 @@ impl Bus {
         }
         state.queue.push_back(event);
         true
+    }
+
+    fn reached(&self, strand: &str, band: Band) -> bool {
+        let mut state = self.inner.lock().unwrap();
+        let held = state.bands.get(strand).copied().unwrap_or(Band::Under);
+        if band == Band::Under {
+            state.bands.remove(strand);
+        } else {
+            state.bands.insert(strand.to_string(), band);
+        }
+        band > held
+    }
+
+    fn forget(&self, strand: &str) {
+        self.inner.lock().unwrap().bands.remove(strand);
     }
 
     pub(in crate::service) fn drained(&self, turn: &str) -> Vec<Event> {
@@ -163,27 +151,16 @@ impl Default for Bus {
 
 impl Service {
     pub(in crate::service) fn observed(&self, observation: Observation<'_>) {
-        let policy = self.regimen();
-        let input = heft(observation.input);
-        let instructions = observation.instructions.map_or(0, str::len);
-        let event = Observed {
+        let _ = self.notices.publish(Event::Observed(Observed {
             address: observation.address.owned(),
             round: observation.round,
             provider: observation.provider.to_string(),
             model: observation.model.to_string(),
-            items: observation.input.len(),
-            input,
-            instructions,
-            threshold: crowded(observation.held, policy.slots)
-                .unwrap_or_else(|| floor(observation.budget, input + instructions)),
-            band: crowded(observation.held, policy.slots)
-                .map(|_| "slots".to_string())
-                .unwrap_or_else(|| banded(observation.budget, input + instructions).to_string()),
-            ceiling: observation.budget,
-            held: observation.held,
-            slots: policy.slots,
-        };
-        let _ = self.notices.publish(Event::Observed(event));
+        }));
+    }
+
+    pub(in crate::service) fn rearm(&self, strand: &str) {
+        self.notices.forget(strand);
     }
 
     pub(in crate::service) fn unresolved(
@@ -213,10 +190,18 @@ impl Service {
     }
 
     async fn remind(&self, event: Observed) -> Result<(), String> {
-        if !event.remindable() {
+        if self.settlement(&event.address.turn).is_some() {
             return Ok(());
         }
-        let content = reminded(&event);
+        let gauge = self.gauge(&event.address.strand, false).await?;
+        if refused(&gauge) {
+            return Ok(());
+        }
+        let band = banded(&gauge);
+        if !self.notices.reached(&event.address.strand, band) {
+            return Ok(());
+        }
+        let content = reminded(&event, &gauge, band);
         let message = self
             .store
             .place(santi_estate::MessageDraft {
@@ -236,32 +221,5 @@ impl Service {
             stream::Payload::Message(crate::message::Beat::Created { message }),
         );
         Ok(())
-    }
-}
-
-fn heft(input: &[Item]) -> usize {
-    input.iter().map(sized).sum()
-}
-
-fn sized(item: &Item) -> usize {
-    match item {
-        Item::Message { role, content } => role.len().saturating_add(content.len()),
-        Item::Reasoning { id, content } => id
-            .as_ref()
-            .map_or(0, String::len)
-            .saturating_add(content.len()),
-        Item::Call {
-            call,
-            name,
-            raw,
-            item,
-            mark,
-        } => call
-            .len()
-            .saturating_add(name.len())
-            .saturating_add(raw.len())
-            .saturating_add(mark.as_ref().map_or(0, String::len))
-            .saturating_add(item.as_ref().map_or(0, |value| value.to_string().len())),
-        Item::Output { call, output } => call.len().saturating_add(output.len()),
     }
 }

@@ -69,15 +69,15 @@ impl Provider for Speaker {
     }
 }
 
-struct Spoken {
-    _temp: tempfile::TempDir,
+pub(super) struct Spoken {
+    pub(super) _temp: tempfile::TempDir,
     provider: Arc<Speaker>,
-    service: service::Service,
-    strand: String,
+    pub(super) service: service::Service,
+    pub(super) strand: String,
     events: tokio::sync::broadcast::Receiver<santi_core::stream::Event>,
 }
 
-async fn spoken(replies: usize, tail: Option<&'static str>) -> Spoken {
+pub(super) async fn spoken(replies: usize, tail: Option<&'static str>) -> Spoken {
     let temp = tempfile::tempdir().unwrap();
     bootstrap(&temp).await;
     let config = service::Config {
