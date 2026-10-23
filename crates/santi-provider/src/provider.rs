@@ -10,10 +10,6 @@ pub enum Item {
         role: String,
         content: String,
     },
-    Reasoning {
-        id: Option<String>,
-        content: String,
-    },
     Call {
         call: String,
         name: String,

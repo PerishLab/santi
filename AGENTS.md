@@ -29,6 +29,12 @@ up, restoring, or moving a runtime.
 Live credentials belong in the ignored `santi.toml`; use `santi.example.toml`
 for tracked configuration changes.
 
+Reasoning is stateless across provider rounds. Thinking spans keep summaries
+for inspection, but neither they nor provider reasoning items enter provider
+input or context estimates. Issue [#216](https://github.com/PerishLab/santi/issues/216)
+records the router probe behind this: carried encrypted reasoning was accepted
+and had no effect. Revisit only with evidence that a provider consumes it.
+
 Release work ends at artifact publication. Host deployment is separate
 operational work.
 

@@ -47,22 +47,17 @@ fn messages(request: &Request) -> Value {
             "content": instructions,
         }));
     }
-    for item in &request.input {
-        if let Some(message) = message(item) {
-            messages.push(message);
-        }
-    }
+    messages.extend(request.input.iter().map(message));
     json!(messages)
 }
 
-fn message(item: &Item) -> Option<Value> {
+fn message(item: &Item) -> Value {
     match item {
-        Item::Message { role, content } => Some(texted(role, content)),
-        Item::Reasoning { .. } => None,
+        Item::Message { role, content } => texted(role, content),
         Item::Call {
             call, name, raw, ..
-        } => Some(calling(call, name, raw)),
-        Item::Output { call, output } => Some(outputted(call, output)),
+        } => calling(call, name, raw),
+        Item::Output { call, output } => outputted(call, output),
     }
 }
 

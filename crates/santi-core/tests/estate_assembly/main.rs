@@ -112,20 +112,15 @@ async fn assembles_ordered_estate() {
     let input = provider_input(&store, "strand_test")
         .await
         .expect("assembly");
-    assert_eq!(input.len(), 5);
+    assert_eq!(input.len(), 4);
     assert_message(&input[0], "user", "[message message_first]\nrun");
-    let Item::Reasoning { id, content } = &input[1] else {
-        panic!("expected reasoning");
-    };
-    assert_eq!(id.as_deref(), Some("response_test"));
-    assert_eq!(content, "reasoned");
     let Item::Call {
         call,
         raw,
         item,
         mark,
         ..
-    } = &input[2]
+    } = &input[1]
     else {
         panic!("expected call");
     };
@@ -133,7 +128,7 @@ async fn assembles_ordered_estate() {
     assert_eq!(raw, r#"{"command":"true"}"#);
     assert!(item.is_none());
     assert!(mark.is_none());
-    let Item::Output { call, output } = &input[3] else {
+    let Item::Output { call, output } = &input[2] else {
         panic!("expected output");
     };
     assert_eq!(call, "call_test");
@@ -142,7 +137,7 @@ async fn assembles_ordered_estate() {
     assert_eq!(facts["timing"]["called_at"], LATER);
     assert_eq!(facts["timing"]["replied_at"], LATER);
     assert_eq!(facts["timing"]["call_to_result_ms"], 0);
-    assert_message(&input[4], "assistant", "done");
+    assert_message(&input[3], "assistant", "done");
     let child = store
         .fork(ForkDraft {
             tag: "strand_child",
@@ -153,13 +148,13 @@ async fn assembles_ordered_estate() {
         .await
         .expect("fork");
     let inherited = provider_input(&store, &child.id).await.expect("fork input");
-    assert_eq!(inherited.len(), 5);
-    let Item::Output { output: replay, .. } = &inherited[3] else {
+    assert_eq!(inherited.len(), 4);
+    let Item::Output { output: replay, .. } = &inherited[2] else {
         panic!("expected inherited output");
     };
     assert_eq!(replay, output);
     assert_message(&inherited[0], "user", "[message message_first]\nrun");
-    assert_message(&inherited[4], "assistant", "done");
+    assert_message(&inherited[3], "assistant", "done");
     assert_eq!(
         store
             .message("message_first")
