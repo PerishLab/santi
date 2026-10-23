@@ -54,9 +54,7 @@ fn messages(request: &Request) -> Value {
 fn message(item: &Item) -> Value {
     match item {
         Item::Message { role, content } => texted(role, content),
-        Item::Call {
-            call, name, raw, ..
-        } => calling(call, name, raw),
+        Item::Call { call, name, raw } => calling(call, name, raw),
         Item::Output { call, output } => outputted(call, output),
     }
 }

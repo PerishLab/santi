@@ -14,8 +14,6 @@ pub enum Item {
         call: String,
         name: String,
         raw: String,
-        item: Option<Value>,
-        mark: Option<String>,
     },
     Output {
         call: String,

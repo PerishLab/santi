@@ -188,6 +188,47 @@ async fn unweighed() {
 }
 
 #[tokio::test]
+async fn framed() {
+    let held = opened().await;
+    let before = held.service.audit(&held.strand).await.unwrap().unwrap();
+    let next = held.store.strand(&held.strand).await.unwrap().unwrap().next;
+    let created = santi_core::now();
+    held.store
+        .create_turn(santi_estate::TurnDraft {
+            tag: "turn_framed",
+            strand: &held.strand,
+            trigger: santi_core::turn::Trigger::System,
+            source: None,
+            from: next,
+            created: &created,
+        })
+        .await
+        .unwrap();
+    let arguments = serde_json::json!({"command": "pwd"});
+    held.store
+        .create_call(santi_estate::CallDraft {
+            tag: "call_framed",
+            turn: "turn_framed",
+            tool: "shell",
+            arguments: &arguments,
+            created: &created,
+        })
+        .await
+        .unwrap();
+    let framed = serde_json::to_vec(&serde_json::json!({
+        "type": "function_call",
+        "call": "call_framed",
+        "name": "shell",
+        "raw": arguments.to_string(),
+    }))
+    .unwrap()
+    .len() as i64;
+    let after = held.service.audit(&held.strand).await.unwrap().unwrap();
+    assert_eq!(after.estimate.items, before.estimate.items + 1);
+    assert_eq!(after.estimate.total - before.estimate.total, framed);
+}
+
+#[tokio::test]
 async fn rearms() {
     let held = opened().await;
     held.fill("msg_first", 60).await;

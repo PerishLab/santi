@@ -102,7 +102,7 @@ pub(crate) async fn bare(mut config: Config) -> Value {
     serde_json::from_slice(&body).expect("json request")
 }
 
-pub(crate) async fn replayed(item: Option<Value>) -> Value {
+pub(crate) async fn replayed() -> Value {
     let listener = TcpListener::bind("127.0.0.1:0").expect("bind test server");
     let config = Config {
         key: "test-key".to_string(),
@@ -140,8 +140,6 @@ pub(crate) async fn replayed(item: Option<Value>) -> Value {
                 call: "call_1".to_string(),
                 name: "shell".to_string(),
                 raw: "{}".to_string(),
-                item,
-                mark: None,
             }],
             tools: None,
             previous: None,
