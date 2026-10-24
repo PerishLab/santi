@@ -291,6 +291,7 @@ mod alarms;
 mod environment;
 mod jobs;
 mod recovery;
+mod store;
 mod support;
 
 fn status(message: &str) -> StatusCode {

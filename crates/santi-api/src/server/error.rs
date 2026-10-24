@@ -9,6 +9,9 @@ pub struct ApiError {
 }
 
 enum Kind {
+    Down,
+    Taken,
+    Fault,
     Unauthorized,
     Unavailable,
     Missing,
@@ -112,6 +115,12 @@ fn accepts(text: &str, rules: &[Rule]) -> bool {
 }
 
 fn kind(text: &str) -> Kind {
+    match text {
+        "store unavailable" => return Kind::Down,
+        "key taken" => return Kind::Taken,
+        "store fault" => return Kind::Fault,
+        _ => {}
+    }
     if accepts(text, AUTH) {
         return Kind::Unauthorized;
     }
@@ -145,11 +154,15 @@ impl ApiError {
 
     pub fn internal(message: String) -> Self {
         eprintln!("santi-api: internal error: {message}");
+        Self::fault("internal error")
+    }
+
+    pub fn fault(message: impl Into<String>) -> Self {
         Self::from_santi(engine().transient(Signal {
             descriptor: catalog::INTERNAL,
             source: santi_core::Source::new("santi-api", "http_boundary"),
             scope: None,
-            message: "internal error".to_string(),
+            message: message.into(),
             context: serde_json::Value::Null,
         }))
     }
@@ -233,6 +246,9 @@ impl ApiError {
     pub fn from_service(message: String) -> Self {
         let detail = message.strip_prefix("adapt: ").unwrap_or(&message);
         match kind(detail) {
+            Kind::Down => Self::unavailable(detail),
+            Kind::Taken => Self::conflict(detail),
+            Kind::Fault => Self::fault(detail),
             Kind::Unauthorized => Self::unauthorized(detail),
             Kind::Unavailable => Self::unavailable(detail),
             Kind::Missing => Self::not_found(detail),
