@@ -2,6 +2,9 @@ use keel::adapt::db::Sqlite;
 use keel::{Core, Op, Row, Tx, form};
 
 pub(in crate::store) fn error(error: keel::adapt::Error) -> String {
+    if let keel::adapt::Error::Store(store) = &error {
+        eprintln!("santi-estate: {store}: {}", store.detail());
+    }
     error.to_string()
 }
 
