@@ -2,8 +2,6 @@ use serde_json::json;
 
 pub(in crate::service) mod slots;
 
-use crate::context::budget::estimated;
-
 use super::Service;
 use crate::{budget, compact};
 
@@ -49,6 +47,9 @@ impl Service {
                     .await?;
                 response.ratio = ratio;
                 response.after = Some(after);
+            } else {
+                self.foreseen(&strand.id, &response, summary, json!({}))
+                    .await?;
             }
             return Ok(response);
         }
@@ -67,6 +68,17 @@ impl Service {
         } else {
             (None, None)
         };
+        let preview = self
+            .store
+            .preview_compact(&compact_tag, &strand.id, from, to)
+            .await?;
+        self.foreseen(
+            &strand.id,
+            &preview,
+            summary,
+            metadata.clone().unwrap_or_else(|| json!({})),
+        )
+        .await?;
         let mut response = self
             .store
             .create_compact(santi_estate::CompactDraft {
@@ -165,7 +177,12 @@ impl Service {
         .await?;
         let instructions = self.wording(strand).await?;
         let tools = self.offered(strand).await?;
-        Ok(estimated(&input, Some(&instructions), Some(&tools)))
+        let request = self.projected(input, instructions, tools)?;
+        self.provider.validate(&request)?;
+        Ok(crate::context::budget::gauged(
+            &request,
+            self.provider.as_ref(),
+        ))
     }
 
     pub async fn page(

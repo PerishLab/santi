@@ -5,7 +5,13 @@ use crate::budget;
 
 pub(crate) const ESTIMATOR: &str = "provider_json_bytes_v1";
 
-pub(crate) fn gauged(request: &Request) -> budget::Estimate {
+pub(crate) fn gauged(
+    request: &Request,
+    provider: &dyn santi_provider::Provider,
+) -> budget::Estimate {
+    if let Some(estimate) = provider.estimate(request) {
+        return estimate;
+    }
     estimated(
         &request.input,
         request.instructions.as_deref(),
@@ -43,6 +49,7 @@ pub(crate) fn estimated(
 
 fn valued(item: &Item) -> Value {
     match item {
+        Item::Continuation(_) | Item::Boundary => Value::Null,
         Item::Message { role, content } => json!({
             "type": "message",
             "role": role,

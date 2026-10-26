@@ -1,5 +1,5 @@
 use super::*;
-use crate::context::budget::estimated;
+use crate::context::budget::gauged;
 use santi_provider::Item;
 
 impl Service {
@@ -13,11 +13,7 @@ impl Service {
             input.extend(self.pending_input(strand).await?);
         }
         let instructions = self.wording(strand).await?;
-        Ok(estimated(
-            &input,
-            Some(&instructions),
-            Some(&crate::service::tools::tools()),
-        ))
+        self.measured(input, instructions, crate::service::tools::tools())
     }
 
     pub(in crate::service) async fn estimate(
@@ -28,7 +24,32 @@ impl Service {
         input.extend(self.pending_input(strand).await?);
         let instructions = self.wording(strand).await?;
         let tools = self.offered(strand).await?;
-        Ok(estimated(&input, Some(&instructions), Some(&tools)))
+        self.measured(input, instructions, tools)
+    }
+
+    pub(in crate::service) fn measured(
+        &self,
+        input: Vec<Item>,
+        instructions: String,
+        tools: Vec<santi_provider::Tool>,
+    ) -> Result<budget::Estimate, String> {
+        let request = self.projected(input, instructions, tools)?;
+        Ok(gauged(&request, self.provider.as_ref()))
+    }
+
+    pub(in crate::service) fn projected(
+        &self,
+        input: Vec<Item>,
+        instructions: String,
+        tools: Vec<santi_provider::Tool>,
+    ) -> Result<santi_provider::Request, String> {
+        self.provider.prepare(santi_provider::Request {
+            model: self.provider.metadata().model,
+            instructions: Some(instructions),
+            input,
+            tools: Some(tools),
+            previous: None,
+        })
     }
 
     pub(super) async fn pending_input(&self, strand: &str) -> Result<Vec<Item>, String> {

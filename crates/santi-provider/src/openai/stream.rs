@@ -81,6 +81,7 @@ fn name(event: &Event) -> &'static str {
         Event::Started { .. } => "response_started",
         Event::Working { .. } => "response_in_progress",
         Event::Thinking(_) => "reasoning_summary_delta",
+        Event::Retained(_) => "reasoning_retained",
         Event::Thought(_) => "reasoning_summary_done",
         Event::Text(_) => "text_delta",
         Event::Called(_) => "function_call_requested",

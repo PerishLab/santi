@@ -190,7 +190,7 @@ async fn discovers() {
     let santi_provider::Item::Message { content, .. } = item else {
         panic!("suffix missing")
     };
-    let used = crate::context::budget::gauged(&request).total;
+    let used = crate::context::budget::gauged(&request, service.provider.as_ref()).total;
     assert!(content.contains(&format!("used_bytes: {used:020}")));
     assert!(content.contains(&format!("remaining_bytes: {:020}", 75000 - used)));
 }

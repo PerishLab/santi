@@ -10,21 +10,36 @@ use super::*;
 pub(super) fn frames(
     receipt: Receipt,
     mut bytes: impl Stream<Item = Result<bytes::Bytes, reqwest::Error>> + Unpin + Send + 'static,
+    continuation: santi_model::thinking::Continuation,
 ) -> impl Stream<Item = Result<Event, String>> + Send + 'static {
     try_stream! {
         yield Event::Traced(Trace::Received(receipt));
         let mut buffer = String::new();
-        let mut accumulator = Gatherer::default();
+        let mut pending = Vec::new();
+        let mut accumulator = Gatherer { continuation: Some(continuation), ..Default::default() };
         let mut response: Option<String> = None;
         while let Some(chunk) = bytes.next().await {
             let chunk = chunk.map_err(|error| error.to_string())?;
             yield Event::Traced(Trace::Chunk { bytes: chunk.len() });
-            buffer.push_str(&String::from_utf8_lossy(&chunk));
+            pending.extend_from_slice(&chunk);
+            decoded(&mut pending, &mut buffer)?;
             for event in drained(&mut buffer, &mut response, &mut accumulator)? {
                 yield event;
             }
         }
     }
+}
+
+fn decoded(pending: &mut Vec<u8>, buffer: &mut String) -> Result<(), String> {
+    let length = match std::str::from_utf8(pending) {
+        Ok(text) => text.len(),
+        Err(error) if error.error_len().is_none() => error.valid_up_to(),
+        Err(error) => return Err(format!("invalid chat completions UTF-8: {error}")),
+    };
+    let text = std::str::from_utf8(&pending[..length]).map_err(|error| error.to_string())?;
+    buffer.push_str(text);
+    pending.drain(..length);
+    Ok(())
 }
 
 fn drained(
@@ -63,6 +78,9 @@ fn framed(
     }
     for choice in chunk.choices {
         let delta = choice.delta;
+        if let Some(reasoning) = delta.reasoning.as_deref() {
+            accumulator.thinking(reasoning);
+        }
         if let Some(reasoning) = delta.reasoning.filter(|value| !value.is_empty()) {
             events.push(Event::Thinking(reasoning));
         }
@@ -73,6 +91,12 @@ fn framed(
             accumulator.push(calls);
         }
         let finish = choice.finish.as_deref();
+        if matches!(finish, Some("tool_calls" | "stop"))
+            && let Some(mut state) = accumulator.continuation.take()
+        {
+            state.calls = accumulator.calls.len();
+            events.push(Event::Retained(state));
+        }
         if finish == Some("tool_calls") {
             events.extend(accumulator.finish(response.clone())?);
         } else if finish == Some("stop") || finish == Some("length") {
@@ -136,6 +160,7 @@ fn name(event: &Event) -> &'static str {
         Event::Started { .. } => "response_started",
         Event::Working { .. } => "response_in_progress",
         Event::Thinking(_) => "reasoning_summary_delta",
+        Event::Retained(_) => "reasoning_retained",
         Event::Thought(_) => "reasoning_summary_done",
         Event::Text(_) => "text_delta",
         Event::Called(_) => "function_call_requested",
@@ -147,9 +172,17 @@ fn name(event: &Event) -> &'static str {
 #[derive(Debug, Default)]
 struct Gatherer {
     calls: Vec<Gathered>,
+    continuation: Option<santi_model::thinking::Continuation>,
 }
 
 impl Gatherer {
+    fn thinking(&mut self, text: &str) {
+        let Some(state) = self.continuation.as_mut() else {
+            return;
+        };
+        state.content.get_or_insert_with(String::new).push_str(text);
+    }
+
     fn push(&mut self, calls: Vec<Delta>) {
         for tool_call in calls {
             let index = tool_call.index;

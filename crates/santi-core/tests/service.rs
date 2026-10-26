@@ -4,7 +4,7 @@ mod alarms;
 mod basic;
 #[path = "service/compact.rs"]
 mod compact;
-#[path = "service/context.rs"]
+#[path = "service/context/mod.rs"]
 mod context;
 #[path = "service/environment.rs"]
 mod environment;

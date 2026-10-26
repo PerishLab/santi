@@ -12,11 +12,20 @@ pub struct Config {
     pub model: String,
     pub url: String,
     pub thinking: Option<String>,
+    pub replay: Replay,
     pub effort: Option<String>,
     pub ceiling: Option<u32>,
     pub bytes: Option<usize>,
     pub maintenance: Option<usize>,
     pub headers: Vec<String>,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Replay {
+    #[default]
+    Stateless,
+    History,
 }
 
 #[derive(Debug, Clone)]
@@ -51,7 +60,43 @@ impl Provider for Chat {
         }
     }
 
+    fn prepare(&self, request: Request) -> Result<Request, String> {
+        replay::prepare(&self.config, request)
+    }
+
+    fn validate(&self, request: &Request) -> Result<(), String> {
+        replay::validate(&self.config, request, false)
+    }
+
+    fn estimate(&self, request: &Request) -> Option<santi_model::budget::Estimate> {
+        let body = body(&self.config, request.clone());
+        let input = serde_json::to_vec(&body["messages"]).ok()?.len() as i64;
+        let tools = body
+            .get("tools")
+            .map(serde_json::to_vec)
+            .transpose()
+            .ok()?
+            .map_or(0, |bytes| bytes.len()) as i64;
+        Some(santi_model::budget::Estimate {
+            estimator: "chat_completions_json_bytes_v1".into(),
+            items: body["messages"].as_array()?.len() as i64,
+            input,
+            instructions: 0,
+            tools,
+            total: serde_json::to_vec(&body).ok()?.len() as i64,
+        })
+    }
+
     async fn stream(&self, request: Request) -> Result<Streaming, String> {
+        let request = self.prepare(request)?;
+        replay::validate(&self.config, &request, true)?;
+        let continuation = santi_model::thinking::Continuation {
+            calls: 0,
+            provider: self.config.provider.clone(),
+            model: request.model.clone(),
+            endpoint: self.config.url.clone(),
+            content: None,
+        };
         let sent = std::time::Instant::now();
         let response = self
             .client
@@ -73,11 +118,20 @@ impl Provider for Chat {
             ));
         }
         let receipt = crate::receipt::received(&response, &self.config.headers, sent);
-        Ok(Box::pin(frames(receipt, response.bytes_stream())))
+        Ok(Box::pin(frames(
+            receipt,
+            response.bytes_stream(),
+            continuation,
+        )))
     }
 }
 
 mod body;
+mod message;
+mod replay;
 mod stream;
 use body::*;
 use stream::*;
+
+#[cfg(test)]
+mod tests;

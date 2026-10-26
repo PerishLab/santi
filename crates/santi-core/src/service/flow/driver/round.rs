@@ -27,6 +27,11 @@ impl Ledger {
         round.usage = report.usage.or(round.usage.take());
     }
 
+    pub(super) fn retained(&mut self, state: thinking::Continuation) {
+        self.heard = true;
+        self.round.continuation = Some(Box::new(state));
+    }
+
     pub(super) fn spoke(&mut self, delta: &str) {
         self.round.text += delta.len();
     }

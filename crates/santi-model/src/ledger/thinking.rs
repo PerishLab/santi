@@ -50,6 +50,19 @@ pub struct Round {
     pub usage: Option<Usage>,
     pub text: usize,
     pub calls: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub continuation: Option<Box<Continuation>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema, PartialEq, Eq)]
+#[schema(as = thinking::Continuation)]
+pub struct Continuation {
+    pub calls: usize,
+    pub provider: String,
+    pub model: String,
+    pub endpoint: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub content: Option<String>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, ToSchema, PartialEq, Eq)]

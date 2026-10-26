@@ -33,6 +33,7 @@ fn completions(config: ChatCompletions) -> Arc<dyn Provider> {
         model: config.model,
         url: config.base_url,
         thinking: config.thinking,
+        replay: config.replay,
         effort: config.reasoning_effort,
         ceiling: config.max_tokens,
         bytes: Some(config.bytes),

@@ -63,9 +63,11 @@ headers = ["x-request-id"]
 [providers.deepseek]
 kind = "chat_completions"
 api_key = ""
-model = "deepseek-v4-pro"
+model = "deepseek-flash"
 base_url = "https://api.deepseek.com"
-thinking = ""
+thinking = "enabled"
+# Replay original reasoning within the runtime-selected history when tools are offered.
+replay = "history"
 reasoning_effort = ""
 bytes = 500000
 maintenance_bytes = 750000

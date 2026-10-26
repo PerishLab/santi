@@ -111,6 +111,10 @@ impl Driver<'_, '_> {
             Event::Started { response } | Event::Working { response } => {
                 self.progressed(response).await
             }
+            Event::Retained(state) => {
+                self.ledger.retained(state);
+                Ok(false)
+            }
             Event::Thinking(delta) => {
                 self.summary.push_str(&delta);
                 self.sketched().await?;
