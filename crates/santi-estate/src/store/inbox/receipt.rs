@@ -11,7 +11,6 @@ struct Draft<'a> {
     state: receipt::State,
     turn: Option<i64>,
     incident: Option<&'a str>,
-    rebuilt: Option<&'a str>,
     occurred: &'a str,
 }
 
@@ -48,7 +47,6 @@ pub(in crate::store) async fn accept(
             state: receipt::State::Accepted,
             turn: None,
             incident: None,
-            rebuilt: None,
             occurred: accepted,
         })
         .await
@@ -101,7 +99,6 @@ pub(in crate::store) async fn shift(
             state: draft.state,
             turn,
             incident: draft.incident,
-            rebuilt: draft.rebuilt,
             occurred: draft.occurred,
         })
         .await
@@ -143,7 +140,6 @@ pub(in crate::store) async fn close(
                 state: draft.state.clone(),
                 turn: Some(draft.turn),
                 incident: draft.incident,
-                rebuilt: None,
                 occurred: draft.occurred,
             },
         )
@@ -188,6 +184,14 @@ impl Writer<'_, '_> {
         let receipt = draft.receipt.to_string();
         let sequence = draft.sequence.to_string();
         let turn = draft.turn.map(|turn| turn.to_string());
+        let incident = match draft.incident {
+            Some(incident) => Some(
+                crate::store::error::incident_key(self.0, incident)
+                    .await?
+                    .to_string(),
+            ),
+            None => None,
+        };
         let mut fields = vec![
             ("tag", tag.as_str()),
             ("sequence", sequence.as_str()),
@@ -198,11 +202,8 @@ impl Writer<'_, '_> {
         if let Some(turn) = turn.as_deref() {
             fields.push(("turn", turn));
         }
-        if let Some(incident) = draft.incident {
+        if let Some(incident) = incident.as_deref() {
             fields.push(("incident", incident));
-        }
-        if let Some(rebuilt) = draft.rebuilt {
-            fields.push(("rebuilt", rebuilt));
         }
         self.0.put("ReceiptTransition", &fields).await?;
         Ok(())
@@ -222,8 +223,10 @@ async fn decode_transition(
         sequence: read::int(row, "sequence")?,
         state: decode_state(read::text(row, "state")?)?,
         turn,
-        incident: row.text("incident").map(str::to_string),
-        rebuilt: row.text("rebuilt").map(str::to_string),
+        incident: match row.int("incident") {
+            Some(incident) => Some(read::related(core, "StrandIncident", incident).await?),
+            None => None,
+        },
         occurred: read::text(row, "occurred")?.to_string(),
     })
 }

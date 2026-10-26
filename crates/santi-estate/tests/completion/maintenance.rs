@@ -52,7 +52,6 @@ async fn opened(store: &Store) -> String {
             turn: "turn_research",
             strand: "strand_research",
             trigger: turn::Trigger::System,
-            source: None,
             actor: "santi",
             created: FIRST,
         })
@@ -191,7 +190,6 @@ async fn sequential() {
                     turn: "turn_next",
                     strand: "strand_research",
                     trigger: turn::Trigger::System,
-                    source: None,
                     actor: "santi",
                     created: LATER
                 })

@@ -52,7 +52,6 @@ pub struct Turn {
     pub id: String,
     pub strand: String,
     pub trigger: Trigger,
-    pub source: Option<String>,
     pub from: i64,
     pub to: Option<i64>,
     pub status: Status,

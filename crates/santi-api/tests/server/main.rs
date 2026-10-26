@@ -189,7 +189,6 @@ mod effects {
                 turn: "turn_effect",
                 strand: &strand.id,
                 trigger: santi_core::turn::Trigger::StrandSend,
-                source: None,
                 actor: santi_core::SYSTEM,
                 created: &santi_core::now(),
             })

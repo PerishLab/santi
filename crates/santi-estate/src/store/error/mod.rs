@@ -1,15 +1,31 @@
 use super::{Store, read};
-use keel::{Op, Rank, form};
-use santi_error::{Fault, Incident, Transition};
+use keel::adapt::db::Sqlite;
+use keel::{Op, Rank, Tx, form};
+use santi_error::{Fault, Incident, Scope, Transition};
 
 mod codec;
 mod persist;
+
+const UNITS: [&str; 2] = ["SoulIncident", "StrandIncident"];
+const EVENTS: [(&str, &str, &str); 4] = [
+    ("SoulIncident", "opened_event", "opened_delivered"),
+    ("SoulIncident", "resolved_event", "resolved_delivered"),
+    ("StrandIncident", "opened_event", "opened_delivered"),
+    ("StrandIncident", "resolved_event", "resolved_delivered"),
+];
 
 pub(in crate::store) struct Resolution<'a> {
     pub key: &'a str,
     pub by: &'a str,
     pub context: serde_json::Value,
     pub now: &'a str,
+}
+
+pub(super) struct Seat {
+    unit: &'static str,
+    field: &'static str,
+    owner: i64,
+    scope: Scope,
 }
 
 impl Store {
@@ -45,114 +61,108 @@ impl Store {
     }
 
     pub async fn incident(&self, key: &str) -> Result<Option<Incident>, String> {
-        read::one(&self.core, "ErrorIncident", "incident_key", key)
-            .await?
-            .map(|row| codec::incident(&row, false))
-            .transpose()
-    }
-
-    pub async fn incidents(
-        &self,
-        scope: &santi_error::Scope,
-        limit: usize,
-    ) -> Result<Vec<Incident>, String> {
-        let rows = self
-            .core
+        self.core
             .batch(async |tx| {
-                let query = |unit| {
-                    form(unit)
-                        .when("scope_kind", Op::Eq, &scope.kind)
-                        .when("scope_id", Op::Eq, &scope.id)
-                        .order("first_seen", Rank::Desc)
-                        .order("tag", Rank::Desc)
+                let Some((code, scope)) = split(key) else {
+                    return Ok(None);
                 };
-                let active = tx.ask(&query("ErrorIncident")).await?;
-                let resolved = tx.ask(&query("ResolvedIncident")).await?;
-                Ok((active.rows().to_vec(), resolved.rows().to_vec()))
+                let Some(seat) = Reader(tx).seat(&scope).await? else {
+                    return Ok(None);
+                };
+                let row = Reader(tx).active(&seat, code).await?;
+                row.map(|row| codec::incident(&row, &seat.scope).map_err(adapt))
+                    .transpose()
             })
             .await
-            .map_err(read::error)?;
-        let mut incidents = rows
-            .0
-            .iter()
-            .map(|row| codec::incident(row, false))
-            .chain(rows.1.iter().map(|row| codec::incident(row, true)))
-            .collect::<Result<Vec<_>, _>>()?;
-        incidents.sort_by(|left, right| {
-            right
-                .first
-                .seen
-                .cmp(&left.first.seen)
-                .then_with(|| right.id.cmp(&left.id))
-        });
-        incidents.truncate(limit.clamp(1, 1000));
-        Ok(incidents)
+            .map_err(read::error)
+    }
+
+    pub async fn incidents(&self, scope: &Scope, limit: usize) -> Result<Vec<Incident>, String> {
+        let limit = limit.clamp(1, 1000);
+        self.core
+            .batch(async |tx| {
+                let Some(seat) = Reader(tx).seat(scope).await? else {
+                    return Ok(Vec::new());
+                };
+                let rows = tx
+                    .ask(
+                        &form(seat.unit)
+                            .when(seat.field, Op::Eq, &seat.owner.to_string())
+                            .order("first_seen", Rank::Desc)
+                            .order("tag", Rank::Desc)
+                            .top(limit),
+                    )
+                    .await?;
+                rows.rows()
+                    .iter()
+                    .map(|row| codec::incident(row, &seat.scope).map_err(adapt))
+                    .collect()
+            })
+            .await
+            .map_err(read::error)
     }
 
     pub async fn active_incident_count(&self, code: &str) -> Result<usize, String> {
-        let rows = self
-            .core
-            .ask(&form("ErrorIncident").when("code", Op::Eq, code))
-            .await
-            .map_err(read::error)?;
-        Ok(rows.rows().len())
+        let mut count = 0;
+        for unit in UNITS {
+            count += self
+                .core
+                .ask(&form(unit).when("active", Op::Eq, code))
+                .await
+                .map_err(read::error)?
+                .rows()
+                .len();
+        }
+        Ok(count)
     }
 
     pub async fn pending_errors(&self, limit: usize) -> Result<Vec<Transition>, String> {
-        let rows = self
-            .core
-            .batch(async |tx| {
-                let transitions = tx
-                    .ask(
-                        &form("ErrorTransition")
-                            .order("created", Rank::Asc)
-                            .order("tag", Rank::Asc),
-                    )
-                    .await?;
-                let acknowledgements = tx.live("ErrorAcknowledgement").await?;
-                Ok((transitions.rows().to_vec(), acknowledgements))
-            })
-            .await
-            .map_err(read::error)?;
-        rows.0
+        let mut payloads = Vec::new();
+        for unit in UNITS {
+            let opened = self
+                .core
+                .ask(&form(unit).missing("opened_delivered"))
+                .await
+                .map_err(read::error)?;
+            for row in opened.rows() {
+                payloads.push(read::text(row, "opened_payload")?.to_string());
+            }
+            let resolved = self
+                .core
+                .ask(&form(unit).missing("resolved_delivered"))
+                .await
+                .map_err(read::error)?;
+            for row in resolved.rows() {
+                if let Some(payload) = row.text("resolved_payload") {
+                    payloads.push(payload.to_string());
+                }
+            }
+        }
+        let mut transitions = payloads
             .iter()
-            .filter(|transition| {
-                !rows
-                    .1
-                    .iter()
-                    .any(|ack| ack.int("transition") == Some(transition.key()))
-            })
-            .take(limit)
-            .map(codec::transition)
-            .collect()
+            .map(|payload| codec::transition(payload))
+            .collect::<Result<Vec<_>, _>>()?;
+        transitions.sort_by(|left, right| {
+            left.occurred
+                .cmp(&right.occurred)
+                .then_with(|| left.id.cmp(&right.id))
+        });
+        transitions.truncate(limit);
+        Ok(transitions)
     }
 
     pub async fn deliver_error(&self, transition: &str, delivered: &str) -> Result<(), String> {
         self.core
             .batch(async |tx| {
-                let Some(row) = tx
-                    .one(&form("ErrorTransition").when("tag", Op::Eq, transition))
-                    .await?
-                else {
+                for (unit, event, mark) in EVENTS {
+                    let Some(row) = tx.one(&form(unit).when(event, Op::Eq, transition)).await?
+                    else {
+                        continue;
+                    };
+                    if row.text(mark).is_none() {
+                        tx.set(unit, row.key(), &[(mark, delivered)]).await?;
+                    }
                     return Ok(());
-                };
-                if tx
-                    .one(&form("ErrorAcknowledgement").when(
-                        "transition",
-                        Op::Eq,
-                        &row.key().to_string(),
-                    ))
-                    .await?
-                    .is_none()
-                {
-                    tx.put(
-                        "ErrorAcknowledgement",
-                        &[
-                            ("delivered", delivered),
-                            ("transition", &row.key().to_string()),
-                        ],
-                    )
-                    .await?;
                 }
                 Ok(())
             })
@@ -162,7 +172,7 @@ impl Store {
 }
 
 pub(in crate::store) async fn raise_in(
-    tx: &mut keel::Tx<'_, keel::adapt::db::Sqlite>,
+    tx: &mut Tx<'_, Sqlite>,
     draft: santi_error::Draft,
     now: &str,
 ) -> Result<Fault, keel::adapt::Error> {
@@ -171,33 +181,95 @@ pub(in crate::store) async fn raise_in(
             "incident key does not match its descriptor and scope".into(),
         ));
     }
-    let row = tx
-        .one(&form("ErrorIncident").when("incident_key", Op::Eq, &draft.key))
-        .await?;
+    let seat = Reader(tx).seat(&draft.scope).await?.ok_or_else(|| {
+        keel::adapt::Error::Missing(format!("{} {}", draft.scope.kind, draft.scope.id))
+    })?;
+    let row = Reader(tx).active(&seat, draft.descriptor.code).await?;
     let existing = row
         .as_ref()
-        .map(|row| codec::incident(row, false).map_err(adapt))
+        .map(|row| codec::incident(row, &seat.scope).map_err(adapt))
         .transpose()?;
     let mutation = santi_error::engine().open(existing.as_ref(), draft, now);
-    persist::opened(tx, &mutation, existing.is_some()).await?;
+    persist::Writer(tx)
+        .opened(&seat, row.map(|row| row.key()), &mutation)
+        .await?;
     Ok(mutation.error)
 }
 
 pub(in crate::store) async fn resolve_in(
-    tx: &mut keel::Tx<'_, keel::adapt::db::Sqlite>,
+    tx: &mut Tx<'_, Sqlite>,
     resolution: Resolution<'_>,
 ) -> Result<bool, keel::adapt::Error> {
-    let Some(row) = tx
-        .one(&form("ErrorIncident").when("incident_key", Op::Eq, resolution.key))
-        .await?
-    else {
+    let Some((code, scope)) = split(resolution.key) else {
         return Ok(false);
     };
-    let active = codec::incident(&row, false).map_err(adapt)?;
+    let Some(seat) = Reader(tx).seat(&scope).await? else {
+        return Ok(false);
+    };
+    let Some(row) = Reader(tx).active(&seat, code).await? else {
+        return Ok(false);
+    };
+    let active = codec::incident(&row, &seat.scope).map_err(adapt)?;
     let mutation =
         santi_error::engine().resolve(&active, resolution.by, resolution.context, resolution.now);
-    persist::resolved(tx, row.key(), &mutation).await?;
+    persist::Writer(tx)
+        .resolved(&seat, row.key(), &mutation)
+        .await?;
     Ok(true)
+}
+
+pub(in crate::store) async fn incident_key(
+    tx: &mut Tx<'_, Sqlite>,
+    tag: &str,
+) -> Result<i64, keel::adapt::Error> {
+    read::need(tx, "StrandIncident", "tag", tag).await
+}
+
+struct Reader<'a, 'tx>(&'a mut Tx<'tx, Sqlite>);
+
+impl Reader<'_, '_> {
+    async fn seat(&mut self, scope: &Scope) -> Result<Option<Seat>, keel::adapt::Error> {
+        let (unit, owner, field) = match scope.kind.as_str() {
+            "soul" => ("SoulIncident", "Soul", "soul"),
+            "strand" => ("StrandIncident", "Strand", "strand"),
+            _ => return Ok(None),
+        };
+        let Some(row) = self
+            .0
+            .one(&form(owner).when("tag", Op::Eq, &scope.id))
+            .await?
+        else {
+            return Ok(None);
+        };
+        Ok(Some(Seat {
+            unit,
+            field,
+            owner: row.key(),
+            scope: scope.clone(),
+        }))
+    }
+
+    async fn active(
+        &mut self,
+        seat: &Seat,
+        code: &str,
+    ) -> Result<Option<keel::Row>, keel::adapt::Error> {
+        self.0
+            .one(
+                &form(seat.unit)
+                    .when(seat.field, Op::Eq, &seat.owner.to_string())
+                    .when("active", Op::Eq, code),
+            )
+            .await
+    }
+}
+
+fn split(key: &str) -> Option<(&str, Scope)> {
+    let mut parts = key.rsplitn(3, ':');
+    let id = parts.next()?;
+    let kind = parts.next()?;
+    let code = parts.next()?;
+    Some((code, Scope::new(kind, id)))
 }
 
 fn adapt(error: String) -> keel::adapt::Error {

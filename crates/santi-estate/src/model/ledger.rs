@@ -1,3 +1,5 @@
+use super::history::{ThinkingSpan, ToolResult};
+use super::job::ToolCall;
 use keel::atom::{int, string};
 use keel::resource;
 
@@ -43,8 +45,6 @@ pub(crate) struct Turn {
     tag: string,
     #[field(string, values = ["strand_send", "system"])]
     trigger: string,
-    #[field(string, opt)]
-    source: string,
     #[field(int, min = 0)]
     from: int,
     #[field(string)]
@@ -99,20 +99,28 @@ pub(crate) struct Message {
     created: string,
     #[field(string)]
     updated: string,
+    #[relation(Strand, many2one, root)]
+    strand: Strand,
 }
 
 #[resource(frozen)]
 pub(crate) struct StrandEntry {
     #[field(string, values = ["message", "thinking", "tool_call", "tool_result"])]
     target_type: string,
-    #[field(string, unique = (strand, target_type))]
-    target: string,
     #[field(int, unique = strand, min = 1)]
     sequence: int,
     #[field(string)]
     created: string,
     #[relation(Strand, many2one, root)]
     strand: Strand,
+    #[relation(Message, many2one, opt)]
+    message: Message,
+    #[relation(ThinkingSpan, many2one, opt)]
+    thinking: ThinkingSpan,
+    #[relation(ToolCall, many2one, opt)]
+    call: ToolCall,
+    #[relation(ToolResult, many2one, opt)]
+    result: ToolResult,
 }
 
 #[resource]
@@ -125,4 +133,20 @@ pub(crate) struct TurnStop {
     settled: string,
     #[relation(Turn, one2one, root)]
     turn: Turn,
+}
+
+#[resource]
+pub(crate) struct Material {
+    #[field(string, unique = strand)]
+    key: string,
+    #[field(int, min = 0)]
+    length: int,
+    #[field(string)]
+    sha256: string,
+    #[field(string)]
+    created: string,
+    #[field(string)]
+    updated: string,
+    #[relation(Strand, many2one, root)]
+    strand: Strand,
 }

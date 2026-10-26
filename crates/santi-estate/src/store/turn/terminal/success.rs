@@ -104,16 +104,15 @@ async fn reply(
     let entry = tx
         .one(
             &form("StrandEntry")
-                .when("target_type", Op::Eq, "message")
-                .when("target", Op::Eq, tag),
+                .when("strand", Op::Eq, &strand.key().to_string())
+                .when("message", Op::Eq, &message.key().to_string()),
         )
-        .await?
-        .ok_or_else(|| keel::adapt::Error::Missing("reply entry".into()))?;
-    if entry.int("strand") != Some(strand.key()) {
+        .await?;
+    let Some(entry) = entry.filter(|_| message.int("strand") == Some(strand.key())) else {
         return Err(keel::adapt::Error::Adapt(
             "completion reply belongs to another strand".into(),
         ));
-    }
+    };
     let content = message
         .text("content")
         .ok_or_else(|| keel::adapt::Error::Adapt("reply content missing".into()))?;

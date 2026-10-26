@@ -18,7 +18,6 @@ pub struct TurnDraft<'a> {
     pub tag: &'a str,
     pub strand: &'a str,
     pub trigger: turn::Trigger,
-    pub source: Option<&'a str>,
     pub from: i64,
     pub created: &'a str,
 }
@@ -31,7 +30,7 @@ impl Store {
                 let strand = read::need(tx, "Strand", "tag", draft.strand).await?;
                 let strand = strand.to_string();
                 let from = draft.from.to_string();
-                let mut fields = vec![
+                let fields = vec![
                     ("tag", draft.tag),
                     ("trigger", trigger(&draft.trigger)),
                     ("from", from.as_str()),
@@ -39,9 +38,6 @@ impl Store {
                     ("updated", draft.created),
                     ("strand", strand.as_str()),
                 ];
-                if let Some(source) = draft.source {
-                    fields.push(("source", source));
-                }
                 tx.put("Turn", &fields).await?;
                 Ok(())
             })
@@ -219,7 +215,6 @@ impl Store {
             id: read::text(row, "tag")?.to_string(),
             strand: read::related(&self.core, "Strand", read::int(row, "strand")?).await?,
             trigger: decode_trigger(read::text(row, "trigger")?)?,
-            source: row.text("source").map(str::to_string),
             from: read::int(row, "from")?,
             to: outcome.to,
             status: outcome.status,

@@ -114,7 +114,6 @@ pub(super) async fn bind(
                 state: receipt_model::State::Driving,
                 turn: Some(draft.turn),
                 incident: None,
-                rebuilt: None,
                 occurred: draft.created,
             },
         )

@@ -41,7 +41,7 @@ pub const COMPONENT_DESCRIPTIONS: [(&str, &str); 10] = [
     ),
 ];
 
-pub const PROPERTY_DESCRIPTIONS: [(&str, &str, &str); 13] = [
+pub const PROPERTY_DESCRIPTIONS: [(&str, &str, &str); 12] = [
     (
         "downstream::Draft",
         "digest",
@@ -76,11 +76,6 @@ pub const PROPERTY_DESCRIPTIONS: [(&str, &str, &str); 13] = [
         "strand::Posted",
         "message",
         "Absent at durable acknowledgment. Processing drains the accepted inbox later;\nquery the exact receipt or strand runtime to follow its message and turn.",
-    ),
-    (
-        "receipt::Transition",
-        "rebuilt",
-        "Present only when schema migration reconstructed this evidence from a\ndurable v24 source row. Live transitions leave it unset.",
     ),
     (
         "receipt::Status",

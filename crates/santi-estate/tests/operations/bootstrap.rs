@@ -1,4 +1,12 @@
+use keel::adapt::db::Sqlite;
+use keel::atom::string;
 use santi_estate::{Bootstrap, Status, Store};
+
+#[keel::resource]
+struct Environ {
+    #[field(string)]
+    scope: string,
+}
 
 #[tokio::test]
 async fn explicit() {
@@ -27,4 +35,19 @@ async fn explicit() {
         .expect("exact bootstrap replay");
     let wrong = "0000000000000000000000000000000000000000000000000000000000000000";
     assert!(Store::bootstrap(&path, wrong).await.is_err());
+}
+
+#[tokio::test]
+async fn earlier() {
+    let temp = tempfile::tempdir().expect("temp");
+    let path = temp.path().join("estate.sqlite");
+    let mut graph = santi_estate::graph();
+    graph.plug::<Environ>();
+    keel::bootstrap(graph, Sqlite::file(&path).await.expect("wire"))
+        .expect("plan")
+        .seal("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")
+        .await
+        .expect("bootstrap");
+    let refused = Store::open(&path).await.err().expect("refused");
+    assert!(refused.contains("earlier santi model"), "{refused}");
 }

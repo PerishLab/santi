@@ -72,7 +72,6 @@ async fn terminal_ceremonies() {
             tag: "turn_completed",
             strand: "strand_interrupt",
             trigger: turn::Trigger::System,
-            source: None,
             from: 0,
             created: LATER,
         })
@@ -216,7 +215,6 @@ async fn running(store: &Store, suffix: &str) {
             tag: &turn,
             strand: &strand,
             trigger: turn::Trigger::System,
-            source: None,
             from: 0,
             created: FIRST,
         })
@@ -228,7 +226,6 @@ async fn running(store: &Store, suffix: &str) {
             state: receipt::State::Driving,
             turn: Some(&turn),
             incident: None,
-            rebuilt: None,
             occurred: FIRST,
         })
         .await

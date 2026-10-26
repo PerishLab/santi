@@ -54,7 +54,6 @@ pub(super) async fn driven(store: &Store, suffix: &str) {
             state: receipt::State::Driving,
             turn: Some(&turn),
             incident: None,
-            rebuilt: None,
             occurred: FIRST,
         })
         .await
@@ -78,7 +77,6 @@ pub(super) async fn create_turn(store: &Store, tag: &str, strand: &str) {
             tag,
             strand,
             trigger: turn::Trigger::System,
-            source: None,
             from: 0,
             created: FIRST,
         })

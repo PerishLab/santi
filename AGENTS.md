@@ -26,6 +26,13 @@ information with an existing authority.
 Treat the Keel estate and its sudo possession as one recovery unit when backing
 up, restoring, or moving a runtime.
 
+Every estate ownership and reference is a Keel relation, and each resource has
+at most one root. A field never holds another row's tag for a reader to
+resolve; `crates/santi-estate/tests/model.rs` classifies every text field.
+Ending a strand through Keel removes what it owns, and its bytes on disk follow
+the committed estate; the start sweep removes bytes no live row owns.
+Issue [#226](https://github.com/PerishLab/santi/issues/226) records the design.
+
 Live credentials belong in the ignored `santi.toml`; use `santi.example.toml`
 for tracked configuration changes.
 

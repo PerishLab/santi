@@ -22,7 +22,6 @@ pub struct Transition {
     pub state: State,
     pub turn: Option<String>,
     pub incident: Option<String>,
-    pub rebuilt: Option<String>,
     pub occurred: Timestamp,
 }
 

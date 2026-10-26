@@ -34,7 +34,6 @@ async fn lifecycle() {
             tag: "turn_test",
             strand: &strand.id,
             trigger: turn::Trigger::System,
-            source: None,
             from: 0,
             created: FIRST,
         })

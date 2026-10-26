@@ -181,7 +181,6 @@ async fn replay() {
             turn: "turn_test",
             strand: &strand.id,
             trigger: turn::Trigger::System,
-            source: None,
             actor: "santi",
             created: LATER,
         })

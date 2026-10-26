@@ -201,6 +201,24 @@ impl Store {
         Ok(())
     }
 
+    pub fn clear(&self, bucket: &Bucket) -> Result<bool, String> {
+        match fs::remove_dir_all(self.dir(bucket)?) {
+            Ok(()) => Ok(true),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(false),
+            Err(error) => Err(error.to_string()),
+        }
+    }
+
+    pub fn buckets(&self) -> Result<Vec<Bucket>, String> {
+        let mut buckets = Vec::new();
+        for soul in dirs(&self.root)? {
+            for strand in dirs(&self.root.join(&soul))? {
+                buckets.push(Bucket::new(soul.clone(), strand)?);
+            }
+        }
+        Ok(buckets)
+    }
+
     fn dir(&self, bucket: &Bucket) -> Result<PathBuf, String> {
         plain("soul", &bucket.soul)?;
         plain("strand", &bucket.strand)?;
@@ -213,6 +231,23 @@ impl Store {
         safe(Path::new(&uri.key))?;
         Ok(path)
     }
+}
+
+fn dirs(dir: &Path) -> Result<Vec<String>, String> {
+    let read = match fs::read_dir(dir) {
+        Ok(read) => read,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
+        Err(error) => return Err(error.to_string()),
+    };
+    let mut names = Vec::new();
+    for entry in read {
+        let entry = entry.map_err(|error| error.to_string())?;
+        let kind = entry.file_type().map_err(|error| error.to_string())?;
+        if let (true, Some(name)) = (kind.is_dir(), entry.file_name().to_str()) {
+            names.push(name.to_string());
+        }
+    }
+    Ok(names)
 }
 
 fn plain(label: &str, value: &str) -> Result<(), String> {

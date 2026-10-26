@@ -72,7 +72,8 @@ async fn entries(
     let mut entries = Vec::with_capacity(rows.len());
     for row in rows {
         let kind = text(&row, "target_type")?;
-        let target = text(&row, "target")?;
+        let aimed = crate::store::entry::aim(tx, &row).await?;
+        let target = text(&aimed, "tag")?;
         entries.push(compact::Entry {
             seq: row
                 .int("sequence")

@@ -153,7 +153,6 @@ pub async fn seed(database: &std::path::Path, token: &str, soul: &str, strand: &
             tag: "turn_vertical",
             strand,
             trigger: santi_core::turn::Trigger::System,
-            source: None,
             from: 0,
             created: &santi_core::now(),
         })

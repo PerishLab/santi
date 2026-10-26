@@ -160,7 +160,6 @@ async fn admission() {
             tag: "turn_test",
             strand: &strand.id,
             trigger: turn::Trigger::System,
-            source: None,
             from: 0,
             created: LATER,
         })
@@ -172,7 +171,6 @@ async fn admission() {
             state: receipt::State::Driving,
             turn: Some(&turn.id),
             incident: None,
-            rebuilt: None,
             occurred: LATER,
         })
         .await

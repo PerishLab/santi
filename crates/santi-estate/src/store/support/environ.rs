@@ -12,24 +12,29 @@ pub struct EnvironDraft<'a> {
     pub occurred: &'a str,
 }
 
+struct Seat {
+    unit: &'static str,
+    field: &'static str,
+    owner: String,
+}
+
 impl Store {
     pub async fn set_environ(&self, draft: EnvironDraft<'_>) -> Result<environ::Variable, String> {
-        self.need_environ_owner(draft.scope, draft.owner).await?;
+        let seat = self.seat(draft.scope, draft.owner).await?;
         self.core
             .batch(async |tx| {
                 let held = tx
-                    .one(
-                        &form("Environ")
-                            .when("scope", Op::Eq, draft.scope.encode())
-                            .when("owner", Op::Eq, draft.owner)
-                            .when("name", Op::Eq, draft.name),
-                    )
+                    .one(&form(seat.unit).when(seat.field, Op::Eq, &seat.owner).when(
+                        "name",
+                        Op::Eq,
+                        draft.name,
+                    ))
                     .await?;
                 match held {
                     Some(row) if row.text("value") == Some(draft.value) => {}
                     Some(row) => {
                         tx.set(
-                            "Environ",
+                            seat.unit,
                             row.key(),
                             &[("value", draft.value), ("updated", draft.occurred)],
                         )
@@ -37,14 +42,13 @@ impl Store {
                     }
                     None => {
                         tx.put(
-                            "Environ",
+                            seat.unit,
                             &[
-                                ("scope", draft.scope.encode()),
-                                ("owner", draft.owner),
                                 ("name", draft.name),
                                 ("value", draft.value),
                                 ("created", draft.occurred),
                                 ("updated", draft.occurred),
+                                (seat.field, seat.owner.as_str()),
                             ],
                         )
                         .await?;
@@ -65,17 +69,21 @@ impl Store {
         owner: &str,
         name: &str,
     ) -> Result<Option<environ::Variable>, String> {
+        let Ok(seat) = self.seat(scope, owner).await else {
+            return Ok(None);
+        };
         let row = self
             .core
             .one(
-                &form("Environ")
-                    .when("scope", Op::Eq, scope.encode())
-                    .when("owner", Op::Eq, owner)
+                &form(seat.unit)
+                    .when(seat.field, Op::Eq, &seat.owner)
                     .when("name", Op::Eq, name),
             )
             .await
             .map_err(read::error)?;
-        row.as_ref().map(variable).transpose()
+        row.as_ref()
+            .map(|row| variable(row, scope, owner))
+            .transpose()
     }
 
     pub async fn environs(
@@ -83,18 +91,20 @@ impl Store {
         scope: environ::Scope,
         owner: &str,
     ) -> Result<Vec<environ::Variable>, String> {
-        self.need_environ_owner(scope, owner).await?;
+        let seat = self.seat(scope, owner).await?;
         let rows = self
             .core
             .ask(
-                &form("Environ")
-                    .when("scope", Op::Eq, scope.encode())
-                    .when("owner", Op::Eq, owner)
+                &form(seat.unit)
+                    .when(seat.field, Op::Eq, &seat.owner)
                     .order("name", Rank::Asc),
             )
             .await
             .map_err(read::error)?;
-        rows.rows().iter().map(variable).collect()
+        rows.rows()
+            .iter()
+            .map(|row| variable(row, scope, owner))
+            .collect()
     }
 
     pub async fn end_environ(
@@ -103,48 +113,50 @@ impl Store {
         owner: &str,
         name: &str,
     ) -> Result<bool, String> {
-        self.need_environ_owner(scope, owner).await?;
+        let seat = self.seat(scope, owner).await?;
         self.core
             .batch(async |tx| {
                 let Some(row) = tx
-                    .one(
-                        &form("Environ")
-                            .when("scope", Op::Eq, scope.encode())
-                            .when("owner", Op::Eq, owner)
-                            .when("name", Op::Eq, name),
-                    )
+                    .one(&form(seat.unit).when(seat.field, Op::Eq, &seat.owner).when(
+                        "name",
+                        Op::Eq,
+                        name,
+                    ))
                     .await?
                 else {
                     return Ok(false);
                 };
-                tx.end("Environ", row.key()).await?;
+                tx.end(seat.unit, row.key()).await?;
                 Ok(true)
             })
             .await
             .map_err(read::error)
     }
 
-    async fn need_environ_owner(&self, scope: environ::Scope, owner: &str) -> Result<(), String> {
-        if read::one(&self.core, scope.unit(), "tag", owner)
+    async fn seat(&self, scope: environ::Scope, owner: &str) -> Result<Seat, String> {
+        let (unit, field) = match scope {
+            environ::Scope::Soul => ("SoulEnviron", "soul"),
+            environ::Scope::Strand => ("StrandEnviron", "strand"),
+        };
+        let row = read::one(&self.core, scope.unit(), "tag", owner)
             .await?
-            .is_some()
-        {
-            Ok(())
-        } else {
-            Err(format!("{} not found", scope.encode()))
-        }
+            .ok_or_else(|| format!("{} not found", scope.encode()))?;
+        Ok(Seat {
+            unit,
+            field,
+            owner: row.key().to_string(),
+        })
     }
 }
 
-fn variable(row: &keel::Row) -> Result<environ::Variable, String> {
-    let scope = match read::text(row, "scope")? {
-        "soul" => environ::Scope::Soul,
-        "strand" => environ::Scope::Strand,
-        value => return Err(format!("unknown environment scope {value}")),
-    };
+fn variable(
+    row: &keel::Row,
+    scope: environ::Scope,
+    owner: &str,
+) -> Result<environ::Variable, String> {
     Ok(environ::Variable {
         scope,
-        owner: read::text(row, "owner")?.to_string(),
+        owner: owner.to_string(),
         name: read::text(row, "name")?.to_string(),
         value: read::text(row, "value")?.to_string(),
         created: read::text(row, "created")?.to_string(),

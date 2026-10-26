@@ -64,10 +64,7 @@ impl Store {
             .map_err(read::error)?;
         let mut calls = Vec::with_capacity(entries.rows().len());
         for entry in entries.rows() {
-            let tag = read::text(entry, "target")?;
-            let row = read::one(&self.core, "ToolCall", "tag", tag)
-                .await?
-                .ok_or_else(|| format!("tool call {tag} missing"))?;
+            let row = crate::store::entry::target(&self.core, entry).await?;
             calls.push(self.decode_call(&row).await?);
         }
         Ok(calls)
@@ -132,10 +129,7 @@ impl Store {
             .map_err(read::error)?;
         let mut replies = Vec::with_capacity(entries.rows().len());
         for entry in entries.rows() {
-            let tag = read::text(entry, "target")?;
-            let row = read::one(&self.core, "ToolResult", "tag", tag)
-                .await?
-                .ok_or_else(|| format!("tool result {tag} missing"))?;
+            let row = crate::store::entry::target(&self.core, entry).await?;
             replies.push(self.decode_reply(&row).await?);
         }
         Ok(replies)
@@ -187,20 +181,21 @@ pub(in crate::store) async fn put_call(
         .one(&form("Strand").when("id", Op::Eq, &strand.to_string()))
         .await?
         .ok_or_else(|| keel::adapt::Error::Missing("turn strand".into()))?;
-    tx.put(
-        "ToolCall",
-        &[
-            ("tag", draft.tag),
-            ("tool", draft.tool),
-            ("arguments", arguments),
-            ("created", draft.created),
-            ("turn", &turn.key().to_string()),
-        ],
-    )
-    .await?;
+    let call = tx
+        .put(
+            "ToolCall",
+            &[
+                ("tag", draft.tag),
+                ("tool", draft.tool),
+                ("arguments", arguments),
+                ("created", draft.created),
+                ("turn", &turn.key().to_string()),
+            ],
+        )
+        .await?;
     write::append(
         tx,
-        write::Entry::new(&strand, "tool_call", draft.tag, draft.created),
+        write::Entry::new(&strand, "tool_call", call, draft.created),
     )
     .await?;
     Ok(())
@@ -263,7 +258,7 @@ pub(in crate::store) async fn put_reply(
     }
     write::append(
         tx,
-        write::Entry::new(&strand, "tool_result", draft.tag, draft.created),
+        write::Entry::new(&strand, "tool_result", result, draft.created),
     )
     .await?;
     Ok(())

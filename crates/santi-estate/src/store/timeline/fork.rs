@@ -80,11 +80,13 @@ async fn copy_entries(
         .rows()
         .to_vec();
     for entry in entries {
+        let kind = text(&entry, "target_type")?;
+        let column = crate::store::entry::column(kind)?;
         tx.put(
             "StrandEntry",
             &[
-                ("target_type", text(&entry, "target_type")?),
-                ("target", text(&entry, "target")?),
+                ("target_type", kind),
+                (column, &int(&entry, column)?.to_string()),
                 ("sequence", &int(&entry, "sequence")?.to_string()),
                 ("created", text(&entry, "created")?),
                 ("strand", &child.to_string()),
@@ -176,23 +178,8 @@ impl Writer<'_, '_> {
                 )));
             }
         }
-        self.end_all("Compact", child.key()).await?;
-        self.end_all("StrandEntry", child.key()).await?;
         self.0.end("Strand", child.key()).await?;
         Ok(true)
-    }
-
-    async fn end_all(&mut self, unit: &str, strand: i64) -> Result<(), keel::adapt::Error> {
-        let rows = self
-            .0
-            .ask(&form(unit).when("strand", Op::Eq, &strand.to_string()))
-            .await?
-            .rows()
-            .to_vec();
-        for row in rows {
-            self.0.end(unit, row.key()).await?;
-        }
-        Ok(())
     }
 
     async fn message_sequence(
@@ -200,17 +187,11 @@ impl Writer<'_, '_> {
         strand: i64,
         message: i64,
     ) -> Result<i64, keel::adapt::Error> {
-        let message = self
-            .0
-            .one(&form("Message").when("id", Op::Eq, &message.to_string()))
-            .await?
-            .ok_or_else(|| keel::adapt::Error::Missing("compact boundary message".into()))?;
         self.0
             .one(
                 &form("StrandEntry")
                     .when("strand", Op::Eq, &strand.to_string())
-                    .when("target_type", Op::Eq, "message")
-                    .when("target", Op::Eq, text(&message, "tag")?),
+                    .when("message", Op::Eq, &message.to_string()),
             )
             .await?
             .and_then(|row| row.int("sequence"))
@@ -228,6 +209,46 @@ impl Writer<'_, '_> {
 fn text<'a>(row: &'a Row, field: &str) -> Result<&'a str, keel::adapt::Error> {
     row.text(field)
         .ok_or_else(|| keel::adapt::Error::Adapt(format!("fork {field} missing")))
+}
+
+impl Store {
+    pub async fn end_strand(&self, tag: &str) -> Result<Vec<String>, String> {
+        self.core
+            .batch(async |tx| {
+                let key = read::need(tx, "Strand", "tag", tag).await?;
+                let strand = key.to_string();
+                let forks = tx
+                    .ask(
+                        &form("Strand")
+                            .when("parent", Op::Eq, &strand)
+                            .order("tag", Rank::Asc),
+                    )
+                    .await?;
+                if !forks.rows().is_empty() {
+                    let forks = forks
+                        .rows()
+                        .iter()
+                        .filter_map(|row| row.text("tag"))
+                        .collect::<Vec<_>>()
+                        .join(", ");
+                    return Err(keel::adapt::Error::Adapt(format!(
+                        "strand {tag} is shown by live fork {forks}"
+                    )));
+                }
+                let jobs = tx.ask(&form("Job").when("strand", Op::Eq, &strand)).await?;
+                let keys = jobs
+                    .rows()
+                    .iter()
+                    .flat_map(|row| [row.text("tag"), row.text("generation")])
+                    .flatten()
+                    .map(str::to_string)
+                    .collect();
+                tx.end("Strand", key).await?;
+                Ok(keys)
+            })
+            .await
+            .map_err(read::error)
+    }
 }
 
 fn int(row: &Row, field: &str) -> Result<i64, keel::adapt::Error> {

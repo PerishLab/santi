@@ -40,16 +40,16 @@ pub(super) fn graph() -> Graph {
         .plug::<edge::WebhookDelivery>()
         .plug::<edge::Downstream>()
         .plug::<edge::DownstreamIngest>()
-        .plug::<edge::Environ>()
+        .plug::<edge::SoulEnviron>()
+        .plug::<edge::StrandEnviron>()
         .plug::<ops::JobCapability>()
         .plug::<ops::TraceRecord>()
         .plug::<ops::OutboxStream>()
         .plug::<ops::TurnOutbox>()
-        .plug::<ops::error::ErrorIncident>()
-        .plug::<ops::error::ResolvedIncident>()
-        .plug::<ops::error::ErrorTransition>()
-        .plug::<ops::error::ErrorAcknowledgement>();
+        .plug::<ops::error::SoulIncident>()
+        .plug::<ops::error::StrandIncident>();
     graph.plug::<wake::WakeLease>();
     graph.plug::<alarm::Alarm>().plug::<alarm::AlarmDelivery>();
+    graph.plug::<ledger::Material>();
     graph
 }

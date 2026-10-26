@@ -4,7 +4,8 @@ use santi_model::{downstream, ingest, webhook};
 
 mod support;
 mod types;
-use support::{conflict, exact, text};
+pub(in crate::store) use support::receipt;
+use support::{conflict, exact};
 pub use types::{Accepted, DownstreamDraft, ReplayDraft, WebhookDraft};
 
 impl Store {
@@ -201,8 +202,7 @@ impl Store {
                     if row.text("request_sha256") != Some(digest) {
                         return Err(keel::adapt::Error::Adapt(conflict(replay).into()));
                     }
-                    let strand = text(&row, "strand")?;
-                    let inbox = text(&row, "inbox")?;
+                    let (strand, inbox) = receipt(tx, &row).await?;
                     return Ok((strand, inbox, false));
                 }
                 inbox::accept(
@@ -215,12 +215,14 @@ impl Store {
                     },
                 )
                 .await?;
+                let receipt = read::need(tx, "InboxReceipt", "tag", draft.tag)
+                    .await?
+                    .to_string();
                 let mut fields = vec![
                     (identity, value),
                     ("request_sha256", digest),
                     ("created", draft.created),
-                    ("strand", draft.strand),
-                    ("inbox", draft.tag),
+                    ("receipt", receipt.as_str()),
                 ];
                 fields.push((owner.0, owner.1.as_str()));
                 tx.put(unit, &fields).await?;

@@ -126,7 +126,6 @@ async fn occurrences() {
             tag: "turn_child",
             strand: &child.id,
             trigger: turn::Trigger::System,
-            source: None,
             from: 3,
             created: LATER,
         })

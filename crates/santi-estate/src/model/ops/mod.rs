@@ -67,8 +67,8 @@ pub(crate) struct TurnOutbox {
     payload: string,
     #[field(string)]
     created: string,
-    #[relation(OutboxStream, many2one, root)]
-    stream: OutboxStream,
-    #[relation(Turn, one2one)]
+    #[relation(Turn, one2one, root)]
     turn: Turn,
+    #[relation(OutboxStream, many2one)]
+    stream: OutboxStream,
 }

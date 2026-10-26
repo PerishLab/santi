@@ -7,7 +7,6 @@ fn draft(tag: &str) -> DrainDraft<'_> {
         turn: tag,
         strand: "strand_retry",
         trigger: turn::Trigger::StrandSend,
-        source: None,
         actor: "santi",
         created: LATER,
     }

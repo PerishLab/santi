@@ -42,7 +42,6 @@ pub(super) async fn prepare(
             tag: "turn_http",
             strand: &strand.id,
             trigger: santi_core::turn::Trigger::System,
-            source: None,
             from: 0,
             created: &santi_core::now(),
         })

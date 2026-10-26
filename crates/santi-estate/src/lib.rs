@@ -10,8 +10,8 @@ pub use store::{
     ClassifiedFailure, ClassifiedFailureDraft, CompactDraft, Completion, CompletionDraft,
     DownstreamDraft, DrainDraft, EffectDraft, EnvironDraft, Environment, ExpiredJob, ForkDraft,
     Inbox, InboxDraft, Interruption, InterruptionDraft, Invocation, JobDraft, JobRecord, Limits,
-    Maintenance, MessageDraft, NoticeDraft, Offer, Opening, OutboxDraft, Prepared, ReceiptDraft,
-    RedemptionDraft, Refusal, ReplayDraft, ReplyDraft, Settlement, Spent, Status, Store,
-    StrandDraft, Tally, ThinkingDraft, TraceDraft, TransitionDraft, TurnDraft, WakeLease,
-    WakeOfferDraft, WebhookDraft, bounded, curbed,
+    Maintenance, Material, MaterialDraft, MessageDraft, NoticeDraft, Offer, Opening, OutboxDraft,
+    Prepared, ReceiptDraft, RedemptionDraft, Refusal, ReplayDraft, ReplyDraft, Settlement, Spent,
+    Status, Store, StrandDraft, Tally, ThinkingDraft, TraceDraft, TransitionDraft, TurnDraft,
+    WakeLease, WakeOfferDraft, WebhookDraft, bounded, curbed,
 };

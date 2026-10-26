@@ -1,4 +1,5 @@
-use super::ledger::Soul;
+use super::inbox::InboxReceipt;
+use super::ledger::{Soul, Strand};
 use keel::atom::string;
 use keel::resource;
 
@@ -28,12 +29,10 @@ pub(crate) struct WebhookDelivery {
     request_sha256: string,
     #[field(string)]
     created: string,
-    #[relation(Webhook, many2one, root)]
+    #[relation(InboxReceipt, one2one, root)]
+    receipt: InboxReceipt,
+    #[relation(Webhook, many2one)]
     webhook: Webhook,
-    #[field(string)]
-    strand: string,
-    #[field(string)]
-    inbox: string,
 }
 
 #[resource]
@@ -58,21 +57,15 @@ pub(crate) struct DownstreamIngest {
     request_sha256: string,
     #[field(string)]
     created: string,
-    #[relation(Downstream, many2one, root)]
+    #[relation(InboxReceipt, one2one, root)]
+    receipt: InboxReceipt,
+    #[relation(Downstream, many2one)]
     downstream: Downstream,
-    #[field(string)]
-    strand: string,
-    #[field(string)]
-    inbox: string,
 }
 
 #[resource]
-pub(crate) struct Environ {
-    #[field(string, values = ["soul", "strand"])]
-    scope: string,
-    #[field(string)]
-    owner: string,
-    #[field(string, unique = (scope, owner))]
+pub(crate) struct SoulEnviron {
+    #[field(string, unique = soul)]
     name: string,
     #[field(string)]
     value: string,
@@ -80,4 +73,20 @@ pub(crate) struct Environ {
     created: string,
     #[field(string)]
     updated: string,
+    #[relation(Soul, many2one, root)]
+    soul: Soul,
+}
+
+#[resource]
+pub(crate) struct StrandEnviron {
+    #[field(string, unique = strand)]
+    name: string,
+    #[field(string)]
+    value: string,
+    #[field(string)]
+    created: string,
+    #[field(string)]
+    updated: string,
+    #[relation(Strand, many2one, root)]
+    strand: Strand,
 }

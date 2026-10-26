@@ -190,7 +190,6 @@ async fn create_turn(store: &Store, tag: &str, strand: &str) {
             tag,
             strand,
             trigger: turn::Trigger::System,
-            source: None,
             from: 0,
             created: FIRST,
         })

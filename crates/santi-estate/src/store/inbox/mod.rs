@@ -10,6 +10,7 @@ pub(in crate::store) mod receipt;
 mod types;
 pub(in crate::store) mod write;
 
+pub(in crate::store) use edge::receipt;
 pub use edge::{Accepted, DownstreamDraft, ReplayDraft, WebhookDraft};
 pub use types::{
     Begun, DrainDraft, Inbox, InboxDraft, NoticeDraft, Offer, Opening, ReceiptDraft, Refusal,

@@ -100,7 +100,11 @@ impl Store {
             )
             .await
             .map_err(read::error)?;
-        Ok(row.and_then(|row| row.text("target").map(str::to_string)))
+        let Some(row) = row else {
+            return Ok(None);
+        };
+        let message = crate::store::entry::target(&self.core, &row).await?;
+        Ok(Some(read::text(&message, "tag")?.to_string()))
     }
 
     pub async fn compact_page(

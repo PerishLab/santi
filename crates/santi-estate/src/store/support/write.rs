@@ -4,12 +4,12 @@ use keel::adapt::db::Sqlite;
 pub(in crate::store) struct Entry<'a> {
     pub strand: &'a keel::Row,
     pub kind: &'a str,
-    pub target: &'a str,
+    pub target: i64,
     pub created: &'a str,
 }
 
 impl<'a> Entry<'a> {
-    pub fn new(strand: &'a keel::Row, kind: &'a str, target: &'a str, created: &'a str) -> Self {
+    pub fn new(strand: &'a keel::Row, kind: &'a str, target: i64, created: &'a str) -> Self {
         Self {
             strand,
             kind,
@@ -31,7 +31,7 @@ pub(in crate::store) async fn append(
         "StrandEntry",
         &[
             ("target_type", entry.kind),
-            ("target", entry.target),
+            (super::entry::column(entry.kind)?, &entry.target.to_string()),
             ("sequence", &sequence.to_string()),
             ("created", entry.created),
             ("strand", &entry.strand.key().to_string()),

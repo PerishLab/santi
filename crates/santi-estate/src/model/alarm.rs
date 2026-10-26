@@ -1,3 +1,4 @@
+use super::inbox::InboxReceipt;
 use super::ledger::Strand;
 use keel::atom::{int, string};
 use keel::resource;
@@ -20,14 +21,12 @@ pub(crate) struct Alarm {
 
 #[resource(frozen)]
 pub(crate) struct AlarmDelivery {
-    #[field(string, unique = (generation, minute))]
-    alarm: string,
     #[field(int, min = 1)]
     generation: int,
-    #[field(int, min = 0)]
+    #[field(int, unique = (alarm, generation), min = 0)]
     minute: int,
-    #[field(string)]
-    inbox: string,
-    #[relation(Strand, many2one, root)]
-    strand: Strand,
+    #[relation(Alarm, many2one, root)]
+    alarm: Alarm,
+    #[relation(InboxReceipt, one2one)]
+    receipt: InboxReceipt,
 }

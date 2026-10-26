@@ -1,4 +1,5 @@
 use super::{ReplayDraft, WebhookDraft};
+use keel::{Op, form};
 
 #[derive(PartialEq, Eq)]
 struct Identity<'a> {
@@ -36,8 +37,29 @@ pub(super) fn conflict(replay: ReplayDraft<'_>) -> &'static str {
     }
 }
 
-pub(super) fn text(row: &keel::Row, field: &str) -> Result<String, keel::adapt::Error> {
+fn text(row: &keel::Row, field: &str) -> Result<String, keel::adapt::Error> {
     row.text(field)
         .map(str::to_string)
         .ok_or_else(|| keel::adapt::Error::Adapt(format!("replay {field} missing")))
+}
+
+pub(in crate::store) async fn receipt(
+    tx: &mut keel::Tx<'_, keel::adapt::db::Sqlite>,
+    delivery: &keel::Row,
+) -> Result<(String, String), keel::adapt::Error> {
+    let key = delivery
+        .int("receipt")
+        .ok_or_else(|| keel::adapt::Error::Adapt("delivery receipt missing".into()))?;
+    let receipt = tx
+        .one(&form("InboxReceipt").when("id", Op::Eq, &key.to_string()))
+        .await?
+        .ok_or_else(|| keel::adapt::Error::Missing("delivery receipt".into()))?;
+    let strand = receipt
+        .int("strand")
+        .ok_or_else(|| keel::adapt::Error::Adapt("receipt strand missing".into()))?;
+    let strand = tx
+        .one(&form("Strand").when("id", Op::Eq, &strand.to_string()))
+        .await?
+        .ok_or_else(|| keel::adapt::Error::Missing("receipt strand".into()))?;
+    Ok((text(&strand, "tag")?, text(&receipt, "tag")?))
 }
