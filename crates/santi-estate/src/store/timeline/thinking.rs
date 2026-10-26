@@ -37,13 +37,13 @@ impl Store {
                 if let Some(response) = draft.response {
                     fields.push(("response", response));
                 }
-                tx.put("ThinkingSpan", &fields).await?;
+                let thinking = tx.put("ThinkingSpan", &fields).await?;
                 write::append(
                     tx,
                     write::Entry {
                         strand: &strand,
                         kind: "thinking",
-                        target: draft.tag,
+                        target: thinking,
                         created: draft.created,
                     },
                 )
@@ -143,10 +143,7 @@ impl Store {
             .map_err(read::error)?;
         let mut spans = Vec::with_capacity(entries.rows().len());
         for entry in entries.rows() {
-            let tag = read::text(entry, "target")?;
-            let row = read::one(&self.core, "ThinkingSpan", "tag", tag)
-                .await?
-                .ok_or_else(|| format!("thinking span {tag} missing"))?;
+            let row = crate::store::entry::target(&self.core, entry).await?;
             spans.push(self.decode_thinking(&row).await?);
         }
         Ok(spans)

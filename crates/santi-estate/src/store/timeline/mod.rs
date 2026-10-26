@@ -4,12 +4,14 @@ use santi_model::message;
 
 pub(in crate::store) mod compact;
 mod fork;
+mod material;
 mod projection;
 mod round;
 mod thinking;
 
 pub use compact::{CompactDraft, Limits};
 pub use fork::ForkDraft;
+pub use material::{Material, MaterialDraft};
 pub use thinking::ThinkingDraft;
 
 pub struct MessageDraft<'a> {
@@ -34,27 +36,30 @@ impl Store {
                     .one(&form("Strand").when("tag", Op::Eq, draft.strand))
                     .await?
                     .ok_or_else(|| keel::adapt::Error::Missing(draft.strand.to_string()))?;
-                tx.put(
-                    "Message",
-                    &[
-                        ("tag", draft.tag),
-                        ("actor_type", role(&draft.actor)),
-                        ("actor", draft.actor_id),
-                        ("kind", kind(&draft.kind)),
-                        ("content", &content),
-                        ("state", state(&draft.state)),
-                        ("request", if draft.request { "true" } else { "false" }),
-                        ("created", draft.created),
-                        ("updated", draft.created),
-                    ],
-                )
-                .await?;
+                let strand_key = strand.key().to_string();
+                let message = tx
+                    .put(
+                        "Message",
+                        &[
+                            ("tag", draft.tag),
+                            ("actor_type", role(&draft.actor)),
+                            ("actor", draft.actor_id),
+                            ("kind", kind(&draft.kind)),
+                            ("content", &content),
+                            ("state", state(&draft.state)),
+                            ("request", if draft.request { "true" } else { "false" }),
+                            ("created", draft.created),
+                            ("updated", draft.created),
+                            ("strand", strand_key.as_str()),
+                        ],
+                    )
+                    .await?;
                 write::append(
                     tx,
                     write::Entry {
                         strand: &strand,
                         kind: "message",
-                        target: draft.tag,
+                        target: message,
                         created: draft.created,
                     },
                 )
@@ -76,8 +81,12 @@ impl Store {
             .core
             .one(
                 &form("StrandEntry")
-                    .when("target_type", Op::Eq, "message")
-                    .when("target", Op::Eq, tag),
+                    .when(
+                        "strand",
+                        Op::Eq,
+                        &read::int(&message, "strand")?.to_string(),
+                    )
+                    .when("message", Op::Eq, &message.key().to_string()),
             )
             .await
             .map_err(read::error)?
@@ -103,10 +112,7 @@ impl Store {
             .map_err(read::error)?;
         let mut placed = Vec::with_capacity(entries.rows().len());
         for entry in entries.rows() {
-            let tag = read::text(entry, "target")?;
-            let Some(message) = read::one(&self.core, "Message", "tag", tag).await? else {
-                return Err(format!("message {tag} missing"));
-            };
+            let message = crate::store::entry::target(&self.core, entry).await?;
             if message.text("deleted").is_none() {
                 placed.push(self.placed(entry, &message).await?);
             }

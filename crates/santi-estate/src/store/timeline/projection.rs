@@ -21,7 +21,8 @@ impl Store {
             entries.push(strand::Entry {
                 strand: read::related(&self.core, "Strand", read::int(row, "strand")?).await?,
                 kind: target::decode(read::text(row, "target_type")?)?,
-                target: read::text(row, "target")?.to_string(),
+                target: read::text(&crate::store::entry::target(&self.core, row).await?, "tag")?
+                    .to_string(),
                 seq: read::int(row, "sequence")?,
                 created: read::text(row, "created")?.to_string(),
             });
@@ -50,7 +51,8 @@ impl Store {
         let mut records =
             Vec::with_capacity(rows.rows().len().min(stream::EXECUTION_TAIL_RECORD_LIMIT));
         for row in rows.rows().iter().take(stream::EXECUTION_TAIL_RECORD_LIMIT) {
-            let target = read::text(row, "target")?;
+            let aimed = crate::store::entry::target(&self.core, row).await?;
+            let target = read::text(&aimed, "tag")?;
             let kind = target::decode(read::text(row, "target_type")?)?;
             let sequence = read::int(row, "sequence")?;
             let created = read::text(row, "created")?.to_string();
@@ -59,10 +61,7 @@ impl Store {
                     sequence,
                     created,
                     kind,
-                    &self
-                        .message(target)
-                        .await?
-                        .ok_or_else(|| format!("message {target} missing"))?,
+                    &self.placed(row, &aimed).await?,
                 ),
                 strand::Target::Compact => stream::ExecutionRecord::project(
                     sequence,
@@ -125,10 +124,7 @@ impl Store {
             .map_err(read::error)?;
         let mut events = Vec::new();
         for entry in entries.rows() {
-            let tag = read::text(entry, "target")?;
-            let message = read::one(&self.core, "Message", "tag", tag)
-                .await?
-                .ok_or_else(|| format!("message {tag} missing"))?;
+            let message = crate::store::entry::target(&self.core, entry).await?;
             let rows = self
                 .core
                 .ask(

@@ -113,7 +113,6 @@ impl Service {
             turn: &tag,
             strand: &strand.id,
             trigger,
-            source: None,
             actor: crate::SYSTEM,
             created: &crate::now(),
         };

@@ -14,17 +14,18 @@ impl Store {
         }
         self.core
             .batch(async |tx| {
-                let query = form("AlarmDelivery")
-                    .when("alarm", Op::Eq, tag)
-                    .when("generation", Op::Eq, &occurrence.generation.to_string())
-                    .when("minute", Op::Eq, &occurrence.minute.to_string());
-                if let Some(row) = tx.one(&query).await? {
-                    return replayed(tx, &row).await;
-                }
                 let row = tx
                     .one(&form("Alarm").when("tag", Op::Eq, tag))
                     .await?
                     .ok_or_else(|| fail("alarm not found or ended"))?;
+                let query = form("AlarmDelivery")
+                    .when("alarm", Op::Eq, &row.key().to_string())
+                    .when("generation", Op::Eq, &occurrence.generation.to_string())
+                    .when("minute", Op::Eq, &occurrence.minute.to_string());
+                if let Some(delivery) = tx.one(&query).await? {
+                    let (strand, inbox) = crate::store::inbox::receipt(tx, &delivery).await?;
+                    return Ok(accepted(&strand, inbox, false));
+                }
                 if row.int("generation") != Some(occurrence.generation) {
                     return Err(fail("alarm generation conflicts"));
                 }
@@ -33,23 +34,6 @@ impl Store {
             .await
             .map_err(read::error)
     }
-}
-
-async fn replayed(tx: &mut Tx<'_, Sqlite>, row: &Row) -> Result<Accepted, keel::adapt::Error> {
-    let strand = row
-        .int("strand")
-        .ok_or_else(|| fail("delivery strand missing"))?;
-    let strand = tx
-        .one(&form("Strand").when("id", Op::Eq, &strand.to_string()))
-        .await?
-        .ok_or_else(|| fail("delivery strand missing"))?;
-    let strand = strand
-        .text("tag")
-        .ok_or_else(|| fail("strand tag missing"))?;
-    let inbox = row
-        .text("inbox")
-        .ok_or_else(|| fail("delivery inbox missing"))?;
-    Ok(accepted(strand, inbox.to_string(), false))
 }
 
 async fn insert(
@@ -101,14 +85,14 @@ async fn insert(
         },
     )
     .await?;
+    let receipt = crate::store::read::need(tx, "InboxReceipt", "tag", &inbox_tag).await?;
     tx.put(
         "AlarmDelivery",
         &[
-            ("alarm", tag),
             ("generation", &occurrence.generation.to_string()),
             ("minute", &occurrence.minute.to_string()),
-            ("inbox", &inbox_tag),
-            ("strand", &key),
+            ("alarm", &row.key().to_string()),
+            ("receipt", &receipt.to_string()),
         ],
     )
     .await?;

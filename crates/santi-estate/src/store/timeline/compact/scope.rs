@@ -39,11 +39,8 @@ pub(super) async fn load(tx: &mut Tx<'_, Sqlite>, strand: &str) -> Result<Scope,
         .to_vec();
     let mut messages = Vec::with_capacity(rows.len());
     for entry in rows {
-        let tag = text(&entry, "target")?;
-        let row = tx
-            .one(&form("Message").when("tag", Op::Eq, tag))
-            .await?
-            .ok_or_else(|| Error::Missing(tag.into()))?;
+        let row = crate::store::entry::aim(tx, &entry).await?;
+        let tag = text(&row, "tag")?;
         messages.push(Boundary {
             key: row.key(),
             tag: tag.into(),

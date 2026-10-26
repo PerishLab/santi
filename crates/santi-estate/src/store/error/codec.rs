@@ -5,20 +5,17 @@ use santi_error::{
 
 use crate::store::read;
 
-pub(super) fn incident(row: &Row, resolved: bool) -> Result<Incident, String> {
-    let resolution = if resolved {
-        Some(Resolution {
-            at: read::text(row, "resolved")?.to_string(),
-            by: row.text("resolved_by").map(str::to_string),
-        })
-    } else {
-        None
-    };
+pub(super) fn incident(row: &Row, scope: &santi_error::Scope) -> Result<Incident, String> {
+    let resolution = row.text("resolved").map(|at| Resolution {
+        at: at.to_string(),
+        by: row.text("resolved_by").map(str::to_string),
+    });
+    let code = read::text(row, "code")?;
     Ok(Incident {
         id: read::text(row, "tag")?.to_string(),
-        key: read::text(row, "incident_key")?.to_string(),
-        code: read::text(row, "code")?.to_string(),
-        status: if resolved {
+        key: format!("{code}:{}:{}", scope.kind, scope.id),
+        code: code.to_string(),
+        status: if resolution.is_some() {
             Status::Resolved
         } else {
             Status::Active
@@ -28,10 +25,7 @@ pub(super) fn incident(row: &Row, resolved: bool) -> Result<Incident, String> {
         retry: retry(read::text(row, "retry")?)?,
         exposure: serde_json::from_str(read::text(row, "exposure")?)
             .map_err(|error| error.to_string())?,
-        scope: santi_error::Scope::new(
-            read::text(row, "scope_kind")?,
-            read::text(row, "scope_id")?,
-        ),
+        scope: scope.clone(),
         first: report(row, false)?,
         latest: report(row, true)?,
         occurrences: read::int(row, "occurrence_count")?,
@@ -40,8 +34,8 @@ pub(super) fn incident(row: &Row, resolved: bool) -> Result<Incident, String> {
     })
 }
 
-pub(super) fn transition(row: &Row) -> Result<Transition, String> {
-    serde_json::from_str(read::text(row, "payload")?).map_err(|error| error.to_string())
+pub(super) fn transition(payload: &str) -> Result<Transition, String> {
+    serde_json::from_str(payload).map_err(|error| error.to_string())
 }
 
 fn report(row: &Row, latest: bool) -> Result<Report, String> {

@@ -1,4 +1,5 @@
 use super::ledger::{Strand, Turn};
+use super::ops::error::StrandIncident;
 use keel::atom::{int, string};
 use keel::resource;
 
@@ -73,14 +74,12 @@ pub(crate) struct ReceiptTransition {
         values = ["accepted", "completed", "driving", "failed", "recovered"]
     )]
     state: string,
-    #[field(string, opt)]
-    incident: string,
-    #[field(string, opt)]
-    rebuilt: string,
     #[field(string)]
     occurred: string,
     #[relation(InboxReceipt, many2one, root)]
     receipt: InboxReceipt,
     #[relation(Turn, many2one, opt)]
     turn: Turn,
+    #[relation(StrandIncident, many2one, opt)]
+    incident: StrandIncident,
 }

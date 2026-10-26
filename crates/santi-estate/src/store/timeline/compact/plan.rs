@@ -153,8 +153,7 @@ async fn boundary(
         .one(
             &form("StrandEntry")
                 .when("strand", Op::Eq, &strand.to_string())
-                .when("target_type", Op::Eq, "message")
-                .when("target", Op::Eq, tag),
+                .when("message", Op::Eq, &message.key().to_string()),
         )
         .await?
         .ok_or_else(|| {
@@ -173,16 +172,10 @@ pub(super) async fn sequence(
     strand: i64,
     message: i64,
 ) -> Result<i64, keel::adapt::Error> {
-    let message = tx
-        .one(&form("Message").when("id", Op::Eq, &message.to_string()))
-        .await?
-        .ok_or_else(|| keel::adapt::Error::Missing("compact boundary message".into()))?;
-    let tag = text(&message, "tag")?;
     tx.one(
         &form("StrandEntry")
             .when("strand", Op::Eq, &strand.to_string())
-            .when("target_type", Op::Eq, "message")
-            .when("target", Op::Eq, tag),
+            .when("message", Op::Eq, &message.to_string()),
     )
     .await?
     .and_then(|row| row.int("sequence"))

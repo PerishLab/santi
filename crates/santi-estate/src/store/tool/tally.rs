@@ -49,14 +49,14 @@ impl Store {
             .map_err(read::error)?;
         let mut tags = Vec::with_capacity(entries.rows().len());
         for entry in entries.rows() {
-            tags.push(read::text(entry, "target")?.to_string());
+            tags.push(read::int(entry, "result")?.to_string());
         }
         let mut spent = Vec::with_capacity(tags.len());
         for batch in tags.chunks(BATCH) {
             let held = batch.iter().map(String::as_str).collect::<Vec<_>>();
             let rows = self
                 .core
-                .ask(&form("ToolResult").any("tag", &held))
+                .ask(&form("ToolResult").any("id", &held))
                 .await
                 .map_err(read::error)?;
             let mut keys = Vec::with_capacity(rows.rows().len());

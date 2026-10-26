@@ -224,7 +224,6 @@ mod audit {
                 tag: "turn_audit",
                 strand: "ss_audit",
                 trigger: santi_core::turn::Trigger::System,
-                source: None,
                 from: 0,
                 created: "2026-07-28T00:00:00.000Z",
             })

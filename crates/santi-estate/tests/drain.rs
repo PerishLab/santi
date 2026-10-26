@@ -79,7 +79,6 @@ async fn opens() {
             turn: "turn_one",
             strand: &strand.id,
             trigger: turn::Trigger::System,
-            source: Some("drain"),
             actor: "santi",
             created: LATER,
         })
@@ -132,7 +131,6 @@ async fn opens() {
             turn: "turn_ignored",
             strand: &strand.id,
             trigger: turn::Trigger::System,
-            source: None,
             actor: "santi",
             created: LATER,
         })
@@ -163,7 +161,6 @@ async fn opens() {
                 turn: "turn_one",
                 strand: &strand.id,
                 trigger: turn::Trigger::System,
-                source: None,
                 actor: "santi",
                 created: LATER,
             })
@@ -178,7 +175,6 @@ async fn opens() {
             turn: "turn_two",
             strand: &strand.id,
             trigger: turn::Trigger::System,
-            source: None,
             actor: "santi",
             created: LATER,
         })
@@ -229,7 +225,6 @@ async fn opens() {
             turn: "turn_three",
             strand: &strand.id,
             trigger: turn::Trigger::System,
-            source: None,
             actor: "santi",
             created: LATER,
         })

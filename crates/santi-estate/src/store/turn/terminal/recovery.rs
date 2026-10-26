@@ -215,7 +215,8 @@ impl Writer<'_, '_> {
         notice.cause.encode()
     )))
     .map_err(|error| keel::adapt::Error::Adapt(error.to_string()))?;
-        self.0
+        let message = self
+            .0
             .put(
                 "Message",
                 &[
@@ -228,6 +229,7 @@ impl Writer<'_, '_> {
                     ("request", "false"),
                     ("created", notice.occurred),
                     ("updated", notice.occurred),
+                    ("strand", &notice.strand.key().to_string()),
                 ],
             )
             .await?;
@@ -241,7 +243,7 @@ impl Writer<'_, '_> {
             write::Entry {
                 strand: &strand,
                 kind: "message",
-                target: &tag,
+                target: message,
                 created: notice.occurred,
             },
         )

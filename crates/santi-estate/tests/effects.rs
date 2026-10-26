@@ -43,7 +43,6 @@ async fn lifecycle() {
             tag: "turn_test",
             strand: &strand.id,
             trigger: turn::Trigger::StrandSend,
-            source: None,
             from: 0,
             created: FIRST,
         })
@@ -55,7 +54,6 @@ async fn lifecycle() {
             state: receipt::State::Driving,
             turn: Some(&turn.id),
             incident: None,
-            rebuilt: None,
             occurred: FIRST,
         })
         .await

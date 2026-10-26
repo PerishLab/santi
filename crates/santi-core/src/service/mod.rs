@@ -114,7 +114,7 @@ impl Service {
             .active_incident_count(crate::drive::Error::Failed.descriptor().code)
             .await?
             > 0;
-        Ok(Self {
+        let service = Self {
             store,
             context,
             provider,
@@ -140,7 +140,11 @@ impl Service {
             retention: Duration::from_secs(RETENTION),
             alarms: Arc::new(alarms::Lifecycle::new(Arc::new(alarms::Unavailable))),
             capability: None,
-        })
+        };
+        if let Err(error) = service.tidy().await {
+            eprintln!("santi: start sweep failed: {error}");
+        }
+        Ok(service)
     }
 
     pub fn authorized(mut self, issuer: Option<crate::capability::Issuer>) -> Self {

@@ -24,8 +24,10 @@ pub use job::{
 };
 pub use support::{Bootstrap, EnvironDraft, Status, TraceDraft};
 pub use support::{WakeLease, WakeOfferDraft};
-use support::{read, write};
-pub use timeline::{CompactDraft, ForkDraft, Limits, MessageDraft, ThinkingDraft};
+use support::{entry, read, write};
+pub use timeline::{
+    CompactDraft, ForkDraft, Limits, Material, MaterialDraft, MessageDraft, ThinkingDraft,
+};
 pub use tool::{CallDraft, ReplyDraft, Spent, Tally, bounded, curbed};
 pub use turn::{
     Attempt, ClassifiedFailure, ClassifiedFailureDraft, Completion, CompletionDraft, Interruption,

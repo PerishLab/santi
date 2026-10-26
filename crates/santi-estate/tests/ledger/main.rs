@@ -1,3 +1,8 @@
+mod job;
+mod model;
+mod removal;
+mod seed;
+
 use santi_estate::{
     CallDraft, MessageDraft, NoticeDraft, ReplyDraft, Store, StrandDraft, ThinkingDraft, TurnDraft,
     WakeLease, WakeOfferDraft,
@@ -66,7 +71,6 @@ async fn ledger() {
             tag: "turn_test",
             strand: &strand.id,
             trigger: turn::Trigger::StrandSend,
-            source: Some("test"),
             from: 1,
             created: NOW,
         })

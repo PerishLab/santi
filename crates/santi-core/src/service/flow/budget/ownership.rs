@@ -74,7 +74,6 @@ async fn isolates() {
                 tag: "turn_old",
                 strand: "strand_research",
                 trigger: crate::turn::Trigger::System,
-                source: None,
                 from: 0,
                 created: NOW,
             })
@@ -120,7 +119,6 @@ async fn isolates() {
                 turn: "turn_new",
                 strand: "strand_research",
                 trigger: crate::turn::Trigger::System,
-                source: None,
                 actor: crate::SYSTEM,
                 created: LATER,
             })

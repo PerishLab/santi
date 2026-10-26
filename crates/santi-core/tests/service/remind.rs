@@ -159,7 +159,6 @@ async fn unweighed() {
             tag: "turn_thought",
             strand: &held.strand,
             trigger: santi_core::turn::Trigger::System,
-            source: None,
             from: next,
             created: &created,
         })
@@ -198,7 +197,6 @@ async fn framed() {
             tag: "turn_framed",
             strand: &held.strand,
             trigger: santi_core::turn::Trigger::System,
-            source: None,
             from: next,
             created: &created,
         })

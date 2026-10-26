@@ -7,6 +7,7 @@ impl Writer<'_, '_> {
         message: Message<'_, '_>,
     ) -> Result<Written, keel::adapt::Error> {
         let tag = santi_model::tag("msg");
+        let strand_key = message.strand.key().to_string();
         let key = self
             .0
             .put(
@@ -21,6 +22,7 @@ impl Writer<'_, '_> {
                     ("request", "true"),
                     ("created", message.draft.created),
                     ("updated", message.draft.created),
+                    ("strand", strand_key.as_str()),
                 ],
             )
             .await?;
@@ -34,7 +36,7 @@ impl Writer<'_, '_> {
             write::Entry {
                 strand: &strand,
                 kind: "message",
-                target: &tag,
+                target: key,
                 created: message.draft.created,
             },
         )
@@ -50,7 +52,7 @@ impl Writer<'_, '_> {
     ) -> Result<(), keel::adapt::Error> {
         let strand = strand.key().to_string();
         let from = from.to_string();
-        let mut fields = vec![
+        let fields = vec![
             ("tag", draft.turn),
             ("trigger", trigger(&draft.trigger)),
             ("from", from.as_str()),
@@ -58,9 +60,6 @@ impl Writer<'_, '_> {
             ("updated", draft.created),
             ("strand", strand.as_str()),
         ];
-        if let Some(source) = draft.source {
-            fields.push(("source", source));
-        }
         self.0.put("Turn", &fields).await?;
         Ok(())
     }
@@ -124,7 +123,6 @@ impl Writer<'_, '_> {
                 state: receipt_model::State::Driving,
                 turn: Some(draft.turn),
                 incident: None,
-                rebuilt: None,
                 occurred: draft.created,
             },
         )

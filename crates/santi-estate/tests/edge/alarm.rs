@@ -92,15 +92,7 @@ async fn receipts() {
     assert!(store.receipt(&first.receipt.inbox).await.unwrap().is_some());
     drop(store);
     let store = Store::open(temp.path().join("estate")).await.unwrap();
-    assert_eq!(
-        store
-            .accept_alarm(&alarm.id, &occurrence)
-            .await
-            .unwrap()
-            .receipt
-            .inbox,
-        first.receipt.inbox
-    );
+    assert!(store.accept_alarm(&alarm.id, &occurrence).await.is_err());
     next.minute += 1;
     assert!(store.accept_alarm(&alarm.id, &next).await.is_err());
     assert_eq!(store.inboxes("brain").await.unwrap().len(), 2);
