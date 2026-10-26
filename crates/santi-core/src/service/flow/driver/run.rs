@@ -110,15 +110,16 @@ impl Service {
             let metadata = self.provider.metadata();
             let family = metadata.provider.to_string();
             let offered = attempt!(Operation::Assembly, self.offers(strand, Some(turn)).await);
-            let mut request = Request {
+            let request = Request {
                 model: metadata.model,
                 instructions: Some(attempt!(Operation::Prompt, self.wording(strand).await)),
                 input,
                 tools: Some(offered),
                 previous: None,
             };
+            let mut request = attempt!(Operation::Assembly, self.provider.prepare(request));
             self.suffix(&mut request);
-            let estimate = gauged(&request);
+            let estimate = gauged(&request, self.provider.as_ref());
             if let Some(error) = attempt!(
                 Operation::Admission(Admission::Context),
                 self.overdrawn(strand, turn, &request, &estimate).await

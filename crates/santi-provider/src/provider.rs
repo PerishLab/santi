@@ -8,6 +8,8 @@ pub use santi_model::thinking::Usage;
 
 #[derive(Debug, Clone)]
 pub enum Item {
+    Boundary,
+    Continuation(santi_model::thinking::Continuation),
     Message {
         role: String,
         content: String,
@@ -99,6 +101,7 @@ pub enum Event {
     Started { response: Option<String> },
     Working { response: Option<String> },
     Thinking(String),
+    Retained(santi_model::thinking::Continuation),
     Thought(String),
     Text(String),
     Called(Call),
@@ -111,6 +114,21 @@ pub type Streaming = Pin<Box<dyn Stream<Item = Result<Event, String>> + Send + '
 #[async_trait]
 pub trait Provider: Send + Sync {
     fn metadata(&self) -> Metadata;
+
+    fn prepare(&self, mut request: Request) -> Result<Request, String> {
+        request
+            .input
+            .retain(|item| !matches!(item, Item::Continuation(_) | Item::Boundary));
+        Ok(request)
+    }
+
+    fn validate(&self, _: &Request) -> Result<(), String> {
+        Ok(())
+    }
+
+    fn estimate(&self, _: &Request) -> Option<santi_model::budget::Estimate> {
+        None
+    }
 
     async fn stream(&self, request: Request) -> Result<Streaming, String>;
 }

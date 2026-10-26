@@ -1,6 +1,6 @@
 use serde_json::{Map, Value, json};
 
-use crate::{Item, Request, Tool};
+use crate::{Request, Tool};
 
 use super::*;
 
@@ -47,39 +47,8 @@ fn messages(request: &Request) -> Value {
             "content": instructions,
         }));
     }
-    messages.extend(request.input.iter().map(message));
+    messages.extend(super::message::Messages::default().lower(&request.input));
     json!(messages)
-}
-
-fn message(item: &Item) -> Value {
-    match item {
-        Item::Message { role, content } => texted(role, content),
-        Item::Call { call, name, raw } => calling(call, name, raw),
-        Item::Output { call, output } => outputted(call, output),
-    }
-}
-
-fn texted(role: &str, content: &str) -> Value {
-    json!({ "role": role, "content": content })
-}
-
-fn calling(call: &str, name: &str, arguments: &str) -> Value {
-    json!({
-        "role": "assistant",
-        "content": Value::Null,
-        "tool_calls": [{
-            "id": call,
-            "type": "function",
-            "function": {
-                "name": name,
-                "arguments": arguments,
-            },
-        }],
-    })
-}
-
-fn outputted(call: &str, output: &str) -> Value {
-    json!({ "role": "tool", "tool_call_id": call, "content": output })
 }
 
 fn tooled(tools: Vec<Tool>) -> Vec<Value> {

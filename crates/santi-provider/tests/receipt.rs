@@ -69,6 +69,7 @@ async fn completions() {
         model: "deepseek-v4-pro".to_string(),
         url,
         thinking: None,
+        replay: Default::default(),
         effort: None,
         ceiling: None,
         bytes: None,

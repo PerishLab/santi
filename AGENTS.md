@@ -36,11 +36,15 @@ Issue [#226](https://github.com/PerishLab/santi/issues/226) records the design.
 Live credentials belong in the ignored `santi.toml`; use `santi.example.toml`
 for tracked configuration changes.
 
-Reasoning is stateless across provider rounds. Thinking spans keep summaries
-for inspection, but neither they nor provider reasoning items enter provider
-input or context estimates. Issue [#216](https://github.com/PerishLab/santi/issues/216)
-records the router probe behind this: carried encrypted reasoning was accepted
-and had no effect. Revisit only with evidence that a provider consumes it.
+The runtime selects history independently of provider reasoning continuity.
+Thinking summaries are inspection text; original protocol continuation state is
+recorded separately on the provider round. Chat profiles explicitly opt into
+`replay = "history"` when their protocol requires it. The adaptor replays only
+compatible state in the selected history; compacts do not reload archived
+reasoning. Estimates and compact previews follow the same provider projection.
+Issue [#237](https://github.com/PerishLab/santi/issues/237) records DeepSeek's
+contract and measured consumption. Responses remains stateless as established
+by the router probe in Issue [#216](https://github.com/PerishLab/santi/issues/216).
 
 Release work ends at artifact publication. Host deployment is separate
 operational work.

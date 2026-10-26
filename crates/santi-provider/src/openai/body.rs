@@ -64,12 +64,18 @@ fn options(config: &Config) -> Option<Value> {
 }
 
 fn input(request: &Request) -> Value {
-    let items = request.input.iter().map(item).collect::<Vec<_>>();
+    let items = request
+        .input
+        .iter()
+        .filter(|item| !matches!(item, Item::Continuation(_) | Item::Boundary))
+        .map(item)
+        .collect::<Vec<_>>();
     json!(items)
 }
 
 fn item(item: &Item) -> Value {
     match item {
+        Item::Continuation(_) | Item::Boundary => Value::Null,
         Item::Message { role, content } => message(role, content),
         Item::Call { call, name, raw } => called(call, name, raw),
         Item::Output { call, output } => outputted(call, output),

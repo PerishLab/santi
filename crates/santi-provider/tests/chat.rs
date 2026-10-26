@@ -9,6 +9,7 @@ async fn mapped() {
         model: "deepseek-v4-pro".to_string(),
         url: String::new(),
         thinking: Some("disabled".to_string()),
+        replay: Default::default(),
         effort: Some("high".to_string()),
         ceiling: Some(512),
         bytes: None,
@@ -99,6 +100,7 @@ async fn reasoned() {
         },
         Event::Thinking(reasoning),
         Event::Text(text),
+        Event::Retained(state),
         Event::Completed {
             response: Some(completed_id),
         },
@@ -107,6 +109,7 @@ async fn reasoned() {
         panic!("unexpected reasoned event sequence");
     };
     assert_eq!(reasoning, "thinking");
+    assert_eq!(state.content.as_deref(), Some("thinking"));
     assert_eq!(text, "ok");
     assert_eq!(response, "chatcmpl_1");
     assert_eq!(completed_id, "chatcmpl_1");
@@ -121,7 +124,12 @@ async fn streamed() {
     ])
     .await;
 
-    let [Event::Started { .. }, Event::Called(call)] = events.as_slice() else {
+    let [
+        Event::Started { .. },
+        Event::Retained(_),
+        Event::Called(call),
+    ] = events.as_slice()
+    else {
         panic!("unexpected streamed event sequence");
     };
     assert_eq!(call.response, "chatcmpl_tool");
@@ -144,6 +152,7 @@ async fn named() {
         events.as_slice(),
         [
             Event::Started { .. },
+            Event::Retained(_),
             Event::Called(call),
         ] if call.name == "shell"
                 && call.arguments["command"] == "pwd"

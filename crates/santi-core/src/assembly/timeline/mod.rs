@@ -86,7 +86,17 @@ impl Timeline<'_> {
     ) -> Result<Option<Item>, String> {
         match entry.kind {
             strand::Target::Message => self.message(&entry.target).await,
-            strand::Target::Thinking => Ok(None),
+            strand::Target::Thinking => {
+                let span = self
+                    .store
+                    .thinking(&entry.target)
+                    .await?
+                    .ok_or_else(|| format!("thinking {} missing", entry.target))?;
+                Ok(span.round.map(|round| match round.continuation {
+                    Some(state) => Item::Continuation(*state),
+                    None => Item::Boundary,
+                }))
+            }
             strand::Target::ToolCall => self.call(&entry.target, calls).await,
             strand::Target::ToolResult => self.reply(&entry.target, calls).await,
             strand::Target::Compact => Err("compact cannot be a strand occurrence".to_string()),

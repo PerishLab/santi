@@ -10,7 +10,7 @@ impl Service {
             role: "system".into(),
             content: suffix(0, &cap),
         });
-        let used = crate::context::budget::gauged(request).total;
+        let used = crate::context::budget::gauged(request, self.provider.as_ref()).total;
         request.input[index] = santi_provider::Item::Message {
             role: "system".into(),
             content: suffix(used, &cap),

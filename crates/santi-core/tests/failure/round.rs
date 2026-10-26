@@ -157,6 +157,7 @@ fn round(request: &str, status: Option<&str>, text: usize, calls: &[&str]) -> th
         }),
         text,
         calls: calls.iter().map(|name| name.to_string()).collect(),
+        continuation: None,
     }
 }
 

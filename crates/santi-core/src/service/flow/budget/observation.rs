@@ -46,7 +46,7 @@ pub(super) async fn observe(
         .collect::<Vec<_>>();
     let material = json!({
         "schema": SCHEMA,
-        "estimator": crate::context::budget::ESTIMATOR,
+        "estimator": service.estimate(&strand.id).await?.estimator,
         "strand": {
             "id": strand.id,
             "soul": strand.soul,

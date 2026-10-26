@@ -64,6 +64,7 @@ pub struct ChatCompletions {
     pub model: String,
     pub base_url: String,
     pub thinking: Option<String>,
+    pub replay: santi_provider::chat::completions::Replay,
     pub reasoning_effort: Option<String>,
     pub max_tokens: Option<u32>,
     pub bytes: usize,
@@ -106,6 +107,8 @@ pub enum Profile {
         base_url: Option<String>,
         #[serde(default)]
         thinking: Option<String>,
+        #[serde(default)]
+        replay: santi_provider::chat::completions::Replay,
         #[serde(default)]
         reasoning_effort: Option<String>,
         #[serde(default)]
@@ -175,6 +178,7 @@ impl Profile {
                 model,
                 base_url,
                 thinking,
+                replay,
                 reasoning_effort,
                 max_tokens,
                 bytes,
@@ -186,6 +190,7 @@ impl Profile {
                 model: required(model, provider, "model")?,
                 base_url: required(base_url, provider, "base_url")?,
                 thinking: optional(thinking, provider, "thinking")?,
+                replay: *replay,
                 reasoning_effort: optional(reasoning_effort, provider, "reasoning_effort")?,
                 max_tokens: *max_tokens,
                 bytes: positive(*bytes, provider, "bytes")?,
