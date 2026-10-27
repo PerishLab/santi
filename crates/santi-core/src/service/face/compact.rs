@@ -177,8 +177,9 @@ impl Service {
         .await?;
         let instructions = self.wording(strand).await?;
         let tools = self.offered(strand).await?;
-        let request = self.projected(input, instructions, tools)?;
+        let mut request = self.prepare(input, instructions, tools)?;
         self.provider.validate(&request)?;
+        self.suffix(&mut request);
         Ok(crate::context::budget::gauged(
             &request,
             self.provider.as_ref(),

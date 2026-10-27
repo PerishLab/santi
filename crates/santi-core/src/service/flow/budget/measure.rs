@@ -49,15 +49,24 @@ impl Service {
         instructions: String,
         tools: Vec<santi_provider::Tool>,
     ) -> Result<santi_provider::Request, String> {
-        let mut request = self.provider.prepare(santi_provider::Request {
+        let mut request = self.prepare(input, instructions, tools)?;
+        self.suffix(&mut request);
+        Ok(request)
+    }
+
+    pub(in crate::service) fn prepare(
+        &self,
+        input: Vec<Item>,
+        instructions: String,
+        tools: Vec<santi_provider::Tool>,
+    ) -> Result<santi_provider::Request, String> {
+        self.provider.prepare(santi_provider::Request {
             model: self.provider.metadata().model,
             instructions: Some(instructions),
             input,
             tools: Some(tools),
             previous: None,
-        })?;
-        self.suffix(&mut request);
-        Ok(request)
+        })
     }
 
     pub(super) async fn pending_input(&self, strand: &str) -> Result<Vec<Item>, String> {
