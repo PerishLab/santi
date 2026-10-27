@@ -43,6 +43,7 @@ async fn verify(rounds: usize, calls: usize, output: usize, compacts: usize) {
     .await
     .unwrap()
     .bounded(budget::Execution {
+        timeout: 60,
         profile: "handoff".into(),
         rounds,
         calls,
@@ -186,6 +187,7 @@ async fn confines() {
     .await
     .unwrap()
     .bounded(budget::Execution {
+        timeout: 60,
         profile: "confines".into(),
         rounds: 2,
         calls: 16,

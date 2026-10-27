@@ -8,6 +8,7 @@ use super::redact;
 const SAVED: usize = 1024 * 1024;
 
 pub(in crate::service::tools) struct Bounds {
+    pub(in crate::service::tools) timeout: std::time::Duration,
     pub(in crate::service::tools) bytes: Option<usize>,
     pub(in crate::service::tools) lines: Option<usize>,
     pub(in crate::service::tools) saved: Option<Saved>,

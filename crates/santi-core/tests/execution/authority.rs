@@ -123,6 +123,7 @@ async fn authority() {
     .await
     .expect("open service")
     .bounded(budget::Execution {
+        timeout: 60,
         profile: "caller-feedback-test".to_string(),
         rounds: 8,
         calls: 12,

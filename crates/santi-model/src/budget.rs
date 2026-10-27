@@ -64,6 +64,9 @@ pub struct Slots {
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema, PartialEq, Eq)]
 #[schema(as = budget::Execution)]
 pub struct Execution {
+    #[serde(default = "timeout")]
+    #[schema(default = 60, minimum = 1, maximum = 3600)]
+    pub timeout: u64,
     pub profile: String,
     pub rounds: usize,
     pub calls: usize,
@@ -79,8 +82,15 @@ pub struct Execution {
     pub feedback_cwd: Option<String>,
 }
 
+pub fn timeout() -> u64 {
+    60
+}
+
 impl Execution {
     pub fn validate(&self) -> Result<(), String> {
+        if !(1..=3600).contains(&self.timeout) {
+            return Err("foreground shell timeout must be between 1 and 3600 seconds; use Jobs for longer work".to_string());
+        }
         if self.profile.trim().is_empty() {
             return Err("execution budget profile must not be empty".to_string());
         }

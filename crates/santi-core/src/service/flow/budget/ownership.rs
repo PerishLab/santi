@@ -45,6 +45,7 @@ async fn isolates() {
         .await
         .unwrap()
         .bounded(crate::budget::Execution {
+            timeout: 60,
             profile: "research".into(),
             rounds: 8,
             calls: 32,

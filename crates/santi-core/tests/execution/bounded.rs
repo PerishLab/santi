@@ -5,9 +5,15 @@ struct Ran {
     strand: String,
     call: String,
     output: serde_json::Value,
+    error: Option<String>,
+    effect: santi_core::effect::Effect,
 }
 
 async fn ran(command: &str, shell: usize) -> Ran {
+    bounded(command, shell, 60).await
+}
+
+async fn bounded(command: &str, shell: usize, timeout: u64) -> Ran {
     let temp = tempfile::tempdir().expect("temp dir");
     bootstrap(&temp).await;
     let provider = Arc::new(BudgetedProvider {
@@ -29,6 +35,7 @@ async fn ran(command: &str, shell: usize) -> Ran {
     .await
     .expect("open service")
     .bounded(budget::Execution {
+        timeout,
         profile: "test".to_string(),
         rounds: 3,
         calls: 4,
@@ -52,14 +59,24 @@ async fn ran(command: &str, shell: usize) -> Ran {
         )
         .await
         .expect("send strand");
-    let runtime = Probe::new(&service)
-        .completed_turn(&strand.id, &accepted_turn(&service, &posted).await.id)
-        .await;
+    let turn = accepted_turn(&service, &posted).await;
+    let runtime = tokio::time::timeout(
+        Duration::from_secs(5),
+        completion(&service, &strand.id, &turn.id),
+    )
+    .await
+    .expect("bounded shell turn must finish");
     Ran {
+        error: runtime.results[0].error.clone(),
+        effect: runtime.effects[0].clone(),
         temp,
         strand: strand.id,
         call: runtime.calls[0].id.clone(),
-        output: runtime.results[0].output.clone().expect("tool output"),
+        output: runtime.results[0].output.clone().unwrap_or_else(|| {
+            let error: serde_json::Value =
+                serde_json::from_str(runtime.results[0].error.as_deref().unwrap()).unwrap();
+            error["output"].clone()
+        }),
     }
 }
 
@@ -110,4 +127,43 @@ async fn saved() {
     assert!(text.contains("[redacted]"));
     assert!(!text.contains("fixture-token"));
     assert!(text.ends_with(&"b".repeat(3000)));
+}
+
+#[tokio::test]
+async fn deadline() {
+    let ran = bounded("printf partial; sleep 30", 1024, 1).await;
+    assert_eq!(ran.output["timed_out"], true);
+    assert_eq!(ran.output["stdout"], "partial");
+    assert!(
+        ran.error
+            .as_deref()
+            .unwrap()
+            .contains("partial external effects")
+    );
+    assert_eq!(ran.effect.state, santi_core::effect::State::Unknown);
+    assert!(ran.effect.result.is_some());
+    assert!(ran.effect.settled.is_none());
+}
+
+async fn completion(service: &Service, strand: &str, turn: &str) -> santi_core::stream::Snapshot {
+    loop {
+        let runtime = service.snapshot(strand).await.unwrap().unwrap();
+        let state = runtime
+            .turns
+            .iter()
+            .find(|held| held.id == turn)
+            .unwrap()
+            .status
+            .clone();
+        assert_ne!(
+            state,
+            santi_core::turn::Status::Failed,
+            "{:?}",
+            runtime.errors
+        );
+        if state == santi_core::turn::Status::Completed {
+            return runtime;
+        }
+        sleep(Duration::from_millis(20)).await;
+    }
 }

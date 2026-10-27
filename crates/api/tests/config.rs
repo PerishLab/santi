@@ -1,5 +1,8 @@
 use std::io::Write as _;
 
+#[path = "config/execution.rs"]
+mod execution;
+
 use api::config::{Config, ConfigPartial};
 use plumb::config::Cascade as _;
 
@@ -12,6 +15,8 @@ acknowledged_retention_seconds = 604800
 # One strand-lifetime execution envelope. Provider rounds are per turn; calls
 # and captured tool output accumulate until the strand yields to a new one.
 [execution]
+# Foreground shell deadline in seconds; long waits belong in detached Jobs.
+timeout = 60
 profile = "runtime_v1"
 rounds = 16
 calls = 256

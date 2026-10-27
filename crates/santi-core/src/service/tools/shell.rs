@@ -3,11 +3,11 @@ use std::{path::PathBuf, process::Command};
 use serde::Deserialize;
 use serde_json::{Value, json};
 
-use crate::service::interrupt::Control;
-
 mod bound;
 mod definition;
+mod process;
 mod redact;
+pub(super) use process::ran;
 
 pub(super) use bound::{Bounds, Saved};
 
@@ -28,61 +28,10 @@ pub(super) struct Prepared {
 
 pub(super) enum Outcome {
     Captured(Value),
+    Expired(Value),
     Failed(String),
     Unknown(String),
     Stopped(String),
-}
-
-pub(super) async fn ran(prepared: Prepared, bounds: Bounds, control: &Control) -> Outcome {
-    let Prepared { command, cwd } = prepared;
-    let mut command = tokio::process::Command::from(command);
-    command.kill_on_drop(true);
-    let mut child = match command.spawn() {
-        Ok(child) => child,
-        Err(error) => {
-            return Outcome::Failed(format!("failed to spawn shell process: {error}"));
-        }
-    };
-    let (Some(stdout), Some(stderr)) = (child.stdout.take(), child.stderr.take()) else {
-        let _ = terminate(&mut child).await;
-        return Outcome::Unknown("shell stdout or stderr pipe was unavailable".to_string());
-    };
-    let stdout = tokio::spawn(bound::piped(stdout, bounds.bytes));
-    let stderr = tokio::spawn(bound::piped(stderr, bounds.bytes));
-    let mut stopped = None;
-    let status = tokio::select! {
-        status = child.wait() => status,
-        cause = control.wait() => {
-            stopped = Some(cause);
-            terminate(&mut child).await
-        }
-    };
-    let stdout = joined(stdout, "stdout").await;
-    let stderr = joined(stderr, "stderr").await;
-    if let Some(cause) = stopped {
-        return Outcome::Stopped(format!(
-            "shell process tree interrupted by {}",
-            cause.encode()
-        ));
-    }
-    let (status, stdout, stderr) = match (status, stdout, stderr) {
-        (Ok(status), Ok(stdout), Ok(stderr)) => (status, stdout, stderr),
-        (status, stdout, stderr) => {
-            return Outcome::Unknown(format!(
-                "shell process was spawned but its result could not be captured: status={}; stdout={}; stderr={}",
-                shown(status),
-                shown(stdout),
-                shown(stderr),
-            ));
-        }
-    };
-    captured(Capture {
-        status,
-        stdout,
-        stderr,
-        cwd,
-        bounds,
-    })
 }
 
 struct Capture {
@@ -134,38 +83,6 @@ fn captured(capture: Capture) -> Outcome {
         output["redactions"] = Value::from(redactions);
     }
     Outcome::Captured(output)
-}
-
-async fn joined(
-    handle: tokio::task::JoinHandle<Result<bound::Pipe, String>>,
-    name: &str,
-) -> Result<bound::Pipe, String> {
-    handle
-        .await
-        .map_err(|_| format!("{name} capture task panicked"))?
-}
-
-async fn terminate(child: &mut tokio::process::Child) -> std::io::Result<std::process::ExitStatus> {
-    #[cfg(unix)]
-    if let Some(pid) = child.id() {
-        let result = unsafe { libc::kill(-(pid as i32), libc::SIGKILL) };
-        if result != 0 {
-            let error = std::io::Error::last_os_error();
-            if error.raw_os_error() != Some(libc::ESRCH) {
-                return Err(error);
-            }
-        }
-    }
-    #[cfg(not(unix))]
-    child.kill().await?;
-    child.wait().await
-}
-
-fn shown<T, E: std::fmt::Display>(result: Result<T, E>) -> String {
-    match result {
-        Ok(_) => "ok".to_string(),
-        Err(error) => error.to_string(),
-    }
 }
 
 pub(super) fn shell(command: &str) -> Command {

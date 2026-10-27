@@ -10,6 +10,29 @@ mod write;
 pub use types::{EffectDraft, RedemptionDraft};
 
 impl Store {
+    pub async fn uncertain(
+        &self,
+        tag: &str,
+        draft: tool::ReplyDraft<'_>,
+    ) -> Result<santi_model::tool::Reply, String> {
+        let output = draft
+            .output
+            .map(serde_json::to_string)
+            .transpose()
+            .map_err(|error| error.to_string())?;
+        self.core
+            .batch(async |tx| {
+                write::Writer::new(tx)
+                    .uncertain(tag, draft, output.as_deref())
+                    .await
+            })
+            .await
+            .map_err(read::error)?;
+        self.reply(draft.tag)
+            .await?
+            .ok_or_else(|| "created uncertain tool result missing".to_string())
+    }
+
     pub async fn prepare_invocation(
         &self,
         call: CallDraft<'_>,
