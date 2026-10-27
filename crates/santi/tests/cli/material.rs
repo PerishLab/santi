@@ -18,6 +18,17 @@ async fn transport() {
                 Some("system_prompt"),
             ),
             ("GET", "/api/v1/openapi.json", None),
+            (
+                "GET",
+                "/api/v1/strands/ss_default/materials?available=true&offset=0&limit=20",
+                None,
+            ),
+            (
+                "GET",
+                "/api/v1/souls/soul_default/materials?available=false&offset=0&limit=20&reference=perish%3Aplumb&blob=SKILL.md",
+                None,
+            ),
+            ("GET", "/api/v1/souls/soul_explicit", None),
         ] {
             let (mut stream, _) = listener.accept().await.unwrap();
             let request = request(&mut stream).await;
@@ -43,6 +54,16 @@ async fn transport() {
             "system_prompt",
         ],
         vec!["schema"],
+        vec!["strand", "material", "query", "--available"],
+        vec![
+            "soul",
+            "material",
+            "query",
+            "perish:plumb",
+            "--blob",
+            "SKILL.md",
+        ],
+        vec!["soul", "soul_explicit"],
     ] {
         let output = tokio::process::Command::new(env!("CARGO_BIN_EXE_santi"))
             .current_dir(home.path())
@@ -62,6 +83,8 @@ async fn transport() {
                 "",
                 "--strand",
                 "ss_default",
+                "--soul",
+                "soul_default",
             ])
             .args(args)
             .output()

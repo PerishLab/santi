@@ -22,6 +22,7 @@ pub struct Runtime {
     pub execution: santi_core::budget::Execution,
     pub constitution: Option<PathBuf>,
     pub memory: usize,
+    pub materials: santi_core::material::Sources,
     pub souls: BTreeMap<String, soul::Identity>,
 }
 

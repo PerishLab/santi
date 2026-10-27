@@ -123,9 +123,26 @@ fn api() {
                     && value["required"] == true)
         );
     }
+    for path in [
+        "/api/v1/materials",
+        "/api/v1/souls/{soul}/materials",
+        "/api/v1/strands/{strand}/materials",
+    ] {
+        assert!(routes[path].get("get").is_some());
+    }
+    assert!(
+        document["components"]["schemas"]
+            .get("material.Descriptor")
+            .is_some()
+    );
+    assert!(
+        document["components"]["schemas"]["material.Descriptor"]["properties"]
+            .get("revision")
+            .is_some()
+    );
     let hash = format!("{:x}", Sha256::digest(text.as_bytes()));
     assert_eq!(
         hash,
-        "fdc71fee46ae11f84855369eca49bde6ef4ab46a8f7e91588661a8a77ec0895a"
+        "89b7db6d65b7ba29f04d1e50b789c7762470e35d826f877bb59be3b785cf84b5"
     );
 }

@@ -256,3 +256,6 @@ fn assert_compact(items: &[Item]) {
     assert_eq!(estimate["forecast"]["post_total_bytes"], 480);
     assert_eq!(estimate["forecast"]["ratio"], 0.4);
 }
+
+#[path = "materials/main.rs"]
+mod materials;

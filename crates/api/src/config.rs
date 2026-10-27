@@ -57,6 +57,7 @@ pub struct Config {
     pub execution: Execution,
     #[cascade(section)]
     pub memory: Memory,
+    pub materials: santi_core::material::Sources,
     pub environment: BTreeMap<String, String>,
     pub providers: BTreeMap<String, Profile>,
     pub souls: BTreeMap<String, soul::Identity>,
@@ -74,6 +75,7 @@ impl Default for Config {
             capability: Capability::default(),
             execution: Execution::default(),
             memory: Memory::default(),
+            materials: Default::default(),
             environment: BTreeMap::new(),
             providers: BTreeMap::new(),
             souls: BTreeMap::new(),
@@ -277,6 +279,7 @@ fn runtime(held: Config) -> Result<Runtime, String> {
         capability: held.capability.issuer()?,
         execution: held.execution.budget()?,
         memory: held.memory.capacity()?,
+        materials: held.materials,
         constitution: held.paths.charter,
         souls: held.souls,
     })

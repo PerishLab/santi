@@ -49,6 +49,8 @@ const AUTH: &[Rule] = &[
 ];
 
 const UNAVAILABLE: &[Rule] = &[
+    Rule::Starts("material source unavailable"),
+    Rule::Starts("material source unreadable"),
     Rule::Starts("job supervisor is unavailable"),
     Rule::Starts("systemd did not accept job"),
     Rule::Starts("launchd did not accept job"),
@@ -87,6 +89,7 @@ const CONFLICT: &[Rule] = &[
 ];
 
 const INVALID: &[Rule] = &[
+    Rule::Starts("material "),
     Rule::Starts("alarm "),
     Rule::Starts("[compact."),
     Rule::Starts("compact summary is"),

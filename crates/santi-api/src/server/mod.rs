@@ -53,6 +53,7 @@ pub async fn serve() -> Result<(), String> {
     .await?
     .bounded(held.execution.clone())?
     .memory(held.memory)?
+    .catalogued(held.materials.clone())?
     .authorized(held.capability.clone())
     .retain(held.retention)?
     .alarmed(std::sync::Arc::new(crate::adaptor::cron::Cron::current()))

@@ -7,11 +7,7 @@ pub enum StrandCommand {
     #[command(
         about = "Render current operating material for inspection; this request does not inject instructions"
     )]
-    Material {
-        id: Option<String>,
-        #[arg(long, value_enum, default_value = "skill")]
-        kind: Material,
-    },
+    Material(Materials),
     #[command(
         about = "Create a strand for --soul/SANTI_SOUL_ID, or for the runtime default",
         long_about = "Create exactly one strand. With --soul/SANTI_SOUL_ID, POST /api/v1/souls/{soul}/strands preserves that owner; without one, POST /api/v1/strands uses the runtime default. The client never retries. Only a contract-proven 4xx rejection reports outcome=not_created. Transport failure, an unreadable response body, 5xx or another non-client status, and an invalid success response report outcome=state_unknown with do-not-retry list/resume guidance; the client preserves a known parent soul and never invents the unknown strand id."

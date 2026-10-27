@@ -49,6 +49,14 @@ ttl_seconds = 120
 # references. Soul and strand environment resources override this map.
 [environment]
 
+# Source names are logical reference namespaces; loading does not execute files.
+# [materials.perish]
+# root = "/absolute/path/to/staged/skills"
+# format = "skill"
+# [materials.notes]
+# root = "/absolute/path/to/native/materials"
+# format = "native"
+
 [providers.openai]
 kind = "openai_responses"
 api_key = ""
