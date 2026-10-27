@@ -9,12 +9,15 @@ use tokio::sync::mpsc::{UnboundedSender, unbounded_channel};
 #[path = "screen/naming.rs"]
 mod naming;
 
+#[path = "screen/receipt.rs"]
+mod receipt;
+
 use super::keys;
 use super::parse::{lines, read};
 use super::state::recover::recover;
 use super::state::{Beat, State, Step};
 use super::{Identity, Request, paint};
-use crate::client::send::{Request as Send, Target, emission};
+use crate::client::send::Target;
 use crate::watch::{Emit, Shown};
 use naming::{listing, renamed};
 
@@ -92,6 +95,9 @@ async fn drive(
     let mut listening = Some(Box::pin(resident(target, sender.clone())));
     let mut refresh = Some(Box::pin(context(request, identity)));
     let mut stopping = None;
+    let mut checking = None;
+    let mut recheck = tokio::time::interval(Duration::from_secs(5));
+    recheck.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
     let mut catalog = crate::client::jobs::Catalog::default();
     let mut inspection = None;
     let mut pulse = tokio::time::interval(Duration::from_millis(120));
@@ -101,6 +107,14 @@ async fn drive(
         let step = tokio::select! {
             stroke = strokes.recv() => state.struck(stroke),
             beat = beats.recv() => state.heard(beat),
+            result = poll(&mut checking) => {
+                checking = None;
+                receipt::apply(state, result)
+            },
+            _ = recheck.tick(), if state.unsettled && state.receipt.is_some() && checking.is_none() => {
+                checking = receipt::pending(target, state.receipt.clone());
+                Step::Stay
+            },
             () = poll(&mut active) => Step::Idle,
             never = poll(&mut listening) => match never {},
             value = poll(&mut refresh) => {
@@ -124,6 +138,9 @@ async fn drive(
                 Step::Stay
             },
         };
+        if step == Step::Refresh && state.unsettled && checking.is_none() {
+            checking = receipt::pending(target, state.receipt.clone());
+        }
         match step {
             Step::Leave => return Ok(None),
             Step::Reload => {
@@ -142,7 +159,7 @@ async fn drive(
             }
             Step::Speak(text) => {
                 listening = None;
-                active = Some(Box::pin(dispatch(target, text, sender.clone())));
+                active = Some(Box::pin(receipt::dispatch(target, text, sender.clone())));
             }
             Step::Switch(next) => return Ok(Some(next)),
             Step::Listing(kind) => {
@@ -252,33 +269,6 @@ async fn resident(target: Target<'_>, sender: UnboundedSender<Beat>) -> std::con
         tokio::time::sleep(backoff).await;
         backoff = (backoff * 2).min(CEILING);
     }
-}
-
-async fn dispatch(target: Target<'_>, text: String, sender: UnboundedSender<Beat>) {
-    let mut sink = Sink(sender.clone());
-    let body = serde_json::json!({ "content": [{ "type": "text", "text": text }] });
-    let outcome = emission(
-        Send {
-            target,
-            body,
-            watch: true,
-        },
-        &mut sink,
-    )
-    .await;
-    let beat = match outcome {
-        Ok(Some(done)) => Beat::Settled(done.0),
-        Ok(None) => Beat::Unsettled("send returned without a receipt proof".to_string()),
-        Err(error)
-            if error
-                .downcast_ref::<crate::client::send::Unsettled>()
-                .is_some() =>
-        {
-            Beat::Unsettled(format!("{error:#}"))
-        }
-        Err(error) => Beat::Broken(format!("{error:#}")),
-    };
-    let _ = sender.send(beat);
 }
 
 async fn context(request: &Request<'_>, identity: &Identity) -> String {

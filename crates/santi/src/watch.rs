@@ -182,12 +182,15 @@ async fn settle(target: Target<'_>, receipt: &str, boundary: Option<&str>) -> Re
         Proof::Failed => anyhow::bail!(
             "strand send outcome=failed: accepted receipt {receipt} reached its durable failed state; do not resend the accepted message; inspect with `santi receipt {receipt}`"
         ),
-        Proof::Pending(state) if boundary.is_some() => Err(crate::client::unsettled(format!(
-            "watch outcome=state_unknown: {} while accepted receipt {receipt} remained {state}; do not resend the accepted message; inspect with `santi receipt {receipt}` and `santi strand runtime {}`; resume the blocking condition or explicitly redrive with `santi strand drive {}`",
-            boundary.expect("pending boundary"),
-            target.strand,
-            target.strand
-        ))),
+        Proof::Pending(state) if boundary.is_some() => Err(crate::client::pending(
+            receipt,
+            format!(
+                "watch outcome=state_unknown: {} while accepted receipt {receipt} remained {state}; do not resend the accepted message; inspect with `santi receipt {receipt}` and `santi strand runtime {}`; resume the blocking condition or explicitly redrive with `santi strand drive {}`",
+                boundary.expect("pending boundary"),
+                target.strand,
+                target.strand
+            ),
+        )),
         Proof::Pending(_) => Ok(false),
     }
 }

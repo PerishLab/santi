@@ -1,4 +1,4 @@
-use super::outcome::unsettled;
+use super::outcome::{pending, unsettled};
 
 pub(crate) fn unknown(strand: &str, detail: String) -> anyhow::Error {
     unsettled(format!(
@@ -7,9 +7,12 @@ pub(crate) fn unknown(strand: &str, detail: String) -> anyhow::Error {
 }
 
 pub(crate) fn uncertain(strand: &str, receipt: &str, detail: String) -> anyhow::Error {
-    unsettled(format!(
-        "watch outcome=state_unknown: {detail} for accepted receipt {receipt}; do not resend the accepted message; inspect with `santi receipt {receipt}` and `santi strand runtime {strand}`; resume the blocking condition or explicitly redrive with `santi strand drive {strand}`"
-    ))
+    pending(
+        receipt,
+        format!(
+            "watch outcome=state_unknown: {detail} for accepted receipt {receipt}; do not resend the accepted message; inspect with `santi receipt {receipt}` and `santi strand runtime {strand}`; resume the blocking condition or explicitly redrive with `santi strand drive {strand}`"
+        ),
+    )
 }
 
 pub(crate) fn accepted_warning(value: Option<&serde_json::Value>) -> Option<&serde_json::Value> {
@@ -35,7 +38,7 @@ pub(crate) fn accepted_warning_error(warning: &serde_json::Value, receipt: &str)
             "message was accepted as exact receipt {receipt} but not driven; do not resend it; inspect and resolve `{code}`"
         )
     };
-    unsettled(detail)
+    pending(receipt, detail)
 }
 
 #[cfg(test)]

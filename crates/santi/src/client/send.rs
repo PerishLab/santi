@@ -14,7 +14,7 @@ pub struct Request<'a> {
 mod fault;
 mod outcome;
 pub(crate) use fault::{accepted_warning, accepted_warning_error, uncertain, unknown};
-pub(crate) use outcome::{Unsettled, unsettled};
+pub(crate) use outcome::{Unsettled, pending};
 
 struct Accepted(String);
 pub(crate) struct Completion(pub(crate) String);
