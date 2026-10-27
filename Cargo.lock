@@ -2320,9 +2320,11 @@ dependencies = [
  "santi-provider",
  "serde",
  "serde_json",
+ "serde_yaml_ng",
  "sha2",
  "tempfile",
  "tokio",
+ "toml 1.1.2+spec-1.1.0",
  "utoipa",
  "uuid",
 ]

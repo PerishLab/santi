@@ -17,7 +17,7 @@ fn name(command: &crate::cli::Command) -> &'static str {
     match command {
         Command::Health => "health",
         Command::Schema => "schema",
-        Command::Soul { .. } => "soul",
+        Command::Soul(_) => "soul",
         Command::Tui { .. } => "tui",
         Command::Errors { .. } => "errors",
         Command::Receipt { .. } => "receipt",

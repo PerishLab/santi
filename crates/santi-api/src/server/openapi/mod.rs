@@ -18,6 +18,9 @@ use santi_core::{material, soul, strand, stream};
     modifiers(&SecurityAddon),
     paths(
         super::routes::health,
+        super::routes::materials::catalog,
+        super::routes::materials::soul,
+        super::routes::materials::strand,
         super::routes::alarms::set,
         super::routes::alarms::list,
         super::routes::alarms::get,
@@ -101,6 +104,8 @@ use santi_core::{material, soul, strand, stream};
         Fault,
         Health,
         material::Request,
+        material::View,
+        material::Package,
         strand::Post,
         strand::Posted,
         santi_core::drive::Response,

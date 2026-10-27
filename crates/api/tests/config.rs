@@ -290,3 +290,6 @@ fn memory() {
     );
     assert!(read("[memory]\nbytes = 0\n").memory.capacity().is_err());
 }
+
+#[path = "config/materials.rs"]
+mod materials;

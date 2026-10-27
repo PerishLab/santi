@@ -64,6 +64,10 @@ the reference method for diagnosing soul behavior through its observable inputs.
 `crates/santi-core/src/assembly/skill.rs` owns on-demand operating guidance;
 Issue [#242](https://github.com/PerishLab/santi/issues/242) records its role in
 Harness orientation and learned-memory correction.
+`crates/santi-core/src/library` resolves configured material sources into
+content revisions; #256 records source/query semantics. Published PerishLab
+Skill directories retain their upstream managed shape; source provenance is
+not proof of remote authenticity.
 `crates/santi-core/src/service/flow/memory.rs` owns memory pressure
 and maintenance.
 

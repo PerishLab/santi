@@ -10,13 +10,10 @@ pub(super) async fn run(
     command: StrandCommand,
 ) -> Result<()> {
     match command {
-        StrandCommand::Material { id, kind } => {
-            let id = defaults.resolve_strand(id)?;
-            http.post(
-                &format!("{base}/api/v1/strands/{id}/materials"),
-                Some(serde_json::json!({"kind":kind.wire()})),
-            )
-            .await
+        StrandCommand::Material(args) => {
+            super::declarations::materials::Seat::new(http, base, defaults)
+                .run("strands", args)
+                .await
         }
         StrandCommand::Create => http.create_strand(base, defaults.soul()).await,
         StrandCommand::End { id } => http.delete(&format!("{base}/api/v1/strands/{id}")).await,

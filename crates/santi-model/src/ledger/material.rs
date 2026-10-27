@@ -3,6 +3,11 @@ use utoipa::ToSchema;
 
 use crate::Timestamp;
 
+mod catalog;
+mod query;
+pub use catalog::*;
+pub use query::*;
+
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema, PartialEq, Eq, Hash)]
 #[serde(rename_all = "snake_case")]
 #[schema(as = material::Kind)]

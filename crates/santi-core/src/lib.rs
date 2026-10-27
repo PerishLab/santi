@@ -2,6 +2,7 @@ mod assembly;
 pub mod capability;
 mod context;
 pub mod environment;
+pub mod library;
 
 pub mod service;
 pub mod workspace;
