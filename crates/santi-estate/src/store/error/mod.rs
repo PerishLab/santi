@@ -1,9 +1,10 @@
 use super::{Store, read};
 use keel::adapt::db::Sqlite;
-use keel::{Op, Rank, Tx, form};
+use keel::{Op, Tx, form};
 use santi_error::{Fault, Incident, Scope, Transition};
 
 mod codec;
+mod history;
 mod persist;
 
 const UNITS: [&str; 2] = ["SoulIncident", "StrandIncident"];
@@ -78,28 +79,7 @@ impl Store {
     }
 
     pub async fn incidents(&self, scope: &Scope, limit: usize) -> Result<Vec<Incident>, String> {
-        let limit = limit.clamp(1, 1000);
-        self.core
-            .batch(async |tx| {
-                let Some(seat) = Reader(tx).seat(scope).await? else {
-                    return Ok(Vec::new());
-                };
-                let rows = tx
-                    .ask(
-                        &form(seat.unit)
-                            .when(seat.field, Op::Eq, &seat.owner.to_string())
-                            .order("first_seen", Rank::Desc)
-                            .order("tag", Rank::Desc)
-                            .top(limit),
-                    )
-                    .await?;
-                rows.rows()
-                    .iter()
-                    .map(|row| codec::incident(row, &seat.scope).map_err(adapt))
-                    .collect()
-            })
-            .await
-            .map_err(read::error)
+        Ok(self.history(scope, limit, None).await?.unwrap_or_default())
     }
 
     pub async fn active_incident_count(&self, code: &str) -> Result<usize, String> {

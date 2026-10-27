@@ -78,7 +78,9 @@ pub enum Command {
         )]
         memory: Option<String>,
     },
-    #[command(about = "Query canonical incidents by error scope")]
+    #[command(
+        about = "Page retained active and resolved incidents by scope; pass the last id as --before"
+    )]
     Errors {
         #[arg(long, default_value = "runtime")]
         scope_kind: String,
@@ -86,7 +88,16 @@ pub enum Command {
         scope_id: String,
         #[arg(long, default_value_t = 50)]
         limit: i64,
+        #[arg(
+            long,
+            help = "Last incident id from the previous page; newest first by first.seen then id, with limits clamped to 1..1000"
+        )]
+        before: Option<String>,
     },
+    #[command(
+        about = "Inspect an exact retained incident and its opened/resolved snapshots; repeated reports retain first/latest, not every occurrence"
+    )]
+    Incident { id: String },
     #[command(about = "Query one durable accepted-message obligation by inbox receipt id")]
     Receipt { inbox: String },
     #[command(about = "Query or explicitly resolve one external-effect attempt")]

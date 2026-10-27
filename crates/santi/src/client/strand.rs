@@ -42,10 +42,14 @@ pub(super) async fn run(
             http.get(&format!("{base}/api/v1/strands/{id}/budget"))
                 .await
         }
-        StrandCommand::Errors { id, limit } => {
+        StrandCommand::Errors { id, limit, before } => {
             let id = defaults.resolve_strand(id)?;
-            http.get(&format!("{base}/api/v1/strands/{id}/errors?limit={limit}"))
-                .await
+            http.get(&super::http::page(
+                format!("{base}/api/v1/strands/{id}/errors"),
+                limit,
+                before.as_deref(),
+            )?)
+            .await
         }
         StrandCommand::Fork { id } => {
             let id = defaults.resolve_strand(id)?;

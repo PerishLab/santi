@@ -127,3 +127,5 @@ fn draft(scope: &Scope, message: &str) -> Draft {
         context: serde_json::json!({"message": message}),
     }
 }
+
+mod history;

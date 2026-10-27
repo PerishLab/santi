@@ -271,3 +271,13 @@ async fn refuse(mut response: reqwest::Response) -> Result<()> {
     }
     anyhow::bail!("job creation failed with status {status}")
 }
+
+pub(super) fn page(url: String, limit: i64, before: Option<&str>) -> Result<String> {
+    let mut url = reqwest::Url::parse(&url)?;
+    url.query_pairs_mut()
+        .append_pair("limit", &limit.to_string());
+    if let Some(before) = before {
+        url.query_pairs_mut().append_pair("before", before);
+    }
+    Ok(url.into())
+}
