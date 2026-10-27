@@ -5,8 +5,11 @@ use santi_estate::{
 };
 use santi_model::{message, thinking, turn};
 
+mod batches;
+mod fixture;
 mod speech;
 mod timing;
+mod value;
 
 const FIRST: &str = "2026-07-28T00:00:00.000Z";
 const LATER: &str = "2026-07-28T00:01:00.000Z";
