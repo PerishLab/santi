@@ -6,6 +6,9 @@ use crate::{material, stream};
 
 pub(in crate::service) type Key = (String, material::Kind);
 
+mod binding;
+mod composition;
+
 const PLAIN: &str = "text/plain; charset=utf-8";
 
 impl Service {
@@ -15,6 +18,9 @@ impl Service {
     }
 
     pub fn catalog(&self, query: material::Query) -> Result<material::View, String> {
+        if query.context.is_some() || query.operation.is_some() || query.effective {
+            return Err("material binding selectors require a soul or strand".into());
+        }
         self.library.query(query)
     }
 
@@ -31,7 +37,7 @@ impl Service {
         if !found {
             return Err(format!("{} not found", scope.encode()));
         }
-        self.catalog(query)
+        self.bound(scope, owner, query).await
     }
 
     pub async fn material(
@@ -45,7 +51,11 @@ impl Service {
             .await?
             .ok_or_else(|| "strand not found".to_string())?;
         match request.kind {
-            material::Kind::SystemPrompt => self.prompt(&strand),
+            material::Kind::SystemPrompt => {
+                let mut rendered = self.prompt(&strand)?;
+                rendered.text = self.composition(&strand.id).await?.text;
+                Ok(self.cached(rendered))
+            }
             material::Kind::Skill => Ok(self.cached(material::Material {
                 strand: strand.id,
                 kind: material::Kind::Skill,
@@ -57,12 +67,7 @@ impl Service {
     }
 
     pub(in crate::service) async fn wording(&self, strand: &str) -> Result<String, String> {
-        let strand = self
-            .store
-            .strand(strand)
-            .await?
-            .ok_or_else(|| "strand not found".to_string())?;
-        Ok(self.prompt(&strand)?.text)
+        Ok(self.composition(strand).await?.text)
     }
 
     fn prompt(&self, strand: &Strand) -> Result<material::Material, String> {
@@ -77,13 +82,13 @@ impl Service {
             allowance: self.regimen().allowance,
             genesis: strand.soul == crate::GENESIS,
         })?;
-        Ok(self.cached(material::Material {
+        Ok(material::Material {
             strand: id.to_string(),
             kind: material::Kind::SystemPrompt,
             content_type: PLAIN.to_string(),
             text,
             updated: now(),
-        }))
+        })
     }
 
     fn cached(&self, material: material::Material) -> material::Material {

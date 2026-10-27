@@ -79,7 +79,8 @@ async fn create(tx: &mut Tx<'_, Sqlite>, draft: ForkDraft<'_>) -> Result<(), kee
         )
         .await?;
     copy_entries(tx, parent.key(), child, draft.at).await?;
-    copy_compacts(tx, parent.key(), child, draft.at).await
+    copy_compacts(tx, parent.key(), child, draft.at).await?;
+    super::material::binding::inherit(tx, parent.key(), child, draft.created).await
 }
 
 async fn copy_entries(

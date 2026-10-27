@@ -35,6 +35,8 @@ pub struct Snapshot {
     pub events: Vec<crate::message::Event>,
     pub turns: Vec<crate::turn::Turn>,
     pub thinking: Vec<crate::thinking::Span>,
+    #[serde(default)]
+    pub contexts: Vec<crate::material::Context>,
     pub calls: Vec<crate::tool::Call>,
     pub results: Vec<crate::tool::Reply>,
     pub compacts: Vec<crate::compact::Compact>,

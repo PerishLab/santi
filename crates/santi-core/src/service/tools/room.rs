@@ -2,6 +2,7 @@ mod apply;
 mod definition;
 mod escalate;
 mod maintenance;
+pub(super) mod material;
 pub(super) mod query;
 
 use apply::asked;
@@ -97,4 +98,8 @@ fn overfull(settled: i64, ceiling: i64, held: usize) -> String {
     format!(
         "context refused: the compacted timeline carries {settled} bytes across {held} slots against a ceiling of {ceiling}. Use the compact tool with a shorter summary and absorb containing occupied Compact IDs from query slots. One ID rewrites a slot; two or more contiguous IDs merge slots. Ordinary tools return when the context fits."
     )
+}
+
+pub(in crate::service) fn maintenance() -> Vec<santi_provider::Tool> {
+    vec![definition(), query::definition(), material::definition()]
 }

@@ -110,9 +110,10 @@ impl Service {
             let metadata = self.provider.metadata();
             let family = metadata.provider.to_string();
             let offered = attempt!(Operation::Assembly, self.offers(strand, Some(turn)).await);
+            let composition = attempt!(Operation::Prompt, self.composition(strand).await);
             let request = Request {
                 model: metadata.model,
-                instructions: Some(attempt!(Operation::Prompt, self.wording(strand).await)),
+                instructions: Some(composition.text.clone()),
                 input,
                 tools: Some(offered),
                 previous: None,
@@ -142,6 +143,10 @@ impl Service {
             if let Some(cause) = self.halted(control) {
                 return Err(Failure::stopped(cause, &prose));
             }
+            attempt!(
+                Operation::Assembly,
+                composition.capture(&self.store, turn, round).await
+            );
             self.stirred(strand, turn, turn::Motion::Requesting, None);
             let model = request.model.clone();
             let reached = tokio::select! {

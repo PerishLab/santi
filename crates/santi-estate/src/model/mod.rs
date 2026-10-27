@@ -6,6 +6,7 @@ mod history;
 mod inbox;
 mod job;
 mod ledger;
+mod material;
 mod ops;
 mod wake;
 
@@ -50,6 +51,15 @@ pub(super) fn graph() -> Graph {
         .plug::<ops::error::StrandIncident>();
     graph.plug::<wake::WakeLease>();
     graph.plug::<alarm::Alarm>().plug::<alarm::AlarmDelivery>();
-    graph.plug::<ledger::Material>();
+    graph
+        .plug::<ledger::Material>()
+        .plug::<material::Revision>()
+        .plug::<material::Blob>()
+        .plug::<material::Declaration>()
+        .plug::<material::Change>()
+        .plug::<material::Shared>()
+        .plug::<material::Local>()
+        .plug::<material::Context>()
+        .plug::<material::Usage>();
     graph
 }

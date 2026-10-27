@@ -158,8 +158,10 @@ async fn verify(rounds: usize, calls: usize, output: usize, compacts: usize) {
     let requests = provider.requests.lock().unwrap();
     let request = requests.iter().find(|request| request.tools.as_ref().unwrap().iter().any(|tool| matches!(tool, santi_provider::Tool::Function(function) if function.name == "compact"))).unwrap();
     let maintenance = serde_json::to_value(request.tools.as_ref().unwrap()).unwrap();
-    assert_eq!(maintenance.as_array().unwrap().len(), 2);
+    assert_eq!(maintenance.as_array().unwrap().len(), 3);
     assert_eq!(maintenance[0]["Function"]["name"], "compact");
+    assert_eq!(maintenance[1]["Function"]["name"], "query");
+    assert_eq!(maintenance[2]["Function"]["name"], "material");
     assert!(request.input.iter().any(|item| matches!(item, Item::Message { content, .. } if content.contains("execution_maintenance"))));
 }
 

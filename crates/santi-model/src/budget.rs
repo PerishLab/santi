@@ -34,6 +34,8 @@ impl Cap {
 pub struct Snapshot {
     pub strand: String,
     pub estimate: Estimate,
+    #[serde(default)]
+    pub materials: Vec<crate::material::Component>,
     pub budget: Option<Cap>,
     pub execution: Option<Execution>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

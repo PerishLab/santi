@@ -67,6 +67,8 @@ const MISSING: &[Rule] = &[
 ];
 
 const CONFLICT: &[Rule] = &[
+    Rule::Starts("material binding conflicts"),
+    Rule::Starts("material operation conflicts"),
     Rule::Starts("strand retirement conflicts"),
     Rule::Around {
         start: "strand ",

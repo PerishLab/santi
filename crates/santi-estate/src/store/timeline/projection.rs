@@ -151,6 +151,7 @@ impl Store {
             events: self.events(&strand.id).await?,
             turns: self.turns(&strand.id).await?,
             thinking: self.thinkings(&strand.id).await?,
+            contexts: self.contexts(&strand.id).await?,
             calls: self.calls(&strand.id).await?,
             results: self.results(&strand.id).await?,
             compacts: self.compacts(&strand.id).await?,

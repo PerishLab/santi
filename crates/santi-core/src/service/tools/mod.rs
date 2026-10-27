@@ -15,6 +15,7 @@ mod reply;
 pub(super) use reply::curbed;
 mod room;
 pub(super) use room::Gauge;
+pub(in crate::service) use room::maintenance;
 mod shell;
 mod workspace;
 
@@ -56,7 +57,7 @@ impl Service {
             .then(|| barrier.as_ref().and_then(feedback::Barrier::owned))
             .flatten();
         let allowed = if maintaining {
-            compact || call.name == "query" || call.name == "shell"
+            compact || matches!(call.name.as_str(), "query" | "shell" | "material")
         } else {
             true
         };
@@ -132,6 +133,8 @@ impl Service {
             .await?
         } else if call.name == "query" {
             self.read(strand, &call, output_limit).await?
+        } else if maintaining && call.name == "material" {
+            self.remedy(strand, &call, output_limit).await?
         } else if escape {
             self.compacted(strand, &call, output_limit).await?
         } else {

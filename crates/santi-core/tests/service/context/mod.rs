@@ -1,4 +1,5 @@
 mod continuation;
+mod material;
 
 #[path = "../../execution/context.rs"]
 mod maintenance;

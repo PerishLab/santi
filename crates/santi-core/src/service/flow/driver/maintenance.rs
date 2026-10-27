@@ -22,8 +22,20 @@ impl Service {
         if let Some(cause) = self.halted(control) {
             return Err(Failure::stopped(cause, ""));
         }
+        let mut ordinary = Vec::new();
+        let mut limits = Vec::new();
+        for (call, limit) in draft.calls.into_iter().zip(draft.limits) {
+            if call.name == "material" {
+                self.tooled(Address { strand, turn }, call, limit, control)
+                    .await
+                    .map_err(|error| Failure::runtime(Operation::Tool, error, ""))?;
+            } else {
+                ordinary.push(call);
+                limits.push(limit);
+            }
+        }
         let calls = self
-            .staged(draft.address, draft.calls, draft.limits)
+            .staged(Address { strand, turn }, ordinary, limits)
             .await
             .map_err(|error| Failure::runtime(Operation::Tool, error, ""))?;
         if let Some(cause) = self.halted(control) {

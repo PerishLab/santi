@@ -7,6 +7,10 @@ pub struct Query {
     pub reference: Option<String>,
     pub blob: Option<String>,
     #[serde(default)]
+    pub effective: bool,
+    pub operation: Option<String>,
+    pub context: Option<String>,
+    #[serde(default)]
     pub available: bool,
     #[serde(default)]
     pub offset: usize,
@@ -23,6 +27,9 @@ impl Default for Query {
         Self {
             reference: None,
             blob: None,
+            effective: false,
+            operation: None,
+            context: None,
             available: false,
             offset: 0,
             limit: limit(),
@@ -41,6 +48,10 @@ pub struct Page {
 #[serde(untagged)]
 #[schema(as = material::View)]
 pub enum View {
+    State(super::State),
+    Change(super::Change),
+    Context(super::Context),
+    Contexts { contexts: Vec<super::Context> },
     Page(Page),
     Material(Descriptor),
     Blob(Content),

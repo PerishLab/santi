@@ -160,9 +160,11 @@ impl Service {
         } else {
             None
         };
+        let composition = self.composition(&strand.id).await?;
         Ok(Some(budget::Snapshot {
             strand: strand.id.clone(),
-            estimate: self.estimate(&strand.id).await?,
+            estimate: self.weighed(&strand.id, composition.text).await?,
+            materials: composition.components,
             budget: self.budget(),
             slots: self.occupancy(&strand.id).await?,
             execution,
