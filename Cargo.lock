@@ -1437,9 +1437,9 @@ dependencies = [
 
 [[package]]
 name = "keel"
-version = "0.25.0"
+version = "0.26.0"
 source = "sparse+https://cargo.perish.uk/"
-checksum = "97a2f2b72b620662e1dce8e44c87f4c84ec647797f8098edf1c7051814393319"
+checksum = "3153a956a65dc5c5310dd0aaa13d51568a46ab588561a9a2918540835b88339a"
 dependencies = [
  "axum",
  "getrandom 0.3.4",
@@ -1454,9 +1454,9 @@ dependencies = [
 
 [[package]]
 name = "keel-macro"
-version = "0.25.0"
+version = "0.26.0"
 source = "sparse+https://cargo.perish.uk/"
-checksum = "1fcf6951f0511987d4fdce17a2a7def3fad508ac66f0b0a6b796fc7367e02eb6"
+checksum = "7b6c9856d598163fd6f7e9f241aadc93d14d77de5b62bf16e2f0ce202c8e6d99"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1739,9 +1739,9 @@ checksum = "19f132c84eca552bf34cab8ec81f1c1dcc229b811638f9d283dceabe58c5569e"
 
 [[package]]
 name = "plumb"
-version = "0.107.0"
+version = "0.108.0"
 source = "sparse+https://cargo.perish.uk/"
-checksum = "5533f9f0a40a71b2b8d0fc2381f8a97dafa7a79031b5249ef574b4f9907dc9cd"
+checksum = "797b109644f8bf43b001b772c69f858b61978b8298b828d923f986c444474043"
 dependencies = [
  "base64",
  "clap",
@@ -1764,9 +1764,9 @@ dependencies = [
 
 [[package]]
 name = "plumb-macro"
-version = "0.107.0"
+version = "0.108.0"
 source = "sparse+https://cargo.perish.uk/"
-checksum = "291c5ca193d7456b3fffb70b0d790b57a8775865fd7fff5f5c6a86e297718fba"
+checksum = "36b56e182dcf1cc462b4d9609e91f3f5e00373e987d94f1a0e75f3adbb7791ff"
 dependencies = [
  "proc-macro2",
  "quote",
