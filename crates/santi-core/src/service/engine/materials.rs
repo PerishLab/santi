@@ -14,15 +14,20 @@ impl Service {
         strand: &str,
         request: material::Request,
     ) -> Result<material::Material, String> {
+        let strand = self
+            .store
+            .strand(strand)
+            .await?
+            .ok_or_else(|| "strand not found".to_string())?;
         match request.kind {
-            material::Kind::SystemPrompt => {
-                let strand = self
-                    .store
-                    .strand(strand)
-                    .await?
-                    .ok_or_else(|| "strand not found".to_string())?;
-                self.prompt(&strand)
-            }
+            material::Kind::SystemPrompt => self.prompt(&strand),
+            material::Kind::Skill => Ok(self.cached(material::Material {
+                strand: strand.id,
+                kind: material::Kind::Skill,
+                content_type: "text/markdown; charset=utf-8".into(),
+                text: crate::assembly::skill::TEXT.into(),
+                updated: now(),
+            })),
         }
     }
 
@@ -47,35 +52,36 @@ impl Service {
             allowance: self.regimen().allowance,
             genesis: strand.soul == crate::GENESIS,
         })?;
-        let key: Key = (id.to_string(), material::Kind::SystemPrompt);
-        let mut cache = self.materials.lock().unwrap();
-        if let Some(existing) = cache.get(&key)
-            && existing.text == text
-        {
-            return Ok(existing.clone());
-        }
-
-        let updated = now();
-        let material = material::Material {
+        Ok(self.cached(material::Material {
             strand: id.to_string(),
             kind: material::Kind::SystemPrompt,
             content_type: PLAIN.to_string(),
             text,
-            updated: updated.clone(),
-        };
+            updated: now(),
+        }))
+    }
+
+    fn cached(&self, material: material::Material) -> material::Material {
+        let key: Key = (material.strand.clone(), material.kind.clone());
+        let mut cache = self.materials.lock().unwrap();
+        if let Some(existing) = cache.get(&key)
+            && existing.text == material.text
+            && existing.content_type == material.content_type
+        {
+            return existing.clone();
+        }
         cache.insert(key, material.clone());
         drop(cache);
-
         self.publish(
-            id,
+            &material.strand,
             stream::Payload::Material(crate::material::Beat::Updated {
                 material: material::Updated {
-                    strand: id.to_string(),
-                    kind: material::Kind::SystemPrompt,
-                    updated,
+                    strand: material.strand.clone(),
+                    kind: material.kind.clone(),
+                    updated: material.updated.clone(),
                 },
             }),
         );
-        Ok(material)
+        material
     }
 }

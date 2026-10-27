@@ -8,6 +8,7 @@ use crate::Timestamp;
 #[schema(as = material::Kind)]
 pub enum Kind {
     SystemPrompt,
+    Skill,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]

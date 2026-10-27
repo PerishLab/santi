@@ -62,6 +62,8 @@ pub struct Cli {
 pub enum Command {
     #[command(about = "GET /api/v1/health")]
     Health,
+    #[command(about = "GET /api/v1/openapi.json — inspect the running service contract")]
+    Schema,
     #[command(about = "Query a soul's configured identity and channel bindings")]
     Soul { id: Option<String> },
     #[command(

@@ -1,7 +1,11 @@
-pub const COMPONENT_DESCRIPTIONS: [(&str, &str); 11] = [
+pub const COMPONENT_DESCRIPTIONS: [(&str, &str); 12] = [
     (
         "budget.Execution",
         "Execution policy for a strand. `timeout` is the foreground shell deadline in seconds, including waiting for inherited stdout/stderr pipes. A deadline interrupts the managed process group and reports a tool failure; partial external effects remain possible. Detached Jobs own long waits and their separate timeout policy.",
+    ),
+    (
+        "material.Kind",
+        "Select current material to render: system_prompt is the assembled runtime prompt material; skill is on-demand Santi operating guidance. Material retrieval does not submit instructions or write memory.",
     ),
     (
         "Soul",
@@ -25,7 +29,7 @@ pub const COMPONENT_DESCRIPTIONS: [(&str, &str); 11] = [
     ),
     (
         "compact.Compact",
-        "A compact is a pure projection overlay over a strand's spine. It\nself-describes its coverage by message-id boundaries and carries the\noperator-authored summary while originals remain queryable. Capsule metadata\nrecords precommit estimates only under `forecast`: `authoritative` is `false`\nand `basis` is `precommit_preview`. The provider-visible header keeps estimated\npost-context bytes and ratio under\n`context_estimate.forecast`; they are not exact postcommit context.",
+        "A compact is a pure projection overlay over a strand's spine. It\nself-describes its coverage by message-id boundaries and carries the\nsupplied summary while originals remain queryable. Capsule metadata\nrecords precommit estimates only under `forecast`: `authoritative` is `false`\nand `basis` is `precommit_preview`. The provider-visible header keeps estimated\npost-context bytes and ratio under\n`context_estimate.forecast`; they are not exact postcommit context.",
     ),
     (
         "effect::State",

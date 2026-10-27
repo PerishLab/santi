@@ -51,9 +51,7 @@ pub(super) fn condensed(compact: &compact::Compact, fallback: Range) -> String {
         "risk": noted(metadata, "risk").unwrap_or("not_declared"),
         "queryability": noted(metadata, "queryability")
             .unwrap_or("original spine remains queryable with compact query"),
-        "originals_query": noted(metadata, "originals_query")
-            .map(str::to_string)
-            .unwrap_or_else(|| format!("santi compact query --compact-id {}", compact.id)),
+        "originals_query": format!("santi compact query --compact {}", compact.id),
         "context_estimate": {
             "pre_total_bytes": before,
             "budget_input_bytes": budget,
@@ -89,4 +87,50 @@ fn noted<'a>(metadata: Option<&'a serde_json::Value>, key: &str) -> Option<&'a s
     metadata
         .and_then(|metadata| metadata.get(key))
         .and_then(|value| value.as_str())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn retained() {
+        let compact = compact::Compact {
+            id: "compact_current".into(),
+            strand: "strand_test".into(),
+            summary: "retained summary".into(),
+            first: "message_first".into(),
+            last: "message_last".into(),
+            created: None,
+            metadata: Some(
+                json!({"originals_query":"santi compact query --compact-id compact_wrong"}),
+            ),
+        };
+        let rendered = condensed(
+            &compact,
+            Range {
+                from: 1,
+                to: 5,
+                collapsed: 5,
+            },
+        );
+        let text = rendered
+            .split_once("[compact projection]\n")
+            .unwrap()
+            .1
+            .split_once("\n[/compact projection]")
+            .unwrap()
+            .0;
+        let header: serde_json::Value = serde_json::from_str(text).unwrap();
+        assert_eq!(
+            header["originals_query"],
+            "santi compact query --compact compact_current"
+        );
+        assert_eq!(header["covered_strand_seq"]["end_seq"], 5);
+        assert!(rendered.contains("<compact_summary>\nretained summary"));
+        assert_eq!(
+            compact.metadata.unwrap()["originals_query"],
+            "santi compact query --compact-id compact_wrong"
+        );
+    }
 }

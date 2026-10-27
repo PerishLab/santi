@@ -35,6 +35,7 @@ pub struct Params {
     post,
     path = "/api/v1/jobs",
     request_body = CreateJobRequest,
+    params(("x-santi-job-capability" = String, Header, description = "One-use capability from the current shell invocation")),
     responses(
         (status = 202, body = job::Accepted),
         (status = 400, body = Fault),
@@ -56,6 +57,7 @@ pub fn create() -> MethodRouter<Service> {
 #[utoipa::path(
     get,
     path = "/api/v1/jobs",
+    params(("x-santi-soul-id" = String, Header, description = "Soul scope supplied by the CLI from --soul/SANTI_SOUL_ID")),
     responses(
         (status = 200, body = [job::Job]),
         (status = 401, body = Fault),
@@ -73,7 +75,7 @@ pub fn list() -> MethodRouter<Service> {
 #[utoipa::path(
     get,
     path = "/api/v1/jobs/{job}",
-    params(("job" = String, Path)),
+    params(("job" = String, Path), ("x-santi-soul-id" = String, Header, description = "Soul scope supplied by the CLI from --soul/SANTI_SOUL_ID")),
     responses(
         (status = 200, body = job::Job),
         (status = 401, body = Fault),
@@ -92,7 +94,7 @@ pub fn get() -> MethodRouter<Service> {
 #[utoipa::path(
     post,
     path = "/api/v1/jobs/{job}/cancel",
-    params(("job" = String, Path)),
+    params(("job" = String, Path), ("x-santi-soul-id" = String, Header, description = "Soul scope supplied by the CLI from --soul/SANTI_SOUL_ID")),
     responses(
         (status = 200, body = job::Job),
         (status = 401, body = Fault),
@@ -111,7 +113,7 @@ pub fn cancel() -> MethodRouter<Service> {
 #[utoipa::path(
     post,
     path = "/api/v1/jobs/{job}/ack",
-    params(("job" = String, Path)),
+    params(("job" = String, Path), ("x-santi-soul-id" = String, Header, description = "Soul scope supplied by the CLI from --soul/SANTI_SOUL_ID")),
     responses(
         (status = 200, body = job::Job),
         (status = 400, body = Fault),
@@ -133,6 +135,7 @@ pub fn acknowledge() -> MethodRouter<Service> {
     path = "/api/v1/jobs/{job}/logs",
     params(
         ("job" = String, Path),
+        ("x-santi-soul-id" = String, Header, description = "Soul scope supplied by the CLI from --soul/SANTI_SOUL_ID"),
         ("stream" = Option<job::Stream>, Query),
         ("cursor" = Option<String>, Query),
         ("limit" = Option<usize>, Query)
