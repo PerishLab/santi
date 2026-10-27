@@ -18,18 +18,7 @@ impl Store {
         let key = row.key().to_string();
         let output = read::one(&self.core, "ToolOutput", "result", &key).await?;
         let failure = read::one(&self.core, "ToolFailure", "result", &key).await?;
-        let (output, error) = match (output, failure) {
-            (Some(output), None) => (
-                Some(
-                    serde_json::from_str(read::text(&output, "output")?)
-                        .map_err(|error| error.to_string())?,
-                ),
-                None,
-            ),
-            (None, Some(failure)) => (None, Some(read::text(&failure, "error")?.to_string())),
-            (None, None) => return Err("tool result has no outcome".to_string()),
-            (Some(_), Some(_)) => return Err("tool result has conflicting outcomes".to_string()),
-        };
+        let (output, error) = outcome(output.as_ref(), failure.as_ref())?;
         Ok(tool::Reply {
             id: read::text(row, "tag")?.to_string(),
             call: read::related(&self.core, "ToolCall", read::int(row, "call")?).await?,
@@ -37,5 +26,23 @@ impl Store {
             error,
             created: read::text(row, "created")?.to_string(),
         })
+    }
+}
+
+pub(super) fn outcome(
+    output: Option<&keel::Row>,
+    failure: Option<&keel::Row>,
+) -> Result<(Option<serde_json::Value>, Option<String>), String> {
+    match (output, failure) {
+        (Some(output), None) => Ok((
+            Some(
+                serde_json::from_str(read::text(output, "output")?)
+                    .map_err(|error| error.to_string())?,
+            ),
+            None,
+        )),
+        (None, Some(failure)) => Ok((None, Some(read::text(failure, "error")?.to_string()))),
+        (None, None) => Err("tool result has no outcome".to_string()),
+        (Some(_), Some(_)) => Err("tool result has conflicting outcomes".to_string()),
     }
 }
