@@ -20,11 +20,17 @@ impl Service {
         &self,
         strand: &str,
     ) -> Result<budget::Estimate, String> {
+        self.weighed(strand, self.wording(strand).await?).await
+    }
+
+    pub(in crate::service) async fn weighed(
+        &self,
+        strand: &str,
+        instructions: String,
+    ) -> Result<budget::Estimate, String> {
         let mut input = crate::provider_input(&self.store, strand).await?;
         input.extend(self.pending_input(strand).await?);
-        let instructions = self.wording(strand).await?;
-        let tools = self.offered(strand).await?;
-        self.measured(input, instructions, tools)
+        self.measured(input, instructions, self.offered(strand).await?)
     }
 
     pub(in crate::service) fn measured(
@@ -43,13 +49,15 @@ impl Service {
         instructions: String,
         tools: Vec<santi_provider::Tool>,
     ) -> Result<santi_provider::Request, String> {
-        self.provider.prepare(santi_provider::Request {
+        let mut request = self.provider.prepare(santi_provider::Request {
             model: self.provider.metadata().model,
             instructions: Some(instructions),
             input,
             tools: Some(tools),
             previous: None,
-        })
+        })?;
+        self.suffix(&mut request);
+        Ok(request)
     }
 
     pub(super) async fn pending_input(&self, strand: &str) -> Result<Vec<Item>, String> {

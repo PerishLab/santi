@@ -43,6 +43,7 @@ impl Service {
                 created: &crate::now(),
             })
             .await?;
+        self.store.contextualize(&thinking.id).await?;
         self.publish(
             progress.strand,
             stream::Payload::Thinking(crate::thinking::Beat::Created {

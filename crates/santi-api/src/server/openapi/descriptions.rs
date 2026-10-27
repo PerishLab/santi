@@ -49,7 +49,17 @@ pub const COMPONENT_DESCRIPTIONS: [(&str, &str); 12] = [
     ),
 ];
 
-pub const PROPERTY_DESCRIPTIONS: [(&str, &str, &str); 12] = [
+pub const PROPERTY_DESCRIPTIONS: [(&str, &str, &str); 14] = [
+    (
+        "material.Component",
+        "bytes",
+        "UTF-8 bytes of this rendered material fragment, including metadata and delimiters; distinct from provider JSON estimates and tokens.",
+    ),
+    (
+        "material.Context",
+        "thinking",
+        "Observed provider span. Null means prepared without an observed span; a record does not establish model compliance.",
+    ),
     (
         "downstream::Draft",
         "digest",

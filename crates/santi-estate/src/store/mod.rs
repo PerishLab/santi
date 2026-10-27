@@ -26,7 +26,8 @@ pub use support::{Bootstrap, EnvironDraft, Status, TraceDraft};
 pub use support::{WakeLease, WakeOfferDraft};
 use support::{entry, read, write};
 pub use timeline::{
-    CompactDraft, ForkDraft, Limits, Material, MaterialDraft, MessageDraft, ThinkingDraft,
+    Bind, Capture, CompactDraft, ForkDraft, Limits, Material, MaterialDraft, MessageDraft,
+    ThinkingDraft, Unbind,
 };
 pub use tool::{CallDraft, ReplyDraft, Spent, Tally, bounded, curbed};
 pub use turn::{

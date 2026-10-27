@@ -1,4 +1,6 @@
 use super::{Store, read};
+pub(in crate::store) mod binding;
+pub use binding::{Bind, Capture, Unbind};
 use keel::{Op, Rank, form};
 
 #[derive(Clone, Copy)]

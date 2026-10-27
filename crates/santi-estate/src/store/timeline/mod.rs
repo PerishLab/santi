@@ -12,7 +12,7 @@ mod thinking;
 
 pub use compact::{CompactDraft, Limits};
 pub use fork::ForkDraft;
-pub use material::{Material, MaterialDraft};
+pub use material::{Bind, Capture, Material, MaterialDraft, Unbind};
 pub use thinking::ThinkingDraft;
 
 pub struct MessageDraft<'a> {

@@ -36,6 +36,33 @@ not establish behavior. The CLI supplies scope for its typed operations.
 material for inspection. `--kind skill` renders this guide. These requests
 select material to read; they do not inject text or change memory/instructions.
 
+## Bind material
+
+`santi soul material` and `santi strand material` expose query, load and drop.
+Use `query --available` to discover configured sources and `query <reference>`
+to inspect metadata; add `--blob <name>` to read a declared blob. `load <reference>`
+pins a complete revision into that scope. Repeating load explicitly refreshes it;
+source edits alone do not change a binding. `query` lists own bindings and the
+effective set; `--effective` includes both scope origins. Equal references and
+revisions render once. Different revisions across scopes refuse with a conflict.
+Drop removes only that scope binding; a shared Soul binding can remain active.
+Neither action rewrites memory or revokes already learned experience.
+
+Changes take effect at the next provider round, including later rounds of this
+turn; an in-flight request keeps its original selection. Fork copies current
+Strand bindings and shares Soul bindings. Compact preserves bindings. Query
+`--context all` lists durable request selections, including preparation without
+an observed response. Query a context or thinking ID with `--context <id>` to
+inspect that exact selection; add reference and blob to retrieve retained bytes.
+This proves runtime assembly, not model obedience. Budget reports separately
+identify rendered material UTF-8 bytes and provider projection estimates.
+
+Use `--operation <id>` on load/drop when tracking an operation. After uncertain
+transport, `query --operation <id>` retrieves its committed result; reusing the
+ID with changed content refuses. An old successful operation never reapplies
+after newer changes. During context maintenance, the material tool can query or
+drop persisted bindings even when ordinary shell execution is unavailable.
+
 ## Observe and act
 
 Use strand runtime for durable history, execution-tail for bounded recent

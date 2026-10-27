@@ -2261,6 +2261,7 @@ dependencies = [
  "toml 1.1.2+spec-1.1.0",
  "unicode-segmentation",
  "unicode-width",
+ "uuid",
 ]
 
 [[package]]
@@ -2349,6 +2350,7 @@ dependencies = [
  "santi-model",
  "serde",
  "serde_json",
+ "sha2",
  "sqlx",
  "tempfile",
  "tokio",
@@ -2362,6 +2364,7 @@ dependencies = [
  "santi-error",
  "serde",
  "serde_json",
+ "sha2",
  "utoipa",
  "uuid",
 ]

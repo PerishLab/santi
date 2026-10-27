@@ -28,7 +28,26 @@ pub(super) fn router(service: Service) -> Router {
     let api = Router::new()
         .route("/api/v1/openapi.json", get(openapi))
         .route("/api/v1/materials", get(materials::catalog))
-        .route("/api/v1/souls/{soul}/materials", get(materials::soul))
+        .route(
+            "/api/v1/souls/{soul}/materials/load",
+            post(materials::soul::load),
+        )
+        .route(
+            "/api/v1/souls/{soul}/materials/drop",
+            post(materials::soul::drop),
+        )
+        .route(
+            "/api/v1/strands/{strand}/materials/load",
+            post(materials::strand::load),
+        )
+        .route(
+            "/api/v1/strands/{strand}/materials/drop",
+            post(materials::strand::drop),
+        )
+        .route(
+            "/api/v1/souls/{soul}/materials",
+            get(materials::soul::query),
+        )
         .route("/api/v1/alarms", alarms::set().merge(alarms::list()))
         .route("/api/v1/alarms/{alarm}", alarms::get().merge(alarms::end()))
         .route("/api/v1/alarms/{alarm}/fire", alarms::fire())
@@ -69,7 +88,7 @@ pub(super) fn router(service: Service) -> Router {
         .route("/api/v1/strands/{strand}/messages", list_messages())
         .route(
             "/api/v1/strands/{strand}/materials",
-            material().merge(get(materials::strand)),
+            material().merge(get(materials::strand::query)),
         )
         .route("/api/v1/strands/{strand}/events", get(strand_events))
         .route("/api/v1/strands/{strand}/send", post(send))

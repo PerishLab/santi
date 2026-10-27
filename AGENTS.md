@@ -75,7 +75,12 @@ Harness orientation and learned-memory correction.
 `crates/santi-core/src/library` resolves configured material sources into
 content revisions; #256 records source/query semantics. Published PerishLab
 Skill directories retain their upstream managed shape; source provenance is
-not proof of remote authenticity.
+not proof of remote authenticity. #257 owns durable Soul/Strand bindings and
+per-request material selections. Bound revisions retain their bytes in the
+estate, independent of source availability. Composition, estimate and request
+capture share one selection; binding changes apply to the next provider round.
+Drop removes an own binding, and compact retains bindings. Query/drop remain
+available through the material tool during maintenance.
 `crates/santi-core/src/service/flow/memory.rs` owns memory pressure
 and maintenance.
 

@@ -6,12 +6,12 @@ pub fn graph() -> keel::Graph {
 }
 
 pub use store::{
-    Accepted, Attempt, AttentionDraft, Begun, Bootstrap, CallDraft, CapabilityDraft,
+    Accepted, Attempt, AttentionDraft, Begun, Bind, Bootstrap, CallDraft, CapabilityDraft, Capture,
     ClassifiedFailure, ClassifiedFailureDraft, CompactDraft, Completion, CompletionDraft,
     DownstreamDraft, DrainDraft, EffectDraft, EnvironDraft, Environment, ExpiredJob, ForkDraft,
     Inbox, InboxDraft, Interruption, InterruptionDraft, Invocation, JobDraft, JobRecord, Limits,
     Maintenance, Material, MaterialDraft, MessageDraft, NoticeDraft, Offer, Opening, OutboxDraft,
     Prepared, ReceiptDraft, RedemptionDraft, Refusal, ReplayDraft, ReplyDraft, Settlement, Spent,
     Status, Store, StrandDraft, Tally, ThinkingDraft, TraceDraft, TransitionDraft, TurnDraft,
-    WakeLease, WakeOfferDraft, WebhookDraft, bounded, curbed,
+    Unbind, WakeLease, WakeOfferDraft, WebhookDraft, bounded, curbed,
 };

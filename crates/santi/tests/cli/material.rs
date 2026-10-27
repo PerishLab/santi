@@ -20,15 +20,35 @@ async fn transport() {
             ("GET", "/api/v1/openapi.json", None),
             (
                 "GET",
-                "/api/v1/strands/ss_default/materials?available=true&offset=0&limit=20",
+                "/api/v1/strands/ss_default/materials?available=true&effective=false&offset=0&limit=20",
                 None,
             ),
             (
                 "GET",
-                "/api/v1/souls/soul_default/materials?available=false&offset=0&limit=20&reference=perish%3Aplumb&blob=SKILL.md",
+                "/api/v1/souls/soul_default/materials?available=false&effective=false&offset=0&limit=20&reference=perish%3Aplumb&blob=SKILL.md",
                 None,
             ),
             ("GET", "/api/v1/souls/soul_explicit", None),
+            (
+                "POST",
+                "/api/v1/souls/soul_default/materials/load",
+                Some("load"),
+            ),
+            (
+                "POST",
+                "/api/v1/strands/ss_explicit/materials/drop",
+                Some("drop"),
+            ),
+            (
+                "GET",
+                "/api/v1/strands/ss_default/materials?available=false&effective=true&offset=0&limit=20&operation=load",
+                None,
+            ),
+            (
+                "GET",
+                "/api/v1/souls/soul_explicit/materials?available=false&effective=false&offset=0&limit=20",
+                None,
+            ),
         ] {
             let (mut stream, _) = listener.accept().await.unwrap();
             let request = request(&mut stream).await;
@@ -64,6 +84,33 @@ async fn transport() {
             "SKILL.md",
         ],
         vec!["soul", "soul_explicit"],
+        vec![
+            "soul",
+            "material",
+            "load",
+            "perish:plumb",
+            "--operation",
+            "load",
+        ],
+        vec![
+            "strand",
+            "material",
+            "drop",
+            "perish:plumb",
+            "--id",
+            "ss_explicit",
+            "--operation",
+            "drop",
+        ],
+        vec![
+            "strand",
+            "material",
+            "query",
+            "--effective",
+            "--operation",
+            "load",
+        ],
+        vec!["soul", "material", "query", "--id", "soul_explicit"],
     ] {
         let output = tokio::process::Command::new(env!("CARGO_BIN_EXE_santi"))
             .current_dir(home.path())
@@ -134,5 +181,10 @@ fn check(request: &str, kind: Option<&str>) {
     let Some(kind) = kind else { return };
     let body: serde_json::Value =
         serde_json::from_str(request.split_once("\r\n\r\n").unwrap().1).unwrap();
-    assert_eq!(body, serde_json::json!({"kind":kind}));
+    let expected = if matches!(kind, "load" | "drop") {
+        serde_json::json!({"reference":"perish:plumb","operation":kind})
+    } else {
+        serde_json::json!({"kind":kind})
+    };
+    assert_eq!(body, expected);
 }
