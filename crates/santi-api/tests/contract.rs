@@ -77,9 +77,55 @@ fn api() {
             .get("lines")
             .is_some()
     );
+    let material = &document["components"]["schemas"]["material.Kind"];
+    assert_eq!(
+        material["enum"],
+        serde_json::json!(["system_prompt", "skill"])
+    );
+    assert!(
+        material["description"]
+            .as_str()
+            .unwrap()
+            .contains("does not submit")
+    );
+    let routes = &document["paths"];
+    assert!(
+        routes["/api/v1/strands/{strand}/materials"]["post"]["summary"]
+            .as_str()
+            .unwrap()
+            .contains("does not submit text")
+    );
+    for path in ["/api/v1/errors/events", "/api/v1/turn-events/stream"] {
+        assert!(
+            routes[path]["get"]["responses"]["200"]["content"]
+                .get("text/event-stream")
+                .is_some()
+        );
+        assert!(
+            routes[path]["get"]["summary"]
+                .as_str()
+                .unwrap()
+                .contains("observation time")
+        );
+    }
+    for (method, path, header) in [
+        ("post", "/api/v1/jobs", "x-santi-job-capability"),
+        ("get", "/api/v1/jobs", "x-santi-soul-id"),
+        ("get", "/api/v1/jobs/{job}/logs", "x-santi-soul-id"),
+    ] {
+        assert!(
+            routes[path][method]["parameters"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|value| value["in"] == "header"
+                    && value["name"] == header
+                    && value["required"] == true)
+        );
+    }
     let hash = format!("{:x}", Sha256::digest(text.as_bytes()));
     assert_eq!(
         hash,
-        "e86826c142ec23a4f1859b13840e7bf146586f8d476e1b08e52b67f7318de8dd"
+        "ab7ae72885c543b9dde9b8517c067af97ce344790d12eb1394a486b3588011ab"
     );
 }

@@ -165,6 +165,7 @@ pub(super) fn list_messages() -> MethodRouter<Service> {
 #[utoipa::path(
     post,
     path = "/api/v1/strands/{strand}/materials",
+    summary = "Render and return current material selected by kind for inspection. This request does not submit text or alter instructions or memory.",
     params(("strand" = String, Path)),
     request_body = material::Request,
     responses(

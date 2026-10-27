@@ -166,3 +166,6 @@ mod parse;
 
 #[path = "cli/observation.rs"]
 mod observation;
+
+#[path = "cli/material.rs"]
+mod material;

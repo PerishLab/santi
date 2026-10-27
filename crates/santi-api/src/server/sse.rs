@@ -52,7 +52,8 @@ pub(super) async fn strand_events(
 #[utoipa::path(
     get,
     path = "/api/v1/errors/events",
-    responses((status = 200, description = "Canonical global error lifecycle stream"))
+    summary = "Persistent global error lifecycle stream. Bound observation time at the client; no limit query parameter closes this subscription.",
+    responses((status = 200, body = String, content_type = "text/event-stream"))
 )]
 pub(super) async fn transitions(
     State(service): State<Service>,
@@ -73,9 +74,10 @@ pub(super) async fn transitions(
 #[utoipa::path(
     get,
     path = "/api/v1/turn-events/stream",
+    summary = "Persistent zone-filtered turn event wake-up stream; bound observation time at the client.",
     security(("downstream_bearer" = [])),
     responses(
-        (status = 200, description = "Zone-filtered turn event wake-up stream"),
+        (status = 200, body = String, content_type = "text/event-stream"),
         (status = 401, body = santi_core::Fault)
     )
 )]

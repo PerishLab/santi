@@ -216,7 +216,7 @@ const QUERYABILITY: usize = 512;
 fn encapsulated(input: Capsule<'_>) -> serde_json::Value {
     let originals = input
         .compact
-        .map(|id| format!("santi compact query --compact-id {id}"));
+        .map(|id| format!("santi compact query --compact {id}"));
     let range = input.response.map(|response| {
         json!({
             "start_seq": response.from,

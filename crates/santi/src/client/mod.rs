@@ -49,6 +49,7 @@ pub(crate) async fn run(
     let base = base_url.trim_end_matches('/').to_string();
     match command {
         Command::Health => http.get(&format!("{base}/api/v1/health")).await,
+        Command::Schema => http.get(&format!("{base}/api/v1/openapi.json")).await,
         Command::Tui { memory } => {
             tui::run(tui::Request {
                 client: &client,

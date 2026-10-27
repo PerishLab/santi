@@ -55,6 +55,9 @@ The workspace manifests own crate membership and dependency boundaries.
 `crates/santi-core/src/assembly/prompt.rs` owns the built-in soul and strand
 constitution; Issue [#187](https://github.com/PerishLab/santi/issues/187) records
 the reference method for diagnosing soul behavior through its observable inputs.
+`crates/santi-core/src/assembly/skill.rs` owns on-demand operating guidance;
+Issue [#242](https://github.com/PerishLab/santi/issues/242) records its role in
+Harness orientation and learned-memory correction.
 `crates/santi-core/src/service/flow/memory.rs` owns memory pressure
 and maintenance.
 
@@ -63,7 +66,7 @@ For execution and recovery changes, follow
 Receipt, completion, and effect behavior is exercised in
 `crates/santi-estate/tests/completion`,
 `crates/santi-estate/tests/operations/terminal.rs`, and
-`crates/santi-estate/tests/effects.rs`.
+`crates/santi-estate/tests/effects`.
 
 The binaries' `--help` and the server's OpenAPI export own the public interface.
 `plumb.toml` owns release targets and placement; `packaging/deb` owns Debian
