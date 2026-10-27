@@ -46,6 +46,7 @@ async fn bounds() {
     .await
     .expect("open service")
     .bounded(budget::Execution {
+        timeout: 60,
         profile: "test".to_string(),
         rounds: 3,
         calls: 4,
@@ -113,6 +114,7 @@ async fn normalizes() {
     .await
     .expect("open service")
     .bounded(budget::Execution {
+        timeout: 60,
         profile: "test".to_string(),
         rounds: 3,
         calls: 4,
@@ -181,6 +183,7 @@ async fn rounds() {
     .await
     .expect("open service")
     .bounded(budget::Execution {
+        timeout: 60,
         profile: "test".to_string(),
         rounds: 2,
         calls: 4,

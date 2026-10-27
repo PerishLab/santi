@@ -140,6 +140,7 @@ async fn barrier() {
     .await
     .expect("open service")
     .bounded(budget::Execution {
+        timeout: 60,
         profile: "feedback-test".to_string(),
         rounds: 6,
         calls: 8,

@@ -229,11 +229,18 @@ impl Service {
         }
         self.store.dispatch_effect(effect, &crate::now()).await?;
         let bounds = shell::Bounds {
+            timeout: std::time::Duration::from_secs(
+                self.rationed(strand)
+                    .map_or(crate::budget::timeout(), |budget| budget.timeout),
+            ),
             bytes: output_limit,
             lines: self.rationed(strand).map(|budget| budget.lines),
             saved: output_limit.map(|_| shell::Saved::at(self.strandhome(strand), &call.call)),
         };
         match shell::ran(prepared, bounds, control).await {
+            shell::Outcome::Expired(output) => {
+                reply::expired(self, effect, &call.call, output).await
+            }
             shell::Outcome::Captured(output) => {
                 self.store
                     .redeem_effect(

@@ -17,6 +17,34 @@ pub(super) struct Shift<'a> {
 }
 
 impl<'a, 'tx> Writer<'a, 'tx> {
+    pub async fn uncertain(
+        &mut self,
+        tag: &str,
+        draft: ReplyDraft<'_>,
+        output: Option<&str>,
+    ) -> Result<(), keel::adapt::Error> {
+        let row = self.relation("StrandEffect", tag).await?;
+        let call = self.relation("ToolCall", draft.call).await?;
+        if row.int("call") != Some(call.key()) {
+            return Err(keel::adapt::Error::Adapt(
+                "effect belongs to another tool call".into(),
+            ));
+        }
+        put_reply(self.tx, draft, output).await?;
+        let key = self
+            .shift(Shift {
+                tag,
+                expected: &["dispatching"],
+                state: effect::State::Unknown,
+                error: draft.error,
+                occurred: draft.created,
+            })
+            .await?;
+        self.tx
+            .set("StrandEffect", key, &[("result", draft.tag)])
+            .await
+    }
+
     pub fn new(tx: &'a mut Tx<'tx, Sqlite>) -> Self {
         Self { tx }
     }

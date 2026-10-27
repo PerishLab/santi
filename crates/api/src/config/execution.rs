@@ -5,6 +5,7 @@ use serde::Serialize;
 #[cascade(section)]
 pub struct Execution {
     pub profile: String,
+    pub timeout: u64,
     pub rounds: usize,
     pub calls: usize,
     pub output: usize,
@@ -19,6 +20,7 @@ impl Default for Execution {
     fn default() -> Self {
         Self {
             profile: "runtime_v1".to_string(),
+            timeout: santi_core::budget::timeout(),
             rounds: 64,
             calls: 256,
             output: 4 * 1024 * 1024,

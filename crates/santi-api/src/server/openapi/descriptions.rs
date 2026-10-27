@@ -1,4 +1,8 @@
-pub const COMPONENT_DESCRIPTIONS: [(&str, &str); 10] = [
+pub const COMPONENT_DESCRIPTIONS: [(&str, &str); 11] = [
+    (
+        "budget.Execution",
+        "Execution policy for a strand. `timeout` is the foreground shell deadline in seconds, including waiting for inherited stdout/stderr pipes. A deadline interrupts the managed process group and reports a tool failure; partial external effects remain possible. Detached Jobs own long waits and their separate timeout policy.",
+    ),
     (
         "Soul",
         "A soul is a cyber-individual, keyed by id alone. It has no name/avatar/desc\ncolumn: identity is the mutable self, and it lives entirely in the soul's\nmemory (rendered live into `[santi-soul]`), not in a profile row. The\ntimestamps are pure provenance.",

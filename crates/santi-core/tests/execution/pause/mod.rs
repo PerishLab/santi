@@ -78,6 +78,7 @@ async fn holds() {
         .await
         .unwrap()
         .bounded(santi_core::budget::Execution {
+            timeout: 60,
             profile: "test".into(),
             rounds: 1,
             calls: 1,

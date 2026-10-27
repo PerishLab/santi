@@ -7,7 +7,7 @@ pub(super) fn tool() -> Tool {
     Tool::Function(Function {
         name: "shell".to_string(),
         description: format!(
-            "Run a short, bounded command in a fresh shell process. For work with unknown duration, external waits, or periodic attention, use this invocation solely to create one detached Job with `santi job create <DESCRIPTION> <COMMAND>`; its help lists options. Santi supplies the one-use capability and returns the durable Job id. Commands default to the current execution workspace; cwd selects {SOULSPACE} or {STRANDSPACE} and their subpaths. Unix-like systems use bash; Windows uses pwsh."
+            "Run a short, bounded command in a fresh shell process. Foreground execution has a time deadline reported in the execution budget; use a detached Job for longer waits. For work with unknown duration, external waits, or periodic attention, use this invocation solely to create one detached Job with `santi job create <DESCRIPTION> <COMMAND>`; its help lists options. Santi supplies the one-use capability and returns the durable Job id. Commands default to the current execution workspace; cwd selects {SOULSPACE} or {STRANDSPACE} and their subpaths. Unix-like systems use bash; Windows uses pwsh."
         ),
         parameters: json!({
             "type": "object",

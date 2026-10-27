@@ -33,6 +33,7 @@ async fn verify(work: usize, rounds: usize, calls: usize, batch: usize) {
     .await
     .unwrap()
     .bounded(budget::Execution {
+        timeout: 60,
         profile: "incomplete".into(),
         rounds,
         calls,

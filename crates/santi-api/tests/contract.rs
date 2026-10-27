@@ -46,6 +46,10 @@ fn api() {
             .any(|field| field == "content")
     );
     let cap = &document["components"]["schemas"]["budget.Cap"];
+    let timeout = &document["components"]["schemas"]["budget.Execution"]["properties"]["timeout"];
+    assert_eq!(timeout["default"], 60);
+    assert_eq!(timeout["minimum"], 1);
+    assert_eq!(timeout["maximum"], 3600);
     let soul = &document["components"]["schemas"]["soul.Soul"];
     assert!(soul["properties"].get("identity").is_some());
     assert!(
@@ -76,6 +80,6 @@ fn api() {
     let hash = format!("{:x}", Sha256::digest(text.as_bytes()));
     assert_eq!(
         hash,
-        "d7b3e705094bdd51f2a6a77f7ea936feacb4c2e18ea05c884636b664a73ec1d9"
+        "e86826c142ec23a4f1859b13840e7bf146586f8d476e1b08e52b67f7318de8dd"
     );
 }

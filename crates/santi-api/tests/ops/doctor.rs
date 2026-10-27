@@ -90,6 +90,7 @@ fn runtime_under(root: &Path, budget: Option<usize>) -> Runtime {
         feishu: Default::default(),
         capability: None,
         execution: santi_core::budget::Execution {
+            timeout: 60,
             profile: "test".to_string(),
             rounds: 2,
             calls: 2,
