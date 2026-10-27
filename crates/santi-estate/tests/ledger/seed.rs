@@ -1,8 +1,8 @@
 use santi_error::{Draft, Scope, Source, catalog};
 use santi_estate::{
     CallDraft, CompactDraft, CompletionDraft, DownstreamDraft, EffectDraft, EnvironDraft,
-    InboxDraft, MaterialDraft, MessageDraft, OutboxDraft, RedemptionDraft, ReplayDraft, Store,
-    StrandDraft, ThinkingDraft, TurnDraft, WebhookDraft,
+    InboxDraft, MessageDraft, OutboxDraft, RedemptionDraft, ReplayDraft, Store, StrandDraft,
+    ThinkingDraft, TurnDraft, WebhookDraft,
 };
 use santi_model::alarm::{self, Occurrence};
 use santi_model::{effect, environ, event, message, turn};
@@ -210,7 +210,7 @@ pub(super) async fn populate(store: &Store, strand: &str) {
         .await
         .expect("strand incident");
     store
-        .record_material(MaterialDraft {
+        .record(santi_estate::object::Draft {
             strand,
             key: "avatars/santi.svg",
             length: 4,

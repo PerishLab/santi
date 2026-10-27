@@ -136,7 +136,7 @@ pub(crate) struct TurnStop {
 }
 
 #[resource]
-pub(crate) struct Material {
+pub(crate) struct Object {
     #[field(string, unique = strand)]
     key: string,
     #[field(int, min = 0)]

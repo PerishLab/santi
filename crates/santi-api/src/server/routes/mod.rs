@@ -88,7 +88,7 @@ pub(super) fn router(service: Service) -> Router {
         .route("/api/v1/strands/{strand}/messages", list_messages())
         .route(
             "/api/v1/strands/{strand}/materials",
-            material().merge(get(materials::strand::query)),
+            render().merge(get(materials::strand::query)),
         )
         .route("/api/v1/strands/{strand}/events", get(strand_events))
         .route("/api/v1/strands/{strand}/send", post(send))

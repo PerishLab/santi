@@ -52,7 +52,7 @@ pub(super) fn graph() -> Graph {
     graph.plug::<wake::WakeLease>();
     graph.plug::<alarm::Alarm>().plug::<alarm::AlarmDelivery>();
     graph
-        .plug::<ledger::Material>()
+        .plug::<ledger::Object>()
         .plug::<material::Revision>()
         .plug::<material::Blob>()
         .plug::<material::Declaration>()

@@ -177,10 +177,10 @@ async fn capacity() {
     for capacity in [200_000, 500_000] {
         bytes.store(capacity, Ordering::SeqCst);
         let prompt = service
-            .material(
+            .render(
                 &strand.id,
-                santi_core::material::Request {
-                    kind: santi_core::material::Kind::SystemPrompt,
+                santi_core::render::Request {
+                    kind: santi_core::render::Kind::SystemPrompt,
                 },
             )
             .await

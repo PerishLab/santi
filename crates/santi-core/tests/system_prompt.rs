@@ -1,9 +1,9 @@
+use santi_core::render;
 use santi_core::service::{self, Service};
 use std::{fs, sync::Arc};
 
 use async_trait::async_trait;
 use futures_util::stream;
-use santi_core::material;
 use santi_core::{SOULSPACE, STRANDSPACE, soulward, strandward};
 use santi_provider::{Metadata, Provider, Streaming};
 
@@ -213,16 +213,16 @@ impl PromptHarness {
         fs::write(self.runtime.join("constitution.md"), text).expect("write constitution");
     }
 
-    async fn system_prompt(&self) -> material::Material {
+    async fn system_prompt(&self) -> render::View {
         self.system_prompt_for(&self.strand).await
     }
 
-    async fn system_prompt_for(&self, strand: &str) -> material::Material {
+    async fn system_prompt_for(&self, strand: &str) -> render::View {
         self.service
-            .material(
+            .render(
                 strand,
-                material::Request {
-                    kind: material::Kind::SystemPrompt,
+                render::Request {
+                    kind: render::Kind::SystemPrompt,
                 },
             )
             .await

@@ -25,9 +25,9 @@ pub use job::{
 pub use support::{Bootstrap, EnvironDraft, Status, TraceDraft};
 pub use support::{WakeLease, WakeOfferDraft};
 use support::{entry, read, write};
+pub use timeline::object;
 pub use timeline::{
-    Bind, Capture, CompactDraft, ForkDraft, Limits, Material, MaterialDraft, MessageDraft,
-    ThinkingDraft, Unbind,
+    Bind, Capture, CompactDraft, ForkDraft, Limits, MessageDraft, ThinkingDraft, Unbind,
 };
 pub use tool::{CallDraft, ReplyDraft, Spent, Tally, bounded, curbed};
 pub use turn::{
@@ -51,11 +51,19 @@ pub struct StrandDraft<'a> {
 
 impl Store {
     pub async fn open(path: impl AsRef<Path>) -> Result<Self, String> {
-        let wire = support::wire(path.as_ref()).await?;
-        let core = bind(crate::graph(), wire)
+        let mut wire = support::wire(path.as_ref()).await?;
+        let legacy = keel::estate::read(&mut wire)
             .await
             .map_err(read::error)?
-            .share();
+            .nodes()
+            .contains_key("strand:material");
+        let binding = bind(crate::graph(), wire);
+        let binding = if legacy {
+            binding.rename("strand:material", "strand:object")
+        } else {
+            binding
+        };
+        let core = binding.await.map_err(read::error)?.share();
         Ok(Self { core })
     }
 

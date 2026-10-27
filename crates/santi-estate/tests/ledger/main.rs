@@ -3,6 +3,7 @@ mod material;
 mod model;
 mod removal;
 mod seed;
+mod upgrade;
 
 use santi_estate::{
     CallDraft, MessageDraft, NoticeDraft, ReplyDraft, Store, StrandDraft, ThinkingDraft, TurnDraft,

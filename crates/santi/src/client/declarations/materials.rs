@@ -1,4 +1,4 @@
-use crate::cli::{ClientDefaults, Material, Materials, Person, Reading, Soul};
+use crate::cli::{ClientDefaults, Materials, Person, Reading, Rendering, Soul};
 use crate::client::{Http, urlencoding_encode};
 use anyhow::{Context, Result};
 
@@ -100,7 +100,7 @@ impl<'a, 'h> Seat<'a, 'h> {
             None if scope == "strands" => {
                 http.post(
                     &url,
-                    Some(serde_json::json!({"kind":args.kind.unwrap_or(Material::Skill).wire()})),
+                    Some(serde_json::json!({"kind":args.kind.unwrap_or(Rendering::Skill).wire()})),
                 )
                 .await
             }

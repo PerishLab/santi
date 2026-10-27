@@ -1,14 +1,15 @@
 use super::*;
+use santi_core::render;
 
 #[tokio::test]
-async fn materials() {
+async fn rendering() {
     let harness = PromptHarness::open().await;
-    let request = || material::Request {
-        kind: material::Kind::Skill,
+    let request = || render::Request {
+        kind: render::Kind::Skill,
     };
     let skill = harness
         .service
-        .material(&harness.strand, request())
+        .render(&harness.strand, request())
         .await
         .unwrap();
     assert_eq!(skill.content_type, "text/markdown; charset=utf-8");
@@ -24,7 +25,7 @@ async fn materials() {
     assert!(next.text.contains("An uncertain operating hypothesis"));
     let again = harness
         .service
-        .material(&harness.strand, request())
+        .render(&harness.strand, request())
         .await
         .unwrap();
     assert_eq!(again.updated, skill.updated);
@@ -33,7 +34,7 @@ async fn materials() {
     assert!(
         harness
             .service
-            .material("missing", request())
+            .render("missing", request())
             .await
             .unwrap_err()
             .contains("strand not found")

@@ -23,8 +23,11 @@ pub enum Payload {
     Tool(crate::tool::Beat),
     Thinking(crate::thinking::Beat),
     Turn(crate::turn::Beat),
-    Material(crate::material::Beat),
-    Transition { transition: Box<Transition> },
+    #[serde(rename = "material")]
+    Render(crate::render::Beat),
+    Transition {
+        transition: Box<Transition>,
+    },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]

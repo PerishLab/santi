@@ -5,6 +5,7 @@ use santi_model::message;
 pub(in crate::store) mod compact;
 mod fork;
 mod material;
+pub mod object;
 mod projection;
 mod retire;
 mod round;
@@ -12,7 +13,7 @@ mod thinking;
 
 pub use compact::{CompactDraft, Limits};
 pub use fork::ForkDraft;
-pub use material::{Bind, Capture, Material, MaterialDraft, Unbind};
+pub use material::{Bind, Capture, Unbind};
 pub use thinking::ThinkingDraft;
 
 pub struct MessageDraft<'a> {

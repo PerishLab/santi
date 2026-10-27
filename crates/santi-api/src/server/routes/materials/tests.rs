@@ -44,6 +44,7 @@ async fn surface() {
     let strand = service.weave().await.unwrap().strand.id;
     let app = super::super::router(service);
     let endpoint = format!("/api/v1/strands/{strand}/materials");
+    compatibility(&app, &endpoint).await;
     let response = action(&app, &format!("{endpoint}/load"), "load").await;
     assert_eq!(response["change"]["action"], "load");
     assert_eq!(response["state"]["bindings"].as_array().unwrap().len(), 1);
@@ -93,4 +94,44 @@ async fn action(app: &axum::Router, url: &str, operation: &str) -> serde_json::V
         .await
         .unwrap();
     serde_json::from_slice(&body).unwrap()
+}
+
+async fn compatibility(app: &axum::Router, endpoint: &str) {
+    for kind in ["skill", "system_prompt"] {
+        let request = axum::http::Request::builder()
+            .method("POST")
+            .uri(endpoint)
+            .header("content-type", "application/json")
+            .body(axum::body::Body::from(
+                serde_json::json!({"kind":kind}).to_string(),
+            ))
+            .unwrap();
+        let response = app.clone().oneshot(request).await.unwrap();
+        assert_eq!(response.status().as_u16(), 200);
+        let bytes = axum::body::to_bytes(response.into_body(), 100000)
+            .await
+            .unwrap();
+        let view: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+        assert_eq!(view["kind"], kind);
+        assert_eq!(
+            view.as_object()
+                .unwrap()
+                .keys()
+                .map(String::as_str)
+                .collect::<Vec<_>>(),
+            vec!["content_type", "kind", "strand", "text", "updated"]
+        );
+        assert!(!view["text"].as_str().unwrap().is_empty());
+    }
+    let request = axum::http::Request::builder()
+        .uri(endpoint)
+        .body(axum::body::Body::empty())
+        .unwrap();
+    let response = app.clone().oneshot(request).await.unwrap();
+    assert_eq!(response.status().as_u16(), 200);
+    let bytes = axum::body::to_bytes(response.into_body(), 100000)
+        .await
+        .unwrap();
+    let bindings: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+    assert!(bindings["bindings"].as_array().unwrap().is_empty());
 }

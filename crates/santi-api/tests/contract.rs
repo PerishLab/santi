@@ -77,23 +77,38 @@ fn api() {
             .get("lines")
             .is_some()
     );
-    let material = &document["components"]["schemas"]["material.Kind"];
+    let rendering = &document["components"]["schemas"]["render.Kind"];
     assert_eq!(
-        material["enum"],
+        rendering["enum"],
         serde_json::json!(["system_prompt", "skill"])
     );
     assert!(
-        material["description"]
+        rendering["description"]
             .as_str()
             .unwrap()
-            .contains("does not submit")
+            .contains("does not change material bindings")
+    );
+    assert!(
+        document["components"]["schemas"]
+            .get("material.Material")
+            .is_none()
+    );
+    assert!(
+        document["components"]["schemas"]
+            .get("material.Kind")
+            .is_none()
+    );
+    assert!(
+        document["components"]["schemas"]
+            .get("material.Descriptor")
+            .is_some()
     );
     let routes = &document["paths"];
     assert!(
         routes["/api/v1/strands/{strand}/materials"]["post"]["summary"]
             .as_str()
             .unwrap()
-            .contains("does not submit text")
+            .contains("Legacy render adapter")
     );
     for path in ["/api/v1/errors/events", "/api/v1/turn-events/stream"] {
         assert!(
@@ -143,6 +158,6 @@ fn api() {
     let hash = format!("{:x}", Sha256::digest(text.as_bytes()));
     assert_eq!(
         hash,
-        "8870b5d30d5c019a35232aeb56228631a463ba94bd31ca83ffe063c9c860f0e4"
+        "38c76993525e9086fe9966129a261cd93454bf5cafbb410d0f658aa2816a0e6f"
     );
 }

@@ -13,8 +13,8 @@ pub use santi_error::*;
 pub use santi_estate::{InboxDraft, Store};
 pub use santi_model::{
     Health, Timestamp, alarm, budget, compact, downstream, drive, effect, environ, event, ingest,
-    job, material, message, now, receipt, soul, stamped, strand, stream, tag, thinking, tool,
-    trace, turn, webhook,
+    job, material, message, now, receipt, render, soul, stamped, strand, stream, tag, thinking,
+    tool, trace, turn, webhook,
 };
 pub use santi_object as object;
 pub use santi_provider::Item;

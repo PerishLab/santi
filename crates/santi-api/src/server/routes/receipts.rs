@@ -1,5 +1,6 @@
 use super::*;
-use santi_core::{material, receipt, soul, strand, webhook};
+use santi_core::render;
+use santi_core::{receipt, soul, strand, webhook};
 
 #[utoipa::path(
     get,
@@ -165,21 +166,21 @@ pub(super) fn list_messages() -> MethodRouter<Service> {
 #[utoipa::path(
     post,
     path = "/api/v1/strands/{strand}/materials",
-    summary = "Render and return current material selected by kind for inspection. This request does not submit text or alter instructions or memory.",
+    summary = "Legacy render adapter: return operating guidance or the current assembled system prompt. This does not load, drop or query material packages.",
     params(("strand" = String, Path)),
-    request_body = material::Request,
+    request_body = render::Request,
     responses(
-        (status = 200, body = material::Material),
+        (status = 200, body = render::View),
         (status = 404, body = Fault),
         (status = 500, body = Fault)
     )
 )]
-pub(super) fn material() -> MethodRouter<Service> {
+pub(super) fn render() -> MethodRouter<Service> {
     routing::post(
         |State(service): State<Service>,
          Path(strand): Path<String>,
-         Json(request): Json<material::Request>| async move {
-            Receipts(service).material(strand, request).await
+         Json(request): Json<render::Request>| async move {
+            Receipts(service).render(strand, request).await
         },
     )
 }
@@ -284,13 +285,13 @@ impl Receipts {
             .ok_or_else(|| ApiError::not_found("strand not found"))
     }
 
-    async fn material(
+    async fn render(
         &self,
         strand: String,
-        request: material::Request,
-    ) -> Result<Json<material::Material>, ApiError> {
+        request: render::Request,
+    ) -> Result<Json<render::View>, ApiError> {
         self.0
-            .material(&strand, request)
+            .render(&strand, request)
             .await
             .map(Json)
             .map_err(ApiError::from_service)
