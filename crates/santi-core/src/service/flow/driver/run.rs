@@ -119,6 +119,7 @@ impl Service {
             };
             let mut request = attempt!(Operation::Assembly, self.provider.prepare(request));
             self.suffix(&mut request);
+            attempt!(Operation::History, self.provider.validate(&request));
             let estimate = gauged(&request, self.provider.as_ref());
             if let Some(error) = attempt!(
                 Operation::Admission(Admission::Context),

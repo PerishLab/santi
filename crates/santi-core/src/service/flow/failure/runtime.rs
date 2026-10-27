@@ -8,7 +8,10 @@ impl Service {
         error: &str,
         operation: Operation,
     ) -> (Option<Turn>, Fault) {
-        let descriptor = crate::turn::Error::Runtime.descriptor();
+        let descriptor = match operation {
+            Operation::History => crate::turn::Error::History.descriptor(),
+            _ => crate::turn::Error::Runtime.descriptor(),
+        };
         match self
             .store
             .fail_classified(santi_estate::ClassifiedFailureDraft {
@@ -19,7 +22,13 @@ impl Service {
                     descriptor,
                     scope: santi_error::Scope::new("strand", strand),
                     source: santi_error::Source::new("santi-core", operation.name()),
-                    message: "turn failed inside the runtime".to_string(),
+                    message: match operation {
+                        Operation::History => {
+                            "selected history is incompatible with provider continuation"
+                        }
+                        _ => "turn failed inside the runtime",
+                    }
+                    .to_string(),
                     context: serde_json::json!({
                         "schema": "santi.error.runtime_turn.v1",
                         "turn": turn,

@@ -27,7 +27,10 @@ pub enum StrandCommand {
         #[arg(long, default_value_t = 50)]
         limit: i64,
     },
-    #[command(about = "POST /api/v1/strands/{id}/fork (id falls back to --strand)")]
+    #[command(
+        about = "Fork a complete history prefix (id falls back to --strand)",
+        long_about = "POST /api/v1/strands/{id}/fork. In-flight or failed execution is excluded at its turn boundary; the returned strand.fork is the actual inherited sequence. The child shares its soul and retains a complete history prefix, without inheriting active execution or effects. Strand workspace files are copied as they exist now, not rewound to the history boundary."
+    )]
     Fork { id: Option<String> },
     #[command(
         about = "POST /api/v1/strands/{id}/drive — explicitly redrive pending or failed receipts (id falls back to --strand)"

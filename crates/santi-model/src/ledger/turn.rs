@@ -118,12 +118,20 @@ pub enum Error {
     Provider,
     Runtime,
     Interrupted,
+    History,
 }
 
 impl santi_error::Ruled for Error {
     fn descriptor(&self) -> santi_error::Descriptor {
         use santi_error::{Category, Exposure, Retry, Severity};
         match self {
+            Self::History => santi_error::Descriptor {
+                code: "runtime.history.invalid",
+                category: Category::Invalid,
+                severity: Severity::Error,
+                retry: Retry::Changed,
+                exposure: Exposure::CALLER_AND_OPERATOR,
+            },
             Self::Provider => santi_error::Descriptor {
                 code: "provider.turn.failed",
                 category: Category::Unavailable,
