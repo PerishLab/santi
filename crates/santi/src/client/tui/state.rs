@@ -47,6 +47,7 @@ pub(super) enum Beat {
     Event(Kind, Option<String>, String),
     Lost(String),
     Live,
+    Accepted(String),
     Settled(String),
     Broken(String),
     Unsettled(String),
@@ -95,6 +96,7 @@ pub(super) struct State {
     pub(super) beats: usize,
     pub(super) busy: bool,
     pub(super) unsettled: bool,
+    pub(super) receipt: Option<String>,
     pub(super) deaf: bool,
     pub(super) omitted: usize,
     pub(super) revision: usize,
@@ -129,6 +131,7 @@ impl State {
             beats: 0,
             busy: false,
             unsettled: false,
+            receipt: None,
             deaf: false,
             omitted: 0,
             revision: 0,
@@ -199,9 +202,11 @@ impl State {
                     );
                 }
             }
+            Beat::Accepted(receipt) => self.receipt = Some(receipt),
             Beat::Settled(receipt) => {
                 self.busy = false;
                 self.unsettled = false;
+                self.receipt = None;
                 self.since = None;
                 self.push(format!(
                     "send completed: receipt {receipt} is durably completed; do not resend"
@@ -210,6 +215,7 @@ impl State {
             Beat::Broken(detail) => {
                 self.busy = false;
                 self.unsettled = false;
+                self.receipt = None;
                 self.since = None;
                 self.push(detail);
             }
