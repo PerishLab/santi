@@ -1,7 +1,9 @@
 mod batch;
+mod entries;
 mod faults;
 mod forks;
 mod freshness;
+mod lifetime;
 mod support;
 
 use santi_estate::{

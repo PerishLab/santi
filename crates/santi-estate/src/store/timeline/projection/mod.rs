@@ -1,35 +1,10 @@
+mod entries;
+
 use super::{Store, decode_role, read, target};
 use keel::{Op, Rank, form};
 use santi_model::{message, strand, stream};
 
 impl Store {
-    pub async fn entries(&self, strand: &str) -> Result<Vec<strand::Entry>, String> {
-        let strand = read::one(&self.core, "Strand", "tag", strand)
-            .await?
-            .ok_or_else(|| "strand not found".to_string())?;
-        let rows = self
-            .core
-            .ask(
-                &form("StrandEntry")
-                    .when("strand", Op::Eq, &strand.key().to_string())
-                    .order("sequence", Rank::Asc),
-            )
-            .await
-            .map_err(read::error)?;
-        let mut entries = Vec::with_capacity(rows.rows().len());
-        for row in rows.rows() {
-            entries.push(strand::Entry {
-                strand: read::related(&self.core, "Strand", read::int(row, "strand")?).await?,
-                kind: target::decode(read::text(row, "target_type")?)?,
-                target: read::text(&crate::store::entry::target(&self.core, row).await?, "tag")?
-                    .to_string(),
-                seq: read::int(row, "sequence")?,
-                created: read::text(row, "created")?.to_string(),
-            });
-        }
-        Ok(entries)
-    }
-
     pub async fn execution_tail(
         &self,
         strand: &str,
