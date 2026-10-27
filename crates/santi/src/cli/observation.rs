@@ -20,6 +20,7 @@ fn name(command: &crate::cli::Command) -> &'static str {
         Command::Soul(_) => "soul",
         Command::Tui { .. } => "tui",
         Command::Errors { .. } => "errors",
+        Command::Incident { .. } => "incident",
         Command::Receipt { .. } => "receipt",
         Command::Effect(_) => "effect",
         Command::Strand(_) => "strand",

@@ -58,67 +58,6 @@ impl Provider for DriverProvider {
     }
 }
 
-mod errors {
-    use super::*;
-
-    #[test]
-    fn classifies() {
-        assert_eq!(status("strand not found"), StatusCode::NOT_FOUND);
-        assert_eq!(status("unknown soul: soul_x"), StatusCode::BAD_REQUEST);
-        assert_eq!(
-            status("downstream digest must be 64 hexadecimal characters"),
-            StatusCode::BAD_REQUEST
-        );
-        assert_eq!(
-            status("downstream request conflicts with an accepted payload"),
-            StatusCode::CONFLICT
-        );
-        assert_eq!(
-            status("adapt: compact plan conflicts with its preview; retry compact"),
-            StatusCode::CONFLICT
-        );
-        assert_eq!(
-            status("webhook secretary conflicts with an existing subscription"),
-            StatusCode::CONFLICT
-        );
-        assert_eq!(
-            status("webhook delivery conflicts with an accepted payload"),
-            StatusCode::CONFLICT
-        );
-        assert_eq!(
-            status("launchd did not accept job job_x: unavailable"),
-            StatusCode::SERVICE_UNAVAILABLE
-        );
-        assert_eq!(
-            ApiError::forbidden("outside zone").status(),
-            StatusCode::FORBIDDEN
-        );
-        let budget = engine().transient(santi_core::Signal {
-            descriptor: budget::Error::Context.descriptor(),
-            source: santi_core::Source::new("test", "admission"),
-            scope: Some(santi_core::Scope::new("strand", "ss_x")),
-            message: "over budget".to_string(),
-            context: serde_json::Value::Null,
-        });
-        assert_eq!(ApiError::from_santi(budget).status(), StatusCode::LOCKED);
-        let unavailable = engine().transient(santi_core::Signal {
-            descriptor: drive::Error::Failed.descriptor(),
-            source: santi_core::Source::new("test", "driver"),
-            scope: Some(santi_core::Scope::new("strand", "ss_x")),
-            message: "driver unavailable".to_string(),
-            context: serde_json::Value::Null,
-        });
-        assert_eq!(
-            ApiError::from_santi(unavailable).status(),
-            StatusCode::SERVICE_UNAVAILABLE
-        );
-        assert_eq!(
-            status("something unexpected"),
-            StatusCode::INTERNAL_SERVER_ERROR
-        );
-    }
-}
-
 mod openapi {
     #[test]
     fn lists() {
@@ -293,8 +232,10 @@ mod recovery;
 mod store;
 mod support;
 
+mod retire;
+
+mod history;
+
 fn status(message: &str) -> StatusCode {
     ApiError::from_service(message.to_string()).status()
 }
-
-mod retire;

@@ -90,6 +90,7 @@ const CONFLICT: &[Rule] = &[
 
 const INVALID: &[Rule] = &[
     Rule::Starts("material "),
+    Rule::Starts("incident cursor "),
     Rule::Starts("alarm "),
     Rule::Starts("[compact."),
     Rule::Starts("compact summary is"),

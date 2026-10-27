@@ -172,3 +172,6 @@ mod material;
 
 #[path = "cli/retire.rs"]
 mod retire;
+
+#[path = "cli/incidents.rs"]
+mod incidents;

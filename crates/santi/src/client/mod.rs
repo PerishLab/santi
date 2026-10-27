@@ -64,13 +64,17 @@ pub(crate) async fn run(
             scope_kind,
             scope_id,
             limit,
+            before,
         } => {
-            http.get(&format!(
-                "{base}/api/v1/errors/{scope_kind}/{scope_id}?limit={limit}"
-            ))
+            http.get(&http::page(
+                format!("{base}/api/v1/errors/{scope_kind}/{scope_id}"),
+                limit,
+                before.as_deref(),
+            )?)
             .await
         }
         Command::Soul(args) => declarations::materials::soul(&http, &base, defaults, args).await,
+        Command::Incident { id } => http.get(&format!("{base}/api/v1/incidents/{id}")).await,
         Command::Receipt { inbox } => http.get(&format!("{base}/api/v1/receipts/{inbox}")).await,
         Command::Effect(EffectCommand::Query { effect }) => {
             http.get(&format!("{base}/api/v1/effects/{effect}")).await

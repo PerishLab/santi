@@ -15,6 +15,7 @@ use crate::provider;
 
 pub use effects::{ResolveEffectRequest, effect, settle};
 pub use error::ApiError;
+pub use errors::{ErrorQueryParams, errors, incident, stranded};
 pub use jobs::{CreateJobRequest, Jobs};
 pub use routes::{Environs, drive, end_strand, health, send};
 

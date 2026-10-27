@@ -60,6 +60,7 @@ use santi_core::{material, soul, strand, stream};
         super::routes::audit,
         super::errors::stranded,
         super::errors::errors,
+        super::errors::incident,
         super::routes::receipt,
         super::effects::effect,
         super::effects::trail,

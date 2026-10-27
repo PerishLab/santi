@@ -79,6 +79,7 @@ pub(super) fn router(service: Service) -> Router {
         .route("/api/v1/strands/{strand}/budget", audit())
         .route("/api/v1/strands/{strand}/errors", get(stranded))
         .route("/api/v1/errors/events", get(transitions))
+        .route("/api/v1/incidents/{incident}", get(super::errors::incident))
         .route("/api/v1/errors/{scope_kind}/{scope_id}", get(errors))
         .route("/api/v1/receipts/{inbox}", receipt())
         .route("/api/v1/effects/{effect}", get(super::effects::effect))

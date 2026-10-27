@@ -30,11 +30,15 @@ pub enum StrandCommand {
     ExecutionTail { id: Option<String> },
     #[command(about = "GET /api/v1/strands/{id}/budget (id falls back to --strand)")]
     Budget { id: Option<String> },
-    #[command(about = "GET /api/v1/strands/{id}/errors (id falls back to --strand)")]
+    #[command(
+        about = "Page retained incidents; pass the last id as --before (id falls back to --strand)"
+    )]
     Errors {
         id: Option<String>,
         #[arg(long, default_value_t = 50)]
         limit: i64,
+        #[arg(long)]
+        before: Option<String>,
     },
     #[command(
         about = "Fork a complete history prefix (id falls back to --strand)",

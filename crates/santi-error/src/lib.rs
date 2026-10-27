@@ -155,6 +155,13 @@ pub struct Incident {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[schema(as = error::History, description = "Retained incident aggregate and persisted opened/resolved snapshots. Repeated reports retain first/latest summaries and a count, not a per-occurrence journal. Delivery acknowledgement does not remove these snapshots. Ended owners are unavailable.")]
+pub struct History {
+    pub incident: Incident,
+    pub transitions: Vec<Transition>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 #[schema(as = error::Fault)]
 pub struct Fault {
     pub id: String,

@@ -39,6 +39,14 @@ same transaction that ends the strand. Files follow the commit with best-effort
 cleanup and startup sweep recovery; physical collection follows Keel retention.
 Issue [#251](https://github.com/PerishLab/santi/issues/251) records the contract.
 
+Incident lists page retained active and resolved records by first-seen time and
+ID descending. Use the last returned ID as `before` to continue; new arrivals
+appear on a fresh first page. Exact incident inspection includes the persisted
+opened/resolved snapshots after delivery acknowledgement. Repeated reports keep
+first/latest summaries and a count. History follows its owning soul or strand;
+retired records are unavailable. Issue [#253](https://github.com/PerishLab/santi/issues/253)
+records the read contract.
+
 Live credentials belong in the ignored `santi.toml`; use `santi.example.toml`
 for tracked configuration changes.
 
