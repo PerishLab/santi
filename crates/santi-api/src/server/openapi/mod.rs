@@ -43,6 +43,7 @@ use santi_core::{material, soul, strand, stream};
         super::jobs::acknowledge,
         super::ingress::ingest_webhook,
         super::routes::get_strand,
+        super::routes::end_strand,
         super::routes::strand_environs,
         super::routes::set_strand_environ,
         super::routes::end_strand_environ,

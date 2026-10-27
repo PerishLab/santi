@@ -65,6 +65,11 @@ const MISSING: &[Rule] = &[
 ];
 
 const CONFLICT: &[Rule] = &[
+    Rule::Starts("strand retirement conflicts"),
+    Rule::Around {
+        start: "strand ",
+        fragment: " is shown by live fork ",
+    },
     Rule::Contains("alarm generation conflicts"),
     Rule::Contains("compact plan conflicts"),
     Rule::Starts("downstream request conflicts"),
@@ -277,20 +282,4 @@ impl IntoResponse for ApiError {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn conflict() {
-        for prefix in ["", "adapt: "] {
-            let error = ApiError::from_service(format!(
-                "{prefix}job capability conflicts with its accepted request"
-            ));
-            assert_eq!(error.status(), StatusCode::CONFLICT);
-            assert_eq!(
-                error.message(),
-                "job capability conflicts with its accepted request"
-            );
-        }
-    }
-}
+mod tests;

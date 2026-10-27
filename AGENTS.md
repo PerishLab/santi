@@ -32,6 +32,12 @@ resolve; `crates/santi-estate/tests/model.rs` classifies every text field.
 Ending a strand through Keel removes what it owns, and its bytes on disk follow
 the committed estate; the start sweep removes bytes no live row owns.
 Issue [#226](https://github.com/PerishLab/santi/issues/226) records the design.
+`strand end <id>` and `DELETE /api/v1/strands/{strand}` retire one explicitly
+identified idle strand. Pending input, unfinished turns or receipts, active or
+unacknowledged Jobs, unsettled effects and live forks block retirement in the
+same transaction that ends the strand. Files follow the commit with best-effort
+cleanup and startup sweep recovery; physical collection follows Keel retention.
+Issue [#251](https://github.com/PerishLab/santi/issues/251) records the contract.
 
 Live credentials belong in the ignored `santi.toml`; use `santi.example.toml`
 for tracked configuration changes.

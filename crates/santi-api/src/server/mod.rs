@@ -16,7 +16,7 @@ use crate::provider;
 pub use effects::{ResolveEffectRequest, effect, settle};
 pub use error::ApiError;
 pub use jobs::{CreateJobRequest, Jobs};
-pub use routes::{Environs, drive, health, send};
+pub use routes::{Environs, drive, end_strand, health, send};
 
 pub fn export_openapi_json() -> Result<String, String> {
     serde_json::to_string_pretty(&openapi::document()).map_err(|error| error.to_string())
