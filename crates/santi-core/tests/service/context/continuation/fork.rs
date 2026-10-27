@@ -94,36 +94,84 @@ async fn rejected(service: &Service, strand: &str) {
 
 async fn closed(store: &santi_core::Store, parent: &str) {
     let now = santi_core::now();
-    store
-        .create_call(CallDraft {
-            tag: "call_second",
-            turn: "turn_active",
-            tool: "shell",
-            arguments: &json!({"command":"printf second"}),
-            created: &now,
-        })
-        .await
-        .unwrap();
+    fixture(async || {
+        if let Some(call) = store.call("call_second").await? {
+            assert_eq!(call.turn, "turn_active");
+            assert_eq!(call.tool, "shell");
+            assert_eq!(call.arguments, json!({"command":"printf second"}));
+            return Ok(());
+        }
+        store
+            .create_call(CallDraft {
+                tag: "call_second",
+                turn: "turn_active",
+                tool: "shell",
+                arguments: &json!({"command":"printf second"}),
+                created: &now,
+            })
+            .await
+            .map(|_| ())
+    })
+    .await;
     for (tag, call) in [
         ("reply_active", "call_active"),
         ("reply_second", "call_second"),
     ] {
+        replied(store, tag, call, &now).await;
+    }
+    let head = store.strand(parent).await.unwrap().unwrap().next - 1;
+    fixture(async || {
+        let turn = store.turn("turn_active").await?.expect("fixture turn");
+        if turn.status == santi_core::turn::Status::Completed {
+            assert_eq!(turn.to, Some(head));
+            return Ok(());
+        }
+        store
+            .complete_turn("turn_active", head, &now)
+            .await
+            .map(|_| ())
+    })
+    .await;
+}
+
+async fn replied(store: &santi_core::Store, tag: &str, call: &str, now: &str) {
+    fixture(async || {
+        if let Some(reply) = store.reply(tag).await? {
+            assert_eq!(reply.call, call);
+            assert_eq!(reply.output, Some(json!({"exit_code":0})));
+            assert!(reply.error.is_none());
+            return Ok(());
+        }
         store
             .create_reply(ReplyDraft {
                 tag,
                 call,
                 output: Some(&json!({"exit_code":0})),
                 error: None,
-                created: &now,
+                created: now,
             })
             .await
-            .unwrap();
+            .map(|_| ())
+    })
+    .await;
+}
+
+async fn fixture(mut write: impl AsyncFnMut() -> Result<(), String>) {
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(2);
+    loop {
+        let result = tokio::time::timeout_at(deadline, write())
+            .await
+            .expect("fixture writer deadline");
+        match result {
+            Ok(()) => return,
+            Err(error)
+                if error == "store unavailable" && tokio::time::Instant::now() < deadline =>
+            {
+                sleep(Duration::from_millis(10)).await;
+            }
+            Err(error) => panic!("fixture write failed: {error}"),
+        }
     }
-    let head = store.strand(parent).await.unwrap().unwrap().next - 1;
-    store
-        .complete_turn("turn_active", head, &now)
-        .await
-        .unwrap();
 }
 
 async fn opened(store: &santi_core::Store, parent: &str, head: i64) {

@@ -52,9 +52,17 @@ impl Store {
             })
             .await
             .map_err(read::error)?;
-        self.inbox(draft.tag)
-            .await?
-            .ok_or_else(|| "accepted inbox missing".to_string())
+        Ok(Inbox {
+            id: draft.tag.to_string(),
+            strand: draft.strand.to_string(),
+            kind: draft.kind.clone(),
+            content: draft.content.clone(),
+            source: draft.source.cloned(),
+            coalesce_key: None,
+            coalesce_revision: None,
+            coalesce_causes: Vec::new(),
+            created: draft.created.to_string(),
+        })
     }
 
     pub async fn offer_notice(&self, draft: NoticeDraft<'_>, gate: usize) -> Result<Offer, String> {

@@ -192,3 +192,5 @@ async fn admission() {
         receipt::State::Driving
     );
 }
+
+mod acceptance;
