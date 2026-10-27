@@ -24,6 +24,7 @@ mod tally;
 pub use bound::{bounded, curbed};
 
 mod decode;
+mod history;
 
 pub use tally::{Spent, Tally};
 
@@ -46,28 +47,6 @@ impl Store {
             return Ok(None);
         };
         self.decode_call(&row).await.map(Some)
-    }
-
-    pub async fn calls(&self, strand: &str) -> Result<Vec<tool::Call>, String> {
-        let strand = read::one(&self.core, "Strand", "tag", strand)
-            .await?
-            .ok_or_else(|| "strand not found".to_string())?;
-        let entries = self
-            .core
-            .ask(
-                &form("StrandEntry")
-                    .when("strand", Op::Eq, &strand.key().to_string())
-                    .when("target_type", Op::Eq, "tool_call")
-                    .order("sequence", Rank::Asc),
-            )
-            .await
-            .map_err(read::error)?;
-        let mut calls = Vec::with_capacity(entries.rows().len());
-        for entry in entries.rows() {
-            let row = crate::store::entry::target(&self.core, entry).await?;
-            calls.push(self.decode_call(&row).await?);
-        }
-        Ok(calls)
     }
 
     pub async fn called(&self, turn: &str) -> Result<Vec<tool::Call>, String> {
@@ -111,28 +90,6 @@ impl Store {
             return Ok(None);
         };
         self.decode_reply(&row).await.map(Some)
-    }
-
-    pub async fn results(&self, strand: &str) -> Result<Vec<tool::Reply>, String> {
-        let strand = read::one(&self.core, "Strand", "tag", strand)
-            .await?
-            .ok_or_else(|| "strand not found".to_string())?;
-        let entries = self
-            .core
-            .ask(
-                &form("StrandEntry")
-                    .when("strand", Op::Eq, &strand.key().to_string())
-                    .when("target_type", Op::Eq, "tool_result")
-                    .order("sequence", Rank::Asc),
-            )
-            .await
-            .map_err(read::error)?;
-        let mut replies = Vec::with_capacity(entries.rows().len());
-        for entry in entries.rows() {
-            let row = crate::store::entry::target(&self.core, entry).await?;
-            replies.push(self.decode_reply(&row).await?);
-        }
-        Ok(replies)
     }
 
     pub async fn replied(&self, turn: &str) -> Result<Vec<tool::Reply>, String> {
