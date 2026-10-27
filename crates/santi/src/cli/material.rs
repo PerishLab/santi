@@ -1,12 +1,16 @@
-use super::Material;
+use super::Rendering;
 use clap::{Args, Subcommand};
 
 #[derive(Args)]
 #[command(args_conflicts_with_subcommands = true)]
 pub struct Materials {
     pub id: Option<String>,
-    #[arg(long, value_enum)]
-    pub kind: Option<Material>,
+    #[arg(
+        long,
+        value_enum,
+        help = "Legacy render adapter: inspect guidance or assembled prompt without changing bindings"
+    )]
+    pub kind: Option<Rendering>,
     #[command(subcommand)]
     pub command: Option<Reading>,
 }

@@ -5,7 +5,7 @@ use super::*;
 #[derive(Subcommand)]
 pub enum StrandCommand {
     #[command(
-        about = "Render current operating material for inspection; this request does not inject instructions"
+        about = "Load, drop or query versioned material; --kind uses the legacy render adapter"
     )]
     Material(Materials),
     #[command(
@@ -92,13 +92,13 @@ pub enum StrandCommand {
 }
 
 #[derive(Debug, Clone, Copy, clap::ValueEnum)]
-pub enum Material {
+pub enum Rendering {
     Skill,
     #[value(name = "system_prompt")]
     Prompt,
 }
 
-impl Material {
+impl Rendering {
     pub(crate) fn wire(self) -> &'static str {
         match self {
             Self::Skill => "skill",

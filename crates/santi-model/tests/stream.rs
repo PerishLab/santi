@@ -73,3 +73,32 @@ fn execution_tail_success_body_has_a_hard_ceiling() {
         serde_json::to_vec(&tail).unwrap().len() <= stream::EXECUTION_TAIL_RESPONSE_LIMIT_BYTES
     );
 }
+
+#[test]
+fn rendering() {
+    use santi_model::render;
+    let payload = stream::Payload::Render(render::Beat::Updated {
+        view: render::Updated {
+            strand: "s1".into(),
+            kind: render::Kind::Skill,
+            updated: "now".into(),
+        },
+    });
+    let legacy = serde_json::json!({"type":"material", "beat":"updated", "material":{"strand":"s1", "kind":"skill", "updated":"now"}});
+    assert_eq!(serde_json::to_value(&payload).unwrap(), legacy);
+    assert!(matches!(
+        serde_json::from_value::<stream::Payload>(legacy).unwrap(),
+        stream::Payload::Render(_)
+    ));
+    let view = render::View {
+        strand: "s1".into(),
+        kind: render::Kind::Skill,
+        content_type: "text/markdown; charset=utf-8".into(),
+        text: "guide".into(),
+        updated: "now".into(),
+    };
+    assert_eq!(
+        serde_json::to_value(view).unwrap(),
+        serde_json::json!({"strand":"s1", "kind":"skill", "content_type":"text/markdown; charset=utf-8", "text":"guide", "updated":"now"})
+    );
+}

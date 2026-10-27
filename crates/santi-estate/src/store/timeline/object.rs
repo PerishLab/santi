@@ -1,10 +1,8 @@
 use super::{Store, read};
-pub(in crate::store) mod binding;
-pub use binding::{Bind, Capture, Unbind};
 use keel::{Op, Rank, form};
 
 #[derive(Clone, Copy)]
-pub struct MaterialDraft<'a> {
+pub struct Draft<'a> {
     pub strand: &'a str,
     pub key: &'a str,
     pub length: u64,
@@ -13,7 +11,7 @@ pub struct MaterialDraft<'a> {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Material {
+pub struct Object {
     pub strand: String,
     pub key: String,
     pub length: u64,
@@ -23,7 +21,7 @@ pub struct Material {
 }
 
 impl Store {
-    pub async fn record_material(&self, draft: MaterialDraft<'_>) -> Result<(), String> {
+    pub async fn record(&self, draft: Draft<'_>) -> Result<(), String> {
         let length = i64::try_from(draft.length).map_err(|error| error.to_string())?;
         self.core
             .batch(async |tx| {
@@ -31,7 +29,7 @@ impl Store {
                 let strand = strand.to_string();
                 let length = length.to_string();
                 match tx
-                    .one(&form("Material").when("strand", Op::Eq, &strand).when(
+                    .one(&form("Object").when("strand", Op::Eq, &strand).when(
                         "key",
                         Op::Eq,
                         draft.key,
@@ -40,7 +38,7 @@ impl Store {
                 {
                     Some(row) => {
                         tx.set(
-                            "Material",
+                            "Object",
                             row.key(),
                             &[
                                 ("length", length.as_str()),
@@ -52,7 +50,7 @@ impl Store {
                     }
                     None => tx
                         .put(
-                            "Material",
+                            "Object",
                             &[
                                 ("key", draft.key),
                                 ("length", length.as_str()),
@@ -70,13 +68,13 @@ impl Store {
             .map_err(read::error)
     }
 
-    pub async fn end_material(&self, strand: &str, key: &str) -> Result<bool, String> {
+    pub async fn erase(&self, strand: &str, key: &str) -> Result<bool, String> {
         self.core
             .batch(async |tx| {
                 let strand = read::need(tx, "Strand", "tag", strand).await?;
                 let Some(row) = tx
                     .one(
-                        &form("Material")
+                        &form("Object")
                             .when("strand", Op::Eq, &strand.to_string())
                             .when("key", Op::Eq, key),
                     )
@@ -84,21 +82,21 @@ impl Store {
                 else {
                     return Ok(false);
                 };
-                tx.end("Material", row.key()).await?;
+                tx.end("Object", row.key()).await?;
                 Ok(true)
             })
             .await
             .map_err(read::error)
     }
 
-    pub async fn materials(&self, strand: &str) -> Result<Vec<Material>, String> {
+    pub async fn objects(&self, strand: &str) -> Result<Vec<Object>, String> {
         let Some(row) = read::one(&self.core, "Strand", "tag", strand).await? else {
             return Ok(Vec::new());
         };
         let rows = self
             .core
             .ask(
-                &form("Material")
+                &form("Object")
                     .when("strand", Op::Eq, &row.key().to_string())
                     .order("key", Rank::Asc),
             )
@@ -107,7 +105,7 @@ impl Store {
         rows.rows()
             .iter()
             .map(|row| {
-                Ok(Material {
+                Ok(Object {
                     strand: strand.to_string(),
                     key: read::text(row, "key")?.to_string(),
                     length: u64::try_from(read::int(row, "length")?)

@@ -32,13 +32,16 @@ the whole history or contract into a tool result. Read operation descriptions,
 scope and authentication requirements; method names and schema shape alone do
 not establish behavior. The CLI supplies scope for its typed operations.
 
-`santi strand material --kind system_prompt` renders the current system-prompt
-material for inspection. `--kind skill` renders this guide. These requests
-select material to read; they do not inject text or change memory/instructions.
+`santi strand material --kind system_prompt` is the legacy render adapter for
+the assembled system prompt. `--kind skill` renders this guide. These inspection
+views do not load or drop material, or change memory or instructions.
 
 ## Bind material
 
-`santi soul material` and `santi strand material` expose query, load and drop.
+Material is metadata plus declared blobs, assembled into context from a pinned
+revision. `santi soul material` and `santi strand material` expose query, load
+and drop. Bucket objects are files with a separate metadata ledger; memory is
+editable source, and rendered views are inspection snapshots.
 Use `query --available` to discover configured sources and `query <reference>`
 to inspect metadata; add `--blob <name>` to read a declared blob. `load <reference>`
 pins a complete revision into that scope. Repeating load explicitly refreshes it;

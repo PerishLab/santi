@@ -1,3 +1,4 @@
+use santi_core::render;
 use santi_core::{Fault, Health, environ, job, soul::Soul, strand::Strand, webhook};
 use utoipa::{
     Modify, OpenApi,
@@ -55,7 +56,7 @@ use santi_core::{material, soul, strand, stream};
         super::routes::set_strand_environ,
         super::routes::end_strand_environ,
         super::routes::list_messages,
-        super::routes::material,
+        super::routes::render,
         super::routes::send,
         super::routes::drive,
         super::routes::fork,
@@ -108,7 +109,7 @@ use santi_core::{material, soul, strand, stream};
         job::Log,
         Fault,
         Health,
-        material::Request,
+        render::Request,
         material::View,
         material::Package,
         strand::Post,
@@ -126,7 +127,7 @@ use santi_core::{material, soul, strand, stream};
         santi_core::trace::Tag,
         super::effects::ResolveEffectRequest,
         strand::Detail,
-        material::Material,
+        render::View,
         stream::Snapshot,
         stream::ExecutionOrder,
         stream::ExecutionRecord,
@@ -162,8 +163,8 @@ use santi_core::{material, soul, strand, stream};
         santi_core::message::Content,
         santi_core::message::Part,
         santi_core::message::State,
-        santi_core::material::Kind,
-        santi_core::material::Updated,
+        santi_core::render::Kind,
+        santi_core::render::Updated,
         santi_core::effect::Effect,
         santi_core::message::Placed,
         santi_core::message::Relation,

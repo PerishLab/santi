@@ -1,4 +1,5 @@
 use super::*;
+use santi_core::render;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 
@@ -35,10 +36,10 @@ async fn transmitted(chat: bool) {
         .await
         .unwrap();
     let prompt = service
-        .material(
+        .render(
             &strand,
-            material::Request {
-                kind: material::Kind::SystemPrompt,
+            render::Request {
+                kind: render::Kind::SystemPrompt,
             },
         )
         .await

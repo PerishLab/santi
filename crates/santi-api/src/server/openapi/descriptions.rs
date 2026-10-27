@@ -4,8 +4,8 @@ pub const COMPONENT_DESCRIPTIONS: [(&str, &str); 12] = [
         "Execution policy for a strand. `timeout` is the foreground shell deadline in seconds, including waiting for inherited stdout/stderr pipes. A deadline interrupts the managed process group and reports a tool failure; partial external effects remain possible. Detached Jobs own long waits and their separate timeout policy.",
     ),
     (
-        "material.Kind",
-        "Select current material to render: system_prompt is the assembled runtime prompt material; skill is on-demand Santi operating guidance. Material retrieval does not submit instructions or write memory.",
+        "render.Kind",
+        "Legacy render selector: system_prompt returns the assembled runtime prompt; skill returns Santi operating guidance. Rendering does not change material bindings or memory.",
     ),
     (
         "Soul",

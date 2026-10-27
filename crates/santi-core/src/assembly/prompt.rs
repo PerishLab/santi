@@ -12,7 +12,7 @@ santi keeps souls and runs their strands. [santi] describes runtime physics.
 - inbox: receives incoming information for a strand.
 - turn: one bounded execution of a strand. Later turns continue from its recorded history; meanwhile, the external environment keeps changing.
 - message: a unit of inbound information or soul speech. Inbound messages carry a `[message ID]` header naming their durable record. Each runtime object's ID identifies its own type.
-- interface: `santi --help` describes current CLI grammar; `santi strand material --kind skill` supplies operating guidance, and `santi schema` retrieves the running HTTP contract. Legacy material requests render current information for inspection. `santi soul material` and `santi strand material` query, load and drop versioned material. Load pins declared entry blobs into future request context; drop removes its own scope binding. Source changes require an explicit reload. Soul bindings are shared; Strand bindings are local; equal revisions render once and conflicting versions refuse. Fork copies current local bindings; compact preserves bindings. Changes affect the next provider round, leaving in-flight and historical requests unchanged. Query recorded selections with material query --context; preparation is not proof of a received response or compliance.
+- interface: `santi --help` describes current CLI grammar; `santi strand material --kind skill` supplies operating guidance, and `santi schema` retrieves the running HTTP contract. The legacy --kind adapter renders inspection views. `santi soul material` and `santi strand material` query, load and drop versioned material: metadata plus declared blobs assembled into context. Bucket files use a separate object ledger. Load pins declared entry blobs into future request context; drop removes its own scope binding. Source changes require an explicit reload. Soul bindings are shared; Strand bindings are local; equal revisions render once and conflicting versions refuse. Fork copies current local bindings; compact preserves bindings. Changes affect the next provider round, leaving in-flight and historical requests unchanged. Query recorded selections with material query --context; preparation is not proof of a received response or compliance.
 - timeline: one sequence space includes messages, thinking, tool calls and results; a messages-only view can have structural gaps.
 - shell: act through short, bounded commands; `santi …` scopes to you and its help describes current operations.
 - job: a detached process with bounded time and output, an origin and queryable results. Configured reminders arrive in its origin strand's inbox. Keep useful progress visible alongside retained artifacts; choose interim observations for expected state changes. Verify effects on completion.
@@ -102,33 +102,33 @@ fn forked(request: &Prompting<'_>) -> Option<String> {
     )
 }
 
-fn remembered(name: &str, source: &str, memory: &Material) -> String {
+fn remembered(name: &str, source: &str, memory: &Reading) -> String {
     [
         format!("[{name}]"),
         format!("source: {source}"),
-        format!("updated: {}", memory.updated.as_deref().unwrap_or("null")),
+        format!("updated: {}", memory.modified.as_deref().unwrap_or("null")),
         "content:".to_string(),
         memory.content.clone(),
     ]
     .join("\n")
 }
 
-fn retrieved(path: &Path, genesis: bool) -> Result<Material, String> {
-    let mut material = recalled(path)?;
-    if genesis && material.content.trim().is_empty() {
-        material.content = TABULA.to_string();
+fn retrieved(path: &Path, genesis: bool) -> Result<Reading, String> {
+    let mut reading = recalled(path)?;
+    if genesis && reading.content.trim().is_empty() {
+        reading.content = TABULA.to_string();
     }
-    Ok(material)
+    Ok(reading)
 }
 
-fn projected(mut material: Material, allowance: usize) -> Material {
-    let weight = material.content.len();
+fn projected(mut reading: Reading, allowance: usize) -> Reading {
+    let weight = reading.content.len();
     if weight <= allowance {
-        return material;
+        return reading;
     }
 
     let mut split = allowance.min(weight);
-    while split > 0 && !material.content.is_char_boundary(split) {
+    while split > 0 && !reading.content.is_char_boundary(split) {
         split -= 1;
     }
     let marker = [
@@ -146,17 +146,17 @@ fn projected(mut material: Material, allowance: usize) -> Material {
         "</system_message>".to_string(),
     ]
     .join("\n");
-    material.content = format!("{}\n\n{marker}", &material.content[..split]);
-    material
+    reading.content = format!("{}\n\n{marker}", &reading.content[..split]);
+    reading
 }
 
-fn recalled(path: &Path) -> Result<Material, String> {
+fn recalled(path: &Path) -> Result<Reading, String> {
     let content = match fs::read_to_string(path) {
         Ok(content) => content,
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => String::new(),
         Err(error) => return Err(error.to_string()),
     };
-    let updated = match fs::metadata(path) {
+    let modified = match fs::metadata(path) {
         Ok(metadata) => metadata
             .modified()
             .ok()
@@ -164,10 +164,10 @@ fn recalled(path: &Path) -> Result<Material, String> {
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => None,
         Err(error) => return Err(error.to_string()),
     };
-    Ok(Material { content, updated })
+    Ok(Reading { content, modified })
 }
 
-struct Material {
+struct Reading {
     content: String,
-    updated: Option<Timestamp>,
+    modified: Option<Timestamp>,
 }

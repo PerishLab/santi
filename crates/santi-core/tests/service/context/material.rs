@@ -1,5 +1,6 @@
 use super::super::support::*;
 use futures_util::StreamExt;
+use santi_core::render;
 use santi_core::{
     environ::Scope,
     material,
@@ -71,10 +72,10 @@ impl Fixture {
 
     async fn prompt(&self) -> String {
         self.service
-            .material(
+            .render(
                 &self.strand,
-                material::Request {
-                    kind: material::Kind::SystemPrompt,
+                render::Request {
+                    kind: render::Kind::SystemPrompt,
                 },
             )
             .await
@@ -201,10 +202,10 @@ async fn refresh() {
         .await
         .unwrap();
     let rendered = restarted
-        .material(
+        .render(
             &fixture.strand,
-            material::Request {
-                kind: material::Kind::SystemPrompt,
+            render::Request {
+                kind: render::Kind::SystemPrompt,
             },
         )
         .await

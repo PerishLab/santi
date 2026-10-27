@@ -1,6 +1,6 @@
 pub use face::alarms;
 mod engine;
-use engine::{address, drive, error, materials, notice, thinking, timing};
+use engine::{address, drive, error, notice, render, thinking, timing};
 mod face;
 pub use face::Admission;
 mod flow;
@@ -26,7 +26,7 @@ use std::{
 use tokio::sync::broadcast;
 
 use crate::{Ruled, Transition};
-use crate::{budget, material, stream};
+use crate::{budget, stream};
 use santi_estate::Store;
 
 pub const MEMORY: usize = 32_768;
@@ -39,7 +39,7 @@ pub struct Service {
     pub(crate) context: plumb::context::Context,
     provider: Arc<dyn Provider>,
     pub(crate) config: Config,
-    materials: Arc<Mutex<HashMap<materials::Key, material::Material>>>,
+    renders: Arc<Mutex<HashMap<render::Key, crate::render::View>>>,
     library: Arc<crate::library::Catalog>,
     binding: Arc<tokio::sync::Mutex<()>>,
     streams: broadcast::Sender<stream::Event>,
@@ -121,7 +121,7 @@ impl Service {
             context,
             provider,
             config,
-            materials: Arc::new(Mutex::new(HashMap::new())),
+            renders: Arc::new(Mutex::new(HashMap::new())),
             library: Arc::new(crate::library::Catalog::default()),
             binding: Arc::new(tokio::sync::Mutex::new(())),
             streams: broadcast::channel(1024).0,

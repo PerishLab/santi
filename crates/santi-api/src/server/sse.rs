@@ -189,7 +189,7 @@ fn sse_event_name(payload: &stream::Payload) -> &'static str {
         stream::Payload::Tool(_) => "tool",
         stream::Payload::Thinking(_) => "thinking",
         stream::Payload::Turn(_) => "turn",
-        stream::Payload::Material(_) => "material",
+        stream::Payload::Render(_) => "material",
         stream::Payload::Transition { .. } => "transition",
     }
 }

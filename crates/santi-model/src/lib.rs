@@ -7,6 +7,7 @@ mod codec;
 mod edge;
 pub mod environ;
 mod ledger;
+pub mod render;
 pub mod stream;
 
 pub use edge::{downstream, drive, effect, event, ingest, job, receipt, trace, webhook};

@@ -138,7 +138,7 @@ impl Service {
     ) -> Result<(), String> {
         let recorded = self
             .store
-            .materials(&bucket.strand)
+            .objects(&bucket.strand)
             .await?
             .into_iter()
             .map(|material| material.key)

@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use santi_estate::MaterialDraft;
+use santi_estate::object::Draft;
 use sha2::{Digest as _, Sha256};
 
 use crate::object;
@@ -20,7 +20,7 @@ impl Service {
         let meta = self.objects().put(uri, bytes)?;
         let sha256 = hex::encode(Sha256::digest(bytes));
         self.store
-            .record_material(MaterialDraft {
+            .record(Draft {
                 strand: &uri.bucket.strand,
                 key: &uri.key,
                 length: meta.len,
@@ -48,10 +48,7 @@ impl Service {
 
     pub async fn erase(&self, uri: &object::Uri) -> Result<bool, String> {
         self.bucket(&uri.bucket).await?;
-        let recorded = self
-            .store
-            .end_material(&uri.bucket.strand, &uri.key)
-            .await?;
+        let recorded = self.store.erase(&uri.bucket.strand, &uri.key).await?;
         Ok(self.objects().delete(uri)? || recorded)
     }
 

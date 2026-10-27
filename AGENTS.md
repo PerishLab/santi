@@ -72,6 +72,14 @@ the reference method for diagnosing soul behavior through its observable inputs.
 `crates/santi-core/src/assembly/skill.rs` owns on-demand operating guidance;
 Issue [#242](https://github.com/PerishLab/santi/issues/242) records its role in
 Harness orientation and learned-memory correction.
+Material means metadata plus blobs assembled into context, with explicit revisions,
+bindings and consumption records. Bucket metadata belongs to the object ledger;
+memory reads and rendered inspection views have their own types and data flow.
+The old strand material POST and CLI --kind form remain explicit render adapters
+with their existing wire behavior; they do not mutate material bindings. Keel
+owns the one-time bucket ledger resource rename and identity preservation.
+Issue [#266](https://github.com/PerishLab/santi/issues/266) records this boundary.
+
 `crates/santi-core/src/library` resolves configured material sources into
 content revisions; #256 records source/query semantics. Published PerishLab
 Skill directories retain their upstream managed shape; source provenance is

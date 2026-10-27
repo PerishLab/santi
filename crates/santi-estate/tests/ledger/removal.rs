@@ -47,8 +47,8 @@ async fn owned() {
     store.end_strand("gone").await.expect("end strand");
 
     assert!(store.strand("gone").await.expect("strand").is_none());
-    assert!(store.materials("gone").await.expect("materials").is_empty());
-    assert_eq!(store.materials("kept").await.expect("materials").len(), 1);
+    assert!(store.objects("gone").await.expect("objects").is_empty());
+    assert_eq!(store.objects("kept").await.expect("objects").len(), 1);
     let after = live(&path).await;
     dangling(&path).await;
     for (unit, keys) in &before {

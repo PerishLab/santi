@@ -1,4 +1,5 @@
 use super::super::Service;
+use crate::render;
 use crate::{environ::Scope, material};
 
 pub(in crate::service) struct Composition {
@@ -92,10 +93,10 @@ impl Service {
             .ok_or_else(|| "strand not found".to_string())?;
         let selection = self.store.bindings(Scope::Strand, strand).await?;
         let composed = Composition::new(self.prompt(&brain)?.text, selection)?;
-        self.cached(material::Material {
+        self.cached(render::View {
             strand: strand.into(),
-            kind: material::Kind::SystemPrompt,
-            content_type: super::PLAIN.into(),
+            kind: render::Kind::SystemPrompt,
+            content_type: super::super::render::PLAIN.into(),
             text: composed.text.clone(),
             updated: crate::now(),
         });
