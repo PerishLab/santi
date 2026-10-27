@@ -15,7 +15,7 @@ impl Service {
         let child_tag = crate::tag("ss");
         let child = self
             .store
-            .fork(santi_estate::ForkDraft {
+            .branch(santi_estate::ForkDraft {
                 tag: &child_tag,
                 parent: &parent.id,
                 at: fork,

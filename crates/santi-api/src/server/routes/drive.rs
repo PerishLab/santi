@@ -53,6 +53,7 @@ pub async fn drive(
 #[utoipa::path(
     post,
     path = "/api/v1/strands/{strand}/fork",
+    summary = "Fork a complete history prefix, excluding in-flight or failed turns. strand.fork reports the actual inherited sequence; workspace files are copied as they exist now, not as of that sequence.",
     params(("strand" = String, Path)),
     responses(
         (status = 200, body = strand::Forked),

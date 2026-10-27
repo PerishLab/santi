@@ -5,6 +5,12 @@ fn api() {
     let text = santi_api::export_openapi_json().expect("export openapi");
     let document: serde_json::Value = serde_json::from_str(&text).expect("parse openapi");
     assert_eq!(document["info"]["version"].as_str(), Some("v1"));
+    assert!(
+        document["paths"]["/api/v1/strands/{strand}/fork"]["post"]["summary"]
+            .as_str()
+            .unwrap()
+            .contains("in-flight or failed turns")
+    );
     let description = document["components"]["schemas"]["compact.Compact"]["description"]
         .as_str()
         .expect("compact description");
@@ -70,6 +76,6 @@ fn api() {
     let hash = format!("{:x}", Sha256::digest(text.as_bytes()));
     assert_eq!(
         hash,
-        "21d4109d0f746f95066b45226a656c18baf021f25323043977958a1946d4b8d9"
+        "d7b3e705094bdd51f2a6a77f7ea936feacb4c2e18ea05c884636b664a73ec1d9"
     );
 }

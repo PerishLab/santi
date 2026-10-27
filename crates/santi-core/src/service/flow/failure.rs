@@ -52,6 +52,7 @@ enum Cause {
 #[derive(Debug, Clone, Copy)]
 pub(super) enum Operation {
     Assembly,
+    History,
     Prompt,
     Admission(Admission),
     Persistence(Persistence),
@@ -75,6 +76,7 @@ pub(super) enum Admission {
 impl Operation {
     fn name(self) -> &'static str {
         match self {
+            Self::History => "turn.history_validation",
             Self::Assembly => "turn.assembly_input",
             Self::Prompt => "turn.system_prompt",
             Self::Admission(Admission::Context) => "turn.admission",

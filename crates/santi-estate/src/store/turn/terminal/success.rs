@@ -180,21 +180,23 @@ impl Writer<'_, '_> {
             },
         )
         .await?;
-        let runtime = turn::Error::Runtime.descriptor();
-        error::resolve_in(
-            self.0,
-            error::Resolution {
-                key: &runtime.key("strand", strand),
-                by: "runtime.turn_succeeded",
-                context: serde_json::json!({
-                    "turn": draft.turn,
-                    "provider": draft.provider,
-                    "model": draft.model,
-                }),
-                now: draft.occurred,
-            },
-        )
-        .await?;
+        for kind in [turn::Error::Runtime, turn::Error::History] {
+            let descriptor = kind.descriptor();
+            error::resolve_in(
+                self.0,
+                error::Resolution {
+                    key: &descriptor.key("strand", strand),
+                    by: "runtime.turn_succeeded",
+                    context: serde_json::json!({
+                        "turn": draft.turn,
+                        "provider": draft.provider,
+                        "model": draft.model,
+                    }),
+                    now: draft.occurred,
+                },
+            )
+            .await?;
+        }
         let execution = santi_model::budget::Error::Execution.descriptor();
         error::resolve_in(
             self.0,

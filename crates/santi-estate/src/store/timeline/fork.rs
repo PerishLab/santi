@@ -3,6 +3,8 @@ use super::{Store, read};
 use keel::adapt::db::Sqlite;
 use keel::{Op, Rank, Row, Tx, form};
 
+mod checkpoint;
+
 #[derive(Clone, Copy)]
 pub struct ForkDraft<'a> {
     pub tag: &'a str,
@@ -14,6 +16,23 @@ pub struct ForkDraft<'a> {
 struct Writer<'a, 'tx>(&'a mut Tx<'tx, Sqlite>);
 
 impl Store {
+    pub async fn branch(
+        &self,
+        draft: ForkDraft<'_>,
+    ) -> Result<santi_model::strand::Strand, String> {
+        self.core
+            .batch(async |tx| {
+                let parent = Writer(tx).need("Strand", draft.parent).await?;
+                let at = checkpoint::selected(tx, &parent, draft.at).await?;
+                create(tx, ForkDraft { at, ..draft }).await
+            })
+            .await
+            .map_err(read::error)?;
+        self.strand(draft.tag)
+            .await?
+            .ok_or_else(|| "forked strand missing".to_string())
+    }
+
     pub async fn fork(&self, draft: ForkDraft<'_>) -> Result<santi_model::strand::Strand, String> {
         if draft.at < 0 {
             return Err("fork must be >= 0".to_string());

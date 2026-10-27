@@ -14,11 +14,11 @@ fn budgets() -> Vec<Descriptor> {
 }
 
 fn turns() -> Vec<Descriptor> {
-    use turn::Error::{Interrupted, Provider, Runtime};
-    [Provider, Runtime, Interrupted]
+    use turn::Error::{History, Interrupted, Provider, Runtime};
+    [Provider, Runtime, Interrupted, History]
         .iter()
         .map(|held| match held {
-            Provider | Runtime | Interrupted => held.descriptor(),
+            Provider | Runtime | Interrupted | History => held.descriptor(),
         })
         .collect()
 }
