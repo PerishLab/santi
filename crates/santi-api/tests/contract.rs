@@ -126,6 +126,6 @@ fn api() {
     let hash = format!("{:x}", Sha256::digest(text.as_bytes()));
     assert_eq!(
         hash,
-        "ab7ae72885c543b9dde9b8517c067af97ce344790d12eb1394a486b3588011ab"
+        "fdc71fee46ae11f84855369eca49bde6ef4ab46a8f7e91588661a8a77ec0895a"
     );
 }

@@ -169,3 +169,6 @@ mod observation;
 
 #[path = "cli/material.rs"]
 mod material;
+
+#[path = "cli/retire.rs"]
+mod retire;

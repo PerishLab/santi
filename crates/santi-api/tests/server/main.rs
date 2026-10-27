@@ -296,3 +296,5 @@ mod support;
 fn status(message: &str) -> StatusCode {
     ApiError::from_service(message.to_string()).status()
 }
+
+mod retire;

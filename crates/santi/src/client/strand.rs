@@ -19,6 +19,7 @@ pub(super) async fn run(
             .await
         }
         StrandCommand::Create => http.create_strand(base, defaults.soul()).await,
+        StrandCommand::End { id } => http.delete(&format!("{base}/api/v1/strands/{id}")).await,
         StrandCommand::List => http.get(&format!("{base}/api/v1/strands")).await,
         StrandCommand::Get { id } => {
             let id = defaults.resolve_strand(id)?;

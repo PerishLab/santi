@@ -230,46 +230,6 @@ fn text<'a>(row: &'a Row, field: &str) -> Result<&'a str, keel::adapt::Error> {
         .ok_or_else(|| keel::adapt::Error::Adapt(format!("fork {field} missing")))
 }
 
-impl Store {
-    pub async fn end_strand(&self, tag: &str) -> Result<Vec<String>, String> {
-        self.core
-            .batch(async |tx| {
-                let key = read::need(tx, "Strand", "tag", tag).await?;
-                let strand = key.to_string();
-                let forks = tx
-                    .ask(
-                        &form("Strand")
-                            .when("parent", Op::Eq, &strand)
-                            .order("tag", Rank::Asc),
-                    )
-                    .await?;
-                if !forks.rows().is_empty() {
-                    let forks = forks
-                        .rows()
-                        .iter()
-                        .filter_map(|row| row.text("tag"))
-                        .collect::<Vec<_>>()
-                        .join(", ");
-                    return Err(keel::adapt::Error::Adapt(format!(
-                        "strand {tag} is shown by live fork {forks}"
-                    )));
-                }
-                let jobs = tx.ask(&form("Job").when("strand", Op::Eq, &strand)).await?;
-                let keys = jobs
-                    .rows()
-                    .iter()
-                    .flat_map(|row| [row.text("tag"), row.text("generation")])
-                    .flatten()
-                    .map(str::to_string)
-                    .collect();
-                tx.end("Strand", key).await?;
-                Ok(keys)
-            })
-            .await
-            .map_err(read::error)
-    }
-}
-
 fn int(row: &Row, field: &str) -> Result<i64, keel::adapt::Error> {
     row.int(field)
         .ok_or_else(|| keel::adapt::Error::Adapt(format!("fork {field} missing")))

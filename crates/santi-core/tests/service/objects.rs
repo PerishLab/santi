@@ -162,6 +162,106 @@ async fn tidy() {
     assert_eq!(object.bytes, b"kept");
 }
 
+#[tokio::test]
+async fn protected() {
+    let temp = tempfile::tempdir().expect("temp");
+    bootstrap(&temp).await;
+    let service = open(&temp).await;
+    let strand = service.weave().await.expect("strand").strand;
+    let uri = object::Uri::new(
+        object::Bucket::new("soul_default", &strand.id).expect("bucket"),
+        "kept.txt",
+    )
+    .expect("uri");
+    service.stash(&uri, b"kept").await.expect("stash");
+    let home = temp.path().join("runtime/strands").join(&strand.id);
+    std::fs::create_dir_all(home.join("memory")).expect("home");
+    let memory = home.join("memory/MEMORY.md");
+    std::fs::write(&memory, "kept").expect("memory");
+    let child = service.fork(&strand.id).await.expect("fork").strand;
+    assert!(
+        service
+            .end_strand(&strand.id)
+            .await
+            .expect_err("fork protects")
+            .contains(&child.id)
+    );
+    service.end_strand(&child.id).await.expect("end child");
+    let store = santi_core::Store::open(temp.path().join("santi.sqlite"))
+        .await
+        .expect("store");
+    store
+        .accept_inbox(
+            santi_estate::InboxDraft {
+                tag: "protected_input",
+                strand: &strand.id,
+                kind: santi_core::message::Kind::Text,
+                content: &santi_core::message::Content::text("keep"),
+                source: None,
+                created: &santi_core::now(),
+            },
+            10,
+        )
+        .await
+        .expect("accept");
+    assert!(
+        service
+            .end_strand(&strand.id)
+            .await
+            .expect_err("pending protects")
+            .contains("pending input")
+    );
+    assert_eq!(
+        std::fs::read_to_string(memory).expect("memory survived"),
+        "kept"
+    );
+    assert_eq!(
+        service
+            .fetch("soul_default", &strand.id, "kept.txt")
+            .await
+            .expect("fetch")
+            .expect("object survived")
+            .bytes,
+        b"kept"
+    );
+}
+
+#[tokio::test]
+async fn leftover() {
+    let temp = tempfile::tempdir().expect("temp");
+    bootstrap(&temp).await;
+    let service = open(&temp).await;
+    let strand = service.weave().await.expect("strand").strand;
+    let runtime = temp.path().join("runtime");
+    let strands = runtime.join("strands");
+    let home = strands.join(&strand.id);
+    std::fs::create_dir_all(home.join("memory")).expect("home");
+    std::fs::write(home.join("memory/MEMORY.md"), "leftover").expect("memory");
+    let held = runtime.join("held");
+    std::fs::rename(&strands, &held).expect("hide directory");
+    std::fs::write(&strands, "temporarily inaccessible directory").expect("block cleanup");
+    service
+        .end_strand(&strand.id)
+        .await
+        .expect("estate committed despite cleanup failure");
+    let store = santi_core::Store::open(temp.path().join("santi.sqlite"))
+        .await
+        .expect("store");
+    assert!(
+        store
+            .strand(&strand.id)
+            .await
+            .expect("read estate")
+            .is_none()
+    );
+    assert!(held.join(&strand.id).join("memory/MEMORY.md").exists());
+    std::fs::remove_file(&strands).expect("repair directory access");
+    std::fs::rename(&held, &strands).expect("restore directory");
+    drop(service);
+    let _service = open(&temp).await;
+    assert!(!home.exists(), "startup sweep reclaims leftover bytes");
+}
+
 async fn open(temp: &tempfile::TempDir) -> Service {
     Service::open(
         service::Config {

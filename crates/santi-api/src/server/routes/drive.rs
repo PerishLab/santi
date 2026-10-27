@@ -253,3 +253,26 @@ impl Drive {
             .ok_or_else(|| ApiError::not_found("strand not found"))
     }
 }
+
+#[utoipa::path(
+    delete,
+    path = "/api/v1/strands/{strand}",
+    params(("strand" = String, Path)),
+    summary = "Retire one idle strand. Pending input, unfinished turns or receipts, active or unacknowledged Jobs, unsettled effects and live forks prevent retirement. Estate commit precedes best-effort file cleanup; startup sweep recovers leftover bytes. Physical collection follows Keel retention.",
+    responses(
+        (status = 204, description = "Strand ended"),
+        (status = 404, body = Fault),
+        (status = 409, body = Fault),
+        (status = 500, body = Fault)
+    )
+)]
+pub async fn end_strand(
+    State(service): State<Service>,
+    Path(strand): Path<String>,
+) -> Result<StatusCode, ApiError> {
+    service
+        .end_strand(&strand)
+        .await
+        .map_err(ApiError::from_service)?;
+    Ok(StatusCode::NO_CONTENT)
+}

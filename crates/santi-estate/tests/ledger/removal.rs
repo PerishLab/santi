@@ -40,6 +40,8 @@ async fn owned() {
         .expect("soul incident");
     populate(&store, "kept").await;
     populate(&store, "gone").await;
+    settled(&store, "gone").await;
+    settled(&store, "kept").await;
     let before = live(&path).await;
 
     store.end_strand("gone").await.expect("end strand");
@@ -102,6 +104,7 @@ async fn forked() {
     assert_eq!(store.messages("child").await.expect("child").len(), shown);
 
     store.end_strand("child").await.expect("end child");
+    settled(&store, "parent").await;
     store.end_strand("parent").await.expect("end parent");
     dangling(&path).await;
 }
@@ -156,3 +159,48 @@ fn held(spec: &keel::spec::Spec, row: &keel::Row, live: &BTreeMap<String, BTreeS
         );
     }
 }
+
+async fn settled(store: &Store, strand: &str) {
+    store
+        .reconcile_effects(&format!("turn_{strand}"), LATER)
+        .await
+        .expect("settle prepared effect");
+    store
+        .transition_job(
+            &format!("job_{strand}"),
+            santi_estate::TransitionDraft::new(santi_model::job::State::Succeeded, LATER),
+        )
+        .await
+        .expect("complete job");
+    store
+        .acknowledge_job(&format!("job_{strand}"), LATER)
+        .await
+        .expect("acknowledge job");
+    let santi_estate::Opening::Started(started) = store
+        .drain_turn(santi_estate::DrainDraft {
+            turn: &format!("drain_{strand}"),
+            strand,
+            trigger: santi_model::turn::Trigger::StrandSend,
+            actor: "santi",
+            created: LATER,
+        })
+        .await
+        .expect("drain pending input")
+    else {
+        panic!("expected pending input");
+    };
+    store
+        .finish_turn(santi_estate::CompletionDraft {
+            turn: &started.turn.id,
+            reply: None,
+            provider: "test",
+            model: "test",
+            response: None,
+            occurred: LATER,
+        })
+        .await
+        .expect("complete drained input");
+}
+
+mod guards;
+mod race;

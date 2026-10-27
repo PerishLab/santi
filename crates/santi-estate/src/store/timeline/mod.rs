@@ -6,6 +6,7 @@ pub(in crate::store) mod compact;
 mod fork;
 mod material;
 mod projection;
+mod retire;
 mod round;
 mod thinking;
 

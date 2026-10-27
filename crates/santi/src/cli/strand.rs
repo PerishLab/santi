@@ -17,6 +17,11 @@ pub enum StrandCommand {
         long_about = "Create exactly one strand. With --soul/SANTI_SOUL_ID, POST /api/v1/souls/{soul}/strands preserves that owner; without one, POST /api/v1/strands uses the runtime default. The client never retries. Only a contract-proven 4xx rejection reports outcome=not_created. Transport failure, an unreadable response body, 5xx or another non-client status, and an invalid success response report outcome=state_unknown with do-not-retry list/resume guidance; the client preserves a known parent soul and never invents the unknown strand id."
     )]
     Create,
+    #[command(
+        about = "Retire one explicitly identified idle strand",
+        long_about = "DELETE /api/v1/strands/{id}. An explicit id is required. Pending input, unfinished turns or receipts, active or unacknowledged Jobs, unsettled effects and live forks block retirement. Estate commit precedes best-effort file cleanup; startup sweep recovers leftover bytes. Physical collection follows Keel retention. Repeating a completed request reports not found."
+    )]
+    End { id: String },
     #[command(about = "GET /api/v1/strands")]
     List,
     #[command(about = "GET /api/v1/strands/{id} (id falls back to --strand/SANTI_STRAND_ID)")]
