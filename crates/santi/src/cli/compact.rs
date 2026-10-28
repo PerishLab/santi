@@ -1,5 +1,19 @@
 use clap::Subcommand;
 
+fn slot(value: &str) -> Result<String, String> {
+    let mut value = value.trim();
+    if let Some(rest) = value.strip_prefix('[') {
+        value = rest.trim();
+    }
+    if let Some(rest) = value.strip_suffix(']') {
+        value = rest.trim();
+    }
+    if value.is_empty() {
+        return Err("a slot id must not be empty".into());
+    }
+    Ok(value.to_string())
+}
+
 #[derive(Subcommand)]
 pub enum CompactCommand {
     #[command(
@@ -31,8 +45,10 @@ pub enum CompactCommand {
         )]
         summary_file: Option<String>,
         #[arg(
-            help = "Compact ids of occupied slots to absorb into this one. Two or more merge them; one rewrites its summary in place. The set must be contiguous",
+            help = "Compact ids of occupied slots to absorb into this one. Repeat the flag, or pass one comma-separated list; spaces and a wrapping pair of brackets are ignored. Two or more merge them, one rewrites its summary in place. The set must be contiguous",
             long,
+            value_delimiter = ',',
+            value_parser = slot,
             conflicts_with_all = ["first", "last"]
         )]
         absorb: Vec<String>,
