@@ -17,19 +17,6 @@ pub(super) fn condensed(compact: &compact::Compact, fallback: Range) -> String {
     let from = number(range, "start_seq");
     let to = number(range, "end_seq");
     let collapsed = number(range, "collapsed_count");
-    let before = nested(metadata, "before", "total");
-    let budget = nested(metadata, "budget", "bytes");
-    let forecast = metadata
-        .and_then(|metadata| metadata.get("forecast"))
-        .filter(|value| value.is_object());
-    let after = nested(forecast, "after", "total");
-    let authoritative = forecast
-        .and_then(|forecast| forecast.get("authoritative"))
-        .and_then(|value| value.as_bool());
-    let basis = noted(forecast, "basis");
-    let ratio = forecast
-        .and_then(|forecast| forecast.get("ratio"))
-        .and_then(|value| value.as_f64());
     let header = json!({
         "schema": "santi.compact_projection.visible_header.v1",
         "compact": compact.id,
@@ -52,22 +39,70 @@ pub(super) fn condensed(compact: &compact::Compact, fallback: Range) -> String {
         "queryability": noted(metadata, "queryability")
             .unwrap_or("original spine remains queryable with compact query"),
         "originals_query": format!("santi compact query --compact {}", compact.id),
-        "context_estimate": {
-            "pre_total_bytes": before,
-            "budget_input_bytes": budget,
-            "forecast": forecast.map(|_| json!({
-                "authoritative": authoritative,
-                "basis": basis,
-                "post_total_bytes": after,
-                "ratio": ratio,
-            })),
-        },
+        "context_estimate": estimate(metadata),
     });
     let header = serde_json::to_string_pretty(&header).unwrap_or_else(|_| header.to_string());
     format!(
         "[compact projection]\n{header}\n[/compact projection]\n<compact_summary>\n{}\n</compact_summary>",
         compact.summary
     )
+}
+
+fn estimate(metadata: Option<&serde_json::Value>) -> serde_json::Value {
+    let before = nested(metadata, "before", "total");
+    let budget = nested(metadata, "budget", "bytes");
+    let forecast = metadata
+        .and_then(|value| value.get("forecast"))
+        .filter(|value| value.is_object());
+    let after = nested(forecast, "after", "total");
+    let ratio = forecast
+        .and_then(|value| value.get("ratio"))
+        .and_then(|value| value.as_f64());
+    let bound = match (budget, metadata.and_then(|value| value.get("budget"))) {
+        (Some(_), _) => "bounded",
+        (None, Some(serde_json::Value::Null)) => "unbounded",
+        (None, Some(_)) => "unavailable",
+        (None, None) => "not_recorded",
+    };
+    let mut value = json!({
+        "pre_total_bytes": before,
+        "budget_input_bytes": budget,
+        "availability": {
+            "pre": availability(metadata, "before", before.is_some()),
+            "budget": bound,
+            "forecast": availability(metadata, "forecast", after.is_some()),
+        },
+    });
+    if let Some(forecast) = forecast {
+        let mut prediction = json!({
+            "authoritative": forecast.get("authoritative").and_then(|value| value.as_bool()),
+            "basis": noted(Some(forecast), "basis"),
+            "post_total_bytes": after,
+            "ratio": ratio,
+            "ratio_state": if ratio.is_some() { "estimated" } else if before.is_some_and(|value| value <= 0) { "undefined" } else { "not_recorded" },
+        });
+        omit(&mut prediction);
+        value["forecast"] = prediction;
+    }
+    omit(&mut value);
+    value
+}
+
+fn availability(metadata: Option<&serde_json::Value>, key: &str, present: bool) -> &'static str {
+    if present {
+        return "estimated";
+    }
+    if metadata.is_some_and(|value| value.get(key).is_some()) {
+        "unavailable"
+    } else {
+        "not_recorded"
+    }
+}
+
+fn omit(value: &mut serde_json::Value) {
+    if let Some(object) = value.as_object_mut() {
+        object.retain(|_, value| !value.is_null());
+    }
 }
 
 fn number(value: Option<&serde_json::Value>, key: &str) -> Option<i64> {
@@ -92,6 +127,40 @@ fn noted<'a>(metadata: Option<&'a serde_json::Value>, key: &str) -> Option<&'a s
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn missing() {
+        let legacy = estimate(None);
+        assert_eq!(legacy["availability"]["pre"], "not_recorded");
+        assert_eq!(legacy["availability"]["budget"], "not_recorded");
+        assert_eq!(legacy["availability"]["forecast"], "not_recorded");
+        assert!(legacy.get("pre_total_bytes").is_none());
+        assert!(legacy.get("budget_input_bytes").is_none());
+        assert!(legacy.get("forecast").is_none());
+        let unavailable = json!({"before":null,"budget":null,"forecast":null});
+        let value = estimate(Some(&unavailable));
+        assert_eq!(value["availability"]["pre"], "unavailable");
+        assert_eq!(value["availability"]["budget"], "unbounded");
+        assert_eq!(value["availability"]["forecast"], "unavailable");
+    }
+
+    #[test]
+    fn zero() {
+        let forecast = json!({"authoritative":false,"basis":"precommit_preview","after":{"total":0},"ratio":0.0});
+        let metadata = json!({"before":{"total":0},"budget":{"bytes":0},"forecast":forecast});
+        let value = estimate(Some(&metadata));
+        assert_eq!(value["pre_total_bytes"], 0);
+        assert_eq!(value["budget_input_bytes"], 0);
+        assert_eq!(value["forecast"]["post_total_bytes"], 0);
+        assert_eq!(value["forecast"]["ratio"], 0.0);
+        assert_eq!(value["availability"]["pre"], "estimated");
+        assert_eq!(value["availability"]["forecast"], "estimated");
+        let undefined =
+            json!({"before":{"total":0},"forecast":{"authoritative":false,"after":{"total":1}}});
+        let value = estimate(Some(&undefined));
+        assert!(value["forecast"].get("ratio").is_none());
+        assert_eq!(value["forecast"]["ratio_state"], "undefined");
+    }
 
     #[test]
     fn retained() {

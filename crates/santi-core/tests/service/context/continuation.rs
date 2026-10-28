@@ -1,3 +1,4 @@
+mod forecast;
 mod fork;
 mod pressure;
 mod preview;
@@ -236,8 +237,14 @@ async fn restores() {
 async fn compacts() {
     let temp = tempfile::tempdir().unwrap();
     bootstrap(&temp).await;
+    let mut history = tools();
+    for event in &mut history {
+        if let Event::Retained(state) = event {
+            state.content = Some("retained reasoning ".repeat(512));
+        }
+    }
     let provider = Arc::new(Script::new(vec![
-        tools(),
+        history,
         finish("answer"),
         finish("followup"),
     ]));

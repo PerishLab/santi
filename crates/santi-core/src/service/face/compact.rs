@@ -34,51 +34,21 @@ impl Service {
             .await?;
         let (from, to) = (&choice.range.first, &choice.range.last);
         let before = self.estimate(&strand.id).await?;
-        if request.dry {
-            let mut response = self
-                .store
-                .preview_compact(&crate::tag("compact"), &strand.id, from, to)
-                .await?;
-            response.before = Some(before.clone());
-            response.requested = choice.requested.clone();
-            if let Some(capsule) = request.capsule.as_ref() {
-                let (_, after, ratio) = self
-                    .encapsulated(&strand.id, &response, summary, capsule)
-                    .await?;
-                response.ratio = ratio;
-                response.after = Some(after);
-            } else {
-                self.foreseen(&strand.id, &response, summary, json!({}))
-                    .await?;
-            }
-            return Ok(response);
-        }
-
         let compact_tag = crate::tag("compact");
-        let (metadata, expected) = if let Some(capsule) = request.capsule.as_ref() {
-            let mut preview = self
-                .store
-                .preview_compact(&compact_tag, &strand.id, from, to)
-                .await?;
-            preview.before = Some(before.clone());
-            let (metadata, _, _) = self
-                .encapsulated(&strand.id, &preview, summary, capsule)
-                .await?;
-            (Some(metadata), Some(preview))
-        } else {
-            (None, None)
-        };
-        let preview = self
+        let mut preview = self
             .store
             .preview_compact(&compact_tag, &strand.id, from, to)
             .await?;
-        self.foreseen(
-            &strand.id,
-            &preview,
-            summary,
-            metadata.clone().unwrap_or_else(|| json!({})),
-        )
-        .await?;
+        preview.before = Some(before.clone());
+        preview.requested = choice.requested.clone();
+        let (metadata, after, ratio) = self
+            .forecast(&strand.id, &preview, summary, request.capsule.as_ref())
+            .await?;
+        if request.dry {
+            preview.after = Some(after);
+            preview.ratio = ratio;
+            return Ok(preview);
+        }
         let mut response = self
             .store
             .create_compact(santi_estate::CompactDraft {
@@ -87,8 +57,8 @@ impl Service {
                 first: from,
                 last: to,
                 summary,
-                metadata: metadata.as_ref(),
-                expected: expected.as_ref(),
+                metadata: Some(&metadata),
+                expected: Some(&preview),
                 created: &crate::now(),
             })
             .await?;
@@ -113,19 +83,18 @@ impl Service {
         Ok(response)
     }
 
-    async fn encapsulated(
+    async fn forecast(
         &self,
         strand: &str,
         response: &compact::Report,
         summary: &str,
-        capsule: &compact::Capsule,
+        capsule: Option<&compact::Capsule>,
     ) -> Result<(serde_json::Value, budget::Estimate, Option<f64>), String> {
         let before = response
             .before
             .as_ref()
             .ok_or_else(|| "compact estimate missing".to_string())?;
-        let metadata = encapsulated(Capsule {
-            compact: Some(&response.compact),
+        let proposed = metadata(Forecast {
             capsule,
             response: Some(response),
             before: Some(before),
@@ -133,10 +102,9 @@ impl Service {
             budget: self.budget().as_ref(),
             ratio: None,
         });
-        let after = self.foreseen(strand, response, summary, metadata).await?;
+        let after = self.foreseen(strand, response, summary, proposed).await?;
         let ratio = squeezed(before, &after);
-        let metadata = encapsulated(Capsule {
-            compact: Some(&response.compact),
+        let proposed = metadata(Forecast {
             capsule,
             response: Some(response),
             before: Some(before),
@@ -144,10 +112,9 @@ impl Service {
             budget: self.budget().as_ref(),
             ratio,
         });
-        let after = self.foreseen(strand, response, summary, metadata).await?;
+        let after = self.foreseen(strand, response, summary, proposed).await?;
         let ratio = squeezed(before, &after);
-        let metadata = encapsulated(Capsule {
-            compact: Some(&response.compact),
+        let metadata = metadata(Forecast {
             capsule,
             response: Some(response),
             before: Some(before),
@@ -199,9 +166,8 @@ impl Service {
     }
 }
 
-struct Capsule<'a> {
-    compact: Option<&'a str>,
-    capsule: &'a compact::Capsule,
+struct Forecast<'a> {
+    capsule: Option<&'a compact::Capsule>,
     response: Option<&'a compact::Report>,
     before: Option<&'a budget::Estimate>,
     after: Option<&'a budget::Estimate>,
@@ -214,10 +180,10 @@ const REASONING: usize = 512;
 const RISK: usize = 1024;
 const QUERYABILITY: usize = 512;
 
-fn encapsulated(input: Capsule<'_>) -> serde_json::Value {
+fn metadata(input: Forecast<'_>) -> serde_json::Value {
     let originals = input
-        .compact
-        .map(|id| format!("santi compact query --compact {id}"));
+        .response
+        .map(|response| format!("santi compact query --compact {}", response.compact));
     let range = input.response.map(|response| {
         json!({
             "start_seq": response.from,
@@ -228,17 +194,10 @@ fn encapsulated(input: Capsule<'_>) -> serde_json::Value {
             "absorbed": response.absorbed,
         })
     });
-    json!({
-        "schema": "santi.compact_capsule.v1",
-        "operation": "manual_capsule",
-        "compact": input.compact,
-        "declared_source": capped(&input.capsule.source, SOURCING),
-        "source_trust": "caller_declared",
-        "reason": capped(&input.capsule.reason, REASONING),
-        "risk": capped(&input.capsule.risk, RISK),
-        "queryability": input.capsule.queryability.as_ref().map(|value| {
-            capped(value, QUERYABILITY)
-        }),
+    let mut metadata = json!({
+        "schema": if input.capsule.is_some() { "santi.compact_capsule.v1" } else { "santi.compact_estimate.v1" },
+        "operation": if input.capsule.is_some() { "manual_capsule" } else { "manual_compact" },
+        "compact": input.response.map(|response| &response.compact),
         "originals_query": originals,
         "range": range,
         "before": input.before,
@@ -249,7 +208,20 @@ fn encapsulated(input: Capsule<'_>) -> serde_json::Value {
             "ratio": input.ratio,
         })),
         "budget": input.budget,
-    })
+    });
+    if let Some(capsule) = input.capsule {
+        metadata["declared_source"] = json!(capped(&capsule.source, SOURCING));
+        metadata["source_trust"] = json!("caller_declared");
+        metadata["reason"] = json!(capped(&capsule.reason, REASONING));
+        metadata["risk"] = json!(capped(&capsule.risk, RISK));
+        metadata["queryability"] = json!(
+            capsule
+                .queryability
+                .as_ref()
+                .map(|value| capped(value, QUERYABILITY))
+        );
+    }
+    metadata
 }
 
 fn squeezed(before: &budget::Estimate, after: &budget::Estimate) -> Option<f64> {

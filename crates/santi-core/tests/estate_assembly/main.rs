@@ -190,6 +190,25 @@ async fn assembles_ordered_estate() {
     .await
     .expect("preview assembly");
     assert_compact(&preview);
+    let manual = serde_json::json!({
+        "schema": "santi.compact_estimate.v1",
+        "operation": "manual_compact",
+        "before": metadata["before"],
+        "forecast": metadata["forecast"],
+        "budget": metadata["budget"],
+    });
+    let plain = provider_preview(
+        &store,
+        "strand_test",
+        santi_core::ProviderPreview {
+            report: &report,
+            summary: "summary",
+            metadata: &manual,
+        },
+    )
+    .await
+    .expect("manual preview assembly");
+    assert_compact(&plain);
     store
         .create_compact(CompactDraft {
             tag: "compact_test",

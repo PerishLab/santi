@@ -29,7 +29,7 @@ pub const COMPONENT_DESCRIPTIONS: [(&str, &str); 12] = [
     ),
     (
         "compact.Compact",
-        "A compact is a pure projection overlay over a strand's spine. It\nself-describes its coverage by message-id boundaries and carries the\nsupplied summary while originals remain queryable. Capsule metadata\nrecords precommit estimates only under `forecast`: `authoritative` is `false`\nand `basis` is `precommit_preview`. The provider-visible header keeps estimated\npost-context bytes and ratio under\n`context_estimate.forecast`; they are not exact postcommit context.",
+        "A compact is a pure projection overlay over a strand's spine. It\nself-describes its coverage by message-id boundaries and carries the\nsupplied summary while originals remain queryable. Manual compact metadata\nrecords precommit estimates only under `forecast`: `authoritative` is `false`\nand `basis` is `precommit_preview`. The provider-visible header keeps estimated\npost-context bytes and ratio under\n`context_estimate.forecast`; they are not exact postcommit context.\n`context_estimate.availability` distinguishes estimated values, not-recorded\nlegacy data, unavailable estimates and unbounded configuration; unavailable\nnumeric fields are omitted rather than presented as zero.",
     ),
     (
         "effect::State",
