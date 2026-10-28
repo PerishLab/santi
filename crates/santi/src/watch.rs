@@ -31,19 +31,8 @@ pub(crate) enum Kind {
     Tool,
     Turn,
     Fault,
+    Interrupted,
     Other,
-}
-
-impl Kind {
-    fn of(event: &str, beat: &str) -> Self {
-        match (event, beat) {
-            ("thinking", _) => Self::Thinking,
-            ("tool", _) => Self::Tool,
-            ("turn", "failed") | ("transition", _) => Self::Fault,
-            ("turn", _) => Self::Turn,
-            _ => Self::Other,
-        }
-    }
 }
 
 pub(crate) struct Shown<'a> {
@@ -179,9 +168,11 @@ pub(crate) async fn observe(watch: Watch<'_>, output: &mut impl Emit) -> Result<
 async fn settle(target: Target<'_>, receipt: &str, boundary: Option<&str>) -> Result<bool> {
     match prove(target, receipt).await? {
         Proof::Completed => Ok(true),
-        Proof::Failed => anyhow::bail!(
-            "strand send outcome=failed: accepted receipt {receipt} reached its durable failed state; do not resend the accepted message; inspect with `santi receipt {receipt}`"
-        ),
+        Proof::Failed(turn) => Err(crate::client::Failed {
+            receipt: receipt.into(),
+            turn,
+        }
+        .into()),
         Proof::Pending(state) if boundary.is_some() => Err(crate::client::pending(
             receipt,
             format!(

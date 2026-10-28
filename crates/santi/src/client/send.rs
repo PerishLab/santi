@@ -14,7 +14,7 @@ pub struct Request<'a> {
 mod fault;
 mod outcome;
 pub(crate) use fault::{accepted_warning, accepted_warning_error, uncertain, unknown};
-pub(crate) use outcome::{Unsettled, pending};
+pub(crate) use outcome::{Failed, Unsettled, pending};
 
 struct Accepted(String);
 pub(crate) struct Completion(pub(crate) String);
@@ -22,7 +22,7 @@ pub(crate) struct Completion(pub(crate) String);
 pub(crate) enum Proof {
     Pending(String),
     Completed,
-    Failed,
+    Failed(Option<String>),
 }
 
 #[derive(Clone, Copy)]
@@ -238,7 +238,20 @@ pub(crate) async fn prove(target: Target<'_>, receipt: &str) -> Result<Proof> {
     }
     match field(&value, "state") {
         Some("completed") => Ok(Proof::Completed),
-        Some("failed") => Ok(Proof::Failed),
+        Some("failed") => Ok(Proof::Failed(
+            value
+                .get("transitions")
+                .and_then(serde_json::Value::as_array)
+                .and_then(|transitions| {
+                    transitions
+                        .iter()
+                        .rev()
+                        .find(|held| field(held, "state") == Some("failed"))
+                })
+                .and_then(|held| field(held, "turn"))
+                .filter(|turn| !turn.is_empty())
+                .map(str::to_string),
+        )),
         Some(state @ ("accepted" | "recovered" | "driving")) => {
             Ok(Proof::Pending(state.to_string()))
         }

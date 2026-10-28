@@ -101,9 +101,11 @@ impl State {
                 self.selection = None;
                 Step::Stay
             }
+            Stroke::Interrupt if self.stop.is_some() => Step::Stay,
             Stroke::Interrupt => match (self.busy, self.turn.clone()) {
                 (true, Some(turn)) => {
-                    self.push(format!(
+                    self.stop = Some((turn.clone(), false));
+                    self.detail(format!(
                         "interrupt requested for turn {turn}; the accepted message keeps its \
                          receipt and must not be resent"
                     ));
@@ -221,6 +223,8 @@ impl State {
         let text = self.take().expect("checked nonblank draft");
         self.push(format!("you> {text}"));
         self.busy = true;
+        self.turn = None;
+        self.stop = None;
         self.since = Some(std::time::Instant::now());
         Step::Speak(text)
     }
@@ -229,7 +233,7 @@ impl State {
         let Some(beat) = beat else {
             return Step::Stay;
         };
-        let settled = matches!(beat, Beat::Settled(_) | Beat::Broken(_));
+        let settled = matches!(beat, Beat::Settled(_) | Beat::Broken(_) | Beat::Failed(..));
         self.absorb(beat);
         if settled { Step::Refresh } else { Step::Stay }
     }

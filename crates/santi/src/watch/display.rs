@@ -3,6 +3,26 @@ use std::collections::HashMap;
 use super::{Emit, Kind, Presentation, Shown, json_field, owner, render_watch_event};
 use crate::cli::WatchFormat;
 
+impl Kind {
+    fn of(event: &str, beat: &str, data: &str) -> Self {
+        match (event, beat) {
+            ("thinking", _) => Self::Thinking,
+            ("tool", _) => Self::Tool,
+            ("turn", "failed")
+                if json_field(data, &["payload", "error", "code"]).as_deref()
+                    == Some("runtime.turn.interrupted")
+                    && json_field(data, &["payload", "error", "context", "cause"]).as_deref()
+                        == Some("operator") =>
+            {
+                Self::Interrupted
+            }
+            ("turn", "failed") | ("transition", _) => Self::Fault,
+            ("turn", _) => Self::Turn,
+            _ => Self::Other,
+        }
+    }
+}
+
 pub(super) struct Display {
     presentation: Presentation,
     speaking: bool,
@@ -34,7 +54,7 @@ impl Display {
                     let beat = json_field(data, &["payload", "beat"]).unwrap_or_default();
                     let turn = owner(data);
                     output.event(Shown {
-                        kind: Kind::of(event, &beat),
+                        kind: Kind::of(event, &beat, data),
                         turn: turn.as_deref(),
                         line: data,
                     });
@@ -124,7 +144,7 @@ fn line(output: &mut impl Emit, event: &str, data: &str) {
         let beat = json_field(data, &["payload", "beat"]).unwrap_or_default();
         let turn = owner(data);
         output.event(Shown {
-            kind: Kind::of(event, &beat),
+            kind: Kind::of(event, &beat, data),
             turn: turn.as_deref(),
             line: &line,
         });

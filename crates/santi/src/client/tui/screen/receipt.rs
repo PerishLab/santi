@@ -27,9 +27,10 @@ pub(super) fn apply(state: &mut State, result: (String, Option<Proof>)) -> Step 
     }
     match proof {
         Some(Proof::Completed) => state.heard(Some(Beat::Settled(receipt))),
-        Some(Proof::Failed) => state.heard(Some(Beat::Broken(format!(
-            "accepted receipt {receipt} is durably failed; do not resend it; inspect with santi receipt {receipt}"
-        )))),
+        Some(Proof::Failed(turn)) => state.heard(Some(Beat::Failed(
+            receipt.clone(), turn,
+            format!("accepted receipt {receipt} is durably failed; do not resend it; inspect with santi receipt {receipt}"),
+        ))),
         Some(Proof::Pending(_)) | None => Step::Stay,
     }
 }
@@ -61,6 +62,20 @@ pub(super) async fn dispatch(target: Target<'_>, text: String, sender: Unbounded
                 let _ = sender.send(Beat::Accepted(receipt));
             }
             Beat::Unsettled(format!("{error:#}"))
+        }
+        Err(error)
+            if error
+                .downcast_ref::<crate::client::send::Failed>()
+                .is_some() =>
+        {
+            let failed = error
+                .downcast_ref::<crate::client::send::Failed>()
+                .expect("failed receipt");
+            Beat::Failed(
+                failed.receipt.clone(),
+                failed.turn.clone(),
+                format!("{error:#}"),
+            )
         }
         Err(error) => Beat::Broken(format!("{error:#}")),
     };

@@ -208,7 +208,8 @@ fn shown(entry: &Entry, verbose: bool, width: usize) -> Vec<Shard> {
             .collect(),
         Entry::Activity { turn, items } => quiet(width, &Entry::summary(turn.as_deref(), items)),
         Entry::Elided(gap) => quiet(width, &format!("⋮ {gap} thinking and tool entries")),
-        Entry::Notice(line) => text(line, width)
+        Entry::Detail(_) if !verbose => Vec::new(),
+        Entry::Notice(line) | Entry::Detail(line) => text(line, width)
             .into_iter()
             .map(|held| Shard {
                 tone: Tone::Notice,
