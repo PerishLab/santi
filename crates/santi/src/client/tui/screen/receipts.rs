@@ -75,9 +75,36 @@ fn failed() {
     assert_eq!(state.struck(Some(Stroke::Enter)), Step::Refresh);
     assert!(state.busy && state.unsettled);
     assert_eq!(
-        apply(&mut state, ("inbox_test".into(), Some(Proof::Failed))),
+        apply(&mut state, ("inbox_test".into(), Some(Proof::Failed(None)))),
         Step::Refresh
     );
     assert!(!state.busy && !state.unsettled);
     assert!(state.receipt.is_none());
+}
+
+#[tokio::test]
+async fn identity() {
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let base = format!("http://{}", listener.local_addr().unwrap());
+    let server = tokio::spawn(async move {
+        let (mut stream, _) = listener.accept().await.unwrap();
+        let mut request = [0; 4096];
+        let count = stream.read(&mut request).await.unwrap();
+        assert!(
+            String::from_utf8_lossy(&request[..count])
+                .starts_with("GET /api/v1/receipts/inbox_test ")
+        );
+        let body = r#"{"inbox":"inbox_test","strand":"ss_test","state":"failed","transitions":[{"state":"driving","turn":"earlier"},{"state":"failed","turn":"current"}]}"#;
+        let response = format!(
+            "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+            body.len()
+        );
+        stream.write_all(response.as_bytes()).await.unwrap();
+    });
+    let client = reqwest::Client::builder().no_proxy().build().unwrap();
+    let target = Target::tui(&client, &base, "ss_test");
+    assert!(
+        matches!(prove(target, "inbox_test").await.unwrap(), Proof::Failed(Some(turn)) if turn == "current")
+    );
+    server.await.unwrap();
 }

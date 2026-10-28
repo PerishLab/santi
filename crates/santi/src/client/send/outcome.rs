@@ -27,3 +27,21 @@ pub(crate) fn pending(receipt: &str, detail: String) -> anyhow::Error {
         receipt: Some(receipt.to_string()),
     })
 }
+
+#[derive(Debug)]
+pub(crate) struct Failed {
+    pub(crate) receipt: String,
+    pub(crate) turn: Option<String>,
+}
+
+impl fmt::Display for Failed {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let receipt = &self.receipt;
+        write!(
+            formatter,
+            "strand send outcome=failed: accepted receipt {receipt} reached its durable failed state; do not resend the accepted message; inspect with `santi receipt {receipt}`"
+        )
+    }
+}
+
+impl std::error::Error for Failed {}

@@ -139,3 +139,26 @@ fn raw() {
         "turn t1: thinking\nturn t1: thinking\n"
     );
 }
+
+#[test]
+fn interruption() {
+    for (code, cause, expected) in [
+        ("runtime.turn.interrupted", "operator", Kind::Interrupted),
+        ("runtime.turn.interrupted", "shutdown", Kind::Fault),
+        ("runtime.turn.interrupted", "blocked", Kind::Fault),
+        ("runtime.provider.failed", "operator", Kind::Fault),
+    ] {
+        let error = serde_json::json!({"code":code,"context":{"cause":cause},"message":"interrupted by operator"});
+        let data =
+            serde_json::json!({"payload":{"beat":"failed","turn":"turn_current","error":error}})
+                .to_string();
+        assert_eq!(Kind::of("turn", "failed", &data), expected);
+        assert!(
+            shown(
+                Presentation::Watch(WatchFormat::Filtered),
+                &[("turn", data)]
+            )
+            .contains("turn failed turn_current")
+        );
+    }
+}

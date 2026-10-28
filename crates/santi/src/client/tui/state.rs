@@ -16,6 +16,8 @@ mod view;
 #[path = "state/recover.rs"]
 pub(super) mod recover;
 
+mod stream;
+
 #[cfg(test)]
 #[path = "state/tests.rs"]
 mod tests;
@@ -50,6 +52,7 @@ pub(super) enum Beat {
     Accepted(String),
     Settled(String),
     Broken(String),
+    Failed(String, Option<String>, String),
     Unsettled(String),
 }
 
@@ -61,6 +64,7 @@ pub(super) enum Entry {
     },
     Elided(i64),
     Notice(String),
+    Detail(String),
 }
 
 pub(super) fn column(line: &str, column: usize) -> usize {
@@ -95,6 +99,7 @@ pub(super) struct State {
     pub(super) since: Option<std::time::Instant>,
     pub(super) beats: usize,
     pub(super) busy: bool,
+    pub(super) stop: Option<(String, bool)>,
     pub(super) unsettled: bool,
     pub(super) receipt: Option<String>,
     pub(super) deaf: bool,
@@ -130,6 +135,7 @@ impl State {
             since: None,
             beats: 0,
             busy: false,
+            stop: None,
             unsettled: false,
             receipt: None,
             deaf: false,
@@ -164,67 +170,10 @@ impl State {
                     out.extend(items.iter().map(|(_, line)| line.clone()));
                 }
                 Entry::Elided(gap) => out.push(format!("{gap} entries not retained")),
-                Entry::Notice(line) => out.push(line.clone()),
+                Entry::Notice(line) | Entry::Detail(line) => out.push(line.clone()),
             }
         }
         out.join("\n")
-    }
-
-    pub(super) fn absorb(&mut self, beat: Beat) {
-        match beat {
-            Beat::Open(who) => {
-                self.entries.push(Entry::Said(Spoken {
-                    seq: 0,
-                    stamp: now(),
-                    who,
-                    lines: vec![String::new()],
-                }));
-                self.changed();
-            }
-            Beat::Speech(text) => self.append(&text),
-            Beat::Event(kind, turn, line) => {
-                if let Some(held) = turn.clone() {
-                    self.turn = Some(held);
-                }
-                self.activity(kind, turn, line);
-            }
-            Beat::Lost(detail) => {
-                self.deaf = true;
-                self.push(format!("stream lost: {detail}; reconnecting"));
-            }
-            Beat::Live => {
-                if self.deaf {
-                    self.deaf = false;
-                    self.push(
-                        "stream resumed; events during the outage are not recoverable from the \
-                         server and are not replayed"
-                            .to_string(),
-                    );
-                }
-            }
-            Beat::Accepted(receipt) => self.receipt = Some(receipt),
-            Beat::Settled(receipt) => {
-                self.busy = false;
-                self.unsettled = false;
-                self.receipt = None;
-                self.since = None;
-                self.push(format!(
-                    "send completed: receipt {receipt} is durably completed; do not resend"
-                ));
-            }
-            Beat::Broken(detail) => {
-                self.busy = false;
-                self.unsettled = false;
-                self.receipt = None;
-                self.since = None;
-                self.push(detail);
-            }
-            Beat::Unsettled(detail) => {
-                self.busy = true;
-                self.unsettled = true;
-                self.push(detail);
-            }
-        }
     }
 
     fn changed(&mut self) {
@@ -277,6 +226,11 @@ impl State {
             return;
         };
         items.push((kind, line));
+        self.changed();
+    }
+
+    pub(super) fn detail(&mut self, line: String) {
+        self.entries.push(Entry::Detail(line));
         self.changed();
     }
 

@@ -16,6 +16,7 @@ impl Entry {
             (Kind::Thinking, "thinking"),
             (Kind::Tool, "tool"),
             (Kind::Turn, "turn"),
+            (Kind::Interrupted, "interruption"),
             (Kind::Other, "event"),
         ] {
             match count(kind) {
@@ -196,6 +197,12 @@ impl State {
     pub(crate) fn top(&self) -> String {
         let work = if self.unsettled {
             "receipt unsettled"
+        } else if let Some((_, accepted)) = self.stop {
+            if accepted {
+                "interrupt accepted; settling"
+            } else {
+                "interrupt requested"
+            }
         } else if self.busy {
             "sending"
         } else {
@@ -225,13 +232,14 @@ impl State {
         } else {
             "PgDown/Ctrl-End bottom · drag to copy · Ctrl-T detail"
         };
+        let interrupt = if self.busy { " · Esc interrupt" } else { "" };
         let live = self
             .alive()
             .map(|held| format!(" · {held}"))
             .unwrap_or_default();
         match self.position() {
-            Some(position) => format!("{}{live} · {position} · {hint}", self.context),
-            None => format!("{}{live} · {hint}", self.context),
+            Some(position) => format!("{}{live} · {position} · {hint}{interrupt}", self.context),
+            None => format!("{}{live} · {hint}{interrupt}", self.context),
         }
     }
 }

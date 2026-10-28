@@ -17,7 +17,7 @@ mod send;
 mod strand;
 pub mod tui;
 
-pub(crate) use send::{Proof, pending, prove, uncertain};
+pub(crate) use send::{Failed, Proof, pending, prove, uncertain};
 pub use send::{Request, Target, emit, send};
 
 const TIMEOUT: Duration = Duration::from_secs(30);

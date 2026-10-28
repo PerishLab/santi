@@ -12,6 +12,8 @@ mod naming;
 #[path = "screen/receipt.rs"]
 mod receipt;
 
+mod interruption;
+
 use super::keys;
 use super::parse::{lines, read};
 use super::state::recover::recover;
@@ -128,8 +130,8 @@ async fn drive(
                 state.push(report);
                 Step::Stay
             },
-            detail = poll(&mut stopping) => {
-                state.push(detail);
+            (turn, result) = poll(&mut stopping) => {
+                state.stopped(turn, result);
                 stopping = None;
                 Step::Stay
             },
@@ -182,7 +184,7 @@ async fn drive(
                 state.push(report);
             }
             Step::Stop(turn) => {
-                stopping = Some(Box::pin(interrupt(target, turn)));
+                stopping = Some(Box::pin(interruption::request(target, turn)));
             }
             Step::Copy(text) => {
                 let report = copied(&text);
@@ -190,23 +192,6 @@ async fn drive(
             }
             Step::Stay => {}
         }
-    }
-}
-
-async fn interrupt(target: Target<'_>, turn: String) -> String {
-    let url = format!("{}/api/v1/turns/{turn}/stop", target.base);
-    match target.client.post(&url).timeout(TIMEOUT).send().await {
-        Ok(response) if response.status().is_success() => {
-            format!("interrupt accepted for turn {turn}; awaiting its durable outcome")
-        }
-        Ok(response) => format!(
-            "interrupt refused for turn {turn} with status {}; nothing was changed",
-            response.status()
-        ),
-        Err(error) => format!(
-            "interrupt for turn {turn} could not be delivered: {error}; the turn may still be \
-             running"
-        ),
     }
 }
 
