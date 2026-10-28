@@ -263,3 +263,36 @@ fn capsule() {
     assert_eq!(risk, "summary may omit detail");
     assert!(dry);
 }
+
+#[test]
+fn absorbs() {
+    let take = |list: &str| {
+        let mut args = vec!["santi", "compact", "exec", "--summary", "k", "--absorb"];
+        args.push(list);
+        let parsed = Cli::try_parse_from(args).unwrap();
+        let Command::Compact(CompactCommand::Exec { absorb, .. }) = parsed.command else {
+            panic!("expected compact exec");
+        };
+        absorb
+    };
+    assert_eq!(take("compact_a,compact_b"), ["compact_a", "compact_b"]);
+    assert_eq!(take("compact_a, compact_b"), ["compact_a", "compact_b"]);
+    assert_eq!(take("[compact_a, compact_b]"), ["compact_a", "compact_b"]);
+    let mut args = vec!["santi", "compact", "exec", "--summary", "k", "--absorb"];
+    args.extend(["compact_a,compact_b", "--absorb", "compact_c"]);
+    let parsed = Cli::try_parse_from(args).unwrap();
+    let Command::Compact(CompactCommand::Exec { absorb, .. }) = parsed.command else {
+        panic!("expected compact exec");
+    };
+    assert_eq!(absorb, ["compact_a", "compact_b", "compact_c"]);
+}
+
+#[test]
+fn empties() {
+    let mut args = vec!["santi", "compact", "exec", "--summary", "k", "--absorb"];
+    args.push("compact_a,,compact_b");
+    let Err(error) = Cli::try_parse_from(args) else {
+        panic!("empty slot id was accepted");
+    };
+    assert!(error.to_string().contains("must not be empty"), "{error}");
+}
