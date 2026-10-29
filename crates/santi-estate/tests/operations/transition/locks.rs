@@ -63,3 +63,33 @@ async fn refuses() {
     writer.execute("ROLLBACK").await.expect("release writer");
     writer.close().await.expect("close writer");
 }
+
+#[tokio::test]
+async fn coordinate() {
+    let temp = tempfile::tempdir().unwrap();
+    let path = temp.path().join("estate.sqlite");
+    let lock = path.with_file_name("estate.sqlite.transition.lock");
+    let held = std::fs::OpenOptions::new()
+        .read(true)
+        .write(true)
+        .create(true)
+        .truncate(false)
+        .open(&lock)
+        .unwrap();
+    held.lock().unwrap();
+    let error = match Store::open(&path).await {
+        Ok(_) => panic!("transition must refuse external lease"),
+        Err(error) => error,
+    };
+    assert!(error.contains("another database transition holds"));
+    assert!(!path.exists());
+    held.unlock().unwrap();
+    drop(super::super::support::bootstrap(&path).await);
+    assert!(lock.is_file());
+    let peer = std::fs::OpenOptions::new()
+        .read(true)
+        .write(true)
+        .open(&lock)
+        .unwrap();
+    peer.try_lock().unwrap();
+}

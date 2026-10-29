@@ -61,7 +61,6 @@ impl Endpoint for Cron {
         }
         #[cfg(target_os = "linux")]
         {
-            use fs2::FileExt;
             let lock = std::fs::OpenOptions::new()
                 .create(true)
                 .truncate(false)
@@ -69,10 +68,10 @@ impl Endpoint for Cron {
                 .write(true)
                 .open(&self.lock)
                 .map_err(|error| error.to_string())?;
-            lock.try_lock_exclusive()
+            radicula_lock::attempt(&lock, radicula_lock::Mode::Exclusive)
                 .map_err(|error| format!("alarm cron lock unavailable: {error}"))?;
             let outcome = self.converge(alarms);
-            let unlocked = FileExt::unlock(&lock).map_err(|error| error.to_string());
+            let unlocked = radicula_lock::unlock(&lock).map_err(|error| error.to_string());
             outcome?;
             unlocked?;
             Ok(alarm::Projection {
