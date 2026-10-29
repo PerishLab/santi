@@ -1,4 +1,3 @@
-use fs2::FileExt;
 use std::fs::{File, OpenOptions};
 use std::path::{Path, PathBuf};
 
@@ -21,7 +20,7 @@ impl<'a> Estate<'a> {
             .write(true)
             .open(&lock)
             .map_err(|error| format!("open transition lock {}: {error}", lock.display()))?;
-        FileExt::try_lock_exclusive(&file).map_err(|error| {
+        radicula_lock::attempt(&file, radicula_lock::Mode::Exclusive).map_err(|error| {
             format!(
                 "another database transition holds {}: {error}",
                 lock.display()

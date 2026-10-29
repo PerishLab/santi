@@ -32,7 +32,7 @@ clap = { version = "4.6.1", features = ["derive", "env"] }
 ed25519-dalek = "2.2.0"
 futures-core = "0.3.32"
 futures-util = "0.3.32"
-fs2 = "0.4.3"
+radicula-lock = { version = "0", registry = "perish" }
 hex = "0.4.3"
 hmac = "0.12.1"
 jiff = "0.2.28"

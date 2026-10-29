@@ -142,8 +142,6 @@ impl Directory<'_> {
 
     #[cfg(target_os = "windows")]
     pub fn lease(&self) -> Result<File, String> {
-        use fs2::FileExt;
-
         let file = OpenOptions::new()
             .create(true)
             .read(true)
@@ -151,15 +149,13 @@ impl Directory<'_> {
             .truncate(false)
             .open(self.0.join(LEASE))
             .map_err(|error| error.to_string())?;
-        file.try_lock_exclusive()
+        radicula_lock::attempt(&file, radicula_lock::Mode::Exclusive)
             .map_err(|error| format!("job sidecar lease is held: {error}"))?;
         Ok(file)
     }
 
     #[cfg(target_os = "windows")]
     pub fn active(&self) -> Result<bool, String> {
-        use fs2::FileExt;
-
         let file = match OpenOptions::new()
             .read(true)
             .write(true)
@@ -169,13 +165,14 @@ impl Directory<'_> {
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(false),
             Err(error) => return Err(error.to_string()),
         };
-        match file.try_lock_exclusive() {
+        match radicula_lock::attempt(&file, radicula_lock::Mode::Exclusive) {
             Ok(()) => {
-                fs2::FileExt::unlock(&file).map_err(|error| error.to_string())?;
+                radicula_lock::unlock(&file).map_err(|error| error.to_string())?;
                 Ok(false)
             }
-            Err(error) if contended(&error) => Ok(true),
-            Err(error) => Err(error.to_string()),
+            Err(radicula_lock::TryLockError::WouldBlock) => Ok(true),
+            Err(radicula_lock::TryLockError::Error(error)) if contended(&error) => Ok(true),
+            Err(radicula_lock::TryLockError::Error(error)) => Err(error.to_string()),
         }
     }
 }
@@ -297,3 +294,6 @@ impl Artifact<'_> {
         Ok(())
     }
 }
+
+#[cfg(all(test, target_os = "windows"))]
+mod tests;
