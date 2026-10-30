@@ -772,7 +772,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -1915,9 +1915,24 @@ checksum = "f8dcc9c7d52a811697d2151c701e0d08956f92b0e24136cf4cf27b57a6a0d9bf"
 
 [[package]]
 name = "radicula-lock"
-version = "0.4.0"
+version = "0.7.0"
 source = "sparse+https://cargo.perish.uk/"
-checksum = "6701f0150336bc6ac71581b825409d6c90efcf4662c3ecb504a43412fcd9167a"
+checksum = "b047e05098eb6062d29f26ad1f8ed0ef5e9f080d7788b7783802f81aa9e8f7d5"
+dependencies = [
+ "radicula-lock-macros",
+ "tokio",
+]
+
+[[package]]
+name = "radicula-lock-macros"
+version = "0.7.0"
+source = "sparse+https://cargo.perish.uk/"
+checksum = "ed2cab664c7889f2c5e438b42411fcfb1433d93229d93049cefbbff78fbf8556"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.118",
+]
 
 [[package]]
 name = "rand"
@@ -2140,7 +2155,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -2197,7 +2212,7 @@ dependencies = [
  "security-framework",
  "security-framework-sys",
  "webpki-root-certs",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -2312,6 +2327,7 @@ dependencies = [
  "keel",
  "libc",
  "plumb",
+ "radicula-lock",
  "santi-error",
  "santi-estate",
  "santi-model",
@@ -2834,7 +2850,7 @@ dependencies = [
  "getrandom 0.4.3",
  "once_cell",
  "rustix",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -3405,7 +3421,7 @@ version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
 dependencies = [
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]

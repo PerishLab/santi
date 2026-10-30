@@ -56,13 +56,13 @@ impl Service {
         Ok(material::View::State(state(selection, query.effective)))
     }
 
+    #[radicula_lock::guard(gate = self.binding.tokio(), error = |failure: radicula_lock::Failure<_>| Err(failure.to_string()))]
     pub async fn load(
         &self,
         scope: Scope,
         owner: &str,
         command: material::Command,
     ) -> Result<material::Applied, String> {
-        let _lock = self.binding.lock().await;
         let package = self.library.resolve(&command.reference)?;
         self.admissible(scope, owner, &package).await?;
         let operation = command.operation.unwrap_or_else(|| crate::tag("mo"));
@@ -79,13 +79,13 @@ impl Service {
         self.applied(scope, owner, change).await
     }
 
+    #[radicula_lock::guard(gate = self.binding.tokio(), error = |failure: radicula_lock::Failure<_>| Err(failure.to_string()))]
     pub async fn drop(
         &self,
         scope: Scope,
         owner: &str,
         command: material::Command,
     ) -> Result<material::Applied, String> {
-        let _lock = self.binding.lock().await;
         let operation = command.operation.unwrap_or_else(|| crate::tag("mo"));
         let change = self
             .store
