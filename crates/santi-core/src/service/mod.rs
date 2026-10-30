@@ -41,7 +41,7 @@ pub struct Service {
     pub(crate) config: Config,
     renders: Arc<Mutex<HashMap<render::Key, crate::render::View>>>,
     library: Arc<crate::library::Catalog>,
-    binding: Arc<tokio::sync::Mutex<()>>,
+    binding: radicula_lock::Gate,
     streams: broadcast::Sender<stream::Event>,
     errors: broadcast::Sender<Transition>,
     notices: notice::Bus,
@@ -51,7 +51,7 @@ pub struct Service {
     memory_bytes: usize,
     identities: Arc<BTreeMap<String, crate::soul::Identity>>,
     settlements: Arc<Mutex<HashMap<String, Settlement>>>,
-    pressure: Arc<tokio::sync::Mutex<()>>,
+    pressure: radicula_lock::Gate,
     closing: Arc<AtomicBool>,
     controls: Arc<Mutex<HashMap<String, interrupt::Control>>>,
     refusals: Arc<Mutex<HashMap<String, usize>>>,
@@ -116,6 +116,13 @@ impl Service {
             .active_incident_count(crate::drive::Error::Failed.descriptor().code)
             .await?
             > 0;
+        let domain = radicula_lock::Factory::memory();
+        let binding = domain
+            .gate("binding", radicula_lock::Policy::EXCLUSIVE)
+            .map_err(|error| error.to_string())?;
+        let pressure = domain
+            .gate("pressure", radicula_lock::Policy::EXCLUSIVE)
+            .map_err(|error| error.to_string())?;
         let service = Self {
             store,
             context,
@@ -123,7 +130,7 @@ impl Service {
             config,
             renders: Arc::new(Mutex::new(HashMap::new())),
             library: Arc::new(crate::library::Catalog::default()),
-            binding: Arc::new(tokio::sync::Mutex::new(())),
+            binding,
             streams: broadcast::channel(1024).0,
             errors: broadcast::channel(1024).0,
             notices: notice::Bus::new(),
@@ -133,7 +140,7 @@ impl Service {
             memory_bytes: MEMORY,
             identities: Arc::new(BTreeMap::new()),
             settlements: Arc::new(Mutex::new(HashMap::new())),
-            pressure: Arc::new(tokio::sync::Mutex::new(())),
+            pressure,
             closing: Arc::new(AtomicBool::new(false)),
             controls: Arc::new(Mutex::new(HashMap::new())),
             refusals: Arc::new(Mutex::new(HashMap::new())),

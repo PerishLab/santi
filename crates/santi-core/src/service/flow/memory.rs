@@ -1,3 +1,6 @@
+#[cfg(test)]
+mod tests;
+
 use crate::Ruled;
 use std::fs;
 
@@ -49,8 +52,8 @@ impl Service {
         }
     }
 
+    #[radicula_lock::guard(gate = self.pressure.tokio(), error = |failure: radicula_lock::Failure<_>| Err(failure.to_string()))]
     pub(super) async fn gate(&self, strand: &Strand) -> Result<Gate, String> {
-        let _guard = self.pressure.lock().await;
         let policy = self.regimen();
         let snapshot = self.measure(&strand.soul)?;
         self.reconcile(&strand.soul, &snapshot, policy).await?;

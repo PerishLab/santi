@@ -5,6 +5,7 @@ license.workspace = true
 version.workspace = true
 
 [dependencies]
+radicula-lock = { workspace = true, features = ["tokio", "macros"] }
 async-stream.workspace = true
 async-trait.workspace = true
 base64.workspace = true
