@@ -101,6 +101,14 @@ pub(super) fn router(service: Service) -> Router {
         .route("/api/v1/incidents/{incident}", get(super::errors::incident))
         .route("/api/v1/errors/{scope_kind}/{scope_id}", get(errors))
         .route("/api/v1/receipts/{inbox}", receipt())
+        .route(
+            "/api/v1/receipts/{inbox}/acknowledgement",
+            get(super::ingress::acknowledgement),
+        )
+        .route(
+            "/api/v1/receipts/{inbox}/acknowledgement/confirm",
+            post(super::ingress::confirmed),
+        )
         .route("/api/v1/effects/{effect}", get(super::effects::effect))
         .route("/api/v1/effects/{effect}/trace", get(super::effects::trail))
         .route(

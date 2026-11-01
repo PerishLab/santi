@@ -1,3 +1,4 @@
+mod ack;
 mod alarm;
 
 use santi_estate::{

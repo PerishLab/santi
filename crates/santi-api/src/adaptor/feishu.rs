@@ -98,6 +98,14 @@ impl WebhookAdaptor for FeishuAdaptor {
         let allowed = sender_allowed(&open_id, self.allow.as_deref())
             || sender_allowed(&user_id, self.allow.as_deref());
         let in_scope = sender_type == "user" && allowed;
+        if in_scope {
+            identifier(&chat_id, "oc_")?;
+            identifier(&message, "om_")?;
+            identifier(&event_id, "")?;
+        }
+        let fingerprint = hex::encode(Sha256::digest(
+            serde_json::to_vec(&payload).map_err(|e| WebhookError::BadRequest(e.to_string()))?,
+        ));
         let text = format!(
             "[feishu] im.message.receive_v1 in chat {chat_id} ({chat_type})\nmessage: {message}\nevent: {event_id}"
         );
@@ -107,6 +115,7 @@ impl WebhookAdaptor for FeishuAdaptor {
             "webhook_name": webhook_name,
             "event_type": event_type,
             "event_id": event_id,
+            "fingerprint": fingerprint,
             "chat_id": chat_id,
             "chat_type": chat_type,
             "message": message,
@@ -118,7 +127,7 @@ impl WebhookAdaptor for FeishuAdaptor {
             text,
             label,
             metadata: Some(metadata),
-            delivery: None,
+            delivery: Some(event_id),
             in_scope,
             self_authored: false,
         }))
@@ -193,4 +202,21 @@ fn normalized(value: Option<&str>) -> Option<String> {
         .map(str::trim)
         .filter(|value| !value.is_empty())
         .map(str::to_string)
+}
+
+fn identifier(value: &str, prefix: &str) -> Result<(), WebhookError> {
+    if !value.starts_with(prefix) || value.len() <= prefix.len() || value.len() > 160 {
+        return Err(WebhookError::BadRequest(
+            "invalid Feishu event identity".into(),
+        ));
+    }
+    if !value
+        .bytes()
+        .all(|b| b.is_ascii_alphanumeric() || b == b'_' || b == b'-')
+    {
+        return Err(WebhookError::BadRequest(
+            "invalid Feishu event identity".into(),
+        ));
+    }
+    Ok(())
 }

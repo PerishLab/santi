@@ -34,6 +34,7 @@ pub struct Github {
 
 #[derive(Debug, Default)]
 pub struct Feishu {
+    pub acknowledge: Option<String>,
     pub secret: Option<String>,
     pub allow: Option<String>,
 }

@@ -90,3 +90,21 @@ pub(crate) struct StrandEnviron {
     #[relation(Strand, many2one, root)]
     strand: Strand,
 }
+
+#[resource]
+pub(crate) struct Acknowledgement {
+    #[field(string)]
+    intent: string,
+    #[field(string, values = ["dispatching", "accepted", "rejected", "unsent", "unknown", "observed", "not_applied"])]
+    state: string,
+    #[field(string, opt)]
+    result: string,
+    #[field(string, opt)]
+    resolution: string,
+    #[field(string)]
+    created: string,
+    #[field(string)]
+    updated: string,
+    #[relation(InboxReceipt, one2one, root)]
+    receipt: InboxReceipt,
+}

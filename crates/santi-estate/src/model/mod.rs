@@ -39,6 +39,7 @@ pub(super) fn graph() -> Graph {
         .plug::<history::Compact>()
         .plug::<edge::Webhook>()
         .plug::<edge::WebhookDelivery>()
+        .plug::<edge::Acknowledgement>()
         .plug::<edge::Downstream>()
         .plug::<edge::DownstreamIngest>()
         .plug::<edge::SoulEnviron>()
