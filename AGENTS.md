@@ -124,3 +124,20 @@ SANTI_STRAND_ID=$SID santi strand send 'Reply with exactly: OK' --watch
 Inspect an accepted send with `santi receipt <inbox>` and
 `santi strand runtime <strand>` when its watch result remains unknown.
 Stop the server after the check.
+
+Feishu event IDs use the existing durable delivery gate; their decrypted envelope
+fingerprint detects conflicting reuse. Optional webhooks.feishu.acknowledge names
+one native Runseal profile. After durable intake, the adaptor reserves one
+receipt-owned acknowledgement and dispatches the case-sensitive Get emoji with
+explicit bot actor. Acceptance returns independently of that outward result.
+The acknowledgement inspection API retains intent, state and complete process
+result separately from task receipt/completion. An interrupted dispatch remains
+uncertain and is never automatically replayed. Observe the exact message's
+reactions through native Runseal before explicit recovery. A confirmation failure
+never authorizes re-running the task. Start/progress text remains consumer memory
+policy. Issue #304 owns this boundary.
+
+Unknown acknowledgements block Strand retirement. Startup marks interrupted
+dispatches unknown without replay. After exact platform observation, the explicit
+confirmation endpoint records operator judgment separately from the original
+result; only then can that uncertainty settle. It never calls the platform.

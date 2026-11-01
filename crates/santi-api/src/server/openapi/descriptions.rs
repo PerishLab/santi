@@ -1,4 +1,12 @@
-pub const COMPONENT_DESCRIPTIONS: [(&str, &str); 12] = [
+pub const COMPONENT_DESCRIPTIONS: [(&str, &str); 14] = [
+    (
+        "receipt.Acknowledgement",
+        "Channel confirmation is separate from task receipt and completion. The receipt owns its dispatch intent, complete process result and any later operator resolution. It never authorizes task replay.",
+    ),
+    (
+        "receipt.Confirmation",
+        "Explicit operator attestation after exact native platform observation of an unknown acknowledgement. Applied means the intended actor/emoji reaction is observed; not applied requires sufficient coverage to support absence. It does not itself query, retry or compensate.",
+    ),
     (
         "budget.Execution",
         "Execution policy for a strand. `timeout` is the foreground shell deadline in seconds, including waiting for inherited stdout/stderr pipes. A deadline interrupts the managed process group and reports a tool failure; partial external effects remain possible. Detached Jobs own long waits and their separate timeout policy.",
@@ -49,7 +57,22 @@ pub const COMPONENT_DESCRIPTIONS: [(&str, &str); 12] = [
     ),
 ];
 
-pub const PROPERTY_DESCRIPTIONS: [(&str, &str, &str); 14] = [
+pub const PROPERTY_DESCRIPTIONS: [(&str, &str, &str); 17] = [
+    (
+        "receipt.Acknowledgement",
+        "state",
+        "dispatching is reserved before process launch; accepted is a validated SDK acknowledgement, not delivery. rejected and unsent are finite refusals. unknown requires observation; interrupted dispatches become unknown at service startup. Explicit confirmation yields observed or not_applied without a retry.",
+    ),
+    (
+        "receipt.Acknowledgement",
+        "result",
+        "The retained complete process exit/stdout/stderr or local dispatch failure. Later operator resolution never overwrites this result.",
+    ),
+    (
+        "receipt.Acknowledgement",
+        "resolution",
+        "Separate explicit applied/not-applied judgment and exact observation evidence. Unknown or dispatching acknowledgements block Strand retirement until uncertainty settles.",
+    ),
     (
         "material.Component",
         "bytes",

@@ -91,3 +91,7 @@ thinking = ""
 reasoning_effort = ""
 bytes = 500000
 maintenance_bytes = 750000
+
+# Optional deterministic Get acknowledgement after durable Feishu intake.
+# [webhooks.feishu]
+# acknowledge = "bot"

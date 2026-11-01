@@ -1,3 +1,5 @@
+mod ack;
+
 use axum::{
     Json,
     body::Bytes,
@@ -77,6 +79,13 @@ pub(super) async fn ingest_webhook(
     } else {
         event.label.clone()
     };
+    let confirmation = ack::message(&subscription.adaptor, event.metadata.as_ref());
+    let fingerprint = event
+        .metadata
+        .as_ref()
+        .and_then(|m| m.get("fingerprint"))
+        .and_then(serde_json::Value::as_str)
+        .map(str::to_string);
     let source = ingest::Source::new("webhook")
         .with_ref(format!("{}:{name}", subscription.adaptor))
         .with_metadata(json!({
@@ -89,7 +98,8 @@ pub(super) async fn ingest_webhook(
         }));
     let outcome = match event.delivery.as_deref() {
         Some(delivery) => {
-            let digest = digest(&subscription.adaptor, &headers, &body);
+            let digest =
+                fingerprint.unwrap_or_else(|| digest(&subscription.adaptor, &headers, &body));
             service
                 .deliver(
                     santi_core::service::Envelope {
@@ -118,6 +128,7 @@ pub(super) async fn ingest_webhook(
     .map_err(ApiError::from_service)?;
     match outcome {
         ingest::Outcome::Accepted { receipt } => {
+            ack::accept(&service, confirmation, &receipt).await;
             Ok((StatusCode::ACCEPTED, Json(receipt)).into_response())
         }
         ingest::Outcome::Rejected { error } => Err(ApiError::from_santi(*error)),
@@ -137,4 +148,34 @@ fn digest(adaptor: &str, headers: &HeaderMap, body: &[u8]) -> String {
     hasher.update([0]);
     hasher.update(body);
     hex::encode(hasher.finalize())
+}
+
+#[utoipa::path(get, path = "/api/v1/receipts/{inbox}/acknowledgement", params(("inbox" = String, Path)),
+    summary = "Inspect the separate channel acknowledgement dispatch and retained result. Dispatching after interruption is uncertain; never resend the accepted task to recover its acknowledgement.",
+    responses((status = 200, body = santi_core::receipt::Acknowledgement), (status = 404, body = Fault), (status = 500, body = Fault)))]
+pub(super) async fn acknowledgement(
+    State(service): State<Service>,
+    Path(inbox): Path<String>,
+) -> Result<Json<santi_core::receipt::Acknowledgement>, ApiError> {
+    service
+        .acknowledgement(&inbox)
+        .await
+        .map_err(ApiError::from_service)?
+        .map(Json)
+        .ok_or_else(|| ApiError::not_found("acknowledgement not found"))
+}
+
+#[utoipa::path(post, path = "/api/v1/receipts/{inbox}/acknowledgement/confirm", params(("inbox" = String, Path)), request_body = santi_core::receipt::Confirmation,
+    summary = "Explicit operator judgment after exact reaction observation. Resolves only an unknown acknowledgement and preserves the original dispatch/result. Does not query the platform or resend any task/reaction. Absence requires sufficient page coverage; evidence is the caller's attestation.",
+    responses((status = 200, body = santi_core::receipt::Acknowledgement), (status = 400, body = Fault), (status = 500, body = Fault)))]
+pub(super) async fn confirmed(
+    State(service): State<Service>,
+    Path(inbox): Path<String>,
+    Json(resolution): Json<santi_core::receipt::Confirmation>,
+) -> Result<Json<santi_core::receipt::Acknowledgement>, ApiError> {
+    service
+        .confirmed(&inbox, &resolution)
+        .await
+        .map_err(ApiError::from_service)?;
+    acknowledgement(State(service), Path(inbox)).await
 }

@@ -12,6 +12,7 @@ impl Store {
                 Gate(tx).forks(&strand, tag).await?;
                 Gate(tx).inputs(&strand).await?;
                 Gate(tx).turns(&strand).await?;
+                Gate(tx).acknowledgements(&strand).await?;
                 let jobs = Gate(tx).jobs(&strand).await?;
                 tx.end("Strand", key).await?;
                 Ok(jobs)
@@ -65,6 +66,27 @@ impl Gate<'_, '_> {
             .await?
         {
             return Err(blocked("unfinished receipt", &row));
+        }
+        Ok(())
+    }
+
+    async fn acknowledgements(&mut self, strand: &str) -> Result<(), Error> {
+        let receipts = self
+            .0
+            .ask(&form("InboxReceipt").when("strand", Op::Eq, strand))
+            .await?;
+        for receipt in receipts.rows() {
+            let row = self
+                .0
+                .one(
+                    &form("Acknowledgement")
+                        .when("receipt", Op::Eq, &receipt.key().to_string())
+                        .any("state", &["dispatching", "unknown"]),
+                )
+                .await?;
+            if let Some(row) = row {
+                return Err(blocked("unsettled acknowledgement", &row));
+            }
         }
         Ok(())
     }

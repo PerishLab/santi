@@ -4,6 +4,7 @@ use keel::{Core, Op, Rank, Row, form};
 use santi_model::{ingest, message};
 use std::collections::BTreeSet;
 
+mod ack;
 mod drain;
 mod edge;
 pub(in crate::store) mod receipt;

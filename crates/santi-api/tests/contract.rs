@@ -155,9 +155,38 @@ fn api() {
             .get("revision")
             .is_some()
     );
+    let acknowledgement = &routes["/api/v1/receipts/{inbox}/acknowledgement"]["get"];
+    assert_eq!(
+        acknowledgement["responses"]["200"]["content"]["application/json"]["schema"]["$ref"],
+        "#/components/schemas/receipt.Acknowledgement"
+    );
+    assert!(
+        acknowledgement["summary"]
+            .as_str()
+            .unwrap()
+            .contains("uncertain")
+    );
+    let schema = &document["components"]["schemas"]["receipt.Acknowledgement"];
+    for field in ["inbox", "intent", "state", "created", "updated"] {
+        assert!(
+            schema["required"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|v| v == field)
+        );
+    }
+    let confirmation = &routes["/api/v1/receipts/{inbox}/acknowledgement/confirm"]["post"];
+    assert!(
+        confirmation["summary"]
+            .as_str()
+            .unwrap()
+            .contains("attestation")
+    );
+    assert!(schema["properties"].get("resolution").is_some());
     let hash = format!("{:x}", Sha256::digest(text.as_bytes()));
     assert_eq!(
         hash,
-        "640c063a081f2fa5f7ecc5c6d7d6e4e05e3d8fb5c39e761db46cb388af306bf7"
+        "ca96a864049810c5a64c0285e74c406db29acee2a44510d7156ad488a1f4e5e6"
     );
 }

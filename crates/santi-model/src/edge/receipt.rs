@@ -3,6 +3,18 @@ use utoipa::ToSchema;
 
 use crate::Timestamp;
 
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[schema(as = receipt::Acknowledgement)]
+pub struct Acknowledgement {
+    pub inbox: String,
+    pub intent: serde_json::Value,
+    pub state: String,
+    pub result: Option<serde_json::Value>,
+    pub resolution: Option<serde_json::Value>,
+    pub created: Timestamp,
+    pub updated: Timestamp,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 #[schema(as = receipt::State)]
@@ -35,4 +47,11 @@ pub struct Status {
     pub updated: Timestamp,
     pub transitions: Vec<Transition>,
     pub effects: Vec<crate::effect::Effect>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[schema(as = receipt::Confirmation)]
+pub struct Confirmation {
+    pub applied: bool,
+    pub evidence: String,
 }

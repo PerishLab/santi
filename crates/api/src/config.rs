@@ -146,6 +146,7 @@ pub struct Github {
 #[derive(Debug, Default, Cascade)]
 #[cascade(section)]
 pub struct Feishu {
+    pub acknowledge: Option<String>,
     pub encrypt_key: Option<String>,
     pub allow: Option<String>,
 }
@@ -273,6 +274,7 @@ fn runtime(held: Config) -> Result<Runtime, String> {
             allow: held.webhooks.github.allow,
         },
         feishu: runtime::Feishu {
+            acknowledge: held.webhooks.feishu.acknowledge,
             secret: held.webhooks.feishu.encrypt_key,
             allow: held.webhooks.feishu.allow,
         },
