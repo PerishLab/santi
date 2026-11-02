@@ -1,7 +1,7 @@
 use super::{Begun, DrainDraft, Opening, Refusal, Store, read, receipt};
 use keel::adapt::db::Sqlite;
 use keel::{Op, Rank, Row, Tx, form};
-use santi_model::receipt as receipt_model;
+use santi_model::receipt as model;
 use serde_json::{Value, json};
 
 mod codec;

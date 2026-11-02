@@ -1,4 +1,4 @@
-use crate::store::inbox::offer_in;
+use crate::store::inbox::offer;
 use crate::store::{Store, read};
 use keel::{Op, Rank, form};
 
@@ -232,7 +232,7 @@ impl Store {
                 if remaining < 1 {
                     return Err(adapt("active wake lease has no remaining rounds"));
                 }
-                let offer = offer_in(tx, draft.notice, draft.gate).await?;
+                let offer = offer(tx, draft.notice, draft.gate).await?;
                 let remaining = remaining - 1;
                 let last = draft.now_millis.to_string();
                 let rounds = remaining.to_string();

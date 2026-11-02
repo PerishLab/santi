@@ -120,7 +120,7 @@ impl Writer<'_, '_> {
             self.0,
             super::super::ReceiptDraft {
                 inbox: &item.pending.tag,
-                state: receipt_model::State::Driving,
+                state: model::State::Driving,
                 turn: Some(draft.turn),
                 incident: None,
                 occurred: draft.created,

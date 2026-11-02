@@ -40,6 +40,21 @@ include = ["crates/**/*.rs"]
 
 [vocabulary]
 term = [
+  { name = "drive_strand_handler", description = "Public Santi API re-export of the HTTP Strand drive handler." },
+  { name = "effect_status_handler", description = "Public Santi API re-export of the HTTP Effect status handler." },
+  { name = "end_strand_handler", description = "Public Santi API re-export of the guarded Strand retirement handler." },
+  { name = "errors_handler", description = "Public Santi API re-export of the retained error history handler." },
+  { name = "health_handler", description = "Public Santi API re-export of the HTTP runtime health handler." },
+  { name = "incident_handler", description = "Public Santi API re-export of the exact retained Incident inspection handler." },
+  { name = "send_strand_handler", description = "Public Santi API re-export of the Strand input acceptance handler." },
+  { name = "resolve_effect_handler", description = "Public Santi API re-export of the explicit Effect settlement handler." },
+  { name = "strand_errors_handler", description = "Public Santi API re-export of the Strand-scoped error history handler." },
+  { name = "ProviderPreview", description = "Public Santi core projection of the provider-visible assembled timeline." },
+  { name = "JobLaunch", description = "Public Job supervisor launch declaration shared by platform adaptors." },
+  { name = "JobObservation", description = "Public Job supervisor observation of the detached process lifecycle." },
+  { name = "JobRead", description = "Public Job log-reading request shared by runtime and HTTP adaptor." },
+  { name = "JobSupervisor", description = "Public platform adaptor contract for detached Job supervision." },
+  { name = "JobTerminal", description = "Public detached Job terminal result retained by supervisor adaptors." },
   { name = "AlarmDelivery", description = "Immutable accepted Alarm occurrence and receipt evidence." },
   { name = "set_alarm", description = "Set one named Alarm declaration through Keel." },
   { name = "end_alarm", description = "End an Alarm and reconcile its platform projection." },
