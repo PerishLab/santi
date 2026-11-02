@@ -41,3 +41,212 @@ install = false
 [release.deb]
 binary = "santi-api"
 root = "packaging/deb"
+
+[guard.lock]
+enforce = true
+target = "x86_64-unknown-linux-gnu"
+features = ["default", "all-features"]
+
+[[guard.lock.review]]
+reference = "711be8fa9f15c1ea8131f502131d9ce84b2b7e8324b2618e21aa8e623f6197f0"
+role = "interoperability"
+protocol = "Independent native peer holds alarm.lock while Cron apply must refuse contention."
+hold = "The external File remains held across the refused apply, until line 36 unlocks it."
+release = "Explicit unlock ends the deliberate hold; File drop also closes the fixture descriptor."
+verification = "cron asserts the production Radicula attempt refuses the independently held alarm.lock."
+[guard.lock.review.evidence]
+"crates/santi-api/tests/locks.rs" = "cee692c4d5e20e587fbd3b6a482e0c069cc524e9af2a949dc871898d9f61b429"
+"crates/santi-api/src/adaptor/cron/mod.rs" = "2f6baed9ea57c4321352db5d9e192b243e30aaf0d440f58c2cc0c9310dbd1ef4"
+
+[[guard.lock.review]]
+reference = "a38f4350149cfa10c1dd7e12695012e243c573477da9c6410abddb965ddefb05"
+role = "interoperability"
+protocol = "Independent native peer holds alarm.lock while Cron apply must refuse contention."
+hold = "The external File remains held across the refused apply, until line 36 unlocks it."
+release = "Explicit unlock ends the deliberate hold; File drop also closes the fixture descriptor."
+verification = "cron asserts the production Radicula attempt refuses the independently held alarm.lock."
+[guard.lock.review.evidence]
+"crates/santi-api/tests/locks.rs" = "cee692c4d5e20e587fbd3b6a482e0c069cc524e9af2a949dc871898d9f61b429"
+"crates/santi-api/src/adaptor/cron/mod.rs" = "2f6baed9ea57c4321352db5d9e192b243e30aaf0d440f58c2cc0c9310dbd1ef4"
+
+[[guard.lock.review]]
+reference = "9746408fd98db95597e439f3171fd823f8e8d22e689fc59a2e1edd6cc7911e62"
+role = "interoperability"
+protocol = "Release the independent alarm.lock peer so production Cron can reenter."
+hold = "Ends the external hold acquired at line 29 after the expected contention refusal."
+release = "This explicit unlock is followed by successful production apply; File drop is the fallback."
+verification = "cron asserts empty alarm apply succeeds after independent native release."
+[guard.lock.review.evidence]
+"crates/santi-api/tests/locks.rs" = "cee692c4d5e20e587fbd3b6a482e0c069cc524e9af2a949dc871898d9f61b429"
+"crates/santi-api/src/adaptor/cron/mod.rs" = "2f6baed9ea57c4321352db5d9e192b243e30aaf0d440f58c2cc0c9310dbd1ef4"
+
+[[guard.lock.review]]
+reference = "2966e636149dfed76bad2b76909ba9d4118d00ab3b6a641c8bd4d86e14f4d2c7"
+role = "interoperability"
+protocol = "Release the independent alarm.lock peer so production Cron can reenter."
+hold = "Ends the external hold acquired at line 29 after the expected contention refusal."
+release = "This explicit unlock is followed by successful production apply; File drop is the fallback."
+verification = "cron asserts empty alarm apply succeeds after independent native release."
+[guard.lock.review.evidence]
+"crates/santi-api/tests/locks.rs" = "cee692c4d5e20e587fbd3b6a482e0c069cc524e9af2a949dc871898d9f61b429"
+"crates/santi-api/src/adaptor/cron/mod.rs" = "2f6baed9ea57c4321352db5d9e192b243e30aaf0d440f58c2cc0c9310dbd1ef4"
+
+[[guard.lock.review]]
+reference = "bd7546e6abbf8ec2290fb301efb53cdf0be472c9124cf21dcf4607b38406a4e7"
+role = "interoperability"
+protocol = "Independent native reacquisition verifies successful Cron apply released alarm.lock."
+hold = "The immediate probe is held only until the explicit line 39 unlock."
+release = "Explicit unlock or fixture File drop releases the probe."
+verification = "cron requires native try_lock to succeed after successful production apply."
+[guard.lock.review.evidence]
+"crates/santi-api/tests/locks.rs" = "cee692c4d5e20e587fbd3b6a482e0c069cc524e9af2a949dc871898d9f61b429"
+"crates/santi-api/src/adaptor/cron/mod.rs" = "2f6baed9ea57c4321352db5d9e192b243e30aaf0d440f58c2cc0c9310dbd1ef4"
+
+[[guard.lock.review]]
+reference = "3eef4abe3dcb31b39cfe36d6d57bd8558956ce156696da3f9358755508889152"
+role = "interoperability"
+protocol = "Independent native reacquisition verifies successful Cron apply released alarm.lock."
+hold = "The immediate probe is held only until the explicit line 39 unlock."
+release = "Explicit unlock or fixture File drop releases the probe."
+verification = "cron requires native try_lock to succeed after successful production apply."
+[guard.lock.review.evidence]
+"crates/santi-api/tests/locks.rs" = "cee692c4d5e20e587fbd3b6a482e0c069cc524e9af2a949dc871898d9f61b429"
+"crates/santi-api/src/adaptor/cron/mod.rs" = "2f6baed9ea57c4321352db5d9e192b243e30aaf0d440f58c2cc0c9310dbd1ef4"
+
+[[guard.lock.review]]
+reference = "8718c82d73eb53800b038a7d535cabcaeabbf0c872af9c95017d65d34d534d60"
+role = "interoperability"
+protocol = "Release the successful-apply probe before inducing a production convergence failure."
+hold = "Ends the probe acquired at line 38 before the nonempty alarm apply."
+release = "Explicit native unlock; fixture File drop remains the unwind fallback."
+verification = "cron subsequently reaches the expected missing-executable failure rather than contention."
+[guard.lock.review.evidence]
+"crates/santi-api/tests/locks.rs" = "cee692c4d5e20e587fbd3b6a482e0c069cc524e9af2a949dc871898d9f61b429"
+"crates/santi-api/src/adaptor/cron/mod.rs" = "2f6baed9ea57c4321352db5d9e192b243e30aaf0d440f58c2cc0c9310dbd1ef4"
+
+[[guard.lock.review]]
+reference = "0ec699aa8171eaa81e6e1e5b36cff88a432d7b15882e1f58017493881962b48f"
+role = "interoperability"
+protocol = "Release the successful-apply probe before inducing a production convergence failure."
+hold = "Ends the probe acquired at line 38 before the nonempty alarm apply."
+release = "Explicit native unlock; fixture File drop remains the unwind fallback."
+verification = "cron subsequently reaches the expected missing-executable failure rather than contention."
+[guard.lock.review.evidence]
+"crates/santi-api/tests/locks.rs" = "cee692c4d5e20e587fbd3b6a482e0c069cc524e9af2a949dc871898d9f61b429"
+"crates/santi-api/src/adaptor/cron/mod.rs" = "2f6baed9ea57c4321352db5d9e192b243e30aaf0d440f58c2cc0c9310dbd1ef4"
+
+[[guard.lock.review]]
+reference = "c4ba92e51f0df8fad721f8cb6af1e817e635babe6aaea1a389cbe76eeaa262a7"
+role = "interoperability"
+protocol = "Independent native reacquisition verifies failed Cron convergence released alarm.lock."
+hold = "The fault-release probe is held only until line 56 unlocks it."
+release = "Explicit unlock or fixture File drop releases the probe."
+verification = "cron asserts missing-executable failure, then successful native reacquisition and retained lock path."
+[guard.lock.review.evidence]
+"crates/santi-api/tests/locks.rs" = "cee692c4d5e20e587fbd3b6a482e0c069cc524e9af2a949dc871898d9f61b429"
+"crates/santi-api/src/adaptor/cron/mod.rs" = "2f6baed9ea57c4321352db5d9e192b243e30aaf0d440f58c2cc0c9310dbd1ef4"
+
+[[guard.lock.review]]
+reference = "55d4663ef4296be01f4d12949312eae5577a6f2e65bdc9ac159548971299e591"
+role = "interoperability"
+protocol = "Independent native reacquisition verifies failed Cron convergence released alarm.lock."
+hold = "The fault-release probe is held only until line 56 unlocks it."
+release = "Explicit unlock or fixture File drop releases the probe."
+verification = "cron asserts missing-executable failure, then successful native reacquisition and retained lock path."
+[guard.lock.review.evidence]
+"crates/santi-api/tests/locks.rs" = "cee692c4d5e20e587fbd3b6a482e0c069cc524e9af2a949dc871898d9f61b429"
+"crates/santi-api/src/adaptor/cron/mod.rs" = "2f6baed9ea57c4321352db5d9e192b243e30aaf0d440f58c2cc0c9310dbd1ef4"
+
+[[guard.lock.review]]
+reference = "bad643fd4465fa1b2f745173bb38f773b19de66c21a7bf9dadd95841a67f221d"
+role = "interoperability"
+protocol = "Finish the independent Cron fault-release observation without deleting its carrier path."
+hold = "Ends the probe acquired at line 55, before the final retained-path assertion."
+release = "Explicit native unlock; File drop closes the descriptor on assertion unwind."
+verification = "cron asserts alarm.lock remains a regular file after the probe is released."
+[guard.lock.review.evidence]
+"crates/santi-api/tests/locks.rs" = "cee692c4d5e20e587fbd3b6a482e0c069cc524e9af2a949dc871898d9f61b429"
+"crates/santi-api/src/adaptor/cron/mod.rs" = "2f6baed9ea57c4321352db5d9e192b243e30aaf0d440f58c2cc0c9310dbd1ef4"
+
+[[guard.lock.review]]
+reference = "f84eca2a2fb0340d8c960b8c108fe58965a70a9afdaa8d5500ab573a5988f8fc"
+role = "interoperability"
+protocol = "Finish the independent Cron fault-release observation without deleting its carrier path."
+hold = "Ends the probe acquired at line 55, before the final retained-path assertion."
+release = "Explicit native unlock; File drop closes the descriptor on assertion unwind."
+verification = "cron asserts alarm.lock remains a regular file after the probe is released."
+[guard.lock.review.evidence]
+"crates/santi-api/tests/locks.rs" = "cee692c4d5e20e587fbd3b6a482e0c069cc524e9af2a949dc871898d9f61b429"
+"crates/santi-api/src/adaptor/cron/mod.rs" = "2f6baed9ea57c4321352db5d9e192b243e30aaf0d440f58c2cc0c9310dbd1ef4"
+
+[[guard.lock.review]]
+reference = "e6d61a37afa4b709260eb98c8b2db93f8c8423f779d081d017092436f1cea53e"
+role = "interoperability"
+protocol = "Independent native peer holds estate.sqlite.transition.lock against production Store open."
+hold = "The external File remains held across the refused async Store open and path-absence assertion."
+release = "Line 86 explicitly unlocks; descriptor drop handles unwind or async cancellation."
+verification = "coordinate asserts transition refusal under the external lease and no source database creation."
+[guard.lock.review.evidence]
+"crates/santi-estate/tests/operations/transition/locks.rs" = "a970368405f2a89226a4b08e381c88c5b5927669b451689d63f19b7eab3dd0d9"
+"crates/santi-estate/src/store/support/transition/quarantine.rs" = "2130460a6234480f629dd13be03cf81bf41f839d413eb82edba113f903c376a1"
+"crates/santi-estate/src/store/support/transition/mod.rs" = "d6c06a6729a902e389208f377f664d693388cff92e1a7f78a34d0e53663a52f8"
+
+[[guard.lock.review]]
+reference = "3dd59f0db94407c70889cfd627b70605043a6947f4412f75398908684579eb19"
+role = "interoperability"
+protocol = "Independent native peer holds estate.sqlite.transition.lock against production Store open."
+hold = "The external File remains held across the refused async Store open and path-absence assertion."
+release = "Line 86 explicitly unlocks; descriptor drop handles unwind or async cancellation."
+verification = "coordinate asserts transition refusal under the external lease and no source database creation."
+[guard.lock.review.evidence]
+"crates/santi-estate/tests/operations/transition/locks.rs" = "a970368405f2a89226a4b08e381c88c5b5927669b451689d63f19b7eab3dd0d9"
+"crates/santi-estate/src/store/support/transition/quarantine.rs" = "2130460a6234480f629dd13be03cf81bf41f839d413eb82edba113f903c376a1"
+"crates/santi-estate/src/store/support/transition/mod.rs" = "d6c06a6729a902e389208f377f664d693388cff92e1a7f78a34d0e53663a52f8"
+
+[[guard.lock.review]]
+reference = "53aa83e1ef7c639a1755dbbec75fdf74aeef3982b8799421b5aa30d20da5849d"
+role = "interoperability"
+protocol = "Release the external transition lease so production bootstrap can acquire its Radicula-backed File."
+hold = "Ends the peer hold acquired at line 79 after transition refusal."
+release = "Explicit unlock precedes successful bootstrap; descriptor drop is the fallback."
+verification = "coordinate completes bootstrap after release and asserts the transition lock path is retained."
+[guard.lock.review.evidence]
+"crates/santi-estate/tests/operations/transition/locks.rs" = "a970368405f2a89226a4b08e381c88c5b5927669b451689d63f19b7eab3dd0d9"
+"crates/santi-estate/src/store/support/transition/quarantine.rs" = "2130460a6234480f629dd13be03cf81bf41f839d413eb82edba113f903c376a1"
+"crates/santi-estate/src/store/support/transition/mod.rs" = "d6c06a6729a902e389208f377f664d693388cff92e1a7f78a34d0e53663a52f8"
+
+[[guard.lock.review]]
+reference = "9a8b2de26248e4c7e5f90af6dfcd664c8a06fee4f4d37726da909f55cc4d5630"
+role = "interoperability"
+protocol = "Release the external transition lease so production bootstrap can acquire its Radicula-backed File."
+hold = "Ends the peer hold acquired at line 79 after transition refusal."
+release = "Explicit unlock precedes successful bootstrap; descriptor drop is the fallback."
+verification = "coordinate completes bootstrap after release and asserts the transition lock path is retained."
+[guard.lock.review.evidence]
+"crates/santi-estate/tests/operations/transition/locks.rs" = "a970368405f2a89226a4b08e381c88c5b5927669b451689d63f19b7eab3dd0d9"
+"crates/santi-estate/src/store/support/transition/quarantine.rs" = "2130460a6234480f629dd13be03cf81bf41f839d413eb82edba113f903c376a1"
+"crates/santi-estate/src/store/support/transition/mod.rs" = "d6c06a6729a902e389208f377f664d693388cff92e1a7f78a34d0e53663a52f8"
+
+[[guard.lock.review]]
+reference = "82f56b0a867f6ee0b99cd126d41769ee9545c43c825a9f08d7785272042a607c"
+role = "interoperability"
+protocol = "Independent native reacquisition verifies the complete production transition lease ended."
+hold = "The final peer File holds the successful probe until the test scope exits."
+release = "Peer descriptor drop releases the probe on normal exit, panic unwind or async cancellation."
+verification = "coordinate requires native reacquisition after bootstrap and retained transition lock path."
+[guard.lock.review.evidence]
+"crates/santi-estate/tests/operations/transition/locks.rs" = "a970368405f2a89226a4b08e381c88c5b5927669b451689d63f19b7eab3dd0d9"
+"crates/santi-estate/src/store/support/transition/quarantine.rs" = "2130460a6234480f629dd13be03cf81bf41f839d413eb82edba113f903c376a1"
+"crates/santi-estate/src/store/support/transition/mod.rs" = "d6c06a6729a902e389208f377f664d693388cff92e1a7f78a34d0e53663a52f8"
+
+[[guard.lock.review]]
+reference = "14edee4e3401509373fc07526cca205bfd53533fa3bdf7ef30a0418621773ebd"
+role = "interoperability"
+protocol = "Independent native reacquisition verifies the complete production transition lease ended."
+hold = "The final peer File holds the successful probe until the test scope exits."
+release = "Peer descriptor drop releases the probe on normal exit, panic unwind or async cancellation."
+verification = "coordinate requires native reacquisition after bootstrap and retained transition lock path."
+[guard.lock.review.evidence]
+"crates/santi-estate/tests/operations/transition/locks.rs" = "a970368405f2a89226a4b08e381c88c5b5927669b451689d63f19b7eab3dd0d9"
+"crates/santi-estate/src/store/support/transition/quarantine.rs" = "2130460a6234480f629dd13be03cf81bf41f839d413eb82edba113f903c376a1"
+"crates/santi-estate/src/store/support/transition/mod.rs" = "d6c06a6729a902e389208f377f664d693388cff92e1a7f78a34d0e53663a52f8"

@@ -20,6 +20,13 @@ paths = [
 ]
 syntax = "environment"
 
+[[grant]]
+paths = [
+  "crates/santi-api/tests/locks.rs",
+  "crates/santi-estate/tests/operations/transition/locks.rs",
+]
+syntax = "lock"
+
 [limit]
 block = 4
 fanout = 10
