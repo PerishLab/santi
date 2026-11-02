@@ -111,7 +111,7 @@ pub(super) async fn bind(
             tx,
             super::super::ReceiptDraft {
                 inbox: &inbox,
-                state: receipt_model::State::Driving,
+                state: model::State::Driving,
                 turn: Some(draft.turn),
                 incident: None,
                 occurred: draft.created,

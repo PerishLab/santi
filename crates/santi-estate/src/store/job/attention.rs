@@ -1,5 +1,5 @@
 use super::{AttentionDraft, Store, read, write};
-use crate::store::inbox::{NoticeDraft, Offer, offer_in};
+use crate::store::inbox::{NoticeDraft, Offer, offer};
 
 impl Store {
     pub async fn attend_job(
@@ -35,7 +35,7 @@ impl Store {
                 if current == base {
                     update(tx, &job, attention, revision).await?;
                 }
-                offer_in(tx, notice, gate).await
+                offer(tx, notice, gate).await
             })
             .await
             .map_err(read::error)

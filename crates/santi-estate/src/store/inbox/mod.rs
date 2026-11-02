@@ -16,7 +16,7 @@ pub use edge::{Accepted, DownstreamDraft, ReplayDraft, WebhookDraft};
 pub use types::{
     Begun, DrainDraft, Inbox, InboxDraft, NoticeDraft, Offer, Opening, ReceiptDraft, Refusal,
 };
-pub(in crate::store) use write::offer as offer_in;
+pub(in crate::store) use write::offer;
 
 impl Store {
     pub async fn drain_turn(&self, draft: DrainDraft<'_>) -> Result<Opening, String> {
