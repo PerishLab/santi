@@ -25,7 +25,7 @@ impl<'a> Probe<'a> {
                 .iter()
                 .any(|turn| turn.status == santi_core::turn::Status::Completed)
             {
-                return runtime;
+                return self.snapshot(strand).await;
             }
             sleep(Duration::from_millis(20)).await;
         }
@@ -44,7 +44,7 @@ impl<'a> Probe<'a> {
                 .iter()
                 .any(|held| held.id == turn && held.status == santi_core::turn::Status::Completed)
             {
-                return runtime;
+                return self.snapshot(strand).await;
             }
             sleep(Duration::from_millis(20)).await;
         }
