@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::time::Duration;
 
-use plumb::config::Cascade;
+use radicula_config::Cascade;
 use santi_api::config::{Layout, Profile, env, home};
 use santi_api::runtime::{self, Runtime};
 use santi_core::soul;
@@ -239,13 +239,8 @@ pub fn boot(config: Option<&str>, over: ConfigPartial) -> Result<(), String> {
 fn resolved(
     file: Option<&std::path::Path>,
     over: ConfigPartial,
-) -> Result<Config, plumb::config::Error> {
-    let mut held = Config::default();
-    if let Some(path) = file {
-        held = held.merge(plumb::config::load::<ConfigPartial>(path)?);
-    }
-    held = held.merge(Config::env("SANTI")?);
-    Ok(held.merge(over))
+) -> Result<Config, radicula_config::Error> {
+    Config::layered(file, "SANTI", &plumb::config::value, over)
 }
 
 fn runtime(held: Config) -> Result<Runtime, String> {

@@ -1,4 +1,4 @@
-use plumb::config::Cascade;
+use radicula_config::Cascade;
 use serde::Serialize;
 
 #[derive(Debug, Serialize, Cascade)]

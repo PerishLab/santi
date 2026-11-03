@@ -2,10 +2,11 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 
 use anyhow::{Context, Result};
-use plumb::config::Cascade;
+use radicula_config::Cascade;
 use serde::Deserialize;
 
 #[derive(Debug, Default, Cascade)]
+#[plumb::config::prefix]
 pub struct Client {
     pub base_url: Option<String>,
     pub api_key: Option<String>,
@@ -33,7 +34,7 @@ pub fn names() -> Names {
     if !path.is_file() {
         return Names::default();
     }
-    plumb::config::load(&path).unwrap_or_default()
+    radicula_config::load(&path).unwrap_or_default()
 }
 
 pub fn rename(id: &str, name: &str) -> Result<PathBuf> {
@@ -80,8 +81,13 @@ pub fn shelter() -> PathBuf {
 
 pub fn client(over: ClientPartial) -> Result<Client> {
     let file = file()?;
-    Client::layered(file.as_deref(), over)
-        .map_err(|error| anyhow::anyhow!("resolve santi client configuration: {error}"))
+    Client::layered(
+        file.as_deref(),
+        &Client::prefix(),
+        &plumb::config::value,
+        over,
+    )
+    .map_err(|error| anyhow::anyhow!("resolve santi client configuration: {error}"))
 }
 
 fn file() -> Result<Option<PathBuf>> {
