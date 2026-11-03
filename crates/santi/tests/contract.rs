@@ -39,8 +39,8 @@ fn template() {
         ),
     )
     .expect("write client config");
-    let held: santi::config::ClientPartial = plumb::config::load(&path).expect("client config");
-    let client = plumb::config::Cascade::merge(santi::config::Client::default(), held);
+    let held: santi::config::ClientPartial = radicula_config::load(&path).expect("client config");
+    let client = radicula_config::Cascade::merge(santi::config::Client::default(), held);
     assert_eq!(
         client.base_url.as_deref(),
         Some("https://santi.example.invalid")
@@ -58,9 +58,9 @@ fn environment() {
         _ => None,
     };
     assert_eq!(santi::config::Client::prefix(), "SANTI");
-    let held = <santi::config::Client as plumb::config::Cascade>::lookup("SANTI", &get)
+    let held = <santi::config::Client as radicula_config::Cascade>::lookup("SANTI", &get)
         .expect("client environment");
-    let client = plumb::config::Cascade::merge(santi::config::Client::default(), held);
+    let client = radicula_config::Cascade::merge(santi::config::Client::default(), held);
     assert_eq!(client.base_url.as_deref(), Some("http://base.example"));
     assert_eq!(
         client.token_cache.as_deref(),

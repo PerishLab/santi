@@ -10,6 +10,7 @@ path = "src/main.rs"
 
 [dependencies]
 anyhow.workspace = true
+radicula-config.workspace = true
 clap.workspace = true
 plumb.workspace = true
 santi-api.workspace = true

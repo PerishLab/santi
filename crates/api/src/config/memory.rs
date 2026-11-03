@@ -1,4 +1,4 @@
-use plumb::config::Cascade;
+use radicula_config::Cascade;
 
 #[derive(Debug, Cascade)]
 #[cascade(section)]

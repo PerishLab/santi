@@ -4,7 +4,7 @@ use std::io::Write as _;
 mod execution;
 
 use api::config::{Config, ConfigPartial};
-use plumb::config::Cascade as _;
+use radicula_config::Cascade as _;
 
 const EXAMPLE: &str = r#"
 provider = "openai"
@@ -79,7 +79,7 @@ bytes = 500000
 fn read(text: &str) -> Config {
     let mut file = tempfile::NamedTempFile::new().unwrap();
     file.write_all(text.as_bytes()).unwrap();
-    Config::default().merge(plumb::config::load::<ConfigPartial>(file.path()).unwrap())
+    Config::default().merge(radicula_config::load::<ConfigPartial>(file.path()).unwrap())
 }
 
 #[test]
@@ -267,7 +267,7 @@ bytez = 120000
 "#,
     )
     .unwrap();
-    assert!(plumb::config::load::<ConfigPartial>(file.path()).is_err());
+    assert!(radicula_config::load::<ConfigPartial>(file.path()).is_err());
 }
 
 #[test]
