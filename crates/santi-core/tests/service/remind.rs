@@ -1,11 +1,8 @@
 use super::super::support::*;
 use santi_core::{Store, compact, message, service, strand};
-
 const BUDGET: usize = 200_000;
 const CEILING: i64 = BUDGET as i64 - 90_000;
-
 struct Plain(FakeProvider);
-
 #[async_trait]
 impl Provider for Plain {
     fn metadata(&self) -> Metadata {
@@ -19,7 +16,6 @@ impl Provider for Plain {
             }),
         }
     }
-
     async fn stream(&self, request: Request) -> Result<Streaming, String> {
         self.0.stream(request).await
     }
@@ -59,10 +55,8 @@ async fn opened() -> Opened {
 impl Opened {
     async fn active(&self) -> i64 {
         let audit = self.service.audit(&self.strand).await.unwrap().unwrap();
-        let settled = audit
-            .slots
-            .map_or(0, |slots| slots.held.iter().map(|slot| slot.bytes).sum());
-        audit.estimate.total - settled
+        let settled = audit.slots.map_or(0, |slots| slots.settled);
+        audit.request.estimate.total - settled
     }
 
     async fn fill(&self, tag: &str, share: i64) {
@@ -130,7 +124,20 @@ async fn measures() {
     let held = opened().await;
     held.fill("msg_history", 80).await;
     let audit = held.service.audit(&held.strand).await.unwrap().unwrap();
-    assert!(audit.estimate.input + audit.estimate.instructions < BUDGET as i64 / 2);
+    assert!(audit.request.estimate.input + audit.request.estimate.instructions < BUDGET as i64 / 2);
+    assert_eq!(audit.request.basis, "offered_tools");
+    assert!(audit.request.pending);
+    assert_eq!(audit.request.ceiling, Some((BUDGET as i64) * 3 / 2));
+    let pressure = audit.pressure.as_ref().expect("budgeted pressure");
+    assert_eq!(pressure.basis, "ordinary_tools");
+    assert!(pressure.pending);
+    assert_eq!(pressure.ceiling, CEILING);
+    let slots = audit.slots.as_ref().expect("slots");
+    assert_eq!(slots.allowance, 90_000);
+    assert_eq!(
+        slots.settled,
+        slots.held.iter().map(|slot| slot.bytes).sum::<i64>()
+    );
     held.send("go").await;
     let reminder = held.reminded(1).await.remove(0);
     assert_eq!(field(&reminder, "band"), "firm");
@@ -182,8 +189,8 @@ async fn unweighed() {
         .unwrap();
     assert!(!format!("{projected:?}").contains("a summary"));
     let after = held.service.audit(&held.strand).await.unwrap().unwrap();
-    assert_eq!(after.estimate.items, before.estimate.items);
-    assert_eq!(after.estimate.total, before.estimate.total);
+    assert_eq!(after.request.estimate.items, before.request.estimate.items);
+    assert_eq!(after.request.estimate.total, before.request.estimate.total);
 }
 
 #[tokio::test]
@@ -222,8 +229,14 @@ async fn framed() {
     .unwrap()
     .len() as i64;
     let after = held.service.audit(&held.strand).await.unwrap().unwrap();
-    assert_eq!(after.estimate.items, before.estimate.items + 1);
-    assert_eq!(after.estimate.total - before.estimate.total, framed);
+    assert_eq!(
+        after.request.estimate.items,
+        before.request.estimate.items + 1
+    );
+    assert_eq!(
+        after.request.estimate.total - before.request.estimate.total,
+        framed
+    );
 }
 
 #[tokio::test]
@@ -248,8 +261,40 @@ async fn rearms() {
         )
         .await
         .unwrap();
+    let audit = held.service.audit(&held.strand).await.unwrap().unwrap();
+    let slots = audit.slots.expect("slots");
+    assert!(!slots.held.is_empty());
+    let settled = slots.held.iter().map(|slot| slot.bytes).sum::<i64>();
+    assert!(settled > 0);
+    assert_eq!(slots.settled, settled);
+    assert_eq!(slots.free, slots.count - slots.held.len() as i64);
     held.fill("msg_second", 60).await;
     held.send("second").await;
     let reminders = held.reminded(2).await;
     assert_eq!(field(&reminders[1], "band"), "soft");
+}
+
+#[tokio::test]
+async fn unbudgeted() {
+    let temp = tempfile::tempdir().unwrap();
+    bootstrap(&temp).await;
+    let config = service::Config {
+        database: temp.path().join("santi.sqlite").display().to_string(),
+        runtime: temp.path().join("runtime").display().to_string(),
+        execution: temp.path().join("execution").display().to_string(),
+        bind: None,
+        constitution: None,
+        environment: Default::default(),
+    };
+    let service = service::Service::open(config, Arc::new(FakeProvider::default()))
+        .await
+        .unwrap();
+    let strand = service.weave().await.unwrap().strand.id;
+    let audit = service.audit(&strand).await.unwrap().unwrap();
+    assert!(audit.budget.is_none());
+    assert!(audit.request.ceiling.is_none());
+    assert!(audit.pressure.is_none());
+    let slots = audit.slots.expect("slots remain slot metadata");
+    assert_eq!(slots.settled, 0);
+    assert_eq!(slots.allowance, 90_000);
 }

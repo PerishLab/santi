@@ -1,4 +1,7 @@
 mod ack;
+mod audit;
+#[cfg(test)]
+mod tests;
 
 use super::*;
 use crate::Ruled;
@@ -150,36 +153,6 @@ impl Service {
         strand: &str,
     ) -> Result<Option<stream::ExecutionTail>, String> {
         self.store.execution_tail(strand).await
-    }
-
-    pub async fn audit(&self, strand: &str) -> Result<Option<budget::Snapshot>, String> {
-        let Some(strand) = self.store.strand(strand).await? else {
-            return Ok(None);
-        };
-        let execution = self.rationed(&strand.id);
-        let usage = if execution.is_some() {
-            Some(self.usage(&strand.id).await?)
-        } else {
-            None
-        };
-        let composition = self.composition(&strand.id).await?;
-        Ok(Some(budget::Snapshot {
-            strand: strand.id.clone(),
-            estimate: self.weighed(&strand.id, composition.text).await?,
-            materials: composition.components,
-            budget: self.budget(),
-            slots: self.occupancy(&strand.id).await?,
-            execution,
-            usage,
-            incident: self
-                .store
-                .incident(
-                    &crate::budget::Error::Context
-                        .descriptor()
-                        .key("strand", &strand.id),
-                )
-                .await?,
-        }))
     }
 
     pub async fn stranded(
