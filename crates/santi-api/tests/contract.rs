@@ -65,6 +65,22 @@ fn api() {
             .is_some()
     );
     assert!(cap["properties"].get("maintenance").is_some());
+    let snapshot = &document["components"]["schemas"]["budget.Snapshot"];
+    assert!(snapshot["properties"].get("request").is_some());
+    assert!(snapshot["properties"].get("pressure").is_some());
+    assert!(snapshot["properties"].get("estimate").is_none());
+    let request = &document["components"]["schemas"]["budget.Request"];
+    assert!(request["properties"].get("basis").is_some());
+    assert!(request["properties"].get("pending").is_some());
+    assert!(request["properties"].get("ceiling").is_some());
+    let pressure = &document["components"]["schemas"]["budget.Pressure"];
+    assert!(pressure["properties"].get("active_bytes").is_some());
+    assert!(pressure["properties"].get("active_ceiling_bytes").is_some());
+    let slots = &document["components"]["schemas"]["budget.Slots"];
+    assert!(slots["properties"].get("settled_bytes").is_some());
+    assert!(slots["properties"].get("settled_ceiling_bytes").is_some());
+    assert!(slots["properties"].get("active").is_none());
+    assert!(slots["properties"].get("ceiling").is_none());
     assert!(
         !cap["required"]
             .as_array()
@@ -187,6 +203,6 @@ fn api() {
     let hash = format!("{:x}", Sha256::digest(text.as_bytes()));
     assert_eq!(
         hash,
-        "ca96a864049810c5a64c0285e74c406db29acee2a44510d7156ad488a1f4e5e6"
+        "9114622a674c6e315fe39c3df2a0f27711d10a282ce49a362f18e29389d986ec"
     );
 }

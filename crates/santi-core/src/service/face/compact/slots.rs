@@ -59,14 +59,14 @@ impl Service {
                 to: span.to,
             })
             .collect::<Vec<_>>();
-        let estimate = self.estimate(strand).await?;
         let settled = held.iter().map(|slot| slot.bytes).sum::<i64>();
+        let free = (policy.slots as i64).saturating_sub(held.len() as i64);
         Ok(Some(budget::Slots {
-            ceiling: policy.settled as i64,
             count: policy.slots as i64,
-            free: (policy.slots as i64).saturating_sub(held.len() as i64),
-            active: estimate.input.saturating_sub(settled),
             held,
+            free,
+            settled,
+            allowance: policy.settled as i64,
         }))
     }
 }

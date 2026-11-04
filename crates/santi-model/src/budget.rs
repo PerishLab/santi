@@ -15,7 +15,7 @@ pub struct Estimate {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema, PartialEq, Eq)]
-#[schema(as = budget::Cap)]
+#[schema(as = budget::Cap, description = "bytes is normal capacity and fallback request ceiling; maintenance is effective request ceiling; source names config origin.")]
 pub struct Cap {
     pub bytes: i64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -29,11 +29,32 @@ impl Cap {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema, PartialEq, Eq)]
+#[schema(as = budget::Request, description = "Request-size projection for this audit, not a sent record; basis names the tool projection, pending says inbox bytes are included, estimate is the request estimate, ceiling is the effective request ceiling or null without budget. Request and pressure are separate reads, not an atomic snapshot, so cross-projection sums need not reconcile.")]
+pub struct Request {
+    pub basis: String,
+    pub pending: bool,
+    pub estimate: Estimate,
+    pub ceiling: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema, PartialEq, Eq)]
+#[schema(as = budget::Pressure, description = "Ordinary-tools pending-pressure projection, measured independently of Request; basis names the tool projection, pending says inbox bytes are included, active_bytes is gated by active_ceiling_bytes, absent without budget. Request and pressure are separate reads, not an atomic snapshot, so cross-projection sums need not reconcile.")]
+pub struct Pressure {
+    pub basis: String,
+    pub pending: bool,
+    #[serde(rename = "active_bytes")]
+    pub active: i64,
+    #[serde(rename = "active_ceiling_bytes")]
+    pub ceiling: i64,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 #[schema(as = budget::Snapshot)]
 pub struct Snapshot {
     pub strand: String,
-    pub estimate: Estimate,
+    pub request: Request,
+    pub pressure: Option<Pressure>,
     #[serde(default)]
     pub materials: Vec<crate::material::Component>,
     pub budget: Option<Cap>,
@@ -54,13 +75,15 @@ pub struct Slot {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema, PartialEq, Eq)]
-#[schema(as = budget::Slots)]
+#[schema(as = budget::Slots, description = "Slot occupancy and settled-summary allowance, not a live context estimate; count bounds held slots, held lists spans, free is count minus held entries, settled_bytes is the held summary byte sum, settled_ceiling_bytes bounds settled_bytes.")]
 pub struct Slots {
-    pub ceiling: i64,
     pub count: i64,
     pub held: Vec<Slot>,
     pub free: i64,
-    pub active: i64,
+    #[serde(rename = "settled_bytes")]
+    pub settled: i64,
+    #[serde(rename = "settled_ceiling_bytes")]
+    pub allowance: i64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema, PartialEq, Eq)]
