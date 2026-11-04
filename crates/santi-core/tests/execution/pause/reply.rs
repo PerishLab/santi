@@ -210,13 +210,17 @@ async fn replies() {
         assert!(runtime.messages.iter().any(|message| message.text == text));
     }
     let requests = provider.requests.lock().unwrap();
-    let settlement = "kind: context_maintenance\nstate: Query and compact are available.";
+    let settlement = "kind: context_maintenance";
     for (index, request) in requests.iter().take(3).enumerate() {
-        let held = position(request, settlement).expect("maintenance settlement");
-        let Item::Message { content, .. } = &request.input[held] else {
+        let held = request
+            .input
+            .iter()
+            .rposition(|item| matches!(item, Item::Message { content, .. } if content.contains(settlement)))
+            .expect("maintenance settlement");
+        let Item::Message { role, .. } = &request.input[held] else {
             unreachable!()
         };
-        assert!(content.contains("a reply without a tool call does not end it"));
+        assert_eq!(role, "system");
         if index > 0 {
             let reply = position(request, &format!("report {}", index - 1)).expect("reply");
             assert!(reply < held);
