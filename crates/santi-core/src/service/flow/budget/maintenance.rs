@@ -6,7 +6,7 @@ impl Service {
     pub(in crate::service) fn press(&self, turn: &str) {
         self.settlements.lock().unwrap().insert(turn.to_string(), Settlement {
             reason: "context_budget".into(),
-            detail: "<system_message>\nkind: context_maintenance\nstate: Query and compact are available. This turn ends only through a successful compact; a reply without a tool call does not end it. A successful compact queues a pause notice for this strand.\n</system_message>".into(),
+            detail: "<system_message>\nkind: context_maintenance\nstate: Call the `compact` tool now. Put the facts needed to continue in its `summary` argument. On success, the runtime completes this turn and schedules continuation.\n</system_message>".into(),
             replies: 0,
         });
     }
@@ -38,7 +38,7 @@ impl Service {
             "output"
         };
         let detail = format!(
-            "<system_message>\nkind: execution_maintenance\nturn: {turn}\nprovider_round: {round}\nrequested_calls: {calls}\nreason: {reason}\nstate: This tool batch was not admitted into the reserved allowance. Query and compact are available. A successful compact ends this turn and queues a pause notice for this strand.\n</system_message>"
+            "<system_message>\nkind: execution_maintenance\nturn: {turn}\nprovider_round: {round}\nrequested_calls: {calls}\nreason: {reason}\nstate: This tool batch was not admitted into the reserved allowance. Call the `compact` tool now. Put the facts needed to continue in its `summary` argument. On success, the runtime completes this turn and schedules continuation.\n</system_message>"
         );
         self.settlements.lock().unwrap().insert(
             turn.to_string(),
@@ -106,7 +106,7 @@ impl Service {
         };
         if let Some(reason) = reason {
             let detail = format!(
-                "<system_message>\nkind: execution_maintenance\nturn: {turn}\nreason: {reason}\nprovider_round: {round}\nprovider_round_limit: {}\ncalls: {}\noutput_bytes: {}\nstate: Query and compact are available. A successful compact ends this turn and queues a pause notice for this strand.\n</system_message>",
+                "<system_message>\nkind: execution_maintenance\nturn: {turn}\nreason: {reason}\nprovider_round: {round}\nprovider_round_limit: {}\ncalls: {}\noutput_bytes: {}\nstate: Call the `compact` tool now. Put the facts needed to continue in its `summary` argument. On success, the runtime completes this turn and schedules continuation.\n</system_message>",
                 budget.rounds, usage.calls, usage.output
             );
             self.settlements.lock().unwrap().insert(
