@@ -1731,9 +1731,9 @@ checksum = "19f132c84eca552bf34cab8ec81f1c1dcc229b811638f9d283dceabe58c5569e"
 
 [[package]]
 name = "plumb"
-version = "0.131.0"
+version = "0.132.0"
 source = "sparse+https://cargo.perish.uk/"
-checksum = "91383fe1c6916b849699556bc3a761431f7d26c79c4c5a3318b38bfc7dec8c00"
+checksum = "e7603cca8127d3821325211b6dc64c36b3e1a9decf5e1fe3a66e381800912170"
 dependencies = [
  "base64",
  "clap",
@@ -1743,6 +1743,7 @@ dependencies = [
  "pin-project-lite",
  "plumb-macro",
  "radicula-config",
+ "radicula-context",
  "radicula-git",
  "radicula-lock",
  "radicula-process",
@@ -1759,9 +1760,9 @@ dependencies = [
 
 [[package]]
 name = "plumb-macro"
-version = "0.131.0"
+version = "0.132.0"
 source = "sparse+https://cargo.perish.uk/"
-checksum = "6a6eba95b4193f2663ffef29312a32dea8b65710deef3f3578d8ff2f944a43a8"
+checksum = "b218363ab76f9d4a8184d3a069a0bb49bcea594b5d33443b386104584ff21838"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1946,6 +1947,15 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.118",
+]
+
+[[package]]
+name = "radicula-context"
+version = "0.12.0"
+source = "sparse+https://cargo.perish.uk/"
+checksum = "301f4d667d8d5f3b9754c5c70d4b33cc211600395c7449ad04129b39fda6be57"
+dependencies = [
+ "pin-project-lite",
 ]
 
 [[package]]
@@ -2381,6 +2391,7 @@ dependencies = [
  "keel",
  "libc",
  "plumb",
+ "radicula-context",
  "radicula-lock",
  "santi-error",
  "santi-estate",

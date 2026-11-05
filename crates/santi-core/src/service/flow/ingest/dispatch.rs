@@ -1,6 +1,6 @@
 use crate::Ruled;
 use crate::service::flow::memory::{Gate, maintain};
-use crate::service::{Service, drive};
+use crate::service::{Service, drive, interrupt::Control};
 use std::{future::Future, pin::Pin};
 
 use super::*;
@@ -146,10 +146,9 @@ impl Service {
                     )
                     .await;
                 self.refreshed().await;
-                let background = self.clone();
                 let strand = strand.id.clone();
                 let turn = started.turn.id.clone();
-                let control = background.register(&turn);
+                let control = self.register(&turn);
                 if maintenance {
                     self.press(&turn);
                 }
@@ -165,20 +164,24 @@ impl Service {
                         turn: started.turn.clone(),
                     }),
                 );
-                let context = {
-                    let _entered = background.context.enter();
-                    background.context.with(plumb::trace::Span::open("turn"))
-                };
-                tokio::spawn(context.carry(async move {
-                    plumb::trace::Span::note("turn", &turn);
-                    plumb::trace::Span::note("strand", &strand);
-                    background.conduct(strand, turn, control).await;
-                }));
+                self.dispatch(strand, turn, control);
                 drive::Outcome::Started(started.turn)
             }
             Ok(santi_estate::Opening::Running(turn)) => drive::Outcome::Running(turn),
             Ok(santi_estate::Opening::Idle) => drive::Outcome::Idle,
             Err(error) => drive::Outcome::Failed(self.stumbled(&strand.id, drive, error).await),
         }
+    }
+
+    fn dispatch(&self, strand: String, turn: String, control: Control) {
+        let background = self.clone();
+        let task = self.context.run(|| {
+            plumb::trace::carry("turn", async move {
+                plumb::trace::note("turn", &turn);
+                plumb::trace::note("strand", &strand);
+                background.conduct(strand, turn, control).await;
+            })
+        });
+        tokio::spawn(task);
     }
 }
