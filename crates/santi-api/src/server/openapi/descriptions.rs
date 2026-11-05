@@ -57,7 +57,7 @@ pub const COMPONENT_DESCRIPTIONS: [(&str, &str); 14] = [
     ),
 ];
 
-pub const PROPERTY_DESCRIPTIONS: [(&str, &str, &str); 17] = [
+pub const PROPERTY_DESCRIPTIONS: [(&str, &str, &str); 18] = [
     (
         "receipt.Acknowledgement",
         "state",
@@ -74,9 +74,14 @@ pub const PROPERTY_DESCRIPTIONS: [(&str, &str, &str); 17] = [
         "Separate explicit applied/not-applied judgment and exact observation evidence. Unknown or dispatching acknowledgements block Strand retirement until uncertainty settles.",
     ),
     (
+        "material.Blob",
+        "bytes",
+        "UTF-8 bytes of this blob's content alone, excluding the context assembly envelope. A catalog blob contributes to a context fragment only when named as a declared entry.",
+    ),
+    (
         "material.Component",
         "bytes",
-        "UTF-8 bytes of this rendered material fragment, including metadata and delimiters; distinct from provider JSON estimates and tokens.",
+        "UTF-8 bytes of this material's assembled context fragment: declared entry blob content plus a metadata block and per-entry delimiters. Its size follows the rendered reference, revision, name, description and entry-name escaping; it is not the catalog blob byte count and not a provider JSON estimate or token count. The envelope follows descriptor rendering, not a fixed subtraction.",
     ),
     (
         "material.Context",

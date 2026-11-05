@@ -166,7 +166,7 @@ pub(super) fn list_messages() -> MethodRouter<Service> {
 #[utoipa::path(
     post,
     path = "/api/v1/strands/{strand}/materials",
-    summary = "Legacy render adapter: return operating guidance or the current assembled system prompt. This does not load, drop or query material packages.",
+    summary = "Legacy render adapter: return a render view containing compiled skill text or the current assembled system prompt. The serialized view is not a recorded context-revision fragment or its byte count. This does not load, drop or query material packages.",
     params(("strand" = String, Path)),
     request_body = render::Request,
     responses(
