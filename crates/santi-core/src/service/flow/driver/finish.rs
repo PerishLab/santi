@@ -26,7 +26,19 @@ impl Service {
                 }),
             );
         }
-        let metadata = self.provider.metadata();
+        let provider = match self.recovery(turn).await {
+            Ok(provider) => provider,
+            Err(error) => {
+                self.bury(
+                    strand,
+                    turn,
+                    Failure::runtime(Operation::Persistence(Persistence::Completion), error, ""),
+                )
+                .await;
+                return;
+            }
+        };
+        let metadata = provider.metadata();
         let draft = santi_estate::CompletionDraft {
             turn,
             reply: last.as_ref().map(|message| message.message.id.as_str()),

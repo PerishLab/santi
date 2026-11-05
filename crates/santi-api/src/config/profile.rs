@@ -6,43 +6,6 @@ pub enum Resolved {
     ChatCompletions(ChatCompletions),
 }
 
-impl Resolved {
-    pub fn effort(&self) -> Option<&str> {
-        match self {
-            Self::OpenAiResponses(config) => config.reasoning_effort.as_deref(),
-            Self::ChatCompletions(config) => config.reasoning_effort.as_deref(),
-        }
-    }
-
-    pub fn kind(&self) -> &'static str {
-        match self {
-            Self::OpenAiResponses(_) => "openai_responses",
-            Self::ChatCompletions(_) => "chat_completions",
-        }
-    }
-
-    pub fn model(&self) -> &str {
-        match self {
-            Self::OpenAiResponses(config) => &config.model,
-            Self::ChatCompletions(config) => &config.model,
-        }
-    }
-
-    pub fn maintenance(&self) -> usize {
-        match self {
-            Self::OpenAiResponses(config) => config.maintenance,
-            Self::ChatCompletions(config) => config.maintenance,
-        }
-    }
-
-    pub fn bytes(&self) -> usize {
-        match self {
-            Self::OpenAiResponses(config) => config.bytes,
-            Self::ChatCompletions(config) => config.bytes,
-        }
-    }
-}
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct OpenAiResponses {
     pub api_key: String,

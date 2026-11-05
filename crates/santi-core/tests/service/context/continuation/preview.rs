@@ -1,5 +1,5 @@
 use super::*;
-use santi_estate::{CallDraft, ReplyDraft, ThinkingDraft, TurnDraft};
+use santi_estate::{CallDraft, ReplyDraft, ThinkingDraft};
 
 #[tokio::test]
 async fn active() {
@@ -107,17 +107,16 @@ fn request(first: &str, last: &str, dry: bool, capsule: bool) -> compact::Exec {
 
 async fn opened(store: &santi_core::Store, strand: &str) {
     let now = santi_core::now();
-    let from = store.strand(strand).await.unwrap().unwrap().next;
-    store
-        .create_turn(TurnDraft {
+    pinned(
+        store,
+        strand,
+        Seed {
             tag: "turn_active",
-            strand,
-            trigger: santi_core::turn::Trigger::StrandSend,
-            from,
-            created: &now,
-        })
-        .await
-        .unwrap();
+            text: "active input",
+            effective: &fixed("deepseek", "flash"),
+        },
+    )
+    .await;
     store
         .create_thinking(ThinkingDraft {
             tag: "thinking_active",

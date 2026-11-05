@@ -22,6 +22,7 @@ pub use job::{
     AttentionDraft, CapabilityDraft, Environment, ExpiredJob, JobDraft, JobRecord, Prepared,
     TransitionDraft,
 };
+pub use support::inference::{Edit, StrandDraft, Target};
 pub use support::{Bootstrap, EnvironDraft, Status, TraceDraft};
 pub use support::{WakeLease, WakeOfferDraft};
 use support::{entry, read, write};
@@ -38,15 +39,6 @@ pub use turn::{
 #[derive(Clone)]
 pub struct Store {
     core: Arc<Core<Sqlite>>,
-}
-
-pub struct StrandDraft<'a> {
-    pub tag: &'a str,
-    pub soul: &'a str,
-    pub label: Option<&'a str>,
-    pub parent: Option<&'a str>,
-    pub fork: Option<i64>,
-    pub created: &'a str,
 }
 
 impl Store {
@@ -84,11 +76,22 @@ impl Store {
         &self,
         tag: &str,
         now: &str,
+        inference: Option<&santi_model::inference::Declaration>,
     ) -> Result<santi_model::soul::Soul, String> {
-        self.core
-            .put("Soul", &[("tag", tag), ("created", now), ("updated", now)])
-            .await
-            .map_err(read::error)?;
+        let mut fields = vec![("tag", tag), ("created", now), ("updated", now)];
+        if let Some(inference) = inference {
+            inference.validate()?;
+            if let Some(provider) = inference.provider.as_deref() {
+                fields.push(("provider", provider));
+            }
+            if let Some(model) = inference.model.as_deref() {
+                fields.push(("model", model));
+            }
+            if let Some(effort) = inference.reasoning_effort.as_deref() {
+                fields.push(("reasoning_effort", effort));
+            }
+        }
+        self.core.put("Soul", &fields).await.map_err(read::error)?;
         self.soul(tag)
             .await?
             .ok_or_else(|| "created soul missing".to_string())
@@ -112,46 +115,6 @@ impl Store {
             .await
             .map_err(read::error)?;
         rows.rows().iter().map(read::soul).collect()
-    }
-
-    pub async fn create_strand(
-        &self,
-        draft: StrandDraft<'_>,
-    ) -> Result<santi_model::strand::Strand, String> {
-        let tag = draft.tag.to_string();
-        self.core
-            .batch(async |tx| {
-                let soul = read::need(tx, "Soul", "tag", draft.soul).await?;
-                let parent = match draft.parent {
-                    Some(parent) => Some(read::need(tx, "Strand", "tag", parent).await?),
-                    None => None,
-                };
-                let soul_key = soul.to_string();
-                let parent_key = parent.map(|key| key.to_string());
-                let fork = draft.fork.map(|at| at.to_string());
-                let mut fields = vec![
-                    ("tag", draft.tag),
-                    ("created", draft.created),
-                    ("updated", draft.created),
-                    ("soul", soul_key.as_str()),
-                ];
-                if let Some(label) = draft.label {
-                    fields.push(("label", label));
-                }
-                if let Some(parent) = parent_key.as_deref() {
-                    fields.push(("parent", parent));
-                }
-                if let Some(fork) = fork.as_deref() {
-                    fields.push(("fork", fork));
-                }
-                tx.put("Strand", &fields).await?;
-                Ok(())
-            })
-            .await
-            .map_err(read::error)?;
-        self.strand(&tag)
-            .await?
-            .ok_or_else(|| "created strand missing".to_string())
     }
 
     pub async fn strand(&self, tag: &str) -> Result<Option<santi_model::strand::Strand>, String> {

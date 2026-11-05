@@ -46,6 +46,7 @@ async fn exercise(server: &server::Server, input: &str) -> String {
     let defaults = ClientDefaults {
         soul: Some("soul_one".into()),
         strand: Some("ss_one".into()),
+        held: Default::default(),
     };
     let client = reqwest::Client::new();
     let mut output = Vec::new();

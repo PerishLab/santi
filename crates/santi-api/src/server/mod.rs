@@ -25,7 +25,10 @@ pub fn export_openapi_json() -> Result<String, String> {
 
 pub async fn serve() -> Result<(), String> {
     let held = crate::runtime::held();
-    let provider = provider::build(held.resolved()?);
+    provider::build(held.resolved()?);
+    let resolver = std::sync::Arc::new(provider::Catalog {
+        profiles: &held.providers,
+    });
     let bind = held.bind.clone();
     let paths = held.paths.clone();
     if let Some(parent) = paths.database.parent() {
@@ -34,7 +37,7 @@ pub async fn serve() -> Result<(), String> {
     fs::create_dir_all(&paths.runtime).map_err(|error| error.to_string())?;
     fs::create_dir_all(&paths.execution).map_err(|error| error.to_string())?;
     let supervisor = std::sync::Arc::new(crate::jobs::Native::current()?);
-    let service = Service::supervised(
+    let service = Service::provided(
         service::Config {
             database: paths.database.display().to_string(),
             runtime: paths.runtime.display().to_string(),
@@ -46,7 +49,8 @@ pub async fn serve() -> Result<(), String> {
                 .map(|path| path.display().to_string()),
             environment: held.environment.clone(),
         },
-        provider,
+        resolver,
+        held.inference.clone(),
         supervisor,
     )
     .await?

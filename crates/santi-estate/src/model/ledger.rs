@@ -11,6 +11,12 @@ pub(crate) struct Soul {
     created: string,
     #[field(string)]
     updated: string,
+    #[field(string, opt)]
+    provider: string,
+    #[field(string, opt)]
+    model: string,
+    #[field(string, opt)]
+    reasoning_effort: string,
 }
 
 #[resource]
@@ -23,6 +29,12 @@ pub(crate) struct Strand {
     memory: string,
     #[field(string, opt)]
     state: string,
+    #[field(string, opt)]
+    provider: string,
+    #[field(string, opt)]
+    model: string,
+    #[field(string, opt)]
+    reasoning_effort: string,
     #[field(int, default = 1, min = 1)]
     next: int,
     #[field(int, default = 0, min = 0)]
@@ -53,6 +65,22 @@ pub(crate) struct Turn {
     updated: string,
     #[relation(Strand, many2one, root)]
     strand: Strand,
+}
+
+#[resource(frozen)]
+pub(crate) struct Inference {
+    #[field(string)]
+    provider: string,
+    #[field(string)]
+    model: string,
+    #[field(string, opt)]
+    reasoning_effort: string,
+    #[field(string)]
+    source: string,
+    #[field(string)]
+    created: string,
+    #[relation(Turn, one2one, root)]
+    turn: Turn,
 }
 
 #[resource(frozen)]

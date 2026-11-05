@@ -9,6 +9,8 @@ pub struct Soul {
     pub id: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub identity: Option<Identity>,
+    #[serde(default, skip_serializing_if = "crate::inference::Declaration::empty")]
+    pub inference: crate::inference::Declaration,
     pub created: Timestamp,
     pub updated: Timestamp,
 }
@@ -41,6 +43,8 @@ impl Identity {
 pub struct Draft {
     #[serde(default)]
     pub memory: Option<String>,
+    #[serde(default)]
+    pub inference: crate::inference::Declaration,
 }
 
 #[derive(Debug, Clone, Copy)]

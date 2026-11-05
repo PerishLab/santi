@@ -92,7 +92,7 @@ impl Service {
             .await?
             .ok_or_else(|| "strand not found".to_string())?;
         let selection = self.store.bindings(Scope::Strand, strand).await?;
-        let composed = Composition::new(self.prompt(&brain)?.text, selection)?;
+        let composed = Composition::new(self.prompt(&brain).await?.text, selection)?;
         self.cached(render::View {
             strand: strand.into(),
             kind: render::Kind::SystemPrompt,

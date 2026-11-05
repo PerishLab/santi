@@ -24,6 +24,7 @@ fn draft<'a>(tag: &'a str, created: &'a str) -> StrandDraft<'a> {
         label: None,
         parent: None,
         fork: None,
+        inference: None,
         created,
     }
 }

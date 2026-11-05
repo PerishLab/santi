@@ -22,6 +22,7 @@ async fn failed(path: &std::path::Path) -> Store {
             label: None,
             parent: None,
             fork: None,
+            inference: None,
             created: FIRST,
         })
         .await

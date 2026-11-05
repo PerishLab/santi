@@ -45,6 +45,7 @@ pub(in crate::store) fn soul(row: &Row) -> Result<santi_model::soul::Soul, Strin
     Ok(santi_model::soul::Soul {
         id: text(row, "tag")?.to_string(),
         identity: None,
+        inference: super::inference::declaration(row)?,
         created: text(row, "created")?.to_string(),
         updated: text(row, "updated")?.to_string(),
     })
@@ -70,6 +71,7 @@ pub(in crate::store) async fn strand(
         label: row.text("label").map(str::to_string),
         memory: text(row, "memory")?.to_string(),
         state,
+        inference: super::inference::declaration(row)?,
         next: int(row, "next")?,
         seen: int(row, "seen")?,
         parent,

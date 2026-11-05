@@ -7,25 +7,45 @@ version.workspace = true
 [[bin]]
 name = "santi"
 path = "src/main.rs"
+required-features = ["client"]
+
+[features]
+default = ["client"]
+client = [
+  "dep:anyhow",
+  "dep:clap",
+  "dep:futures-util",
+  "dep:jiff",
+  "dep:ratatui",
+  "dep:reqwest",
+  "dep:tokio",
+  "dep:toml",
+  "dep:unicode-segmentation",
+  "dep:unicode-width",
+  "dep:uuid",
+  "dep:plumb",
+  "dep:locus",
+]
 
 [dependencies]
-anyhow.workspace = true
+anyhow = { workspace = true, optional = true }
 radicula-config.workspace = true
-clap.workspace = true
-futures-util.workspace = true
-jiff.workspace = true
-plumb = { workspace = true, features = ["observation"] }
-ratatui.workspace = true
-reqwest.workspace = true
+clap = { workspace = true, optional = true }
+futures-util = { workspace = true, optional = true }
+jiff = { workspace = true, optional = true }
+plumb = { workspace = true, features = ["observation"], optional = true }
+ratatui = { workspace = true, optional = true }
+reqwest = { workspace = true, optional = true }
+utoipa.workspace = true
 serde.workspace = true
 serde_json.workspace = true
-tokio.workspace = true
-toml.workspace = true
-unicode-segmentation.workspace = true
-unicode-width.workspace = true
-uuid.workspace = true
+tokio = { workspace = true, optional = true }
+toml = { workspace = true, optional = true }
+unicode-segmentation = { workspace = true, optional = true }
+unicode-width = { workspace = true, optional = true }
+uuid = { workspace = true, optional = true }
 
-locus = { version = "0", registry = "perish" }
+locus = { version = "0", registry = "perish", optional = true }
 
 [dev-dependencies]
 plumb = { workspace = true, features = ["testing"] }

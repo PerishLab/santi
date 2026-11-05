@@ -5,7 +5,7 @@ license.workspace = true
 version.workspace = true
 
 [dependencies]
-plumb = { workspace = true }
+plumb.workspace = true
 aes.workspace = true
 async-stream.workspace = true
 axum.workspace = true
@@ -34,6 +34,7 @@ uuid.workspace = true
 windows-sys.workspace = true
 
 [dev-dependencies]
+plumb = { workspace = true, features = ["testing"] }
 async-trait.workspace = true
 serde.workspace = true
 sqlx.workspace = true

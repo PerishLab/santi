@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
-use crate::Timestamp;
+use crate::{Timestamp, inference};
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -59,6 +59,8 @@ pub struct Turn {
     pub created: Timestamp,
     pub updated: Timestamp,
     pub finished: Option<Timestamp>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub inference: Option<inference::Effective>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]

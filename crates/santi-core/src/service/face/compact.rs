@@ -5,6 +5,12 @@ pub(in crate::service) mod slots;
 use super::Service;
 use crate::{budget, compact};
 
+struct Brief<'a> {
+    response: &'a compact::Report,
+    summary: &'a str,
+    capsule: Option<&'a compact::Capsule>,
+}
+
 impl Service {
     pub async fn exec(
         &self,
@@ -20,7 +26,8 @@ impl Service {
             .strand(strand)
             .await?
             .ok_or_else(|| "strand not found".to_string())?;
-        let policy = self.regimen();
+        let provider = self.current(&strand.id).await?;
+        let policy = self.regimen(provider.as_ref());
         let choice = self
             .store
             .selection(
@@ -33,7 +40,7 @@ impl Service {
             )
             .await?;
         let (from, to) = (&choice.range.first, &choice.range.last);
-        let before = self.estimate(&strand.id).await?;
+        let before = self.estimate(provider.as_ref(), &strand.id).await?;
         let compact_tag = crate::tag("compact");
         let mut preview = self
             .store
@@ -42,7 +49,15 @@ impl Service {
         preview.before = Some(before.clone());
         preview.requested = choice.requested.clone();
         let (metadata, after, ratio) = self
-            .forecast(&strand.id, &preview, summary, request.capsule.as_ref())
+            .forecast(
+                &strand.id,
+                provider.as_ref(),
+                Brief {
+                    response: &preview,
+                    summary,
+                    capsule: request.capsule.as_ref(),
+                },
+            )
             .await?;
         if request.dry {
             preview.after = Some(after);
@@ -63,14 +78,17 @@ impl Service {
             })
             .await?;
         self.rearm(&strand.id);
-        match self.estimate(&strand.id).await {
+        match self.estimate(provider.as_ref(), &strand.id).await {
             Ok(after) => {
                 response.ratio = squeezed(&before, &after);
                 response.after = Some(after);
             }
             Err(error) => eprintln!("santi: committed compact estimate failed: {error}"),
         }
-        match self.absolve(&strand.id, "compact_exec").await {
+        match self
+            .absolve(provider.as_ref(), &strand.id, "compact_exec")
+            .await
+        {
             Ok(resolved) => response.active_incident_resolved = resolved,
             Err(error) => eprintln!("santi: committed compact resolution failed: {error}"),
         }
@@ -86,40 +104,40 @@ impl Service {
     async fn forecast(
         &self,
         strand: &str,
-        response: &compact::Report,
-        summary: &str,
-        capsule: Option<&compact::Capsule>,
+        provider: &dyn santi_provider::Provider,
+        brief: Brief<'_>,
     ) -> Result<(serde_json::Value, budget::Estimate, Option<f64>), String> {
+        let response = brief.response;
         let before = response
             .before
             .as_ref()
             .ok_or_else(|| "compact estimate missing".to_string())?;
         let proposed = metadata(Forecast {
-            capsule,
+            capsule: brief.capsule,
             response: Some(response),
             before: Some(before),
             after: None,
-            budget: self.budget().as_ref(),
+            budget: self.budget(provider).as_ref(),
             ratio: None,
         });
-        let after = self.foreseen(strand, response, summary, proposed).await?;
+        let after = self.foreseen(strand, provider, &brief, proposed).await?;
         let ratio = squeezed(before, &after);
         let proposed = metadata(Forecast {
-            capsule,
+            capsule: brief.capsule,
             response: Some(response),
             before: Some(before),
             after: Some(&after),
-            budget: self.budget().as_ref(),
+            budget: self.budget(provider).as_ref(),
             ratio,
         });
-        let after = self.foreseen(strand, response, summary, proposed).await?;
+        let after = self.foreseen(strand, provider, &brief, proposed).await?;
         let ratio = squeezed(before, &after);
         let metadata = metadata(Forecast {
-            capsule,
+            capsule: brief.capsule,
             response: Some(response),
             before: Some(before),
             after: Some(&after),
-            budget: self.budget().as_ref(),
+            budget: self.budget(provider).as_ref(),
             ratio,
         });
         Ok((metadata, after, ratio))
@@ -128,29 +146,26 @@ impl Service {
     async fn foreseen(
         &self,
         strand: &str,
-        response: &compact::Report,
-        summary: &str,
+        provider: &dyn santi_provider::Provider,
+        brief: &Brief<'_>,
         metadata: serde_json::Value,
     ) -> Result<budget::Estimate, String> {
         let input = crate::provider_preview(
             &self.store,
             strand,
             crate::ProviderPreview {
-                report: response,
-                summary,
+                report: brief.response,
+                summary: brief.summary,
                 metadata: &metadata,
             },
         )
         .await?;
         let instructions = self.wording(strand).await?;
         let tools = self.offered(strand).await?;
-        let mut request = self.prepare(input, instructions, tools)?;
-        self.provider.validate(&request)?;
-        self.suffix(&mut request);
-        Ok(crate::context::budget::gauged(
-            &request,
-            self.provider.as_ref(),
-        ))
+        let mut request = self.prepare(provider, input, instructions, tools)?;
+        provider.validate(&request)?;
+        self.suffix(provider, &mut request);
+        Ok(crate::context::budget::gauged(&request, provider))
     }
 
     pub async fn page(

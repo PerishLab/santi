@@ -3,7 +3,6 @@ use crate::service::flow::budget::Verdict;
 use crate::service::flow::failure::{Admission, Failure, Metadata, Operation, Persistence, Stage};
 use crate::service::{Service, address::Address, interrupt::Control, notice::Observation, timing};
 use santi_provider::Request;
-use std::{future::Future, pin::Pin};
 
 use super::finish::Finish;
 use super::maintenance::Maintenance;
@@ -11,31 +10,12 @@ use super::*;
 use crate::{message, turn};
 
 impl Service {
-    pub(in crate::service::flow) fn conduct(
+    pub(super) async fn run(
         &self,
-        strand: String,
-        turn: String,
-        control: Control,
-    ) -> Pin<Box<dyn Future<Output = ()> + Send + '_>> {
-        Box::pin(async move {
-            match self.run(&strand, &turn, &control).await {
-                Err(failure) => self.bury(&strand, &turn, failure).await,
-                Ok(finish) if finish.settled => {}
-                Ok(finish) => match self.halted(&control) {
-                    Some(cause) => self.bury(&strand, &turn, Failure::stopped(cause, "")).await,
-                    None => self.land(&strand, &turn, finish).await,
-                },
-            }
-            self.noticed(&turn).await;
-            self.release(&turn);
-            self.unsettle(&turn);
-            self.poke(&strand, "strand_send", None, "turn_completion_poke")
-                .await;
-            self.relieve(&strand).await;
-        })
-    }
-
-    async fn run(&self, strand: &str, turn: &str, control: &Control) -> Result<Finish, Failure> {
+        strand: &str,
+        turn: &str,
+        control: &Control,
+    ) -> Result<Finish, Failure> {
         let mut prose = String::new();
         let mut last: Option<message::Placed> = None;
         let mut timing = timing::Turn::new(turn);
@@ -51,6 +31,12 @@ impl Service {
             };
         }
 
+        let provider = match self.recovery(turn).await {
+            Ok(provider) => provider,
+            Err(error) => {
+                return Err(Failure::runtime(Operation::Assembly, error, &prose));
+            }
+        };
         let actor = match attempt!(
             Operation::Persistence(Persistence::Assistant),
             self.store.strand(strand).await
@@ -82,7 +68,10 @@ impl Service {
                 self.settling(strand, turn, round).await
             );
             if self.settlement(turn).is_none()
-                && attempt!(Operation::Assembly, self.pressured(strand).await)
+                && attempt!(
+                    Operation::Assembly,
+                    self.pressured(strand, provider.as_ref()).await
+                )
             {
                 self.press(turn);
             }
@@ -93,7 +82,7 @@ impl Service {
                     })?;
                 if let crate::service::flow::memory::Gate::Pause { maintainer } = attempt!(
                     Operation::Admission(Admission::Context),
-                    self.gate(&brain).await
+                    self.gate(&brain, provider.as_ref()).await
                 ) {
                     let pause = message::Content::text(format!(
                         "<system_message>\nkind: soul_memory_pause\nturn: {turn}\nmaintenance_strand: {maintainer}\nstate: This turn paused because shared memory exceeds its allowance. Recorded history and tool results remain available.\n</system_message>"
@@ -107,7 +96,7 @@ impl Service {
                 }
             }
             let input = attempt!(Operation::Assembly, self.assembled(strand, turn).await);
-            let metadata = self.provider.metadata();
+            let metadata = provider.metadata();
             let family = metadata.provider.to_string();
             let offered = attempt!(Operation::Assembly, self.offers(strand, Some(turn)).await);
             let composition = attempt!(Operation::Prompt, self.composition(strand).await);
@@ -118,13 +107,14 @@ impl Service {
                 tools: Some(offered),
                 previous: None,
             };
-            let mut request = attempt!(Operation::Assembly, self.provider.prepare(request));
-            self.suffix(&mut request);
-            attempt!(Operation::History, self.provider.validate(&request));
-            let estimate = gauged(&request, self.provider.as_ref());
+            let mut request = attempt!(Operation::Assembly, provider.prepare(request));
+            self.suffix(provider.as_ref(), &mut request);
+            attempt!(Operation::History, provider.validate(&request));
+            let estimate = gauged(&request, provider.as_ref());
             if let Some(error) = attempt!(
                 Operation::Admission(Admission::Context),
-                self.overdrawn(strand, turn, &request, &estimate).await
+                self.overdrawn(provider.as_ref(), strand, turn, (&request, &estimate))
+                    .await
             ) {
                 timing.failed(round, "context_budget", &error.to_string());
                 return Err(Failure::context(error));
@@ -151,7 +141,7 @@ impl Service {
             let model = request.model.clone();
             let reached = tokio::select! {
                 cause = control.wait() => return Err(Failure::stopped(cause, &prose)),
-                reached = self.provider.stream(request) => reached,
+                reached = provider.stream(request) => reached,
             };
             let stream = match reached {
                 Ok(stream) => {

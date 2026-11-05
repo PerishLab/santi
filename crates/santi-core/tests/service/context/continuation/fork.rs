@@ -26,6 +26,7 @@ async fn active() {
             tag: "ss_partial",
             parent: &parent.id,
             at: partial,
+            inference: None,
             created: &santi_core::now(),
         })
         .await

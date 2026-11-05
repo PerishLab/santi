@@ -65,6 +65,11 @@ mod openapi {
         assert!(document.contains("/api/v1/errors/{scope_kind}/{scope_id}"));
         assert!(document.contains("/api/v1/errors/events"));
         assert!(document.contains("/api/v1/strands/{strand}/drive"));
+        assert!(document.contains("/api/v1/souls/{soul}/inference"));
+        assert!(document.contains("/api/v1/strands/{strand}/inference"));
+        assert!(document.contains("inference.Reading"));
+        assert!(document.contains("inference.Declaration"));
+        assert!(document.contains("inference.Source"));
         assert!(document.contains("/api/v1/souls/{soul}/active-turns"));
         assert!(document.contains("/api/v1/receipts/{inbox}"));
         assert!(document.contains("/api/v1/effects/{effect}"));
@@ -104,6 +109,7 @@ mod effects {
                 label: None,
                 parent: None,
                 fork: None,
+                inference: None,
                 created: &santi_core::now(),
             })
             .await

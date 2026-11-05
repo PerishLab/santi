@@ -1,3 +1,4 @@
+use crate::inference::{Effective, Origin, Source};
 use crate::service::Service;
 use std::sync::Arc;
 struct Unused;
@@ -65,6 +66,7 @@ async fn isolates() {
                 label: None,
                 parent: None,
                 fork: None,
+                inference: None,
                 created: NOW,
             })
             .await
@@ -114,15 +116,28 @@ async fn isolates() {
             )
             .await
             .unwrap();
+        let effective = Effective {
+            provider: "unused".into(),
+            model: "unused".into(),
+            reasoning_effort: None,
+            source: Source {
+                provider: Origin::Default,
+                model: Origin::Default,
+                reasoning_effort: None,
+            },
+        };
         let opening = service
             .store
-            .drain_turn(santi_estate::DrainDraft {
-                turn: "turn_new",
-                strand: "strand_research",
-                trigger: crate::turn::Trigger::System,
-                actor: crate::SYSTEM,
-                created: LATER,
-            })
+            .begin(
+                santi_estate::DrainDraft {
+                    turn: "turn_new",
+                    strand: "strand_research",
+                    trigger: crate::turn::Trigger::System,
+                    actor: crate::SYSTEM,
+                    created: LATER,
+                },
+                &effective,
+            )
             .await
             .unwrap();
         assert!(matches!(opening, santi_estate::Opening::Started(_)));

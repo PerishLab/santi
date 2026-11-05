@@ -21,6 +21,7 @@ pub(super) async fn create_strand(store: &Store, tag: &str, label: Option<&str>)
             label,
             parent: None,
             fork: None,
+            inference: None,
             created: FIRST,
         })
         .await

@@ -12,6 +12,8 @@ pub struct Strand {
     pub label: Option<String>,
     pub memory: String,
     pub state: Option<Value>,
+    #[serde(default, skip_serializing_if = "crate::inference::Declaration::empty")]
+    pub inference: crate::inference::Declaration,
     pub next: i64,
     pub seen: i64,
     pub parent: Option<String>,

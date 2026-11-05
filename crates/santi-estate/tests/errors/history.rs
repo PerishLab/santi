@@ -8,6 +8,7 @@ async fn strand(store: &Store, id: &str) {
             label: None,
             parent: None,
             fork: None,
+            inference: None,
             created: FIRST,
         })
         .await

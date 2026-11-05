@@ -192,6 +192,7 @@ async fn running(store: &Store, suffix: &str) {
             label: None,
             parent: None,
             fork: None,
+            inference: None,
             created: FIRST,
         })
         .await

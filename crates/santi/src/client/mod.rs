@@ -94,6 +94,9 @@ pub(crate) async fn run(
             .await
         }
         Command::Strand(command) => strand::run(&http, &base, defaults, command).await,
+        Command::Inference(command) => {
+            declarations::inference::run(&http, &base, defaults, command).await
+        }
         Command::Compact(CompactCommand::Exec {
             first,
             last,

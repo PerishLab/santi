@@ -21,6 +21,7 @@ async fn compacts() {
             label: None,
             parent: None,
             fork: None,
+            inference: None,
             created: FIRST,
         })
         .await

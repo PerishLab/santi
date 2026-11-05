@@ -10,6 +10,7 @@ pub(super) async fn strand(store: &Store, tag: &str) {
             label: None,
             parent: None,
             fork: None,
+            inference: None,
             created: FIRST,
         })
         .await

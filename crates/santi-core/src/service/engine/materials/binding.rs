@@ -1,5 +1,5 @@
 use super::{Service, composition::Composition};
-use crate::{environ::Scope, material};
+use crate::{budget, environ::Scope, material};
 
 impl Service {
     pub(super) async fn bound(
@@ -108,7 +108,7 @@ impl Service {
     ) -> Result<material::Applied, String> {
         let state = state(self.store.bindings(scope, owner).await?, false);
         let estimate = if scope == Scope::Strand {
-            self.estimate(owner).await.ok()
+            self.binding(owner).await.ok()
         } else {
             None
         };
@@ -146,21 +146,27 @@ impl Service {
             selection
                 .packages
                 .sort_by(|a, b| a.material.reference.cmp(&b.material.reference));
-            let composed = Composition::new(self.prompt(&strand)?.text, selection)?;
-            self.fixed(&composed.text)?;
+            let composed = Composition::new(self.prompt(&strand).await?.text, selection)?;
+            let provider = self.current(&strand.id).await?;
+            self.fixed(provider.as_ref(), &composed.text)?;
         }
         Ok(())
     }
-    fn fixed(&self, text: &str) -> Result<(), String> {
-        let Some(cap) = self.budget() else {
+    async fn binding(&self, owner: &str) -> Result<budget::Estimate, String> {
+        let provider = self.current(owner).await?;
+        self.estimate(provider.as_ref(), owner).await
+    }
+
+    fn fixed(&self, provider: &dyn santi_provider::Provider, text: &str) -> Result<(), String> {
+        let Some(cap) = self.budget(provider) else {
             return Ok(());
         };
         for (tools, ceiling) in [
             (crate::service::tools::tools(), cap.bytes),
             (crate::service::tools::maintenance(), cap.ceiling()),
         ] {
-            let request = self.projected(Vec::new(), text.into(), tools)?;
-            let estimate = crate::context::budget::gauged(&request, self.provider.as_ref());
+            let request = self.projected(provider, Vec::new(), text.into(), tools)?;
+            let estimate = crate::context::budget::gauged(&request, provider);
             if estimate.total > ceiling {
                 return Err(format!(
                     "material fixed context exceeds budget ({} > {}); drop material before loading more",

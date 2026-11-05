@@ -6,6 +6,7 @@ version.workspace = true
 
 [dependencies]
 santi-error.workspace = true
+santi = { path = "../santi", default-features = false }
 serde.workspace = true
 serde_json.workspace = true
 sha2.workspace = true

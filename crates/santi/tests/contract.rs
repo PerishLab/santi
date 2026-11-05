@@ -2,6 +2,13 @@ use clap::CommandFactory;
 use sha2::{Digest, Sha256};
 
 fn render(mut command: clap::Command, path: &str, text: &mut String) {
+    let ids: Vec<_> = command
+        .get_arguments()
+        .map(|argument| argument.get_id().clone())
+        .collect();
+    for id in ids {
+        command = command.mut_arg(id, |argument| argument.hide_env_values(true));
+    }
     let children: Vec<_> = command.get_subcommands().cloned().collect();
     text.push_str(path);
     text.push('\n');
@@ -20,7 +27,7 @@ fn cli() {
     let hash = format!("{:x}", Sha256::digest(text.as_bytes()));
     assert_eq!(
         hash,
-        "be769a8166b400ba1324b52026e6f254f73d6f58dcfdb55365561db27ef9b55b"
+        "408b75eb7ed2f20c17b82d3cfdc0585f946bdb2f438beeb67ba46614fc933d27"
     );
 }
 

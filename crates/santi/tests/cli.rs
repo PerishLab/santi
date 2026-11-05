@@ -7,6 +7,7 @@ fn defaults(strand: Option<&str>, soul: Option<&str>) -> ClientDefaults {
     ClientDefaults {
         strand: strand.map(str::to_string),
         soul: soul.map(str::to_string),
+        held: Default::default(),
     }
 }
 
@@ -68,13 +69,13 @@ fn splits() {
 #[test]
 fn fork() {
     let parsed = Cli::try_parse_from(["santi", "strand", "fork", "ss_parent"]).unwrap();
-    let Command::Strand(StrandCommand::Fork { id }) = parsed.command else {
+    let Command::Strand(StrandCommand::Fork { id, .. }) = parsed.command else {
         panic!("expected strand fork command");
     };
     assert_eq!(id.as_deref(), Some("ss_parent"));
 
     let parsed = Cli::try_parse_from(["santi", "strand", "fork"]).unwrap();
-    let Command::Strand(StrandCommand::Fork { id }) = parsed.command else {
+    let Command::Strand(StrandCommand::Fork { id, .. }) = parsed.command else {
         panic!("expected strand fork command");
     };
     assert_eq!(id, None);
@@ -175,3 +176,5 @@ mod retire;
 
 #[path = "cli/incidents.rs"]
 mod incidents;
+#[path = "cli/inference.rs"]
+mod inference;

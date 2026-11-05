@@ -87,12 +87,18 @@ impl Creation<'_> {
 }
 
 impl Http<'_> {
-    pub(super) async fn create_strand(&self, base: &str, soul: Option<&str>) -> Result<()> {
+    pub(super) async fn create_strand(
+        &self,
+        base: &str,
+        soul: Option<&str>,
+        body: Option<serde_json::Value>,
+    ) -> Result<()> {
         let url = route(base, soul);
-        let response = self
-            .client
-            .post(&url)
-            .timeout(TIMEOUT)
+        let mut request = self.client.post(&url).timeout(TIMEOUT);
+        if let Some(body) = body {
+            request = request.json(&body);
+        }
+        let response = request
             .send()
             .await
             .map_err(|error| unknown(soul, format!("POST {url} returned no response: {error}")))?;

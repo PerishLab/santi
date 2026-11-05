@@ -10,7 +10,10 @@ async fn preserves() {
     });
     let service = open_service(&temp, provider.clone()).await;
     let soul = service
-        .awaken(soul::Draft { memory: None })
+        .awaken(soul::Draft {
+            memory: None,
+            inference: Default::default(),
+        })
         .await
         .expect("awaken soul");
     assert_ne!(soul.id, santi_core::GENESIS);

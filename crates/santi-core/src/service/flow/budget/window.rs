@@ -1,8 +1,12 @@
 use super::*;
 
 impl Service {
-    pub(in crate::service) fn suffix(&self, request: &mut santi_provider::Request) {
-        let Some(cap) = self.budget() else {
+    pub(in crate::service) fn suffix(
+        &self,
+        provider: &dyn santi_provider::Provider,
+        request: &mut santi_provider::Request,
+    ) {
+        let Some(cap) = self.budget(provider) else {
             return;
         };
         let index = request.input.len();
@@ -10,7 +14,7 @@ impl Service {
             role: "system".into(),
             content: suffix(0, &cap),
         });
-        let used = crate::context::budget::gauged(request, self.provider.as_ref()).total;
+        let used = crate::context::budget::gauged(request, provider).total;
         request.input[index] = santi_provider::Item::Message {
             role: "system".into(),
             content: suffix(used, &cap),

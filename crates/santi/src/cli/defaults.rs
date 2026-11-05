@@ -1,8 +1,10 @@
+use crate::inference::Declaration;
 use anyhow::Result;
 
 pub struct ClientDefaults {
     pub strand: Option<String>,
     pub soul: Option<String>,
+    pub held: Declaration,
 }
 
 impl ClientDefaults {

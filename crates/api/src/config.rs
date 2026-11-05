@@ -41,6 +41,10 @@ impl Listen {
 pub struct Config {
     #[cascade(arg)]
     pub provider: String,
+    #[cascade(arg)]
+    pub model: Option<String>,
+    #[cascade(arg)]
+    pub reasoning_effort: Option<String>,
     #[cascade(section)]
     pub listen: Listen,
     #[cascade(section)]
@@ -67,6 +71,8 @@ impl Default for Config {
     fn default() -> Self {
         Config {
             provider: "openai".to_string(),
+            model: None,
+            reasoning_effort: None,
             listen: Listen::default(),
             server: Server::default(),
             jobs: Jobs::default(),
@@ -248,7 +254,11 @@ fn runtime(held: Config) -> Result<Runtime, String> {
     Ok(Runtime {
         bind: held.listen.address(),
         port: held.listen.port,
-        provider: held.provider,
+        inference: santi_core::inference::Declaration {
+            provider: Some(held.provider),
+            model: held.model,
+            reasoning_effort: held.reasoning_effort,
+        },
         providers: held.providers,
         environment: held.environment,
         paths: Layout {

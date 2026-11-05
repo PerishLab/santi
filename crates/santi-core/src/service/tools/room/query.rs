@@ -63,7 +63,7 @@ impl Service {
         }
         slots.sort_by_key(|slot| slot["from"].as_i64());
         let default = self.store.settled(strand).await?;
-        let policy = self.regimen();
+        let policy = self.policy(strand).await?;
         Ok(
             json!({"slots": slots, "capacity": policy.slots, "default": default, "read": "query kind content with an id; compact summary alone uses default, absorb uses occupied slot ids"}),
         )

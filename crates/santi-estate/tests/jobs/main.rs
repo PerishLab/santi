@@ -25,6 +25,7 @@ async fn lifecycle() {
             label: None,
             parent: None,
             fork: None,
+            inference: None,
             created: FIRST,
         })
         .await

@@ -18,7 +18,7 @@ impl Service {
             .ok_or_else(|| "strand not found".to_string())?;
         match request.kind {
             render::Kind::SystemPrompt => {
-                let mut rendered = self.prompt(&strand)?;
+                let mut rendered = self.prompt(&strand).await?;
                 rendered.text = self.composition(&strand.id).await?.text;
                 Ok(self.cached(rendered))
             }
@@ -32,7 +32,7 @@ impl Service {
         }
     }
 
-    pub(in crate::service) fn prompt(&self, strand: &Strand) -> Result<render::View, String> {
+    pub(in crate::service) async fn prompt(&self, strand: &Strand) -> Result<render::View, String> {
         let id = strand.id.as_str();
         let text = prompted(Prompting {
             id,
@@ -41,7 +41,7 @@ impl Service {
             constitution: self.charter(),
             memoir: self.memoir(&strand.soul),
             journal: self.journal(id),
-            allowance: self.regimen().allowance,
+            allowance: self.policy(&strand.id).await?.allowance,
             genesis: strand.soul == crate::GENESIS,
         })?;
         Ok(render::View {

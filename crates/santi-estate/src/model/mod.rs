@@ -18,6 +18,7 @@ pub(super) fn graph() -> Graph {
         .plug::<ledger::Turn>()
         .plug::<ledger::TurnCompletion>()
         .plug::<ledger::TurnFailure>()
+        .plug::<ledger::Inference>()
         .plug::<ledger::Message>()
         .plug::<ledger::StrandEntry>()
         .plug::<ledger::TurnStop>()

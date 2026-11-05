@@ -94,6 +94,7 @@ async fn replay() {
             label: Some("github/thread"),
             parent: None,
             fork: None,
+            inference: None,
             created: FIRST,
         })
         .await

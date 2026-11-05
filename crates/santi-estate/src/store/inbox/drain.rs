@@ -23,11 +23,12 @@ pub(super) async fn open(
     store: &Store,
     draft: DrainDraft<'_>,
     mode: Mode,
+    effective: Option<&santi_model::inference::Effective>,
 ) -> Result<Opening, String> {
     let turn = draft.turn.to_string();
     let opened = store
         .core
-        .batch(async |tx| open_in(tx, draft, mode).await)
+        .batch(async |tx| open_in(tx, draft, mode, effective).await)
         .await
         .map_err(read::error)?;
     match opened {
@@ -63,6 +64,7 @@ async fn open_in(
     tx: &mut Tx<'_, Sqlite>,
     draft: DrainDraft<'_>,
     mode: Mode,
+    effective: Option<&santi_model::inference::Effective>,
 ) -> Result<Opened, keel::adapt::Error> {
     let strand = tx
         .one(&form("Strand").when("tag", Op::Eq, draft.strand))
@@ -72,7 +74,7 @@ async fn open_in(
         return Ok(Opened::Running(tag));
     }
     if matches!(mode, Mode::Maintenance) {
-        return Writer(tx).pause(&strand, &draft).await;
+        return Writer(tx).pause(&strand, &draft, effective).await;
     }
     let recovered = if matches!(mode, Mode::Redrive) {
         recovery::collect(tx, &strand).await?
@@ -128,6 +130,10 @@ async fn open_in(
         .or(recovered.from)
         .ok_or_else(|| keel::adapt::Error::Adapt("drain produced no requests".into()))?;
     writer.put_turn(&strand, &draft, from).await?;
+    if let Some(effective) = effective {
+        super::super::turn::inference::record(writer.0, draft.turn, effective, draft.created)
+            .await?;
+    }
     recovery::bind(writer.0, recovered.receipts, &draft).await?;
     for item in assigned {
         writer.consume(item, &draft).await?;
@@ -187,6 +193,7 @@ impl Writer<'_, '_> {
         &mut self,
         strand: &Row,
         draft: &DrainDraft<'_>,
+        effective: Option<&santi_model::inference::Effective>,
     ) -> Result<Opened, keel::adapt::Error> {
         let content = serde_json::to_string(&santi_model::message::Content::text("<system_message>\nkind: context_maintenance\nstate: This strand is paused for context maintenance. Pending inbox input remains queued.\n</system_message>"))
         .map_err(|error| keel::adapt::Error::Adapt(error.to_string()))?;
@@ -199,6 +206,10 @@ impl Writer<'_, '_> {
             })
             .await?;
         self.put_turn(strand, draft, message.sequence).await?;
+        if let Some(effective) = effective {
+            super::super::turn::inference::record(self.0, draft.turn, effective, draft.created)
+                .await?;
+        }
         Ok(Opened::Started(vec![message.tag]))
     }
 }

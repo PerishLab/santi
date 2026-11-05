@@ -13,13 +13,30 @@ fn render(mut command: clap::Command, path: &str, text: &mut String) {
     }
 }
 
+fn canonical(text: &str) -> String {
+    text.lines()
+        .map(|line| {
+            let Some(start) = line.find("[env: ") else {
+                return line.to_string();
+            };
+            let Some(end) = line[start..].find(']').map(|offset| start + offset) else {
+                return line.to_string();
+            };
+            let owner = &line[start + "[env: ".len()..end];
+            let name = owner.split('=').next().unwrap_or(owner);
+            format!("{}[env: {name}]{}", &line[..start], &line[end + 1..])
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
 #[test]
 fn cli() {
     let mut text = String::new();
     render(api::cli::Cli::command(), "santi-api", &mut text);
-    let hash = format!("{:x}", Sha256::digest(text.as_bytes()));
+    let hash = format!("{:x}", Sha256::digest(canonical(&text).as_bytes()));
     assert_eq!(
         hash,
-        "ca7e45eb45da33e2b7281838339b7f9bab9151875c766f7718d03d74dc16d076"
+        "f5ffcfa3104221dc4a38f7d1d03388f8f59fe66404ac16a54f0b3b9359ebbfe2"
     );
 }

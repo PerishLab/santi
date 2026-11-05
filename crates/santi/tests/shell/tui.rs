@@ -15,6 +15,7 @@ async fn starts() {
     let defaults = ClientDefaults {
         soul: None,
         strand: None,
+        held: Default::default(),
     };
     let client = reqwest::Client::new();
     let mut input = Cursor::new("hello\n/reload\n/exit\n");
@@ -78,6 +79,7 @@ async fn refuses() {
     let defaults = ClientDefaults {
         soul: Some("soul_jarvis".to_string()),
         strand: Some("ss_foreign".to_string()),
+        held: Default::default(),
     };
     let client = reqwest::Client::new();
     let mut input = Cursor::new("/exit\n");
@@ -107,6 +109,7 @@ async fn owner() {
     let defaults = ClientDefaults {
         soul: None,
         strand: Some("ss_ownerless".to_string()),
+        held: Default::default(),
     };
     let client = reqwest::Client::new();
     let mut input = Cursor::new("/exit\n");

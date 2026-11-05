@@ -14,6 +14,7 @@ async fn dispatch() {
             label: None,
             parent: None,
             fork: None,
+            inference: None,
             created: FIRST,
         })
         .await
@@ -187,6 +188,7 @@ async fn accepted() {
             label: None,
             parent: None,
             fork: None,
+            inference: None,
             created: FIRST,
         })
         .await

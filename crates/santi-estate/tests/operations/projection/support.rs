@@ -29,6 +29,7 @@ impl Seat {
                 label: None,
                 parent: None,
                 fork: None,
+                inference: None,
                 created: NOW,
             })
             .await

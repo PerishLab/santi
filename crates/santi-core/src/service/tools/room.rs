@@ -13,18 +13,25 @@ use crate::service::Service;
 
 impl Service {
     pub(in crate::service) async fn crowded(&self, strand: &str) -> Result<Option<String>, String> {
-        self.room(strand, true).await
+        let provider = self.current(strand).await?;
+        self.room(strand, true, provider.as_ref()).await
     }
 
-    pub(in crate::service) async fn pressured(&self, strand: &str) -> Result<bool, String> {
-        Ok(self.room(strand, false).await?.is_some())
+    pub(in crate::service) async fn pressured(
+        &self,
+        strand: &str,
+        provider: &dyn santi_provider::Provider,
+    ) -> Result<bool, String> {
+        Ok(self.room(strand, false, provider).await?.is_some())
     }
 
-    async fn room(&self, strand: &str, pending: bool) -> Result<Option<String>, String> {
-        if self.budget().is_none() {
-            return Ok(None);
-        }
-        let gauge = self.gauge(strand, pending).await?;
+    async fn room(
+        &self,
+        strand: &str,
+        pending: bool,
+        provider: &dyn santi_provider::Provider,
+    ) -> Result<Option<String>, String> {
+        let gauge = self.metered(strand, pending, provider).await?;
         let Some(ceiling) = gauge.ceiling else {
             return Ok(None);
         };
@@ -50,19 +57,29 @@ impl Service {
         strand: &str,
         pending: bool,
     ) -> Result<Gauge, String> {
-        let policy = self.regimen();
+        let provider = self.current(strand).await?;
+        self.metered(strand, pending, provider.as_ref()).await
+    }
+
+    async fn metered(
+        &self,
+        strand: &str,
+        pending: bool,
+        provider: &dyn santi_provider::Provider,
+    ) -> Result<Gauge, String> {
+        let policy = self.regimen(provider);
         let spans = self.spans(strand).await?;
         let live = spans
             .iter()
             .filter(|span| !crate::service::face::compact::slots::covered(span, &spans))
             .collect::<Vec<_>>();
         let settled = live.iter().map(|span| span.bytes).sum::<i64>();
-        let estimate = self.weight(strand, pending).await?;
+        let estimate = self.weight(provider, strand, pending).await?;
         Ok(Gauge {
             estimator: estimate.estimator,
             active: estimate.total.saturating_sub(settled),
             ceiling: self
-                .budget()
+                .budget(provider)
                 .map(|budget| budget.bytes.saturating_sub(policy.settled as i64)),
             settled,
             allowance: policy.settled as i64,

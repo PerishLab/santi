@@ -20,7 +20,10 @@ async fn seats() {
     .await
     .expect("open service");
     let soul = service
-        .awaken(soul::Draft { memory: None })
+        .awaken(soul::Draft {
+            memory: None,
+            inference: Default::default(),
+        })
         .await
         .expect("awaken soul");
 
@@ -67,6 +70,8 @@ async fn publication() {
     let soul = service
         .awaken(soul::Draft {
             memory: Some(memory.to_string()),
+
+            inference: Default::default(),
         })
         .await
         .expect("awaken soul");
@@ -110,6 +115,8 @@ async fn visibility() {
         service
             .awaken(soul::Draft {
                 memory: Some("must remain exact".to_string()),
+
+                inference: Default::default(),
             })
             .await
             .is_err()
@@ -137,7 +144,10 @@ async fn sends() {
     .expect("open service");
 
     let soul = service
-        .awaken(soul::Draft { memory: None })
+        .awaken(soul::Draft {
+            memory: None,
+            inference: Default::default(),
+        })
         .await
         .expect("awaken soul");
     assert_ne!(soul.id, santi_core::GENESIS);

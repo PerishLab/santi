@@ -6,12 +6,14 @@ pub mod budget;
 mod codec;
 mod edge;
 pub mod environ;
+pub use santi::inference;
 mod ledger;
 pub mod render;
 pub mod stream;
 
 pub use edge::{downstream, drive, effect, event, ingest, job, receipt, trace, webhook};
 pub use ledger::{compact, material, message, soul, strand, thinking, tool, turn};
+pub use santi::inference::{Declaration, Effective, Origin, Patch, Source};
 
 pub type Timestamp = String;
 
