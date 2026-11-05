@@ -14,10 +14,11 @@ impl Service {
         turn: &str,
         round: usize,
     ) -> Result<Fault, String> {
+        let provider = self.recovery(turn).await?;
         if self.reason(turn).as_deref() == Some("context_budget") {
-            let estimate = self.weight(strand, false).await?;
+            let estimate = self.weight(provider.as_ref(), strand, false).await?;
             let cap = self
-                .budget()
+                .budget(provider.as_ref())
                 .ok_or_else(|| "context capacity missing".to_string())?;
             return self
                 .pressure(Pressure {
@@ -56,8 +57,10 @@ impl Service {
         turn: &str,
         next: usize,
     ) -> Result<Option<Fault>, String> {
-        if self.budget().is_some()
-            && (self.settlement(turn).is_some() || self.pressured(strand).await?)
+        let provider = self.recovery(turn).await?;
+        if self.budget(provider.as_ref()).is_some()
+            && (self.settlement(turn).is_some()
+                || self.pressured(strand, provider.as_ref()).await?)
         {
             return Ok(None);
         }
@@ -87,7 +90,8 @@ impl Service {
         round: usize,
         calls: usize,
     ) -> Result<Verdict, String> {
-        if self.budget().is_some() && self.settlement(turn).is_some() {
+        let provider = self.recovery(turn).await?;
+        if self.budget(provider.as_ref()).is_some() && self.settlement(turn).is_some() {
             return Ok(Verdict::Unbounded);
         }
         let Some(budget) = self.rationed(strand) else {

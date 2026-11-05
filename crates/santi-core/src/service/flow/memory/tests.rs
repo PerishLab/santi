@@ -116,16 +116,20 @@ async fn pressure() {
         .acquire(Wait::immediate())
         .await
         .unwrap();
-    let mut waiting = Box::pin(service.gate(&strand));
+    let provider = service.current(&strand.id).await.unwrap();
+    let mut waiting = Box::pin(service.gate(&strand, provider.as_ref()));
     assert!(futures_util::poll!(waiting.as_mut()).is_pending());
     drop(waiting);
     assert_eq!(service.pressure.status().active, 1);
     held.release().await.unwrap();
     assert!(matches!(
-        tokio::time::timeout(Duration::from_secs(2), service.gate(&strand))
-            .await
-            .unwrap()
-            .unwrap(),
+        tokio::time::timeout(
+            Duration::from_secs(2),
+            service.gate(&strand, provider.as_ref())
+        )
+        .await
+        .unwrap()
+        .unwrap(),
         super::Gate::Allow
     ));
     assert_eq!(service.pressure.status().active, 0);
@@ -163,11 +167,15 @@ async fn domains() {
         .is_err()
     );
     let strand = second.service.weave().await.unwrap().strand;
+    let provider = second.service.current(&strand.id).await.unwrap();
     assert!(matches!(
-        tokio::time::timeout(Duration::from_secs(2), second.service.gate(&strand))
-            .await
-            .unwrap()
-            .unwrap(),
+        tokio::time::timeout(
+            Duration::from_secs(2),
+            second.service.gate(&strand, provider.as_ref())
+        )
+        .await
+        .unwrap()
+        .unwrap(),
         super::Gate::Allow
     ));
     assert_eq!(first.service.binding.status().active, 1);

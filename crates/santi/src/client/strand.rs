@@ -15,7 +15,10 @@ pub(super) async fn run(
                 .run("strands", args)
                 .await
         }
-        StrandCommand::Create => http.create_strand(base, defaults.soul()).await,
+        StrandCommand::Create(delta) => {
+            http.create_strand(base, defaults.soul(), delta.body(&defaults.held)?)
+                .await
+        }
         StrandCommand::End { id } => http.delete(&format!("{base}/api/v1/strands/{id}")).await,
         StrandCommand::List => http.get(&format!("{base}/api/v1/strands")).await,
         StrandCommand::Get { id } => {
@@ -51,10 +54,13 @@ pub(super) async fn run(
             )?)
             .await
         }
-        StrandCommand::Fork { id } => {
+        StrandCommand::Fork { id, delta } => {
             let id = defaults.resolve_strand(id)?;
-            http.post(&format!("{base}/api/v1/strands/{id}/fork"), None)
-                .await
+            http.post(
+                &format!("{base}/api/v1/strands/{id}/fork"),
+                delta.body(&defaults.held)?,
+            )
+            .await
         }
         StrandCommand::Drive { id } => {
             let id = defaults.resolve_strand(id)?;

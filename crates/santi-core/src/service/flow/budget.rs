@@ -32,8 +32,11 @@ struct Pressure<'a> {
 }
 
 impl Service {
-    pub(in crate::service) fn budget(&self) -> Option<budget::Cap> {
-        self.provider.metadata().budget.map(|budget| budget::Cap {
+    pub(in crate::service) fn budget(
+        &self,
+        provider: &dyn santi_provider::Provider,
+    ) -> Option<budget::Cap> {
+        provider.metadata().budget.map(|budget| budget::Cap {
             bytes: budget.bytes as i64,
             maintenance: Some(
                 (budget
@@ -47,10 +50,11 @@ impl Service {
     pub(in crate::service) async fn admit_pending(
         &self,
         strand: &crate::strand::Strand,
+        provider: &dyn santi_provider::Provider,
         operation: &str,
         maintenance: bool,
     ) -> Result<Option<Fault>, String> {
-        let Some(budget) = self.budget() else {
+        let Some(budget) = self.budget(provider) else {
             return Ok(None);
         };
         let key = crate::budget::Error::Context
@@ -64,16 +68,16 @@ impl Service {
             {
                 return Ok(Some(crate::engine().fault(incident)));
             }
-            let current = observation::observe(self, strand, &budget).await?;
+            let current = observation::observe(self, strand, &budget, provider).await?;
             if operation == "cold_start_resume" && current.matches(incident) {
                 return Ok(Some(crate::engine().fault(incident)));
             }
             observed = Some(current);
         }
         let estimate = if maintenance {
-            self.weight(&strand.id, false).await?
+            self.weight(provider, &strand.id, false).await?
         } else {
-            self.estimate(&strand.id).await?
+            self.estimate(provider, &strand.id).await?
         };
         if estimate.total <= budget.ceiling() {
             if active.is_some() {
@@ -83,9 +87,9 @@ impl Service {
         }
         let observed = match observed {
             Some(observed) => observed,
-            None => observation::observe(self, strand, &budget).await?,
+            None => observation::observe(self, strand, &budget, provider).await?,
         };
-        let metadata = self.provider.metadata();
+        let metadata = provider.metadata();
         let reason = reason(estimate.total, budget.ceiling());
         self.pressure(Pressure {
             strand: &strand.id,
@@ -110,18 +114,18 @@ impl Service {
 
     pub(in crate::service) async fn overdrawn(
         &self,
+        provider: &dyn santi_provider::Provider,
         strand: &str,
         turn: &str,
-        request: &santi_provider::Request,
-        estimate: &budget::Estimate,
+        (request, estimate): (&santi_provider::Request, &budget::Estimate),
     ) -> Result<Option<Fault>, String> {
-        let Some(budget) = self.budget() else {
+        let Some(budget) = self.budget(provider) else {
             return Ok(None);
         };
         if estimate.total <= budget.ceiling() {
             return Ok(None);
         }
-        let metadata = self.provider.metadata();
+        let metadata = provider.metadata();
         let strand = self
             .store
             .strand(strand)
@@ -181,6 +185,7 @@ impl Service {
 
     pub(in crate::service) async fn absolve(
         &self,
+        provider: &dyn santi_provider::Provider,
         strand: &str,
         cleared_by: &str,
     ) -> Result<bool, String> {
@@ -195,10 +200,10 @@ impl Service {
         {
             return Ok(false);
         }
-        let Some(budget) = self.budget() else {
+        let Some(budget) = self.budget(provider) else {
             return Ok(false);
         };
-        let estimate = self.estimate(strand).await?;
+        let estimate = self.estimate(provider, strand).await?;
         if estimate.total > budget.bytes {
             return Ok(false);
         }

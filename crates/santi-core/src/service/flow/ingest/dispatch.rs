@@ -76,7 +76,28 @@ impl Service {
                 }
             }
         }
-        match self.gate(&strand).await {
+        match self.store.latest(&strand.id).await {
+            Ok(Some(turn)) if matches!(turn.status, crate::turn::Status::Running) => {
+                return drive::Outcome::Running(turn);
+            }
+            Ok(_) => {}
+            Err(error) => {
+                return drive::Outcome::Failed(self.stumbled(&strand.id, drive, error).await);
+            }
+        }
+        let effective = match self.selected(&strand.id).await {
+            Ok(effective) => effective,
+            Err(error) => {
+                return drive::Outcome::Failed(self.stumbled(&strand.id, drive, error).await);
+            }
+        };
+        let provider = match self.providers.build(&effective) {
+            Ok(provider) => provider,
+            Err(error) => {
+                return drive::Outcome::Failed(self.stumbled(&strand.id, drive, error).await);
+            }
+        };
+        match self.gate(&strand, provider.as_ref()).await {
             Ok(Gate::Allow) => {}
             Ok(Gate::Pause { maintainer }) => {
                 maintain(self, &maintainer).await;
@@ -86,14 +107,14 @@ impl Service {
                 return drive::Outcome::Failed(self.stumbled(&strand.id, drive, error).await);
             }
         }
-        let maintenance = match self.pressured(&strand.id).await {
+        let maintenance = match self.pressured(&strand.id, provider.as_ref()).await {
             Ok(maintenance) => maintenance,
             Err(error) => {
                 return drive::Outcome::Failed(self.stumbled(&strand.id, drive, error).await);
             }
         };
         let held = match self
-            .admit_pending(&strand, drive.operation, maintenance)
+            .admit_pending(&strand, provider.as_ref(), drive.operation, maintenance)
             .await
         {
             Ok(held) => held,
@@ -117,11 +138,11 @@ impl Service {
             created: &crate::now(),
         };
         let started = if maintenance {
-            self.store.pause(draft).await
+            self.store.hold(draft, &effective).await
         } else if drive.operation == "operator_redrive" {
-            self.store.redrive(draft).await
+            self.store.resume(draft, &effective).await
         } else {
-            self.store.drain_turn(draft).await
+            self.store.begin(draft, &effective).await
         };
         self.dispatched().await;
         match started {
@@ -148,6 +169,7 @@ impl Service {
                 self.refreshed().await;
                 let strand = strand.id.clone();
                 let turn = started.turn.id.clone();
+                self.remember(&turn, provider);
                 let control = self.register(&turn);
                 if maintenance {
                     self.press(&turn);

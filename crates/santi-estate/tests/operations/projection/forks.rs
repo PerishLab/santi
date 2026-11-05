@@ -12,6 +12,7 @@ async fn visibility() {
             tag: "strand_child",
             parent: "strand_test",
             at: 2,
+            inference: None,
             created: NOW,
         })
         .await
@@ -33,6 +34,7 @@ async fn visibility() {
             label: None,
             parent: None,
             fork: None,
+            inference: None,
             created: NOW,
         })
         .await

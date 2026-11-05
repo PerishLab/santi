@@ -3,6 +3,7 @@ pub use wake::{WakeLease, WakeOfferDraft};
 mod bootstrap;
 pub(super) mod entry;
 mod environ;
+pub(super) mod inference;
 pub(super) mod read;
 mod trace;
 pub(super) mod transition;

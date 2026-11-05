@@ -141,3 +141,67 @@ async fn drains() {
             .any(|message| message.text == "hi from runtime")
     );
 }
+
+#[tokio::test]
+async fn started() {
+    use santi_core::drive::State;
+
+    let temp = tempfile::tempdir().expect("temp dir");
+    bootstrap(&temp).await;
+    let config = service::Config {
+        database: temp.path().join("santi.sqlite").display().to_string(),
+        runtime: temp.path().join("runtime").display().to_string(),
+        execution: temp.path().join("execution").display().to_string(),
+        bind: Some("127.0.0.1:0".to_string()),
+        constitution: None,
+        environment: Default::default(),
+    };
+    let provider = Arc::new(FakeProvider::default());
+    let service = Service::open(config.clone(), provider.clone())
+        .await
+        .expect("open service");
+    let strand = service.weave().await.expect("create strand").strand;
+    service.close();
+    service
+        .send(
+            &strand.id,
+            santi_core::strand::Post {
+                content: vec![message::Part::Text {
+                    text: "concurrent startup".to_string(),
+                }],
+            },
+        )
+        .await
+        .expect("durable send");
+    drop(service);
+
+    let service = Service::open(config, provider)
+        .await
+        .expect("reopen service");
+    let (left, right) = tokio::join!(service.drive(&strand.id), service.drive(&strand.id));
+    let left = left.expect("left drive");
+    let right = right.expect("right drive");
+    assert!(matches!(
+        (&left.state, &right.state),
+        (State::Started, State::Running) | (State::Running, State::Started)
+    ));
+    let (started, running) = if matches!(left.state, State::Started) {
+        (left, right)
+    } else {
+        (right, left)
+    };
+    let started = started.turn.expect("started turn");
+    let running = running.turn.expect("running turn");
+    let expected = started.inference.clone().expect("started snapshot");
+    assert_eq!(running.inference.as_ref(), Some(&expected));
+    let held = service
+        .snapshot(&strand.id)
+        .await
+        .expect("snapshot")
+        .expect("strand")
+        .turns
+        .into_iter()
+        .find(|turn| turn.id == started.id)
+        .expect("turn readback");
+    assert_eq!(held.inference.as_ref(), Some(&expected));
+}

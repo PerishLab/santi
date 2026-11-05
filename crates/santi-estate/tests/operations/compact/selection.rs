@@ -17,6 +17,7 @@ async fn strand(path: &std::path::Path, states: &[message::State]) -> Store {
             label: None,
             parent: None,
             fork: None,
+            inference: None,
             created: CREATED,
         })
         .await

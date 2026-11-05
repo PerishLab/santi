@@ -1,5 +1,5 @@
 use super::*;
-use santi_core::{budget, compact, strand, stream};
+use santi_core::{budget, compact, inference, strand, stream};
 
 #[utoipa::path(
     post,
@@ -53,18 +53,25 @@ pub async fn drive(
 #[utoipa::path(
     post,
     path = "/api/v1/strands/{strand}/fork",
-    summary = "Fork a complete history prefix, excluding in-flight or failed turns. strand.fork reports the actual inherited sequence; workspace files are copied as they exist now, not as of that sequence.",
+    summary = "Fork a complete history prefix, excluding in-flight or failed turns. strand.fork reports the actual inherited sequence; workspace files are copied as they exist now, not as of that sequence. Omit inference to copy the parent strand's own declaration by value; an explicit inference object replaces the child's declaration, and an empty object inherits from the shared soul.",
     params(("strand" = String, Path)),
+    request_body = Option<inference::Draft>,
     responses(
         (status = 200, body = strand::Forked),
+        (status = 400, body = Fault),
         (status = 404, body = Fault),
         (status = 500, body = Fault)
     )
 )]
 pub(super) fn fork() -> MethodRouter<Service> {
     routing::post(
-        |State(service): State<Service>, Path(strand): Path<String>| async move {
-            Drive(service).fork(strand).await
+        |State(service): State<Service>,
+         Path(strand): Path<String>,
+         request: axum::extract::Request| async move {
+            let selected: Option<inference::Draft> = super::optional(request).await?;
+            Drive(service)
+                .fork(strand, selected.and_then(|draft| draft.inference).as_ref())
+                .await
         },
     )
 }
@@ -185,12 +192,16 @@ pub(super) async fn openapi() -> Json<utoipa::openapi::OpenApi> {
 struct Drive(Service);
 
 impl Drive {
-    async fn fork(&self, strand: String) -> Result<Json<strand::Forked>, ApiError> {
+    async fn fork(
+        &self,
+        strand: String,
+        inference: Option<&inference::Declaration>,
+    ) -> Result<Json<strand::Forked>, ApiError> {
         self.0
-            .fork(&strand)
+            .forking(&strand, inference)
             .await
             .map(Json)
-            .map_err(ApiError::from_service)
+            .map_err(super::inference::reject)
     }
 
     async fn exec(

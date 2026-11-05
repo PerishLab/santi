@@ -5,6 +5,7 @@ mod execution;
 
 use api::config::{Config, ConfigPartial};
 use radicula_config::Cascade as _;
+use santi_api::config::Providers;
 
 const EXAMPLE: &str = r#"
 provider = "openai"
@@ -293,3 +294,6 @@ fn memory() {
 
 #[path = "config/materials.rs"]
 mod materials;
+
+#[path = "config/inference.rs"]
+mod inference;

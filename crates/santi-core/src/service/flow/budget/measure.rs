@@ -5,6 +5,7 @@ use santi_provider::Item;
 impl Service {
     pub(in crate::service) async fn weight(
         &self,
+        provider: &dyn santi_provider::Provider,
         strand: &str,
         pending: bool,
     ) -> Result<budget::Estimate, String> {
@@ -13,55 +14,66 @@ impl Service {
             input.extend(self.pending_input(strand).await?);
         }
         let instructions = self.wording(strand).await?;
-        self.measured(input, instructions, crate::service::tools::tools())
+        self.measured(
+            provider,
+            input,
+            instructions,
+            crate::service::tools::tools(),
+        )
     }
 
     pub(in crate::service) async fn estimate(
         &self,
+        provider: &dyn santi_provider::Provider,
         strand: &str,
     ) -> Result<budget::Estimate, String> {
-        self.weighed(strand, self.wording(strand).await?).await
+        self.weighed(provider, strand, self.wording(strand).await?)
+            .await
     }
 
     pub(in crate::service) async fn weighed(
         &self,
+        provider: &dyn santi_provider::Provider,
         strand: &str,
         instructions: String,
     ) -> Result<budget::Estimate, String> {
         let mut input = crate::provider_input(&self.store, strand).await?;
         input.extend(self.pending_input(strand).await?);
-        self.measured(input, instructions, self.offered(strand).await?)
+        self.measured(provider, input, instructions, self.offered(strand).await?)
     }
 
     pub(in crate::service) fn measured(
         &self,
+        provider: &dyn santi_provider::Provider,
         input: Vec<Item>,
         instructions: String,
         tools: Vec<santi_provider::Tool>,
     ) -> Result<budget::Estimate, String> {
-        let request = self.projected(input, instructions, tools)?;
-        Ok(gauged(&request, self.provider.as_ref()))
+        let request = self.projected(provider, input, instructions, tools)?;
+        Ok(gauged(&request, provider))
     }
 
     pub(in crate::service) fn projected(
         &self,
+        provider: &dyn santi_provider::Provider,
         input: Vec<Item>,
         instructions: String,
         tools: Vec<santi_provider::Tool>,
     ) -> Result<santi_provider::Request, String> {
-        let mut request = self.prepare(input, instructions, tools)?;
-        self.suffix(&mut request);
+        let mut request = self.prepare(provider, input, instructions, tools)?;
+        self.suffix(provider, &mut request);
         Ok(request)
     }
 
     pub(in crate::service) fn prepare(
         &self,
+        provider: &dyn santi_provider::Provider,
         input: Vec<Item>,
         instructions: String,
         tools: Vec<santi_provider::Tool>,
     ) -> Result<santi_provider::Request, String> {
-        self.provider.prepare(santi_provider::Request {
-            model: self.provider.metadata().model,
+        provider.prepare(santi_provider::Request {
+            model: provider.metadata().model,
             instructions: Some(instructions),
             input,
             tools: Some(tools),

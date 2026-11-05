@@ -41,7 +41,10 @@ impl Service {
         if let Some(cause) = self.halted(control) {
             return Err(Failure::stopped(cause, ""));
         }
-        let policy = self.regimen();
+        let provider = self
+            .pinned(turn)
+            .map_err(|error| Failure::runtime(Operation::Tool, error, ""))?;
+        let policy = self.regimen(provider.as_ref());
         let reason = self
             .reason(turn)
             .unwrap_or_else(|| "execution_budget".into());
@@ -51,7 +54,7 @@ impl Service {
         );
         let content = message::Content::text(&pause);
         let source = crate::ingest::Source::new("execution_pause").with_ref(turn.to_string());
-        let metadata = self.provider.metadata();
+        let metadata = provider.metadata();
         let settlement = self
             .store
             .maintain(santi_estate::Maintenance {
@@ -104,7 +107,10 @@ impl Service {
                 }),
             );
         }
-        if let Err(error) = self.absolve(strand, "compact_exec").await {
+        if let Err(error) = self
+            .absolve(provider.as_ref(), strand, "compact_exec")
+            .await
+        {
             eprintln!("santi: committed maintenance resolution failed: {error}");
         }
         self.dispatched().await;

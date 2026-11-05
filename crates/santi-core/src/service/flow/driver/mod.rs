@@ -7,6 +7,7 @@ use super::failure::{Failure, Metadata, Operation, Persistence, Stage};
 use crate::service::interrupt::Control;
 use crate::{thinking, turn};
 
+mod conduct;
 mod finish;
 mod maintenance;
 mod round;

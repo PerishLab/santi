@@ -2,6 +2,7 @@ use super::{Store, read};
 use keel::{Op, Rank, form};
 use santi_model::turn;
 
+pub(in crate::store) mod inference;
 mod maintenance;
 mod outbox;
 mod stop;
@@ -211,6 +212,7 @@ impl Store {
             },
             (Some(_), Some(_)) => return Err("turn has conflicting outcomes".to_string()),
         };
+        let inference = self.inference(read::text(row, "tag")?).await?;
         Ok(turn::Turn {
             id: read::text(row, "tag")?.to_string(),
             strand: read::related(&self.core, "Strand", read::int(row, "strand")?).await?,
@@ -222,6 +224,7 @@ impl Store {
             created: read::text(row, "created")?.to_string(),
             updated: read::text(row, "updated")?.to_string(),
             finished: outcome.finished,
+            inference,
         })
     }
 }

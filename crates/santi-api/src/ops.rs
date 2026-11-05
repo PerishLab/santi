@@ -180,8 +180,9 @@ impl Layout {
     }
 
     pub async fn configured(&self, held: &Runtime) -> Result<DoctorReport, String> {
-        let profile = Some(held.provider.clone());
-        let selected = held.providers.get(&held.provider);
+        let name = held.provider().to_string();
+        let profile = Some(name.clone());
+        let selected = held.providers.get(&name);
         let provider = match held.resolved() {
             Ok(provider) => ProviderDoctorReport {
                 profile,
@@ -190,15 +191,15 @@ impl Layout {
                 effort: provider.effort().map(str::to_string),
                 bytes: Some(provider.bytes()),
                 maintenance: Some(provider.maintenance()),
-                source: Some("provider_config".to_string()),
+                source: Some("service_selection".to_string()),
                 ok: true,
                 error: None,
             },
             Err(error) => ProviderDoctorReport {
                 profile,
                 kind: selected.map(|profile| profile.kind().to_string()),
-                model: selected.and_then(|profile| profile.model(&held.provider)),
-                effort: selected.and_then(|profile| profile.effort(&held.provider)),
+                model: selected.and_then(|profile| profile.model(&name)),
+                effort: selected.and_then(|profile| profile.effort(&name)),
                 bytes: None,
                 maintenance: None,
                 source: None,

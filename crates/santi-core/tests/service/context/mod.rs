@@ -1,5 +1,10 @@
+mod concurrent;
 mod continuation;
+mod invalid;
+mod layers;
 mod material;
+mod midturn;
+mod switch;
 
 #[path = "../../execution/context.rs"]
 mod maintenance;

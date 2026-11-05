@@ -10,9 +10,9 @@ pub enum StrandCommand {
     Material(Materials),
     #[command(
         about = "Create a strand for --soul/SANTI_SOUL_ID, or for the runtime default",
-        long_about = "Create exactly one strand. With --soul/SANTI_SOUL_ID, POST /api/v1/souls/{soul}/strands preserves that owner; without one, POST /api/v1/strands uses the runtime default. The client never retries. Only a contract-proven 4xx rejection reports outcome=not_created. Transport failure, an unreadable response body, 5xx or another non-client status, and an invalid success response report outcome=state_unknown with do-not-retry list/resume guidance; the client preserves a known parent soul and never invents the unknown strand id."
+        long_about = "Create exactly one strand. With --soul/SANTI_SOUL_ID, POST /api/v1/souls/{soul}/strands preserves that owner; without one, POST /api/v1/strands uses the runtime default. The client never retries. Only a contract-proven 4xx rejection reports outcome=not_created. Transport failure, an unreadable response body, 5xx or another non-client status, and an invalid success response report outcome=state_unknown with do-not-retry list/resume guidance; the client preserves a known parent soul and never invents the unknown strand id. Inference flags persist this strand's own delta; --inherit declares an empty delta so fields inherit from the soul."
     )]
-    Create,
+    Create(Delta),
     #[command(
         about = "Retire one explicitly identified idle strand",
         long_about = "DELETE /api/v1/strands/{id}. An explicit id is required. Pending input, unfinished turns or receipts, active or unacknowledged Jobs, unsettled effects and live forks block retirement. Estate commit precedes best-effort file cleanup; startup sweep recovers leftover bytes. Physical collection follows Keel retention. Repeating a completed request reports not found."
@@ -42,9 +42,13 @@ pub enum StrandCommand {
     },
     #[command(
         about = "Fork a complete history prefix (id falls back to --strand)",
-        long_about = "POST /api/v1/strands/{id}/fork. In-flight or failed execution is excluded at its turn boundary; the returned strand.fork is the actual inherited sequence. The child shares its soul and retains a complete history prefix, without inheriting active execution or effects. Strand workspace files are copied as they exist now, not rewound to the history boundary."
+        long_about = "POST /api/v1/strands/{id}/fork. In-flight or failed execution is excluded at its turn boundary; the returned strand.fork is the actual inherited sequence. The child shares its soul and retains a complete history prefix, without inheriting active execution or effects. Strand workspace files are copied as they exist now, not rewound to the history boundary. Inference flags declare the child's own delta; omitted flags copy the parent's own delta, while --inherit declares an empty delta that inherits from the soul."
     )]
-    Fork { id: Option<String> },
+    Fork {
+        id: Option<String>,
+        #[command(flatten)]
+        delta: Delta,
+    },
     #[command(
         about = "POST /api/v1/strands/{id}/drive — explicitly redrive pending or failed receipts (id falls back to --strand)"
     )]

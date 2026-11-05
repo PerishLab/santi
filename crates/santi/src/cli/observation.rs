@@ -30,5 +30,6 @@ fn name(command: &crate::cli::Command) -> &'static str {
         Command::Turn(_) => "turn",
         Command::Environment(_) => "env",
         Command::Webhook(_) => "webhook",
+        Command::Inference(_) => "inference",
     }
 }

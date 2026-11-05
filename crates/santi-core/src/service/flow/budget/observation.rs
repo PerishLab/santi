@@ -28,8 +28,9 @@ pub(super) async fn observe(
     service: &Service,
     strand: &strand::Strand,
     budget: &budget::Cap,
+    provider: &dyn santi_provider::Provider,
 ) -> Result<Observation, String> {
-    let provider = service.provider.metadata();
+    let metadata = provider.metadata();
     let pending = service
         .store
         .inboxes(&strand.id)
@@ -46,7 +47,7 @@ pub(super) async fn observe(
         .collect::<Vec<_>>();
     let material = json!({
         "schema": SCHEMA,
-        "estimator": service.estimate(&strand.id).await?.estimator,
+        "estimator": service.estimate(provider, &strand.id).await?.estimator,
         "strand": {
             "id": strand.id,
             "soul": strand.soul,
@@ -62,8 +63,8 @@ pub(super) async fn observe(
         "instructions": service.wording(&strand.id).await?,
         "tools": service.offered(&strand.id).await?,
         "provider": {
-            "name": provider.provider.as_ref(),
-            "model": provider.model,
+            "name": metadata.provider.as_ref(),
+            "model": metadata.model,
             "budget": {"source": budget.source, "input": budget.bytes, "maintenance": budget.maintenance},
         },
     });

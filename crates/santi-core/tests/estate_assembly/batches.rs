@@ -22,6 +22,7 @@ async fn inputs() {
             tag: "strand_child",
             parent: "strand_test",
             at: end,
+            inference: None,
             created: LATER,
         })
         .await

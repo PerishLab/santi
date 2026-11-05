@@ -1,3 +1,5 @@
+use axum::extract::Request;
+use axum::http::header;
 use axum::{
     Json, Router,
     extract::{Path, Query, State},
@@ -10,6 +12,7 @@ use santi_core::{
     Fault, Health, downstream::Credential, downstream::Draft, drive::Response, soul::Soul,
     strand::Strand,
 };
+use serde::de::DeserializeOwned;
 use tower_http::{
     cors::{Any, CorsLayer},
     trace::TraceLayer,
@@ -22,7 +25,40 @@ use super::{
     sse::{strand_events, transitions, turn_event_stream},
 };
 
+pub(super) mod inference;
 pub(super) mod materials;
+
+pub(super) async fn optional<T: DeserializeOwned>(request: Request) -> Result<Option<T>, ApiError> {
+    let content_type = request.headers().get(header::CONTENT_TYPE).cloned();
+    let bytes = axum::body::to_bytes(request.into_body(), 2 * 1024 * 1024)
+        .await
+        .map_err(|_| ApiError::bad_request("request body could not be read"))?;
+    if bytes.is_empty() {
+        return Ok(None);
+    }
+    if !content_type
+        .as_ref()
+        .and_then(|value| value.to_str().ok())
+        .is_some_and(json)
+    {
+        return Err(ApiError::bad_request(
+            "request body must have an application/json content type",
+        ));
+    }
+    serde_json::from_slice(&bytes)
+        .map(Some)
+        .map_err(|error| ApiError::bad_request(format!("invalid JSON request body: {error}")))
+}
+
+fn json(content_type: &str) -> bool {
+    let media = content_type
+        .split(';')
+        .next()
+        .unwrap_or_default()
+        .trim()
+        .to_ascii_lowercase();
+    media == "application/json" || (media.starts_with("application/") && media.ends_with("+json"))
+}
 
 pub(super) fn router(service: Service) -> Router {
     let api = Router::new()
@@ -54,6 +90,10 @@ pub(super) fn router(service: Service) -> Router {
         .route("/api/v1/strands", weave().merge(strands()))
         .route("/api/v1/souls", awaken().merge(souls()))
         .route("/api/v1/souls/{soul}", get_soul())
+        .route(
+            "/api/v1/souls/{soul}/inference",
+            inference::soul::read().merge(inference::soul::declare()),
+        )
         .route("/api/v1/souls/{soul}/active-turns", get(running))
         .route("/api/v1/souls/{soul}/strands", seat())
         .route(
@@ -76,6 +116,10 @@ pub(super) fn router(service: Service) -> Router {
         .route(
             "/api/v1/strands/{strand}",
             get_strand().merge(routing::delete(end_strand)),
+        )
+        .route(
+            "/api/v1/strands/{strand}/inference",
+            inference::strand::read().merge(inference::strand::declare()),
         )
         .route(
             "/api/v1/strands/{strand}/environment",

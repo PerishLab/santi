@@ -129,6 +129,9 @@ pub enum Command {
     #[command(about = "Inspect or idempotently ensure webhook subscriptions")]
     #[command(subcommand)]
     Webhook(Webhook),
+    #[command(about = "Read or persistently declare inference selections by soul or strand")]
+    #[command(subcommand)]
+    Inference(Inference),
 }
 
 #[derive(Subcommand)]
@@ -280,11 +283,13 @@ pub fn split_send_args(
 pub mod alarm;
 mod compact;
 mod defaults;
+mod inference;
 mod material;
 pub use material::*;
 mod job;
 mod strand;
 pub use compact::*;
 pub use defaults::*;
+pub use inference::*;
 pub use job::*;
 pub use strand::*;

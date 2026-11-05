@@ -19,6 +19,7 @@ async fn consumed() {
                 label: None,
                 parent: None,
                 fork: None,
+                inference: None,
                 created: FIRST,
             })
             .await

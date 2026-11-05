@@ -5,6 +5,13 @@ name = "Adam Santi"
 
 [souls.soul_default.channels]
 
+# Optional inference declaration for this Soul. Missing fields inherit the
+# service provider defaults; a strand's own declaration overrides the Soul.
+# [souls.soul_default.inference]
+# provider = "deepseek"
+# model = "deepseek-flash"
+# reasoning_effort = "high"
+
 # Shared Soul MEMORY source bytes, independent of provider/compact capacity.
 # Oversize pauses ordinary requests while the Soul consolidates its source.
 [memory]

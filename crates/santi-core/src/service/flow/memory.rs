@@ -36,9 +36,13 @@ struct Snapshot {
 }
 
 impl Service {
-    pub(in crate::service) fn regimen(&self) -> Policy {
-        let bytes = self
-            .provider
+    pub(in crate::service) async fn policy(&self, strand: &str) -> Result<Policy, String> {
+        let provider = self.current(strand).await?;
+        Ok(self.regimen(provider.as_ref()))
+    }
+
+    pub(in crate::service) fn regimen(&self, provider: &dyn santi_provider::Provider) -> Policy {
+        let bytes = provider
             .metadata()
             .budget
             .map_or(FALLBACK, |budget| budget.bytes);
@@ -53,8 +57,12 @@ impl Service {
     }
 
     #[radicula_lock::guard(gate = self.pressure.tokio(), error = |failure: radicula_lock::Failure<_>| Err(failure.to_string()))]
-    pub(super) async fn gate(&self, strand: &Strand) -> Result<Gate, String> {
-        let policy = self.regimen();
+    pub(super) async fn gate(
+        &self,
+        strand: &Strand,
+        provider: &dyn santi_provider::Provider,
+    ) -> Result<Gate, String> {
+        let policy = self.regimen(provider);
         let snapshot = self.measure(&strand.soul)?;
         self.reconcile(&strand.soul, &snapshot, policy).await?;
         if snapshot.weight <= policy.allowance {
@@ -88,7 +96,7 @@ impl Service {
         if maintenance.label.as_deref() != Some(MAINTENANCE) {
             return Ok(());
         }
-        let policy = self.regimen();
+        let policy = self.policy(&maintenance.id).await?;
         let snapshot = self.measure(&maintenance.soul)?;
         self.reconcile(&maintenance.soul, &snapshot, policy).await?;
         if snapshot.weight > policy.allowance {

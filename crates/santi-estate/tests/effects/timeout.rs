@@ -15,6 +15,7 @@ async fn uncertain() {
             label: None,
             parent: None,
             fork: None,
+            inference: None,
             created: FIRST,
         })
         .await

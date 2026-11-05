@@ -100,6 +100,7 @@ async fn forks() {
             tag: "child",
             parent: "first",
             at: 0,
+            inference: None,
             created: NOW,
         })
         .await

@@ -91,6 +91,7 @@ async fn forked() {
             tag: "child",
             parent: "parent",
             at: parent.next - 1,
+            inference: None,
             created: LATER,
         })
         .await

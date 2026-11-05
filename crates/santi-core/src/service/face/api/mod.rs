@@ -16,38 +16,23 @@ pub enum Admission {
 
 impl Service {
     pub async fn weave(&self) -> Result<strand::Created, String> {
-        self.seat(crate::GENESIS).await
+        self.weaving(None).await
     }
 
     pub async fn seat(&self, soul: &str) -> Result<strand::Created, String> {
-        let soul = soul.trim();
-        if soul.is_empty() {
-            return Err("soul must not be empty".to_string());
-        }
-        if self.store.soul(soul).await?.is_none() {
-            return Err("soul not found".to_string());
-        }
-        let created = now();
-        Ok(strand::Created {
-            strand: self
-                .store
-                .create_strand(santi_estate::StrandDraft {
-                    tag: &tag("ss"),
-                    soul,
-                    label: None,
-                    parent: None,
-                    fork: None,
-                    created: &created,
-                })
-                .await?,
-        })
+        self.seating(soul, None).await
     }
 
     pub async fn awaken(&self, request: soul::Draft) -> Result<Soul, String> {
         let soul = tag("soul");
+        let inference = (!request.inference.empty()).then_some(&request.inference);
+        if let Some(inference) = inference {
+            self.infer(santi_estate::Target::Soul, inference, None)
+                .map_err(|error| format!("inference rejected: {error}"))?;
+        }
         let memory = request.memory.as_deref().unwrap_or_default();
         super::publication::publish(&self.runtime(), &soul, memory.as_bytes())?;
-        self.store.create_soul(&soul, &now()).await
+        self.store.create_soul(&soul, &now(), inference).await
     }
 
     pub async fn souls(&self) -> Result<Vec<Soul>, String> {
@@ -270,3 +255,4 @@ impl Service {
 }
 
 mod incidents;
+mod inference;

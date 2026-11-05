@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
 
+use crate::inference::Declaration;
 use anyhow::{Context, Result};
 use radicula_config::Cascade;
 use serde::Deserialize;
@@ -15,6 +16,8 @@ pub struct Client {
     pub auth_username: Option<String>,
     pub auth_password: Option<String>,
     pub token_cache: Option<PathBuf>,
+    #[cascade(section)]
+    pub inference: Declaration,
 }
 
 #[derive(Default, Deserialize)]

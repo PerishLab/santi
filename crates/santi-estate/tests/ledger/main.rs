@@ -1,3 +1,4 @@
+mod inference;
 mod job;
 mod material;
 mod model;
@@ -34,6 +35,7 @@ async fn ledger() {
             label: Some("primary"),
             parent: None,
             fork: None,
+            inference: None,
             created: NOW,
         })
         .await
@@ -169,6 +171,7 @@ async fn lease() {
             label: Some("santi:clock"),
             parent: None,
             fork: None,
+            inference: None,
             created: NOW,
         })
         .await

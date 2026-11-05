@@ -25,7 +25,29 @@ async fn reports() {
     assert_eq!(provider.effort.as_deref(), Some("medium"));
     assert_eq!(provider.bytes, Some(120000));
     assert_eq!(provider.maintenance, Some(180000));
-    assert_eq!(provider.source.as_deref(), Some("provider_config"));
+    assert_eq!(provider.source.as_deref(), Some("service_selection"));
+}
+
+#[tokio::test]
+async fn rebase() {
+    let temp = tempfile::tempdir().expect("temp dir");
+    let paths = paths_under(temp.path());
+    let store = super::support::bootstrap(&paths.database).await;
+    store
+        .seed(santi_core::GENESIS, &santi_core::now())
+        .await
+        .expect("seed");
+    let mut held = runtime_under(temp.path(), Some(120000));
+    held.inference.model = Some("service-model".into());
+    held.inference.reasoning_effort = Some("high".into());
+
+    let report = paths.configured(&held).await.expect("doctor");
+    assert!(report.ok, "expected healthy: {report:?}");
+    let provider = report.provider.expect("provider report");
+    assert_eq!(provider.profile.as_deref(), Some("openai"));
+    assert_eq!(provider.model.as_deref(), Some("service-model"));
+    assert_eq!(provider.effort.as_deref(), Some("high"));
+    assert_eq!(provider.source.as_deref(), Some("service_selection"));
 }
 
 #[tokio::test]
@@ -80,7 +102,11 @@ fn runtime_under(root: &Path, budget: Option<usize>) -> Runtime {
     Runtime {
         bind: "127.0.0.1:0".to_string(),
         port: 0,
-        provider: "openai".to_string(),
+        inference: santi_core::inference::Declaration {
+            provider: Some("openai".to_string()),
+            model: None,
+            reasoning_effort: None,
+        },
         providers: file.providers,
         environment: Default::default(),
         paths: paths_under(root),

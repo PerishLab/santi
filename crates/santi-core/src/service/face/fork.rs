@@ -6,6 +6,14 @@ use crate::{object, strand};
 
 impl Service {
     pub async fn fork(&self, parent: &str) -> Result<strand::Forked, String> {
+        self.forking(parent, None).await
+    }
+
+    pub async fn forking(
+        &self,
+        parent: &str,
+        inference: Option<&crate::inference::Declaration>,
+    ) -> Result<strand::Forked, String> {
         let parent = self
             .store
             .strand(parent)
@@ -13,14 +21,21 @@ impl Service {
             .ok_or_else(|| "parent strand not found".to_string())?;
         let fork = parent.next - 1;
         let child_tag = crate::tag("ss");
-        let child = self
+        let (child, _) = self
             .store
-            .branch(santi_estate::ForkDraft {
-                tag: &child_tag,
-                parent: &parent.id,
-                at: fork,
-                created: &crate::now(),
-            })
+            .branching(
+                santi_estate::ForkDraft {
+                    tag: &child_tag,
+                    parent: &parent.id,
+                    at: fork,
+                    inference,
+                    created: &crate::now(),
+                },
+                |target, candidate, lower| {
+                    self.infer(target, candidate, lower)
+                        .map_err(|error| format!("inference rejected: {error}"))
+                },
+            )
             .await?;
         if let Err(error) = self.bequeath(&parent.id, &child.id) {
             let nursery = self.strandhome(&child.id);

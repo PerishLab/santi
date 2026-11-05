@@ -5,7 +5,10 @@ async fn identity() {
     let mut harness = PromptHarness::open().await;
     let other = harness
         .service
-        .awaken(santi_core::soul::Draft { memory: None })
+        .awaken(santi_core::soul::Draft {
+            memory: None,
+            inference: Default::default(),
+        })
         .await
         .unwrap();
     let identity = santi_core::soul::Identity {

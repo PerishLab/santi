@@ -104,7 +104,7 @@ async fn discovers() {
         .await
         .unwrap();
     assert!(text["text"].as_str().unwrap().contains("job_kept"));
-    let policy = service.regimen();
+    let policy = service.policy(&strand.id).await.unwrap();
     let limits = santi_estate::Limits {
         slots: policy.slots,
         settled: policy.settled,
@@ -185,12 +185,13 @@ async fn discovers() {
         tools: None,
         previous: None,
     };
-    service.suffix(&mut request);
+    let provider = service.preview(&strand.id).await.unwrap();
+    service.suffix(provider.as_ref(), &mut request);
     let item = request.input.last().unwrap();
     let santi_provider::Item::Message { content, .. } = item else {
         panic!("suffix missing")
     };
-    let used = crate::context::budget::gauged(&request, service.provider.as_ref()).total;
+    let used = crate::context::budget::gauged(&request, provider.as_ref()).total;
     assert!(content.contains(&format!("used_bytes: {used:020}")));
     assert!(content.contains(&format!("remaining_bytes: {:020}", 75000 - used)));
 }

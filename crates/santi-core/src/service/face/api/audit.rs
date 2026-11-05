@@ -12,8 +12,11 @@ impl Service {
             None
         };
         let composition = self.composition(&strand.id).await?;
-        let estimate = self.weighed(&strand.id, composition.text).await?;
-        let cap = self.budget();
+        let provider = self.current(&strand.id).await?;
+        let estimate = self
+            .weighed(provider.as_ref(), &strand.id, composition.text)
+            .await?;
+        let cap = self.budget(provider.as_ref());
         let ceiling = cap.as_ref().map(budget::Cap::ceiling);
         let pressure = if cap.is_some() {
             let gauge = self.gauge(&strand.id, true).await?;

@@ -31,6 +31,7 @@ async fn assembles_ordered_estate() {
             label: None,
             parent: None,
             fork: None,
+            inference: None,
             created: FIRST,
         })
         .await
@@ -137,6 +138,7 @@ async fn assembles_ordered_estate() {
             tag: "strand_child",
             parent: "strand_test",
             at: 5,
+            inference: None,
             created: LATER,
         })
         .await

@@ -2,6 +2,8 @@ pub use face::alarms;
 mod engine;
 use engine::{address, drive, error, notice, render, thinking, timing};
 mod face;
+pub(crate) use engine::provider::Fixed;
+pub use engine::provider::Resolver;
 pub use face::Admission;
 mod flow;
 mod jobs;
@@ -14,6 +16,7 @@ mod text;
 mod tools;
 mod traces;
 
+use crate::inference::{Declaration, Effective, Origin};
 use santi_provider::Provider;
 use std::{
     collections::{BTreeMap, HashMap},
@@ -37,7 +40,9 @@ pub const RETENTION: u64 = 7 * 24 * 60 * 60;
 pub struct Service {
     pub(crate) store: Store,
     pub(crate) context: radicula_context::Context,
-    provider: Arc<dyn Provider>,
+    providers: Arc<dyn crate::provider::Resolver>,
+    declaration: Declaration,
+    pins: Arc<Mutex<HashMap<String, Arc<dyn Provider>>>>,
     pub(crate) config: Config,
     renders: Arc<Mutex<HashMap<render::Key, crate::render::View>>>,
     library: Arc<crate::library::Catalog>,
@@ -103,6 +108,21 @@ impl Service {
         provider: Arc<dyn Provider>,
         supervisor: Arc<dyn jobs::Supervisor>,
     ) -> Result<Self, String> {
+        Self::provided(
+            config,
+            Arc::new(crate::provider::Fixed::new(provider)),
+            Declaration::default(),
+            supervisor,
+        )
+        .await
+    }
+
+    pub async fn provided(
+        config: Config,
+        providers: Arc<dyn crate::provider::Resolver>,
+        declaration: Declaration,
+        supervisor: Arc<dyn jobs::Supervisor>,
+    ) -> Result<Self, String> {
         crate::environment::validate(&config.environment)?;
         let store = Store::open(&config.database).await?;
         store.seed(crate::GENESIS, &crate::now()).await?;
@@ -127,7 +147,9 @@ impl Service {
         let service = Self {
             store,
             context,
-            provider,
+            providers,
+            declaration,
+            pins: Arc::new(Mutex::new(HashMap::new())),
             config,
             renders: Arc::new(Mutex::new(HashMap::new())),
             library: Arc::new(crate::library::Catalog::default()),
@@ -206,72 +228,67 @@ impl Service {
     pub fn closing(&self) -> bool {
         self.closing.load(Ordering::SeqCst)
     }
+}
 
-    pub async fn resume(&self) -> Result<(), String> {
-        self.dispatched().await;
-        let pending = self.store.pending_strands().await?;
-        for strand in pending {
-            let outcome = self
-                .poke(&strand, "strand_send", None, "cold_start_resume")
-                .await;
-            if let drive::Outcome::Failed(error) = outcome
-                && error.code == crate::catalog::UNSAVED.code
-            {
-                return Err(format!(
-                    "cold-start recovery could not persist driver truth for strand {strand}: {}",
-                    error.message
-                ));
-            }
-        }
-        Ok(())
-    }
-
-    pub fn degraded(&self) -> bool {
-        self.degraded.load(Ordering::SeqCst)
-    }
-
-    pub async fn strained(&self) -> usize {
-        match self
+impl Service {
+    pub(crate) async fn selected(&self, strand: &str) -> Result<Effective, String> {
+        let strand = self
             .store
-            .active_incident_count(crate::drive::Error::Failed.descriptor().code)
-            .await
-        {
-            Ok(count) => count,
-            Err(error) => {
-                self.degraded.store(true, Ordering::SeqCst);
-                eprintln!("santi: drive health count failed: {error}");
-                0
-            }
-        }
-    }
-
-    pub(in crate::service) fn degrade(&self) {
-        self.degraded.store(true, Ordering::SeqCst);
-    }
-
-    pub(in crate::service) async fn refreshed(&self) {
-        match self
+            .strand(strand)
+            .await?
+            .ok_or_else(|| "strand not found".to_string())?;
+        let soul = self
             .store
-            .active_incident_count(crate::drive::Error::Failed.descriptor().code)
-            .await
+            .soul(&strand.soul)
+            .await?
+            .ok_or_else(|| "soul not found".to_string())?;
+        let layers = [
+            (&self.declaration, Origin::Service),
+            (&soul.inference, Origin::Soul),
+            (&strand.inference, Origin::Strand),
+        ];
+        self.providers.resolve(&layers)
+    }
+
+    pub(crate) async fn preview(&self, strand: &str) -> Result<Arc<dyn Provider>, String> {
+        let effective = self.selected(strand).await?;
+        self.providers.build(&effective)
+    }
+
+    pub(crate) async fn current(&self, strand: &str) -> Result<Arc<dyn Provider>, String> {
+        if let Some(turn) = self.store.latest(strand).await?
+            && matches!(turn.status, crate::turn::Status::Running)
         {
-            Ok(count) => self.degraded.store(count > 0, Ordering::SeqCst),
-            Err(error) => {
-                self.degraded.store(true, Ordering::SeqCst);
-                eprintln!("santi: drive health refresh failed: {error}");
-            }
+            return self.recovery(&turn.id).await;
         }
+        self.preview(strand).await
     }
 
-    pub async fn listen(&self) -> broadcast::Receiver<stream::Event> {
-        let receiver = self.streams.subscribe();
-        self.dispatched().await;
-        receiver
+    pub(crate) fn remember(&self, turn: &str, provider: Arc<dyn Provider>) {
+        self.pins.lock().unwrap().insert(turn.to_string(), provider);
     }
 
-    pub async fn harken(&self) -> broadcast::Receiver<Transition> {
-        let receiver = self.errors.subscribe();
-        self.dispatched().await;
-        receiver
+    pub(crate) fn forget(&self, turn: &str) {
+        self.pins.lock().unwrap().remove(turn);
+    }
+
+    pub(crate) fn pinned(&self, turn: &str) -> Result<Arc<dyn Provider>, String> {
+        self.pins.lock().unwrap().get(turn).cloned().ok_or_else(|| {
+            format!("turn {turn} has no pinned provider; inference history is unknown")
+        })
+    }
+
+    pub(crate) async fn recovery(&self, turn: &str) -> Result<Arc<dyn Provider>, String> {
+        if let Ok(provider) = self.pinned(turn) {
+            return Ok(provider);
+        }
+        let Some(snapshot) = self.store.inference(turn).await? else {
+            return Err(format!(
+                "turn {turn} inference snapshot missing: history unknown"
+            ));
+        };
+        let provider = self.providers.build(&snapshot)?;
+        self.remember(turn, provider.clone());
+        Ok(provider)
     }
 }

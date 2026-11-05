@@ -108,9 +108,10 @@ impl Service {
                 Some(_) => Some(self.usage(&strand.id).await?),
                 None => None,
             };
+            let provider = self.recovery(&turn.id).await?;
             active.push(Entry {
-                estimate: self.estimate(&strand.id).await?,
-                budget: self.budget(),
+                estimate: self.estimate(provider.as_ref(), &strand.id).await?,
+                budget: self.budget(provider.as_ref()),
                 execution,
                 usage,
                 strand: Strand {

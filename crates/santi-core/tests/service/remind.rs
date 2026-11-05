@@ -158,19 +158,18 @@ async fn measures() {
 #[tokio::test]
 async fn unweighed() {
     let held = opened().await;
-    let before = held.service.audit(&held.strand).await.unwrap().unwrap();
-    let next = held.store.strand(&held.strand).await.unwrap().unwrap().next;
-    let created = santi_core::now();
-    held.store
-        .create_turn(santi_estate::TurnDraft {
+    pinned(
+        &held.store,
+        &held.strand,
+        Seed {
             tag: "turn_thought",
-            strand: &held.strand,
-            trigger: santi_core::turn::Trigger::System,
-            from: next,
-            created: &created,
-        })
-        .await
-        .unwrap();
+            text: "thought input",
+            effective: &fixed("plain", "plain"),
+        },
+    )
+    .await;
+    let before = held.service.audit(&held.strand).await.unwrap().unwrap();
+    let created = santi_core::now();
     held.store
         .create_thinking(santi_estate::ThinkingDraft {
             tag: "thinking_thought",
@@ -196,19 +195,18 @@ async fn unweighed() {
 #[tokio::test]
 async fn framed() {
     let held = opened().await;
-    let before = held.service.audit(&held.strand).await.unwrap().unwrap();
-    let next = held.store.strand(&held.strand).await.unwrap().unwrap().next;
-    let created = santi_core::now();
-    held.store
-        .create_turn(santi_estate::TurnDraft {
+    pinned(
+        &held.store,
+        &held.strand,
+        Seed {
             tag: "turn_framed",
-            strand: &held.strand,
-            trigger: santi_core::turn::Trigger::System,
-            from: next,
-            created: &created,
-        })
-        .await
-        .unwrap();
+            text: "framed input",
+            effective: &fixed("plain", "plain"),
+        },
+    )
+    .await;
+    let before = held.service.audit(&held.strand).await.unwrap().unwrap();
+    let created = santi_core::now();
     let arguments = serde_json::json!({"command": "pwd"});
     held.store
         .create_call(santi_estate::CallDraft {

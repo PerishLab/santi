@@ -20,6 +20,7 @@ async fn estate(temp: &tempfile::TempDir) -> Store {
             label: None,
             parent: None,
             fork: None,
+            inference: None,
             created: NOW,
         })
         .await

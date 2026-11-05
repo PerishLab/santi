@@ -48,12 +48,16 @@ async fn opened() -> (tempfile::TempDir, Service, String) {
 #[tokio::test]
 async fn probe() {
     let (temp, service, strand) = opened().await;
+    let provider = service.preview(&strand).await.unwrap();
     let composition = service.composition(&strand).await.unwrap();
     let empty = service
-        .weighed(&strand, composition.text.clone())
+        .weighed(provider.as_ref(), &strand, composition.text.clone())
         .await
         .unwrap();
-    let ordinary = service.weight(&strand, false).await.unwrap();
+    let ordinary = service
+        .weight(provider.as_ref(), &strand, false)
+        .await
+        .unwrap();
     let prior = service.gauge(&strand, true).await.unwrap();
     assert_ne!(empty.tools, ordinary.tools);
     let audit = service.audit(&strand).await.unwrap().unwrap();
@@ -80,8 +84,14 @@ async fn probe() {
         .await
         .unwrap();
 
-    let pending = service.weighed(&strand, composition.text).await.unwrap();
-    let ordinary = service.weight(&strand, true).await.unwrap();
+    let pending = service
+        .weighed(provider.as_ref(), &strand, composition.text)
+        .await
+        .unwrap();
+    let ordinary = service
+        .weight(provider.as_ref(), &strand, true)
+        .await
+        .unwrap();
     let gauge = service.gauge(&strand, true).await.unwrap();
     assert_ne!(pending.tools, ordinary.tools);
     let audit = service.audit(&strand).await.unwrap().unwrap();

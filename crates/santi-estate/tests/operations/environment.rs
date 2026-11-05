@@ -16,6 +16,7 @@ async fn ownership() {
             label: None,
             parent: None,
             fork: None,
+            inference: None,
             created: "2026-07-29T00:00:00.000Z",
         })
         .await

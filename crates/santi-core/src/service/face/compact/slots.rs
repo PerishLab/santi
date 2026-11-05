@@ -47,7 +47,7 @@ impl Service {
         &self,
         strand: &str,
     ) -> Result<Option<budget::Slots>, String> {
-        let policy = self.regimen();
+        let policy = self.policy(strand).await?;
         let spans = self.spans(strand).await?;
         let held = spans
             .iter()

@@ -23,5 +23,4 @@ pub(super) async fn catalog(
 }
 
 #[cfg(test)]
-#[path = "materials/tests.rs"]
 mod tests;

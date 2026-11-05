@@ -20,15 +20,39 @@ pub(in crate::store) use write::offer;
 
 impl Store {
     pub async fn drain_turn(&self, draft: DrainDraft<'_>) -> Result<Opening, String> {
-        drain::open(self, draft, drain::Mode::Drain).await
+        drain::open(self, draft, drain::Mode::Drain, None).await
+    }
+
+    pub async fn begin(
+        &self,
+        draft: DrainDraft<'_>,
+        effective: &santi_model::inference::Effective,
+    ) -> Result<Opening, String> {
+        drain::open(self, draft, drain::Mode::Drain, Some(effective)).await
     }
 
     pub async fn pause(&self, draft: DrainDraft<'_>) -> Result<Opening, String> {
-        drain::open(self, draft, drain::Mode::Maintenance).await
+        drain::open(self, draft, drain::Mode::Maintenance, None).await
+    }
+
+    pub async fn hold(
+        &self,
+        draft: DrainDraft<'_>,
+        effective: &santi_model::inference::Effective,
+    ) -> Result<Opening, String> {
+        drain::open(self, draft, drain::Mode::Maintenance, Some(effective)).await
     }
 
     pub async fn redrive(&self, draft: DrainDraft<'_>) -> Result<Opening, String> {
-        drain::open(self, draft, drain::Mode::Redrive).await
+        drain::open(self, draft, drain::Mode::Redrive, None).await
+    }
+
+    pub async fn resume(
+        &self,
+        draft: DrainDraft<'_>,
+        effective: &santi_model::inference::Effective,
+    ) -> Result<Opening, String> {
+        drain::open(self, draft, drain::Mode::Redrive, Some(effective)).await
     }
 
     pub async fn accept_inbox(&self, draft: InboxDraft<'_>, gate: usize) -> Result<Inbox, String> {

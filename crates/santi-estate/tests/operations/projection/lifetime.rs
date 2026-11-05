@@ -12,6 +12,7 @@ async fn shared() {
             tag: "strand_child",
             parent: "strand_test",
             at: 2,
+            inference: None,
             created: NOW,
         })
         .await
@@ -32,6 +33,7 @@ async fn shared() {
             label: None,
             parent: None,
             fork: None,
+            inference: None,
             created: NOW,
         })
         .await

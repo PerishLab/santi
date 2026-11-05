@@ -4,12 +4,14 @@ use keel::adapt::db::Sqlite;
 use keel::{Op, Rank, Row, Tx, form};
 
 mod checkpoint;
+mod copy;
 
 #[derive(Clone, Copy)]
 pub struct ForkDraft<'a> {
     pub tag: &'a str,
     pub parent: &'a str,
     pub at: i64,
+    pub inference: Option<&'a santi_model::inference::Declaration>,
     pub created: &'a str,
 }
 
@@ -20,30 +22,66 @@ impl Store {
         &self,
         draft: ForkDraft<'_>,
     ) -> Result<santi_model::strand::Strand, String> {
-        self.core
+        self.branching(draft, |_, _, _| Ok(()))
+            .await
+            .map(|(strand, _)| strand)
+    }
+
+    pub async fn branching<V>(
+        &self,
+        draft: ForkDraft<'_>,
+        validate: impl Fn(
+            crate::Target,
+            &santi_model::inference::Declaration,
+            Option<&santi_model::inference::Declaration>,
+        ) -> Result<V, String>,
+    ) -> Result<(santi_model::strand::Strand, Option<V>), String> {
+        let tag = draft.tag.to_string();
+        let checked = self
+            .core
             .batch(async |tx| {
                 let parent = Writer(tx).need("Strand", draft.parent).await?;
                 let at = checkpoint::selected(tx, &parent, draft.at).await?;
-                create(tx, ForkDraft { at, ..draft }).await
+                creating(tx, ForkDraft { at, ..draft }, &validate).await
             })
             .await
             .map_err(read::error)?;
-        self.strand(draft.tag)
+        let strand = self
+            .strand(&tag)
             .await?
-            .ok_or_else(|| "forked strand missing".to_string())
+            .ok_or_else(|| "forked strand missing".to_string())?;
+        Ok((strand, checked))
     }
 
     pub async fn fork(&self, draft: ForkDraft<'_>) -> Result<santi_model::strand::Strand, String> {
+        self.forking(draft, |_, _, _| Ok(()))
+            .await
+            .map(|(strand, _)| strand)
+    }
+
+    pub async fn forking<V>(
+        &self,
+        draft: ForkDraft<'_>,
+        validate: impl Fn(
+            crate::Target,
+            &santi_model::inference::Declaration,
+            Option<&santi_model::inference::Declaration>,
+        ) -> Result<V, String>,
+    ) -> Result<(santi_model::strand::Strand, Option<V>), String> {
         if draft.at < 0 {
             return Err("fork must be >= 0".to_string());
         }
-        self.core
-            .batch(async |tx| create(tx, draft).await)
+        let tag = draft.tag.to_string();
+        let checked = self
+            .core
+            .batch(async |tx| creating(tx, draft, &validate).await)
             .await
             .map_err(read::error)?;
-        self.strand(draft.tag)
+        let strand = self
+            .strand(&tag)
             .await?
-            .ok_or_else(|| "forked strand missing".to_string())
+            .ok_or_else(|| "forked strand missing".to_string())?;
+        Ok((strand, checked))
     }
 
     pub async fn discard_fork(&self, tag: &str) -> Result<bool, String> {
@@ -54,7 +92,15 @@ impl Store {
     }
 }
 
-async fn create(tx: &mut Tx<'_, Sqlite>, draft: ForkDraft<'_>) -> Result<(), keel::adapt::Error> {
+async fn creating<V>(
+    tx: &mut Tx<'_, Sqlite>,
+    draft: ForkDraft<'_>,
+    validate: &impl Fn(
+        crate::Target,
+        &santi_model::inference::Declaration,
+        Option<&santi_model::inference::Declaration>,
+    ) -> Result<V, String>,
+) -> Result<Option<V>, keel::adapt::Error> {
     let parent = Writer(tx).need("Strand", draft.parent).await?;
     let inherited = int(&parent, "next")?.saturating_sub(1);
     if draft.at > inherited {
@@ -63,104 +109,62 @@ async fn create(tx: &mut Tx<'_, Sqlite>, draft: ForkDraft<'_>) -> Result<(), kee
             draft.at
         )));
     }
-    let child = tx
-        .put(
-            "Strand",
-            &[
-                ("tag", draft.tag),
-                ("next", &(draft.at + 1).to_string()),
-                ("seen", &int(&parent, "seen")?.min(draft.at).to_string()),
-                ("fork", &draft.at.to_string()),
-                ("created", draft.created),
-                ("updated", draft.created),
-                ("soul", &int(&parent, "soul")?.to_string()),
-                ("parent", &parent.key().to_string()),
-            ],
+    let soul = int(&parent, "soul")?.to_string();
+    let checked = if let Some(inference) = draft.inference {
+        inference.validate().map_err(keel::adapt::Error::Adapt)?;
+        let row = tx
+            .one(&form("Soul").when("id", Op::Eq, &soul))
+            .await?
+            .ok_or_else(|| keel::adapt::Error::Adapt(format!("Soul {soul} not found")))?;
+        let lower = crate::store::support::inference::declaration(&row)
+            .map_err(keel::adapt::Error::Adapt)?;
+        Some(
+            validate(crate::Target::Strand, inference, Some(&lower))
+                .map_err(keel::adapt::Error::Adapt)?,
         )
-        .await?;
-    copy_entries(tx, parent.key(), child, draft.at).await?;
-    copy_compacts(tx, parent.key(), child, draft.at).await?;
-    super::material::binding::inherit(tx, parent.key(), child, draft.created).await
-}
-
-async fn copy_entries(
-    tx: &mut Tx<'_, Sqlite>,
-    parent: i64,
-    child: i64,
-    at: i64,
-) -> Result<(), keel::adapt::Error> {
-    let entries = tx
-        .ask(
-            &form("StrandEntry")
-                .when("strand", Op::Eq, &parent.to_string())
-                .when("sequence", Op::Le, &at.to_string())
-                .order("sequence", Rank::Asc),
-        )
-        .await?
-        .rows()
-        .to_vec();
-    for entry in entries {
-        let kind = text(&entry, "target_type")?;
-        let column = crate::store::entry::column(kind)?;
-        tx.put(
-            "StrandEntry",
-            &[
-                ("target_type", kind),
-                (column, &int(&entry, column)?.to_string()),
-                ("sequence", &int(&entry, "sequence")?.to_string()),
-                ("created", text(&entry, "created")?),
-                ("strand", &child.to_string()),
-            ],
-        )
-        .await?;
+    } else {
+        None
+    };
+    let (provider, model, effort) = match draft.inference {
+        Some(inference) => (
+            inference.provider.clone(),
+            inference.model.clone(),
+            inference.reasoning_effort.clone(),
+        ),
+        None => (
+            parent.text("provider").map(str::to_string),
+            parent.text("model").map(str::to_string),
+            parent.text("reasoning_effort").map(str::to_string),
+        ),
+    };
+    let next = (draft.at + 1).to_string();
+    let seen = int(&parent, "seen")?.min(draft.at).to_string();
+    let fork = draft.at.to_string();
+    let parent_key = parent.key().to_string();
+    let mut fields = vec![
+        ("tag", draft.tag),
+        ("next", next.as_str()),
+        ("seen", seen.as_str()),
+        ("fork", fork.as_str()),
+        ("created", draft.created),
+        ("updated", draft.created),
+        ("soul", soul.as_str()),
+        ("parent", parent_key.as_str()),
+    ];
+    if let Some(provider) = provider.as_deref() {
+        fields.push(("provider", provider));
     }
-    Ok(())
-}
-
-async fn copy_compacts(
-    tx: &mut Tx<'_, Sqlite>,
-    parent: i64,
-    child: i64,
-    at: i64,
-) -> Result<(), keel::adapt::Error> {
-    let compacts = tx
-        .ask(
-            &form("Compact")
-                .when("strand", Op::Eq, &parent.to_string())
-                .order("created", Rank::Asc)
-                .order("tag", Rank::Asc),
-        )
-        .await?
-        .rows()
-        .to_vec();
-    for compact in compacts {
-        let first = int(&compact, "first")?;
-        let last = int(&compact, "last")?;
-        let from = Writer(tx).message_sequence(parent, first).await?;
-        let to = Writer(tx).message_sequence(parent, last).await?;
-        if from > at || to > at {
-            continue;
-        }
-        let tag = santi_model::tag("cmp");
-        let first = first.to_string();
-        let last = last.to_string();
-        let child = child.to_string();
-        let mut fields = vec![
-            ("tag", tag.as_str()),
-            ("summary", text(&compact, "summary")?),
-            ("strand", child.as_str()),
-            ("first", first.as_str()),
-            ("last", last.as_str()),
-        ];
-        if let Some(created) = compact.text("created") {
-            fields.push(("created", created));
-        }
-        if let Some(metadata) = compact.text("metadata") {
-            fields.push(("metadata", metadata));
-        }
-        tx.put("Compact", &fields).await?;
+    if let Some(model) = model.as_deref() {
+        fields.push(("model", model));
     }
-    Ok(())
+    if let Some(effort) = effort.as_deref() {
+        fields.push(("reasoning_effort", effort));
+    }
+    let child = tx.put("Strand", &fields).await?;
+    copy::entries(tx, parent.key(), child, draft.at).await?;
+    copy::compacts(tx, parent.key(), child, draft.at).await?;
+    super::material::binding::inherit(tx, parent.key(), child, draft.created).await?;
+    Ok(checked)
 }
 
 impl Writer<'_, '_> {

@@ -17,6 +17,7 @@ async fn occurrences() {
             label: Some("primary"),
             parent: None,
             fork: None,
+            inference: None,
             created: FIRST,
         })
         .await
@@ -74,6 +75,7 @@ async fn occurrences() {
             tag: "strand_child",
             parent: "strand_parent",
             at: 3,
+            inference: None,
             created: LATER,
         })
         .await
@@ -117,6 +119,7 @@ async fn occurrences() {
             tag: "strand_driven",
             parent: "strand_parent",
             at: 3,
+            inference: None,
             created: LATER,
         })
         .await

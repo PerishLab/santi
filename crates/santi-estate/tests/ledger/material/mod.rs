@@ -25,6 +25,7 @@ impl Fixture {
                     label: None,
                     parent: None,
                     fork: None,
+                    inference: None,
                     created: NOW,
                 })
                 .await

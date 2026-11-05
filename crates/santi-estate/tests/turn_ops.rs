@@ -19,6 +19,7 @@ async fn contracts() {
             label: Some("worker/thread"),
             parent: None,
             fork: None,
+            inference: None,
             created: FIRST,
         })
         .await
@@ -30,6 +31,7 @@ async fn contracts() {
             label: Some("other/thread"),
             parent: None,
             fork: None,
+            inference: None,
             created: FIRST,
         })
         .await

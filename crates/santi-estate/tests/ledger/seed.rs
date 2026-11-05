@@ -44,6 +44,7 @@ pub(super) async fn populate(store: &Store, strand: &str) {
             label: Some(strand),
             parent: None,
             fork: None,
+            inference: None,
             created: FIRST,
         })
         .await

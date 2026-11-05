@@ -134,6 +134,7 @@ mod seed {
                     label: None,
                     parent: None,
                     fork: None,
+                    inference: None,
                     created: &santi_core::now(),
                 })
                 .await
@@ -215,6 +216,7 @@ mod audit {
                 label: None,
                 parent: None,
                 fork: None,
+                inference: None,
                 created: "2026-07-28T00:00:00.000Z",
             })
             .await

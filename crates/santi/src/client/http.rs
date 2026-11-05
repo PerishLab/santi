@@ -108,6 +108,19 @@ impl Http<'_> {
     }
 
     #[locus::trace(with = plumb::observation::view())]
+    pub(super) async fn patch(&self, url: &str, body: serde_json::Value) -> Result<()> {
+        let response = self
+            .client
+            .patch(url)
+            .json(&body)
+            .timeout(TIMEOUT)
+            .send()
+            .await
+            .with_context(|| format!("PATCH {url}"))?;
+        print_json(response).await
+    }
+
+    #[locus::trace(with = plumb::observation::view())]
     pub(super) async fn delete(&self, url: &str) -> Result<()> {
         let response = self
             .client
