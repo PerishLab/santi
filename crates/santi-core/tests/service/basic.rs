@@ -264,4 +264,16 @@ async fn sends() {
     }
     assert_eq!(traces.len(), 1, "async trace writer must persist the turn");
     assert_eq!(traces[0].name, "turn");
+    assert!(
+        traces[0]
+            .tags
+            .iter()
+            .any(|tag| tag.key == "turn" && tag.value == runtime.turns[0].id)
+    );
+    assert!(
+        traces[0]
+            .tags
+            .iter()
+            .any(|tag| tag.key == "strand" && tag.value == strand.id)
+    );
 }

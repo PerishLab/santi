@@ -36,7 +36,7 @@ pub const RETENTION: u64 = 7 * 24 * 60 * 60;
 #[derive(Clone)]
 pub struct Service {
     pub(crate) store: Store,
-    pub(crate) context: plumb::context::Context,
+    pub(crate) context: radicula_context::Context,
     provider: Arc<dyn Provider>,
     pub(crate) config: Config,
     renders: Arc<Mutex<HashMap<render::Key, crate::render::View>>>,
@@ -108,7 +108,7 @@ impl Service {
         store.seed(crate::GENESIS, &crate::now()).await?;
         let traces = traces::Writer::start(store.clone());
         let sink = plumb::trace::Sink::from(traces);
-        let context = plumb::context::Context::root().with(sink);
+        let context = radicula_context::Context::root().with(sink);
         store
             .recover_turns("santi.cold_start", &crate::now())
             .await?;
