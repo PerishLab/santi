@@ -107,7 +107,7 @@ impl Service {
         let store = Store::open(&config.database).await?;
         store.seed(crate::GENESIS, &crate::now()).await?;
         let traces = traces::Writer::start(store.clone());
-        let sink = plumb::trace::Sink::from(traces);
+        let sink = radicula_trace::Sink::from(traces);
         let context = radicula_context::Context::root().with(sink);
         store
             .recover_turns("santi.cold_start", &crate::now())

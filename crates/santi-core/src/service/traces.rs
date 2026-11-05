@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use plumb::trace::{Engine, Record};
+use radicula_trace::{Engine, Record};
 use tokio::sync::mpsc;
 
 use santi_estate::{Store, TraceDraft};

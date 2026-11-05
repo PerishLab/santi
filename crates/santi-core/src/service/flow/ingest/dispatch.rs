@@ -176,9 +176,9 @@ impl Service {
     fn dispatch(&self, strand: String, turn: String, control: Control) {
         let background = self.clone();
         let task = self.context.run(|| {
-            plumb::trace::carry("turn", async move {
-                plumb::trace::note("turn", &turn);
-                plumb::trace::note("strand", &strand);
+            radicula_trace::carry("turn", async move {
+                radicula_trace::note("turn", &turn);
+                radicula_trace::note("strand", &strand);
                 background.conduct(strand, turn, control).await;
             })
         });
