@@ -6,7 +6,15 @@ impl Writer<'_, '_> {
         &mut self,
         message: Message<'_, '_>,
     ) -> Result<Written, keel::adapt::Error> {
-        let tag = santi_model::tag("msg");
+        self.named(message, &santi_model::tag("msg")).await
+    }
+
+    pub(super) async fn named(
+        &mut self,
+        message: Message<'_, '_>,
+        tag: &str,
+    ) -> Result<Written, keel::adapt::Error> {
+        let tag = tag.to_string();
         let strand_key = message.strand.key().to_string();
         let key = self
             .0

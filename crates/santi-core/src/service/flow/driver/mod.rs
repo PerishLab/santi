@@ -1,4 +1,5 @@
 mod assemble;
+mod intake;
 use futures_util::StreamExt;
 use santi_provider::{Call, Event, Streaming, Trace};
 

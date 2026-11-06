@@ -109,23 +109,7 @@ impl Timeline<'_> {
             .message(target)
             .await?
             .ok_or_else(|| format!("message {target} missing"))?;
-        let role = match (&placed.message.role, &placed.message.kind) {
-            (message::Role::Soul, _) => "assistant",
-            (message::Role::System, message::Kind::Text) => "user",
-            (message::Role::System, message::Kind::SantiSystem) => "system",
-        };
-        let rendered = placed.message.content.rendered();
-        let content = match placed.message.role {
-            message::Role::Soul => spoken(&rendered),
-            message::Role::System => rendered.as_str(),
-        };
-        Ok((!content.trim().is_empty()).then(|| Item::Message {
-            role: role.to_string(),
-            content: match placed.message.role {
-                message::Role::Soul => content.to_string(),
-                message::Role::System => format!("[message {}]\n{content}", placed.message.id),
-            },
-        }))
+        Ok(projected(&placed))
     }
 
     async fn call(
@@ -189,4 +173,24 @@ fn headed(line: &str) -> bool {
         .is_some_and(|id| {
             !id.is_empty() && !id.contains(|c: char| c.is_whitespace() || c == '[' || c == ']')
         })
+}
+
+pub(crate) fn projected(placed: &message::Placed) -> Option<Item> {
+    let role = match (&placed.message.role, &placed.message.kind) {
+        (message::Role::Soul, _) => "assistant",
+        (message::Role::System, message::Kind::Text) => "user",
+        (message::Role::System, message::Kind::SantiSystem) => "system",
+    };
+    let rendered = placed.message.content.rendered();
+    let content = match placed.message.role {
+        message::Role::Soul => spoken(&rendered),
+        message::Role::System => rendered.as_str(),
+    };
+    (!content.trim().is_empty()).then(|| Item::Message {
+        role: role.to_string(),
+        content: match placed.message.role {
+            message::Role::Soul => content.to_string(),
+            message::Role::System => format!("[message {}]\n{content}", placed.message.id),
+        },
+    })
 }

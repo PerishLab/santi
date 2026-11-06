@@ -7,7 +7,7 @@ use keel::resource;
 pub(crate) struct MessageEvent {
     #[field(string, unique)]
     tag: string,
-    #[field(string, values = ["delete", "fix", "insert", "patch", "remove"])]
+    #[field(string, values = ["delete", "fix", "insert", "patch", "prepared", "remove"])]
     action: string,
     #[field(string, values = ["soul", "system"])]
     actor_type: string,
