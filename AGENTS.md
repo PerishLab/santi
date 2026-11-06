@@ -12,6 +12,14 @@ spans turns and external work items.
 Explicit alarms arrange future inputs to an existing brain. Keel owns their
 declarations; adaptors own idempotent platform convergence and recovery.
 Inbox acceptance settles delivery independently of later consumption.
+Input sent during a Turn may join its next safe ordinary provider round, after
+all current tool results are recorded. It does not interrupt an in-flight
+request or grant another round: maintenance, stop, exhausted ordinary allowance,
+or a batch that does not fit leaves input pending for a later eligible round
+or the next Turn. Inference stays frozen for the active Turn; its execution
+allowance is not reset. A `prepared` MessageEvent
+with `kind: input_prepared` records selection in a prepared request, not provider
+receipt or compliance.
 
 Keep changes centered on souls, strands, execution, and their durable evidence.
 Product roles and workflows belong to consumers of the runtime.

@@ -4,9 +4,8 @@ use crate::service::flow::failure::{Admission, Failure, Metadata, Operation, Per
 use crate::service::{Service, address::Address, interrupt::Control, notice::Observation, timing};
 use santi_provider::Request;
 
-use super::finish::Finish;
-use super::maintenance::Maintenance;
 use super::*;
+use super::{finish::Finish, maintenance::Maintenance};
 use crate::{message, turn};
 
 impl Service {
@@ -95,6 +94,14 @@ impl Service {
                     });
                 }
             }
+            let absorbed = if self.eligible(strand, turn, round) {
+                attempt!(
+                    Operation::Assembly,
+                    self.absorb(strand, turn, provider.as_ref(), control).await
+                )
+            } else {
+                Vec::new()
+            };
             let input = attempt!(Operation::Assembly, self.assembled(strand, turn).await);
             let metadata = provider.metadata();
             let family = metadata.provider.to_string();
@@ -136,6 +143,10 @@ impl Service {
             attempt!(
                 Operation::Assembly,
                 composition.capture(&self.store, turn, round).await
+            );
+            attempt!(
+                Operation::Assembly,
+                self.witnessed(turn, round, absorbed, &request.input).await
             );
             self.stirred(strand, turn, turn::Motion::Requesting, None);
             let model = request.model.clone();

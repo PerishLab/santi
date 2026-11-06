@@ -1,6 +1,7 @@
 use keel::Row;
 use santi_model::{message, turn};
 
+#[derive(Clone, PartialEq, Eq)]
 pub(super) struct Pending {
     pub(super) key: i64,
     pub(super) tag: String,
@@ -10,6 +11,7 @@ pub(super) struct Pending {
     pub(super) source_ref: Option<String>,
     pub(super) source_metadata: Option<String>,
     pub(super) coalesce_key: Option<String>,
+    pub(super) revision: Option<i64>,
     pub(super) causes: Option<String>,
     pub(super) created: String,
 }
@@ -24,6 +26,7 @@ pub(super) fn decode(row: &Row) -> Result<Pending, keel::adapt::Error> {
         source_ref: row.text("source_ref").map(str::to_string),
         source_metadata: row.text("source_metadata").map(str::to_string),
         coalesce_key: row.text("coalesce_key").map(str::to_string),
+        revision: row.int("coalesce_revision"),
         causes: row.text("coalesce_causes").map(str::to_string),
         created: text(row, "created")?,
     })

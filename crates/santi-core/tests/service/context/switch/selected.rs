@@ -19,12 +19,14 @@ async fn pinned() {
             model: "a-model",
             bytes: 20_000,
             maintenance: 30_000,
+            entered: Arc::new(tokio::sync::Notify::new()),
         }),
         b: Arc::new(Held {
             provider: "b",
             model: "b-model",
             bytes: 40_000,
             maintenance: 60_000,
+            entered: Arc::new(tokio::sync::Notify::new()),
         }),
     });
     let service = Service::provided(
@@ -36,6 +38,7 @@ async fn pinned() {
     .await
     .unwrap();
     let strand = service.weave().await.unwrap().strand;
+    let entered = resolver.a.entered.clone();
     let store = Store::open(&config.database).await.unwrap();
     let content = message::Content::text("hold this turn open");
     store
@@ -65,6 +68,9 @@ async fn pinned() {
         sleep(Duration::from_millis(10)).await;
     }
     assert!(running, "the blocking provider did not enter Running");
+    tokio::time::timeout(Duration::from_secs(10), entered.notified())
+        .await
+        .expect("Held provider stream entry timed out");
 
     *resolver.current.lock().unwrap() = effective("b", "b-model", "high");
     let patch = Patch {

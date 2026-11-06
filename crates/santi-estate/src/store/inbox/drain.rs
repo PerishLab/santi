@@ -4,6 +4,8 @@ use keel::{Op, Rank, Row, Tx, form};
 use santi_model::receipt as model;
 use serde_json::{Value, json};
 
+mod absorb;
+pub use absorb::Intake;
 mod codec;
 mod recovery;
 mod types;

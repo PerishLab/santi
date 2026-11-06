@@ -6,6 +6,7 @@ use std::collections::BTreeSet;
 
 mod ack;
 mod drain;
+pub use drain::Intake;
 mod edge;
 pub(in crate::store) mod receipt;
 mod types;

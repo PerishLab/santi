@@ -4,12 +4,14 @@ use santi_core::provider::Resolver;
 use santi_core::service::{self, JobLaunch, JobObservation, JobSupervisor, Service};
 use santi_core::{Store, message};
 use santi_estate::{Target, TurnDraft};
+use tokio::sync::Notify;
 
 struct Held {
     provider: &'static str,
     model: &'static str,
     bytes: usize,
     maintenance: usize,
+    entered: Arc<Notify>,
 }
 
 #[async_trait]
@@ -28,14 +30,15 @@ impl Provider for Held {
 
     async fn stream(&self, request: Request) -> Result<Streaming, String> {
         let _ = request;
+        self.entered.notify_one();
         Ok(Box::pin(stream::pending::<Result<Event, String>>()))
     }
 }
 
 struct Switch {
     current: Mutex<Effective>,
-    a: Arc<dyn Provider>,
-    b: Arc<dyn Provider>,
+    a: Arc<Held>,
+    b: Arc<Held>,
 }
 
 impl Resolver for Switch {
@@ -106,12 +109,14 @@ async fn missing() {
             model: "a-model",
             bytes: 20_000,
             maintenance: 30_000,
+            entered: Arc::new(Notify::new()),
         }),
         b: Arc::new(Held {
             provider: "b",
             model: "b-model",
             bytes: 40_000,
             maintenance: 60_000,
+            entered: Arc::new(Notify::new()),
         }),
     });
     let service = Service::provided(
@@ -162,12 +167,14 @@ async fn unbuildable() {
             model: "a-model",
             bytes: 20_000,
             maintenance: 30_000,
+            entered: Arc::new(Notify::new()),
         }),
         b: Arc::new(Held {
             provider: "b",
             model: "b-model",
             bytes: 40_000,
             maintenance: 60_000,
+            entered: Arc::new(Notify::new()),
         }),
     });
     let service = Service::provided(

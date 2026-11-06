@@ -59,7 +59,7 @@ verification = "cron asserts the production Radicula attempt refuses the indepen
 "crates/santi-api/src/adaptor/cron/mod.rs" = "2f6baed9ea57c4321352db5d9e192b243e30aaf0d440f58c2cc0c9310dbd1ef4"
 
 [[guard.lock.review]]
-reference = "1493102ce084a13fd13f9134be52257740856d7b7e71bdc1d42a98348df35e4c"
+reference = "0b13968f8fe79473f1d44b3c9969658176005526589feb6498b867d0f7a88f81"
 role = "interoperability"
 protocol = "Independent native peer holds estate.sqlite.transition.lock against production Store open."
 hold = "The external File remains held across the refused async Store open and path-absence assertion."
@@ -93,7 +93,7 @@ verification = "cron asserts missing-executable failure, then successful native 
 "crates/santi-api/src/adaptor/cron/mod.rs" = "2f6baed9ea57c4321352db5d9e192b243e30aaf0d440f58c2cc0c9310dbd1ef4"
 
 [[guard.lock.review]]
-reference = "acb949bf6cc1d0259cc2e904731f5b95db80d239bbbc4cff21dca830177dcbff"
+reference = "fa3d8b2512544a82bfa7967391fc6c74a837902cf7ccb32e4213dabcfb3539f3"
 role = "interoperability"
 protocol = "Independent native reacquisition verifies the complete production transition lease ended."
 hold = "The final peer File holds the successful probe until the test scope exits."
@@ -138,7 +138,7 @@ verification = "cron asserts empty alarm apply succeeds after independent native
 "crates/santi-api/src/adaptor/cron/mod.rs" = "2f6baed9ea57c4321352db5d9e192b243e30aaf0d440f58c2cc0c9310dbd1ef4"
 
 [[guard.lock.review]]
-reference = "d2f7d6cbcc0c8f3d401dab451d82b2d01ba334a0bcd2c43dcc7b244cf5c7660c"
+reference = "b0f49cec947fb1b859fb533a97e06688b0a3d52c0d51336e50a07e761b01c1a2"
 role = "interoperability"
 protocol = "Release the external transition lease so production bootstrap can acquire its Radicula-backed File."
 hold = "Ends the peer hold acquired at line 79 after transition refusal."
@@ -161,7 +161,7 @@ verification = "cron asserts the production Radicula attempt refuses the indepen
 "crates/santi-api/src/adaptor/cron/mod.rs" = "2f6baed9ea57c4321352db5d9e192b243e30aaf0d440f58c2cc0c9310dbd1ef4"
 
 [[guard.lock.review]]
-reference = "f3fe2ba1328d0976e63f450be23fd204242cef5733fc03a769616195a483cbb9"
+reference = "9afd6caf4bdd477d8de005b3a378e02d6653ef2742bf80043074fd47df41a08a"
 role = "interoperability"
 protocol = "Independent native peer holds estate.sqlite.transition.lock against production Store open."
 hold = "The external File remains held across the refused async Store open and path-absence assertion."
@@ -195,7 +195,7 @@ verification = "cron asserts missing-executable failure, then successful native 
 "crates/santi-api/src/adaptor/cron/mod.rs" = "2f6baed9ea57c4321352db5d9e192b243e30aaf0d440f58c2cc0c9310dbd1ef4"
 
 [[guard.lock.review]]
-reference = "84cf66749aa879f163f4d7b63bc7afb5fcb2ed39d5a6156bf5d6fa9e765cec94"
+reference = "adc0f4566ba5e71f412826bb26ecd0d24a50dc53806299084afdbb6109d3f3bd"
 role = "interoperability"
 protocol = "Independent native reacquisition verifies the complete production transition lease ended."
 hold = "The final peer File holds the successful probe until the test scope exits."
@@ -240,7 +240,7 @@ verification = "cron asserts empty alarm apply succeeds after independent native
 "crates/santi-api/src/adaptor/cron/mod.rs" = "2f6baed9ea57c4321352db5d9e192b243e30aaf0d440f58c2cc0c9310dbd1ef4"
 
 [[guard.lock.review]]
-reference = "3c064f9f62720341d9800b59ec36cef9d5e482a9a0e42698a8ed0c02fe09c651"
+reference = "737f0cd74f76d59e2350e61c5fcfff021394d607db6dc704d931441d320d91df"
 role = "interoperability"
 protocol = "Release the external transition lease so production bootstrap can acquire its Radicula-backed File."
 hold = "Ends the peer hold acquired at line 79 after transition refusal."

@@ -21,3 +21,7 @@ tokio.workspace = true
 [[test]]
 name = "edge"
 path = "tests/edge/main.rs"
+
+[[test]]
+name = "drain"
+path = "tests/drain/main.rs"

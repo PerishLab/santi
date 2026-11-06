@@ -8,7 +8,11 @@ impl santi_provider::Provider for Unused {
         santi_provider::Metadata {
             provider: Arc::from("unused"),
             model: "unused".into(),
-            budget: None,
+            budget: Some(santi_provider::Cap {
+                bytes: 100_000_000,
+                maintenance: 150_000_000,
+                source: "test".into(),
+            }),
         }
     }
     async fn stream(
@@ -150,6 +154,20 @@ async fn isolates() {
             .await
             .unwrap();
         if maintaining {
+            service.press("turn_new");
+            assert!(
+                service
+                    .readmit("strand_research", "turn_new", 9)
+                    .await
+                    .unwrap()
+                    .is_none()
+            );
+            assert!(!service.eligible("strand_research", "turn_new", 9));
+            service.unsettle("turn_new");
+            assert!(service.settlement("turn_new").is_none());
+            assert!(!service.eligible("strand_research", "turn_new", 9));
+            assert!(service.eligible("strand_research", "turn_new", 8));
+            assert!(!service.eligible("strand_research", "turn_new", 1));
             assert!(service.settlement("turn_old").is_some());
             assert!(service.settlement("turn_new").is_none());
             let offered = serde_json::to_value(
