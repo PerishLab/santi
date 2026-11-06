@@ -30,6 +30,22 @@ pub(crate) async fn posted(mut config: Config) -> Value {
             .expect("write response");
     });
 
+    let absorb = serde_json::json!({
+        "type": "array",
+        "items": { "type": "string" }
+    });
+    let parameters = serde_json::json!({
+        "type": "object",
+        "properties": {
+            "summary": { "type": "string" },
+            "first": { "type": "string" },
+            "last": { "type": "string" },
+            "absorb": absorb
+        },
+        "required": ["summary"],
+        "additionalProperties": false
+    });
+
     let provider = OpenAI::new(config);
     let mut stream = provider
         .stream(Request {
@@ -40,9 +56,9 @@ pub(crate) async fn posted(mut config: Config) -> Value {
                 content: "hello".to_string(),
             }],
             tools: Some(vec![Tool::Function(Function {
-                name: "shell".to_string(),
-                description: "run shell".to_string(),
-                parameters: serde_json::json!({ "type": "object" }),
+                name: "compact".to_string(),
+                description: "compact history".to_string(),
+                parameters,
             })]),
             previous: None,
         })
