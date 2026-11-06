@@ -32,6 +32,7 @@ ns = "santi"
 [release]
 authority = "https://releases.santi.perish.uk"
 binaries = ["santi", "santi-api"]
+skill = true
 targets = ["x86_64-unknown-linux-gnu", "aarch64-apple-darwin"]
 
 [release.binary.santi-api]
