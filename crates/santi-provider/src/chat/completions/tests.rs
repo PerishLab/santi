@@ -89,6 +89,11 @@ fn grouping() {
     );
     let messages = body["messages"].as_array().unwrap();
     assert_eq!(messages.len(), 6);
+    assert_eq!(estimate.instructions, "instruction".len() as i64);
+    assert_eq!(
+        estimate.input as usize,
+        serde_json::to_vec(&messages[1..]).unwrap().len()
+    );
     assert_eq!(messages[2]["content"], "preface");
     assert_eq!(messages[2]["reasoning_content"], "完整\n🙂");
     assert_eq!(messages[2]["tool_calls"].as_array().unwrap().len(), 2);
@@ -274,3 +279,5 @@ fn presence() {
         );
     }
 }
+
+mod estimate;
