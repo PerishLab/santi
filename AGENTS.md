@@ -36,7 +36,7 @@ up, restoring, or moving a runtime.
 
 Every estate ownership and reference is a Keel relation, and each resource has
 at most one root. A field never holds another row's tag for a reader to
-resolve; `crates/santi-estate/tests/model.rs` classifies every text field.
+resolve; `crates/santi-estate/tests/ledger/model.rs` classifies every text field.
 Ending a strand through Keel removes what it owns, and its bytes on disk follow
 the committed estate; the start sweep removes bytes no live row owns.
 Issue [#226](https://github.com/PerishLab/santi/issues/226) records the design.
@@ -142,8 +142,7 @@ The acknowledgement inspection API retains intent, state and complete process
 result separately from task receipt/completion. An interrupted dispatch remains
 uncertain and is never automatically replayed. Observe the exact message's
 reactions through native Runseal before explicit recovery. A confirmation failure
-never authorizes re-running the task. Start/progress text remains consumer memory
-policy. Issue #304 owns this boundary.
+never authorizes re-running the task. Start/progress outside the explicitly enabled receipt reply window remains consumer policy. Issue #304 owns this boundary.
 
 Unknown acknowledgements block Strand retirement. Startup marks interrupted
 dispatches unknown without replay. After exact platform observation, the explicit
@@ -163,3 +162,38 @@ Old execution/round updates and cleanup cannot replace newer activity. Reopen
 starts a new epoch without replay; consumers correlate exact turn/round and
 input-selection evidence rather than assuming a new input joined the active
 request. Issue #376 records this boundary; #373 owns its Feishu projection.
+
+Feishu feedback is independently enabled with webhooks.feishu.feedback (native
+Runseal profile) and application (expected App ID). Each accepted receipt owns
+one Window in the same intake transaction; its bounded record holds only external
+channel bindings, finite intents and results. It contains no estate row tags.
+The first native post link uses the fixed a.href
+https://github.com/PerishLab/santi#feishu-feedback-v1; final soul content omits it.
+A delayed coarse receipt-state line is sufficient for v1. Completed means the
+runtime round ended, not business completion; a fast completed receipt creates
+no stale automatic bubble. Fine phases require exact input/turn/round evidence
+from the runtime observation contract, never reconstruction from logs.
+
+Use the exact inbox receipt and current strand for `santi reply`. Soul ownership
+is one-way, cancels queued automatic intent and waits for the one dispatched
+operation. Reply creation can settle after takeover; its exact message identity
+then becomes the final edit target. Same operation/payload returns prior intent;
+a second final operation refuses. Unknown and interrupted writes freeze every
+later dispatch and block retirement. Explicit resolution requires evidence that
+the original remote request settled; current body alone cannot rule out a late
+write. Original process results and separate resolution remain retained. No
+fallback bubble, automatic replay or task rerun follows a channel failure.
+
+Adaptor-owned Get and feedback writes also share one process-lifetime Radicula
+factory keyed by the explicit Runseal profile, keeping their credential sessions
+from contending with each other. A feedback operation remains queued while
+waiting for this gate, so soul can still cancel an unsent automatic intent.
+Receipt serialization remains the durable platform-ordering authority; the
+local gate grants no remote fencing or coordination with unrelated processes.
+
+A Window's optional input relation is attached in the same drain/absorb transaction
+that creates its Message. Provider assembly batches those relations for the
+current Strand and projects `[reply INBOX]` after that Message's normal header.
+Raw Message bodies stay unchanged; preview and budget use the same projection.
+Forks do not inherit their parent's reply authority. Soul need not reconstruct
+receipt identity from event payloads or select the latest message.

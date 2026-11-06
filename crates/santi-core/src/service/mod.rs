@@ -134,6 +134,7 @@ impl Service {
             .recover_turns("santi.cold_start", &crate::now())
             .await?;
         store.interrupted(&crate::now()).await?;
+        store.interrupt().await?;
         let degraded = store
             .active_incident_count(crate::drive::Error::Failed.descriptor().code)
             .await?

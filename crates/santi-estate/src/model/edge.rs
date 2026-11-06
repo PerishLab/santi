@@ -1,5 +1,5 @@
 use super::inbox::InboxReceipt;
-use super::ledger::{Soul, Strand};
+use super::ledger::{Message, Soul, Strand};
 use keel::atom::string;
 use keel::resource;
 
@@ -105,6 +105,16 @@ pub(crate) struct Acknowledgement {
     created: string,
     #[field(string)]
     updated: string,
+    #[relation(InboxReceipt, one2one, root)]
+    receipt: InboxReceipt,
+}
+
+#[resource]
+pub(crate) struct Window {
+    #[relation(Message, one2one, opt)]
+    input: Message,
+    #[field(string)]
+    record: string,
     #[relation(InboxReceipt, one2one, root)]
     receipt: InboxReceipt,
 }

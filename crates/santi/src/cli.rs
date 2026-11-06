@@ -100,6 +100,10 @@ pub enum Command {
     Incident { id: String },
     #[command(about = "Query one durable accepted-message obligation by inbox receipt id")]
     Receipt { inbox: String },
+    #[command(
+        about = "Inspect or take over one receipt reply window; never infer the most recent input"
+    )]
+    Reply(reply::Reply),
     #[command(about = "Query or explicitly resolve one external-effect attempt")]
     #[command(subcommand)]
     Effect(EffectCommand),
@@ -287,6 +291,7 @@ mod inference;
 mod material;
 pub use material::*;
 mod job;
+pub(crate) mod reply;
 mod strand;
 pub use compact::*;
 pub use defaults::*;

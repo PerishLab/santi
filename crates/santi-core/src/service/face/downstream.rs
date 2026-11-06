@@ -80,6 +80,7 @@ impl Service {
         ));
         let outcome = self
             .external(External {
+                reply: None,
                 input: crate::service::Envelope {
                     soul: &request.soul,
                     label: &request.label,

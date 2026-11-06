@@ -66,6 +66,15 @@ ID with changed content refuses. An old successful operation never reapplies
 after newer changes. During context maintenance, the material tool can query or
 drop persisted bindings even when ordinary shell execution is unavailable.
 
+## Channel replies
+
+A runtime `[reply INBOX]` header names that input's receipt-owned channel window.
+Use that exact inbox receipt with `santi reply --inbox ... --operation ... --text ... --watch`.
+This claims its existing status message; avoid separate start/progress bubbles.
+The fixed a.href `https://github.com/PerishLab/santi#feishu-feedback-v1` marks
+automatic status, not soul-authored content. Unknown writes freeze the window;
+inspect the same operation instead of creating another reply or rerunning input.
+
 ## Observe and act
 
 Use strand runtime for durable history, execution-tail for bounded recent

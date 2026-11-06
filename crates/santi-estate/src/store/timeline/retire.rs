@@ -13,6 +13,7 @@ impl Store {
                 Gate(tx).inputs(&strand).await?;
                 Gate(tx).turns(&strand).await?;
                 Gate(tx).acknowledgements(&strand).await?;
+                super::super::inbox::reply::retire(tx, &strand).await?;
                 let jobs = Gate(tx).jobs(&strand).await?;
                 tx.end("Strand", key).await?;
                 Ok(jobs)

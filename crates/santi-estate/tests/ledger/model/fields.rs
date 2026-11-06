@@ -1,6 +1,7 @@
 use super::{Class, Class::*};
 
 pub(super) const TEXT: &[(&str, &str, Class)] = &[
+    ("inboxreceipt:window", "record", Content),
     ("soul:revision", "tag", Own),
     ("soul:revision", "key", Own),
     ("soul:revision", "reference", Own),

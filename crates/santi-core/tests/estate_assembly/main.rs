@@ -7,6 +7,7 @@ use santi_model::{message, thinking, turn};
 
 mod batches;
 mod fixture;
+mod reply;
 mod speech;
 mod timing;
 mod value;

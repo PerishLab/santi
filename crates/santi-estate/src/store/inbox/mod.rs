@@ -5,6 +5,8 @@ use santi_model::{ingest, message};
 use std::collections::BTreeSet;
 
 mod ack;
+pub(in crate::store) mod reply;
+pub use reply::{Intent, Outcome};
 mod drain;
 pub use drain::Intake;
 mod edge;
@@ -13,7 +15,7 @@ mod types;
 pub(in crate::store) mod write;
 
 pub(in crate::store) use edge::receipt;
-pub use edge::{Accepted, DownstreamDraft, ReplayDraft, WebhookDraft};
+pub use edge::{Acceptance, Accepted, DownstreamDraft, ReplayDraft, WebhookDraft};
 pub use types::{
     Begun, DrainDraft, Inbox, InboxDraft, NoticeDraft, Offer, Opening, ReceiptDraft, Refusal,
 };

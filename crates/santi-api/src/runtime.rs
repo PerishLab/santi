@@ -36,6 +36,7 @@ pub struct Github {
 #[derive(Debug, Default)]
 pub struct Feishu {
     pub acknowledge: Option<String>,
+    pub feedback: Option<Feedback>,
     pub secret: Option<String>,
     pub allow: Option<String>,
 }
@@ -79,4 +80,30 @@ pub fn hold(runtime: Runtime) {
 pub fn held() -> &'static Runtime {
     HELD.get()
         .expect("the runtime is resolved once at boot, before any use")
+}
+
+#[derive(Debug)]
+pub struct Feedback {
+    pub profile: String,
+    pub app: String,
+}
+
+impl Feedback {
+    pub fn new(profile: String, app: String) -> Result<Self, String> {
+        if profile.is_empty()
+            || profile.len() > 64
+            || !profile
+                .bytes()
+                .all(|b| b.is_ascii_alphanumeric() || b == b'_' || b == b'-')
+        {
+            return Err("invalid Feishu feedback profile".into());
+        }
+        if !app.starts_with("cli_")
+            || app.len() > 128
+            || !app.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'_')
+        {
+            return Err("invalid Feishu feedback App ID".into());
+        }
+        Ok(Self { profile, app })
+    }
 }

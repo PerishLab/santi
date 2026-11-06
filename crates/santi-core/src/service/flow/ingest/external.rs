@@ -24,6 +24,7 @@ impl Service {
                 text: system_text,
                 source,
             },
+            reply: None,
             replay: None,
         })
         .await
@@ -36,6 +37,25 @@ impl Service {
     ) -> Result<ingest::Outcome, String> {
         self.external(External {
             input,
+            reply: None,
+            replay: Some(santi_estate::ReplayDraft::Webhook {
+                subscription: delivery.subscription,
+                delivery: delivery.id,
+                digest: delivery.digest,
+            }),
+        })
+        .await
+    }
+
+    pub async fn windowed(
+        &self,
+        input: crate::service::Envelope<'_>,
+        delivery: crate::service::Delivery<'_>,
+        reply: &crate::receipt::reply::Binding,
+    ) -> Result<ingest::Outcome, String> {
+        self.external(External {
+            input,
+            reply: Some(reply),
             replay: Some(santi_estate::ReplayDraft::Webhook {
                 subscription: delivery.subscription,
                 delivery: delivery.id,
@@ -49,7 +69,11 @@ impl Service {
         &self,
         external: External<'_>,
     ) -> Result<ingest::Outcome, String> {
-        let External { input, replay } = external;
+        let External {
+            input,
+            replay,
+            reply,
+        } = external;
         let strand = self
             .store
             .selected(
@@ -68,6 +92,7 @@ impl Service {
                     kind: message::Kind::Text,
                     trigger: "system",
                     source: input.source,
+                    reply,
                     replay,
                 },
             )

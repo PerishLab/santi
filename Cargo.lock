@@ -2366,6 +2366,7 @@ dependencies = [
  "futures-util",
  "hex",
  "hmac",
+ "jiff",
  "libc",
  "plumb",
  "radicula-lock",
