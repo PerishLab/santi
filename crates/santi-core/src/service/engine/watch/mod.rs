@@ -1,3 +1,5 @@
+pub(in crate::service) mod activity;
+
 use std::time::{Duration, Instant};
 
 use super::super::Service;

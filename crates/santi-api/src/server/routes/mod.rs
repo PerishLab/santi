@@ -134,6 +134,14 @@ pub(super) fn router(service: Service) -> Router {
             "/api/v1/strands/{strand}/materials",
             render().merge(get(materials::strand::query)),
         )
+        .route(
+            "/api/v1/strands/{strand}/activity",
+            get(active::activity::snapshot),
+        )
+        .route(
+            "/api/v1/strands/{strand}/activity/events",
+            get(active::activity::events),
+        )
         .route("/api/v1/strands/{strand}/events", get(strand_events))
         .route("/api/v1/strands/{strand}/send", post(send))
         .route("/api/v1/strands/{strand}/drive", post(drive))
@@ -221,7 +229,7 @@ pub async fn health(State(service): State<Service>) -> impl IntoResponse {
     )
 }
 
-mod active;
+pub(super) mod active;
 pub(super) mod alarms;
 mod downstream;
 mod drive;

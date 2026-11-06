@@ -3,6 +3,8 @@ use utoipa::ToSchema;
 
 use crate::{Timestamp, inference};
 
+pub mod activity;
+
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 #[schema(as = turn::Trigger)]
