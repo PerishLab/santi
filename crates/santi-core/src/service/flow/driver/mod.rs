@@ -10,6 +10,7 @@ use crate::{thinking, turn};
 
 mod conduct;
 mod finish;
+mod invoke;
 mod maintenance;
 mod round;
 mod run;
@@ -41,6 +42,18 @@ struct Driver<'a, 'turn> {
 }
 
 impl Driver<'_, '_> {
+    fn activity(&self, phase: turn::activity::Phase, call: Option<String>) {
+        self.service.activity.update(
+            self.address.strand,
+            turn::activity::Current {
+                turn: self.address.turn.to_string(),
+                round: self.number,
+                phase,
+                call,
+            },
+        );
+    }
+
     async fn consume(
         mut self,
         mut stream: Streaming,
@@ -118,11 +131,13 @@ impl Driver<'_, '_> {
                 Ok(false)
             }
             Event::Thinking(delta) => {
+                self.activity(turn::activity::Phase::Responding, None);
                 self.summary.push_str(&delta);
                 self.sketched().await?;
                 Ok(false)
             }
             Event::Thought(summary) => {
+                self.activity(turn::activity::Phase::Responding, None);
                 self.summary = summary;
                 self.sketched().await?;
                 Ok(false)
@@ -143,6 +158,7 @@ impl Driver<'_, '_> {
 
     async fn progressed(&mut self, response: Option<String>) -> Result<bool, Failure> {
         self.active = response.clone();
+        self.activity(turn::activity::Phase::Responding, None);
         let result = self.service.tend(crate::service::thinking::Progress {
             strand: self.address.strand,
             turn: self.address.turn,
@@ -171,6 +187,9 @@ impl Driver<'_, '_> {
     }
 
     async fn delta(&mut self, delta: String) -> Result<(), Failure> {
+        if !delta.is_empty() {
+            self.activity(turn::activity::Phase::Generating, None);
+        }
         let update = delta::Update {
             address: self.address.clone(),
             prose: self.prose,
@@ -186,6 +205,7 @@ impl Driver<'_, '_> {
     }
 
     async fn called(&mut self, call: Call) -> Result<(), Failure> {
+        self.activity(turn::activity::Phase::Calling, Some(call.call.clone()));
         self.timing.called(self.number, &call.name);
         self.ledger.called(&call.name);
         let result = self.service.conclude(

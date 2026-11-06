@@ -25,6 +25,9 @@ fn api() {
         Some("#/components/schemas/stream.ExecutionTail")
     );
     for schema in [
+        "turn.activity.Current",
+        "turn.activity.Snapshot",
+        "turn.activity.Phase",
         "stream.ExecutionOrder",
         "stream.ExecutionRecord",
         "stream.ExecutionTail",
@@ -203,6 +206,6 @@ fn api() {
     let hash = format!("{:x}", Sha256::digest(text.as_bytes()));
     assert_eq!(
         hash,
-        "593b0057f05584207d959bfdb27520348617427f2b32233ef3ac76d5cde599f8"
+        "d02ad6c2f18c3c339e4ed14fb2ac97e8953d0b49d8fa138290667d4ac6159e37"
     );
 }

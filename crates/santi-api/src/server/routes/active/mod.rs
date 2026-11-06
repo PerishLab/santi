@@ -1,3 +1,5 @@
+pub(in crate::server) mod activity;
+
 use super::*;
 use santi_core::service::interrupt as active;
 

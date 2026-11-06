@@ -1,11 +1,10 @@
 use crate::context::budget::gauged;
-use crate::service::flow::budget::Verdict;
 use crate::service::flow::failure::{Admission, Failure, Metadata, Operation, Persistence, Stage};
 use crate::service::{Service, address::Address, interrupt::Control, notice::Observation, timing};
 use santi_provider::Request;
 
 use super::*;
-use super::{finish::Finish, maintenance::Maintenance};
+use super::{finish::Finish, invoke::Invocation};
 use crate::{message, turn};
 
 impl Service {
@@ -51,6 +50,15 @@ impl Service {
         };
         let response = loop {
             let next = round + 1;
+            self.activity.update(
+                strand,
+                turn::activity::Current {
+                    turn: turn.to_string(),
+                    round: next,
+                    phase: turn::activity::Phase::Preparing,
+                    call: None,
+                },
+            );
             if let Some(error) = attempt!(
                 Operation::Admission(Admission::Execution),
                 self.readmit(strand, turn, next).await
@@ -148,6 +156,15 @@ impl Service {
                 Operation::Assembly,
                 self.witnessed(turn, round, absorbed, &request.input).await
             );
+            self.activity.update(
+                strand,
+                turn::activity::Current {
+                    turn: turn.to_string(),
+                    round,
+                    phase: turn::activity::Phase::Requesting,
+                    call: None,
+                },
+            );
             self.stirred(strand, turn, turn::Motion::Requesting, None);
             let model = request.model.clone();
             let reached = tokio::select! {
@@ -233,61 +250,29 @@ impl Service {
                 return Err(Failure::execution(error, &prose));
             }
 
-            let limits = match attempt!(
-                Operation::Admission(Admission::Execution),
-                self.judge(strand, turn, round, calls.len()).await
-            ) {
-                Verdict::Maintain => continue,
-                Verdict::Unbounded => vec![None; calls.len()],
-                Verdict::Bounded(limits) => limits.into_iter().map(Some).collect::<Vec<_>>(),
-                Verdict::Rejected(error) => {
-                    return Err(Failure::execution(*error, &prose));
-                }
-            };
-            if attempt!(Operation::Assembly, self.maintaining(turn).await) {
-                timing.outputting(round, calls.len());
-                let count = calls.len();
-                self.stirred(strand, turn, turn::Motion::Running, active.clone());
-                let settled = self
-                    .maintained(
-                        Maintenance {
-                            address: Address { strand, turn },
-                            round,
-                            calls,
-                            limits,
-                            reply: last.as_ref(),
-                            response: completed.as_deref(),
-                        },
-                        control,
-                    )
-                    .await?;
-                timing.outputted(round, count);
-                if settled {
-                    return Ok(Finish {
-                        last,
-                        response: completed,
-                        settled: true,
-                        pause: None,
-                    });
-                }
-                continue;
+            if self
+                .invoke(
+                    Invocation {
+                        address: Address { strand, turn },
+                        round,
+                        calls,
+                        reply: last.as_ref(),
+                        response: completed.as_deref(),
+                        active,
+                        prose: &prose,
+                        timing: &timing,
+                    },
+                    control,
+                )
+                .await?
+            {
+                return Ok(Finish {
+                    last,
+                    response: completed,
+                    settled: true,
+                    pause: None,
+                });
             }
-            timing.outputting(round, calls.len());
-            let count = calls.len();
-            for (call, output_limit) in calls.into_iter().zip(limits) {
-                if let Some(cause) = self.halted(control) {
-                    return Err(Failure::stopped(cause, &prose));
-                }
-                self.stirred(strand, turn, turn::Motion::Running, active.clone());
-                let result = self
-                    .tooled(Address { strand, turn }, call, output_limit, control)
-                    .await;
-                if let Some(cause) = self.halted(control) {
-                    return Err(Failure::stopped(cause, &prose));
-                }
-                attempt!(Operation::Tool, result);
-            }
-            timing.outputted(round, count);
         };
 
         Ok(Finish {
