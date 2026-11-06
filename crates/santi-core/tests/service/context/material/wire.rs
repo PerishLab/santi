@@ -49,14 +49,14 @@ async fn transmitted(chat: bool) {
     assert_eq!(audit.materials.len(), 1);
     assert_eq!(audit.materials[0].origins.len(), 2);
     assert!(audit.materials[0].bytes > "wire-marker".len());
+    assert_eq!(audit.request.estimate.instructions, prompt.len() as i64);
     if chat {
-        assert_eq!(audit.request.estimate.instructions, 0);
         assert!(
             audit.request.estimate.total
-                >= audit.request.estimate.input + audit.request.estimate.tools
+                >= audit.request.estimate.input
+                    + audit.request.estimate.instructions
+                    + audit.request.estimate.tools
         );
-    } else {
-        assert_eq!(audit.request.estimate.instructions, prompt.len() as i64);
     }
     let posted = service
         .send(

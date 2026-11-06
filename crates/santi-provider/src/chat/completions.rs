@@ -69,8 +69,14 @@ impl Provider for Chat {
     }
 
     fn estimate(&self, request: &Request) -> Option<santi_model::budget::Estimate> {
+        let prompt = prompt(request);
         let body = body(&self.config, request.clone());
-        let input = serde_json::to_vec(&body["messages"]).ok()?.len() as i64;
+        let messages = body["messages"].as_array()?;
+        let history = match prompt {
+            Some(_) => &messages[1..],
+            None => messages.as_slice(),
+        };
+        let input = serde_json::to_vec(history).ok()?.len() as i64;
         let tools = body
             .get("tools")
             .map(serde_json::to_vec)
@@ -79,9 +85,9 @@ impl Provider for Chat {
             .map_or(0, |bytes| bytes.len()) as i64;
         Some(santi_model::budget::Estimate {
             estimator: "chat_completions_json_bytes_v1".into(),
-            items: body["messages"].as_array()?.len() as i64,
+            items: messages.len() as i64,
             input,
-            instructions: 0,
+            instructions: prompt.map_or(0, |text| text.len() as i64),
             tools,
             total: serde_json::to_vec(&body).ok()?.len() as i64,
         })
@@ -124,6 +130,13 @@ impl Provider for Chat {
             continuation,
         )))
     }
+}
+
+fn prompt(request: &Request) -> Option<&str> {
+    request
+        .instructions
+        .as_deref()
+        .filter(|text| !text.trim().is_empty())
 }
 
 mod body;
