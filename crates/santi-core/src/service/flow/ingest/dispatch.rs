@@ -169,6 +169,7 @@ impl Service {
                 self.refreshed().await;
                 let strand = strand.id.clone();
                 let turn = started.turn.id.clone();
+                self.activity.start(&strand, &turn);
                 self.remember(&turn, provider);
                 let control = self.register(&turn);
                 if maintenance {
@@ -197,8 +198,10 @@ impl Service {
 
     fn dispatch(&self, strand: String, turn: String, control: Control) {
         let background = self.clone();
+        let lease = self.activity.lease(&strand, &turn);
         let task = self.context.run(|| {
             radicula_trace::carry("turn", async move {
+                let _lease = lease;
                 radicula_trace::note("turn", &turn);
                 radicula_trace::note("strand", &strand);
                 background.conduct(strand, turn, control).await;

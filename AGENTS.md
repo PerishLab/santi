@@ -149,3 +149,17 @@ Unknown acknowledgements block Strand retirement. Startup marks interrupted
 dispatches unknown without replay. After exact platform observation, the explicit
 confirmation endpoint records operator judgment separately from the original
 result; only then can that uncertainty settle. It never calls the platform.
+
+Current execution activity has its own latest-value observation contract.
+`Service::observe` and the Strand `/activity` and `/activity/events` endpoints
+share process-local epoch/revision snapshots. Active executions retain their
+latest phase even without subscribers; intermediate updates may coalesce.
+A null current activity does not establish Strand idleness, task completion,
+or a failed Turn. Exact receipt/turn records remain authoritative for results.
+Round zero is preparation before the first provider round. Responding means
+provider activity was observed; invoking means a tool invocation is being
+handled, not proof a subprocess started. Activity includes no reasoning text.
+Old execution/round updates and cleanup cannot replace newer activity. Reopen
+starts a new epoch without replay; consumers correlate exact turn/round and
+input-selection evidence rather than assuming a new input joined the active
+request. Issue #376 records this boundary; #373 owns its Feishu projection.

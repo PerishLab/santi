@@ -1,6 +1,6 @@
 pub use face::alarms;
 mod engine;
-use engine::{address, drive, error, notice, render, thinking, timing};
+use engine::{address, drive, error, notice, render, thinking, timing, watch::activity};
 mod face;
 pub(crate) use engine::provider::Fixed;
 pub use engine::provider::Resolver;
@@ -48,6 +48,7 @@ pub struct Service {
     library: Arc<crate::library::Catalog>,
     binding: radicula_lock::Gate,
     streams: broadcast::Sender<stream::Event>,
+    activity: Arc<activity::State>,
     errors: broadcast::Sender<Transition>,
     notices: notice::Bus,
     inboxes: Arc<Mutex<HashMap<String, String>>>,
@@ -155,6 +156,7 @@ impl Service {
             library: Arc::new(crate::library::Catalog::default()),
             binding,
             streams: broadcast::channel(1024).0,
+            activity: Arc::new(activity::State::new()),
             errors: broadcast::channel(1024).0,
             notices: notice::Bus::new(),
             inboxes: Arc::new(Mutex::new(HashMap::new())),

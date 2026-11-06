@@ -19,6 +19,7 @@ impl Service {
                     None => self.land(&strand, &turn, finish).await,
                 },
             }
+            self.activity.end(&strand, &turn);
             self.noticed(&turn).await;
             self.release(&turn);
             self.unsettle(&turn);
