@@ -116,6 +116,7 @@ fn tooled(tools: Vec<Tool>) -> Vec<Value> {
                 "name": tool.name,
                 "description": tool.description,
                 "parameters": tool.parameters,
+                "strict": false,
             }),
         })
         .collect()

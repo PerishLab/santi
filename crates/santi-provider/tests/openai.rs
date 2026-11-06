@@ -25,7 +25,24 @@ async fn sent() {
     assert_eq!(body["stream_options"]["include_obfuscation"], false);
     assert_eq!(body["instructions"], "system guidance");
     assert_eq!(body["input"][0]["content"][0]["type"], "input_text");
-    assert_eq!(body["tools"][0]["name"], "shell");
+    assert_eq!(body["tools"][0]["name"], "compact");
+    assert_eq!(body["tools"][0]["strict"], false);
+    let absorb = serde_json::json!({
+        "type": "array",
+        "items": { "type": "string" }
+    });
+    let parameters = serde_json::json!({
+        "type": "object",
+        "properties": {
+            "summary": { "type": "string" },
+            "first": { "type": "string" },
+            "last": { "type": "string" },
+            "absorb": absorb
+        },
+        "required": ["summary"],
+        "additionalProperties": false
+    });
+    assert_eq!(body["tools"][0]["parameters"], parameters);
 }
 
 #[tokio::test]
