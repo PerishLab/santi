@@ -233,8 +233,6 @@ use anyhow::Result;
 use clap::Parser;
 
 #[cfg(feature = "client")]
-use crate::inference::Declaration;
-#[cfg(feature = "client")]
 use auth::{Credentials, resolve_edge_bearer};
 #[cfg(feature = "client")]
 use cli::{BASE, Cli, ClientDefaults, Command, Inference, Scope, StrandCommand};
@@ -266,12 +264,15 @@ async fn execute(cli: Cli) -> Result<()> {
         command,
     } = cli;
     plumb::identity::ready().map_err(anyhow::Error::msg)?;
+    if let Command::Skill(deed) = command {
+        return cli::skill::run(deed);
+    }
     let stated = match &command {
         Command::Inference(Inference::Soul(Scope::Set(edit)))
         | Command::Inference(Inference::Strand(Scope::Set(edit))) => edit.declaration(),
         Command::Strand(StrandCommand::Create(delta))
         | Command::Strand(StrandCommand::Fork { delta, .. }) => delta.declaration(),
-        _ => Declaration::default(),
+        _ => inference::Declaration::default(),
     };
     let client = config::client(ClientPartial {
         base_url: base_url.map(Some),

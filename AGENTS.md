@@ -107,6 +107,10 @@ Receipt, completion, and effect behavior is exercised in
 `crates/santi-estate/tests/operations/terminal.rs`, and
 `crates/santi-estate/tests/effects`.
 
+`santi skill --help` owns managed CLI guidance. Plumb owns its installation
+ledger and version binding; Depot holds the singleton `SKILL.md` generation
+for each release. Runtime Harness guidance remains a separate authority.
+
 The binaries' `--help` and the server's OpenAPI export own the public interface.
 `plumb.toml` owns release targets and placement; `packaging/deb` owns Debian
 host integration. Consult current Plumb and Wharf help for delivery.

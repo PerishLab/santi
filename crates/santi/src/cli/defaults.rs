@@ -30,3 +30,21 @@ impl ClientDefaults {
             .ok_or_else(|| anyhow::anyhow!("no soul id: pass --soul or set SANTI_SOUL_ID"))
     }
 }
+
+pub fn split_send_args(
+    mut args: Vec<String>,
+    defaults: &ClientDefaults,
+) -> Result<(String, String)> {
+    match args.len() {
+        2 => {
+            let text = args.pop().expect("len == 2");
+            let id = args.pop().expect("len == 2");
+            Ok((defaults.resolve_strand(Some(id))?, text))
+        }
+        1 => {
+            let text = args.pop().expect("len == 1");
+            Ok((defaults.resolve_strand(None)?, text))
+        }
+        _ => anyhow::bail!("send takes `<id> <text>` or `<text>`"),
+    }
+}
