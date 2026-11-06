@@ -8,11 +8,13 @@ pub(in crate::service) struct Ingest<'a> {
     pub(in crate::service) kind: message::Kind,
     pub(in crate::service) trigger: &'a str,
     pub(in crate::service) source: Option<ingest::Source>,
+    pub(in crate::service) reply: Option<&'a crate::receipt::reply::Binding>,
     pub(in crate::service) replay: Option<santi_estate::ReplayDraft<'a>>,
 }
 
 pub(in crate::service) struct External<'a> {
     pub(in crate::service) input: crate::service::Envelope<'a>,
+    pub(in crate::service) reply: Option<&'a crate::receipt::reply::Binding>,
     pub(in crate::service) replay: Option<santi_estate::ReplayDraft<'a>>,
 }
 
@@ -74,6 +76,7 @@ impl Service {
                 kind,
                 trigger,
                 source: None,
+                reply: None,
                 replay: None,
             },
         )
@@ -123,7 +126,17 @@ impl Service {
         };
         match input.replay {
             Some(replay) => {
-                let accepted = self.store.accept_replay(draft, replay, 500).await?;
+                let accepted = self
+                    .store
+                    .windowed(
+                        draft,
+                        santi_estate::Acceptance {
+                            replay,
+                            gate: 500,
+                            binding: input.reply,
+                        },
+                    )
+                    .await?;
                 Ok(Intake {
                     outcome: ingest::Outcome::Accepted {
                         receipt: accepted.receipt,

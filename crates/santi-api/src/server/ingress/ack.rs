@@ -43,6 +43,17 @@ fn spawn(service: Service, inbox: String, profile: String, message: String) {
 }
 
 async fn dispatch(profile: &str, message: &str) -> Value {
+    let gate = match super::process::gate(profile) {
+        Ok(gate) => gate,
+        Err(reason) => return json!({"state":"unsent", "reason":reason}),
+    };
+    match gate.tokio().guard(|| invoke(profile, message)).await {
+        Ok(result) => result,
+        Err(reason) => json!({"state":"unknown", "reason":reason.to_string()}),
+    }
+}
+
+async fn invoke(profile: &str, message: &str) -> Value {
     if profile.is_empty()
         || profile.len() > 64
         || !profile

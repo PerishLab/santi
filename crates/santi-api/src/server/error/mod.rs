@@ -91,6 +91,11 @@ const CONFLICT: &[Rule] = &[
 ];
 
 const INVALID: &[Rule] = &[
+    Rule::Starts("reply "),
+    Rule::Starts("runtime reply "),
+    Rule::Starts("receipt already has a soul reply"),
+    Rule::Starts("only an unknown reply"),
+    Rule::Starts("applied reply resolution"),
     Rule::Starts("material "),
     Rule::Starts("incident cursor "),
     Rule::Starts("alarm "),

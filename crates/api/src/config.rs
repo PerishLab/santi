@@ -10,8 +10,10 @@ use santi_core::soul;
 pub mod context;
 mod execution;
 mod memory;
+mod webhook;
 pub use execution::Execution;
 pub use memory::Memory;
+pub use webhook::Webhooks;
 
 #[derive(Debug, Cascade)]
 #[cascade(section)]
@@ -131,30 +133,6 @@ pub struct Paths {
     pub runtime: Option<PathBuf>,
     pub execution: Option<PathBuf>,
     pub charter: Option<PathBuf>,
-}
-
-#[derive(Debug, Default, Cascade)]
-#[cascade(section)]
-pub struct Webhooks {
-    #[cascade(section)]
-    pub github: Github,
-    #[cascade(section)]
-    pub feishu: Feishu,
-}
-
-#[derive(Debug, Default, Cascade)]
-#[cascade(section)]
-pub struct Github {
-    pub login: Option<String>,
-    pub allow: Option<String>,
-}
-
-#[derive(Debug, Default, Cascade)]
-#[cascade(section)]
-pub struct Feishu {
-    pub acknowledge: Option<String>,
-    pub encrypt_key: Option<String>,
-    pub allow: Option<String>,
 }
 
 #[derive(Cascade)]
@@ -280,6 +258,18 @@ fn runtime(held: Config) -> Result<Runtime, String> {
         },
         feishu: runtime::Feishu {
             acknowledge: held.webhooks.feishu.acknowledge,
+            feedback: match (
+                held.webhooks.feishu.feedback,
+                held.webhooks.feishu.application,
+            ) {
+                (None, None) => None,
+                (Some(profile), Some(app)) => Some(runtime::Feedback::new(profile, app)?),
+                _ => {
+                    return Err(
+                        "Feishu feedback requires both feedback profile and application".into(),
+                    );
+                }
+            },
             secret: held.webhooks.feishu.encrypt_key,
             allow: held.webhooks.feishu.allow,
         },

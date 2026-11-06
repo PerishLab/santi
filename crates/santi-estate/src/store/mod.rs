@@ -15,8 +15,8 @@ mod turn;
 
 pub use effect::{EffectDraft, RedemptionDraft};
 pub use inbox::{
-    Accepted, Begun, DownstreamDraft, DrainDraft, Inbox, InboxDraft, Intake, NoticeDraft, Offer,
-    Opening, ReceiptDraft, Refusal, ReplayDraft, WebhookDraft,
+    Acceptance, Accepted, Begun, DownstreamDraft, DrainDraft, Inbox, InboxDraft, Intake, Intent,
+    NoticeDraft, Offer, Opening, Outcome, ReceiptDraft, Refusal, ReplayDraft, WebhookDraft,
 };
 pub use job::{
     AttentionDraft, CapabilityDraft, Environment, ExpiredJob, JobDraft, JobRecord, Prepared,

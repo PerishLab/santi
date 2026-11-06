@@ -52,6 +52,7 @@ pub async fn provider_preview(
 impl Timeline<'_> {
     async fn assemble(&self, preview: Option<overlay::Preview<'_>>) -> Result<Vec<Item>, String> {
         let entries = self.store.entries(self.strand).await?;
+        let receipts = self.store.receptions(self.strand).await?;
         let overlays = overlay::build(self.store, self.strand, &entries, preview).await?;
         let mut input = Vec::new();
         let mut calls = BTreeMap::new();
@@ -72,7 +73,7 @@ impl Timeline<'_> {
                 }
                 continue;
             }
-            if let Some(item) = self.project(&entry, &mut calls).await? {
+            if let Some(item) = self.project(&entry, &mut calls, &receipts).await? {
                 input.push(item);
             }
         }
@@ -83,9 +84,10 @@ impl Timeline<'_> {
         &self,
         entry: &strand::Entry,
         calls: &mut BTreeMap<String, String>,
+        receipts: &BTreeMap<String, String>,
     ) -> Result<Option<Item>, String> {
         match entry.kind {
-            strand::Target::Message => self.message(&entry.target).await,
+            strand::Target::Message => self.message(&entry.target, receipts).await,
             strand::Target::Thinking => {
                 let span = self
                     .store
@@ -103,13 +105,21 @@ impl Timeline<'_> {
         }
     }
 
-    async fn message(&self, target: &str) -> Result<Option<Item>, String> {
+    async fn message(
+        &self,
+        target: &str,
+        receipts: &BTreeMap<String, String>,
+    ) -> Result<Option<Item>, String> {
         let placed = self
             .store
             .message(target)
             .await?
             .ok_or_else(|| format!("message {target} missing"))?;
-        Ok(projected(&placed))
+        let item = projected(&placed);
+        Ok(match receipts.get(target) {
+            Some(inbox) => addressed(item, inbox),
+            None => item,
+        })
     }
 
     async fn call(
@@ -192,5 +202,15 @@ pub(crate) fn projected(placed: &message::Placed) -> Option<Item> {
             message::Role::Soul => content.to_string(),
             message::Role::System => format!("[message {}]\n{content}", placed.message.id),
         },
+    })
+}
+
+fn addressed(item: Option<Item>, inbox: &str) -> Option<Item> {
+    item.map(|item| match item {
+        Item::Message { role, content } => Item::Message {
+            role,
+            content: content.replacen('\n', &format!("\n[reply {inbox}]\n"), 1),
+        },
+        other => other,
     })
 }

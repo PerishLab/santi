@@ -77,6 +77,7 @@ impl Writer<'_, '_> {
         item: Assigned,
         draft: &DrainDraft<'_>,
     ) -> Result<(), keel::adapt::Error> {
+        super::super::reply::attach(self.0, &item.pending.tag, item.message.key).await?;
         let metadata = item
             .pending
             .source_metadata

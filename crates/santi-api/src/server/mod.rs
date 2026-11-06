@@ -70,7 +70,11 @@ pub async fn serve() -> Result<(), String> {
         .await
         .map_err(|error| error.to_string())?;
     println!("santi-api listening on http://{address}");
-    shutdown::serve(service, listener, held.grace, wait_for_shutdown_signal()).await
+    let feedback = tokio::spawn(ingress::feedback::watch(service.clone()));
+    let result = shutdown::serve(service, listener, held.grace, wait_for_shutdown_signal()).await;
+    feedback.abort();
+    let _ = feedback.await;
+    result
 }
 
 async fn wait_for_shutdown_signal() {

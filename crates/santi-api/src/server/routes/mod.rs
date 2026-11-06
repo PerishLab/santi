@@ -154,6 +154,14 @@ pub(super) fn router(service: Service) -> Router {
         .route("/api/v1/errors/{scope_kind}/{scope_id}", get(errors))
         .route("/api/v1/receipts/{inbox}", receipt())
         .route(
+            "/api/v1/receipts/{inbox}/reply",
+            get(super::ingress::feedback::inspect).post(super::ingress::feedback::reply),
+        )
+        .route(
+            "/api/v1/receipts/{inbox}/reply/resolve",
+            post(super::ingress::feedback::resolve),
+        )
+        .route(
             "/api/v1/receipts/{inbox}/acknowledgement",
             get(super::ingress::acknowledgement),
         )

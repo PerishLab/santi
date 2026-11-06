@@ -169,7 +169,7 @@ async fn submission() {
         );
         assert!(
             ended.is_ok() || submitted.is_ok(),
-            "neither operation committed: {tag}"
+            "neither operation committed: {tag}: {ended:?} {submitted:?}"
         );
         if submitted.is_ok() {
             assert!(store.strand(&tag).await.expect("strand").is_some());

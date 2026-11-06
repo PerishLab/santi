@@ -75,6 +75,15 @@ pub(crate) async fn run(
         }
         Command::Soul(args) => declarations::materials::soul(&http, &base, defaults, args).await,
         Command::Incident { id } => http.get(&format!("{base}/api/v1/incidents/{id}")).await,
+        Command::Reply(args) => {
+            declarations::reply::Reply {
+                http: &http,
+                base: &base,
+                defaults,
+            }
+            .run(args)
+            .await
+        }
         Command::Receipt { inbox } => http.get(&format!("{base}/api/v1/receipts/{inbox}")).await,
         Command::Effect(EffectCommand::Query { effect }) => {
             http.get(&format!("{base}/api/v1/effects/{effect}")).await

@@ -48,7 +48,7 @@ target = "x86_64-unknown-linux-gnu"
 features = ["default", "all-features"]
 
 [[guard.lock.review]]
-reference = "2de2d7b2e700841da9f9b415e6dadce1b7d7064ccb4df521458652e765a3df0b"
+reference = "771faa2590420f2378afe62306c60e3391a5d8d031527b39a557fa14a2a1cbc8"
 role = "interoperability"
 protocol = "Independent native peer holds alarm.lock while Cron apply must refuse contention."
 hold = "The external File remains held across the refused apply, until line 36 unlocks it."
@@ -71,7 +71,7 @@ verification = "coordinate asserts transition refusal under the external lease a
 "crates/santi-estate/src/store/support/transition/mod.rs" = "d6c06a6729a902e389208f377f664d693388cff92e1a7f78a34d0e53663a52f8"
 
 [[guard.lock.review]]
-reference = "074f332fa9fd5b05b1055399aa51a1680337f45fded6378e3e26abfc8cf9da91"
+reference = "588a6a0dd483bb1d523f9d462cad23d20770639857b8fc424081efbfafe8fcaa"
 role = "interoperability"
 protocol = "Independent native reacquisition verifies successful Cron apply released alarm.lock."
 hold = "The immediate probe is held only until the explicit line 39 unlock."
@@ -82,7 +82,7 @@ verification = "cron requires native try_lock to succeed after successful produc
 "crates/santi-api/src/adaptor/cron/mod.rs" = "2f6baed9ea57c4321352db5d9e192b243e30aaf0d440f58c2cc0c9310dbd1ef4"
 
 [[guard.lock.review]]
-reference = "1c2dfea83eea4e505005624836f763c9da8026d4c362a53dab27229151a8fe82"
+reference = "0f8e93d3bb1dc2769dfcdbd7e67a813f3b375a708007dcd11a805bb677bb6e20"
 role = "interoperability"
 protocol = "Independent native reacquisition verifies failed Cron convergence released alarm.lock."
 hold = "The fault-release probe is held only until line 56 unlocks it."
@@ -105,7 +105,7 @@ verification = "coordinate requires native reacquisition after bootstrap and ret
 "crates/santi-estate/src/store/support/transition/mod.rs" = "d6c06a6729a902e389208f377f664d693388cff92e1a7f78a34d0e53663a52f8"
 
 [[guard.lock.review]]
-reference = "36a0a5ec41ff6f708f4a25f2d104de46d8dfef9aaba1a7664b69039812f0ff6a"
+reference = "98c461c1406bb485f6b28b656992d86f402a3a3942a133572670f8fad32e5619"
 role = "interoperability"
 protocol = "Release the successful-apply probe before inducing a production convergence failure."
 hold = "Ends the probe acquired at line 38 before the nonempty alarm apply."
@@ -116,7 +116,7 @@ verification = "cron subsequently reaches the expected missing-executable failur
 "crates/santi-api/src/adaptor/cron/mod.rs" = "2f6baed9ea57c4321352db5d9e192b243e30aaf0d440f58c2cc0c9310dbd1ef4"
 
 [[guard.lock.review]]
-reference = "b2bb4f5564747fd10d9155b2cc142a25356dd3182f4e2284cf51d37410d5840f"
+reference = "b87d26ddeac5d5c53a478e7c6c0dab1733ffc3ebe2c04e2f5d4f0d3a43c0aa57"
 role = "interoperability"
 protocol = "Finish the independent Cron fault-release observation without deleting its carrier path."
 hold = "Ends the probe acquired at line 55, before the final retained-path assertion."
@@ -127,7 +127,7 @@ verification = "cron asserts alarm.lock remains a regular file after the probe i
 "crates/santi-api/src/adaptor/cron/mod.rs" = "2f6baed9ea57c4321352db5d9e192b243e30aaf0d440f58c2cc0c9310dbd1ef4"
 
 [[guard.lock.review]]
-reference = "4cd83ea0e907226782c3907d03e1af34a50ecdc33a121e33ad5aea51c133a177"
+reference = "d97fb9c4ed104f6c341a3f440734cc80cffa3a5d09b1308f45eac5b9bc2ad928"
 role = "interoperability"
 protocol = "Release the independent alarm.lock peer so production Cron can reenter."
 hold = "Ends the external hold acquired at line 29 after the expected contention refusal."
@@ -150,7 +150,7 @@ verification = "coordinate completes bootstrap after release and asserts the tra
 "crates/santi-estate/src/store/support/transition/mod.rs" = "d6c06a6729a902e389208f377f664d693388cff92e1a7f78a34d0e53663a52f8"
 
 [[guard.lock.review]]
-reference = "f642b74d8601133c3e528a338f5eb43b932d55b4b62c639516a7ae7454d057ac"
+reference = "71ccf5b702dd54a0c35fdcac5082b1d17c510909099a3223166aeb248e017d3e"
 role = "interoperability"
 protocol = "Independent native peer holds alarm.lock while Cron apply must refuse contention."
 hold = "The external File remains held across the refused apply, until line 36 unlocks it."
@@ -173,7 +173,7 @@ verification = "coordinate asserts transition refusal under the external lease a
 "crates/santi-estate/src/store/support/transition/mod.rs" = "d6c06a6729a902e389208f377f664d693388cff92e1a7f78a34d0e53663a52f8"
 
 [[guard.lock.review]]
-reference = "3f3616fe54a9e972ed7e2b4bc862a4ee0d444fb8646709ca20e2f44f22f19e2a"
+reference = "534d3f0d14bf68ade514f71a9d6b55d217a18eec77ad44ac4302ed93e395aeef"
 role = "interoperability"
 protocol = "Independent native reacquisition verifies successful Cron apply released alarm.lock."
 hold = "The immediate probe is held only until the explicit line 39 unlock."
@@ -184,7 +184,7 @@ verification = "cron requires native try_lock to succeed after successful produc
 "crates/santi-api/src/adaptor/cron/mod.rs" = "2f6baed9ea57c4321352db5d9e192b243e30aaf0d440f58c2cc0c9310dbd1ef4"
 
 [[guard.lock.review]]
-reference = "3b4ac390e70e900a209842907d3068fea485ec0c074485c1c63342cf3ded0e0e"
+reference = "03c55fb5de7ad038363252bd63431b466734b2a15215b61c765c3021969ff16e"
 role = "interoperability"
 protocol = "Independent native reacquisition verifies failed Cron convergence released alarm.lock."
 hold = "The fault-release probe is held only until line 56 unlocks it."
@@ -207,7 +207,7 @@ verification = "coordinate requires native reacquisition after bootstrap and ret
 "crates/santi-estate/src/store/support/transition/mod.rs" = "d6c06a6729a902e389208f377f664d693388cff92e1a7f78a34d0e53663a52f8"
 
 [[guard.lock.review]]
-reference = "c4af0f1f80a8dcd943cfda2c59a5b6bc8b0be055aae90d6354df3874efdcdbfe"
+reference = "26edd777a82615eecbe9ca98b5d7f1ca8af69f50909688030511ca5ae8ba3d7c"
 role = "interoperability"
 protocol = "Release the successful-apply probe before inducing a production convergence failure."
 hold = "Ends the probe acquired at line 38 before the nonempty alarm apply."
@@ -218,7 +218,7 @@ verification = "cron subsequently reaches the expected missing-executable failur
 "crates/santi-api/src/adaptor/cron/mod.rs" = "2f6baed9ea57c4321352db5d9e192b243e30aaf0d440f58c2cc0c9310dbd1ef4"
 
 [[guard.lock.review]]
-reference = "2aba168c3efcc56861927ea1b639c5525bee4a940de98e0bfee2436c578c830a"
+reference = "b684bd22d84e89304d8996a3a09b4e14551a4a9b662e8d8acc20f7f851b2b8bb"
 role = "interoperability"
 protocol = "Finish the independent Cron fault-release observation without deleting its carrier path."
 hold = "Ends the probe acquired at line 55, before the final retained-path assertion."
@@ -229,7 +229,7 @@ verification = "cron asserts alarm.lock remains a regular file after the probe i
 "crates/santi-api/src/adaptor/cron/mod.rs" = "2f6baed9ea57c4321352db5d9e192b243e30aaf0d440f58c2cc0c9310dbd1ef4"
 
 [[guard.lock.review]]
-reference = "c8963d492107d32bb09892d6ed3bb622d8be0ca208a2429f1faa3aa3aad468b3"
+reference = "569e94afe613ecb4df59258c255bc61ca5138a10cfb8ba9a038b6485a1b132d2"
 role = "interoperability"
 protocol = "Release the independent alarm.lock peer so production Cron can reenter."
 hold = "Ends the external hold acquired at line 29 after the expected contention refusal."

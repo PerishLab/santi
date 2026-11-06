@@ -41,6 +41,7 @@ pub(super) fn graph() -> Graph {
         .plug::<edge::Webhook>()
         .plug::<edge::WebhookDelivery>()
         .plug::<edge::Acknowledgement>()
+        .plug::<edge::Window>()
         .plug::<edge::Downstream>()
         .plug::<edge::DownstreamIngest>()
         .plug::<edge::SoulEnviron>()

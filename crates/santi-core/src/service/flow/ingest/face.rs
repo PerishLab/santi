@@ -30,6 +30,7 @@ impl Service {
                     kind: message::Kind::Text,
                     trigger: "strand_send",
                     source: Some(ingest::Source::new("strand_send").with_ref(strand.id.clone())),
+                    reply: None,
                     replay: None,
                 },
             )

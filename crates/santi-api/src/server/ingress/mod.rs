@@ -1,4 +1,6 @@
 mod ack;
+pub(super) mod feedback;
+mod process;
 
 use axum::{
     Json,
@@ -79,6 +81,7 @@ pub(super) async fn ingest_webhook(
     } else {
         event.label.clone()
     };
+    let reply = feedback::binding(&subscription.adaptor, event.metadata.as_ref());
     let confirmation = ack::message(&subscription.adaptor, event.metadata.as_ref());
     let fingerprint = event
         .metadata
@@ -90,6 +93,7 @@ pub(super) async fn ingest_webhook(
         .with_ref(format!("{}:{name}", subscription.adaptor))
         .with_metadata(json!({
             "subscription": name,
+            "feedback": reply.is_some(),
             "adaptor": subscription.adaptor,
             "strategy": subscription.strategy,
             "event_label": event.label,
@@ -100,21 +104,21 @@ pub(super) async fn ingest_webhook(
         Some(delivery) => {
             let digest =
                 fingerprint.unwrap_or_else(|| digest(&subscription.adaptor, &headers, &body));
-            service
-                .deliver(
-                    santi_core::service::Envelope {
-                        soul: &subscription.soul,
-                        label: &label,
-                        text: event.text,
-                        source: Some(source),
-                    },
-                    santi_core::service::Delivery {
-                        subscription: &subscription.name,
-                        id: delivery,
-                        digest: &digest,
-                    },
-                )
-                .await
+            let input = santi_core::service::Envelope {
+                soul: &subscription.soul,
+                label: &label,
+                text: event.text,
+                source: Some(source),
+            };
+            let delivery = santi_core::service::Delivery {
+                subscription: &subscription.name,
+                id: delivery,
+                digest: &digest,
+            };
+            match reply.as_ref() {
+                Some(reply) => service.windowed(input, delivery, reply).await,
+                None => service.deliver(input, delivery).await,
+            }
         }
         None if subscription.adaptor == "github" => {
             return Err(ApiError::bad_request("missing X-GitHub-Delivery header"));
