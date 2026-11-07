@@ -33,7 +33,7 @@ radicula-config.workspace = true
 clap = { workspace = true, optional = true }
 futures-util = { workspace = true, optional = true }
 jiff = { workspace = true, optional = true }
-plumb = { workspace = true, features = ["observation"], optional = true }
+plumb = { workspace = true, features = ["observation", "skill"], optional = true }
 ratatui = { workspace = true, optional = true }
 reqwest = { workspace = true, optional = true }
 utoipa.workspace = true

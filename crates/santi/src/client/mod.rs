@@ -48,6 +48,9 @@ pub(crate) async fn run(
     let http = Http { client: &client };
     let base = base_url.trim_end_matches('/').to_string();
     match command {
+        Command::Skill(_) => {
+            anyhow::bail!("skill commands must dispatch before HTTP configuration")
+        }
         Command::Health => http.get(&format!("{base}/api/v1/health")).await,
         Command::Schema => http.get(&format!("{base}/api/v1/openapi.json")).await,
         Command::Tui { memory } => {

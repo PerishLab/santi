@@ -15,6 +15,7 @@ pub(crate) fn start(command: &crate::cli::Command) -> Option<Run> {
 fn name(command: &crate::cli::Command) -> &'static str {
     use crate::cli::Command;
     match command {
+        Command::Skill(_) => "skill",
         Command::Health => "health",
         Command::Schema => "schema",
         Command::Soul(_) => "soul",

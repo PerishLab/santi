@@ -1,4 +1,3 @@
-use anyhow::Result;
 use clap::{Parser, Subcommand, ValueEnum};
 
 pub const BASE: &str = "http://127.0.0.1:43307";
@@ -8,7 +7,9 @@ pub const BASE: &str = "http://127.0.0.1:43307";
     name = "santi",
     version = plumb::version!("SANTI"),
     about = "HTTP client for a running santi runtime",
-    after_help = "Optional Locus observation: set [locus] enabled = true in config.toml below the existing santi data home. endpoint defaults to LOCUS_API or http://127.0.0.1:43308; buffer uses state/locus below that home. Missing configuration disables observation. Client authentication configuration remains separate."
+    after_help = "Getting started: use `santi skill install` to install operating guidance for your agent; `santi skill --help` owns its management commands.
+
+Optional Locus observation: set [locus] enabled = true in config.toml below the existing santi data home. endpoint defaults to LOCUS_API or http://127.0.0.1:43308; buffer uses state/locus below that home. Missing configuration disables observation. Client authentication configuration remains separate."
 )]
 pub struct Cli {
     #[arg(
@@ -62,6 +63,11 @@ pub struct Cli {
 pub enum Command {
     #[command(about = "GET /api/v1/health")]
     Health,
+    #[command(
+        subcommand,
+        about = "Manage Santi agent skill installations without a running runtime"
+    )]
+    Skill(plumb::skill::command::Deed),
     #[command(about = "GET /api/v1/openapi.json — inspect the running service contract")]
     Schema,
     #[command(about = "Query a soul's configured identity and channel bindings")]
@@ -266,24 +272,6 @@ pub enum WatchFormat {
     Raw,
 }
 
-pub fn split_send_args(
-    mut args: Vec<String>,
-    defaults: &ClientDefaults,
-) -> Result<(String, String)> {
-    match args.len() {
-        2 => {
-            let text = args.pop().expect("len == 2");
-            let id = args.pop().expect("len == 2");
-            Ok((defaults.resolve_strand(Some(id))?, text))
-        }
-        1 => {
-            let text = args.pop().expect("len == 1");
-            Ok((defaults.resolve_strand(None)?, text))
-        }
-        _ => anyhow::bail!("send takes `<id> <text>` or `<text>`"),
-    }
-}
-
 pub mod alarm;
 mod compact;
 mod defaults;
@@ -298,3 +286,5 @@ pub use defaults::*;
 pub use inference::*;
 pub use job::*;
 pub use strand::*;
+
+pub(crate) mod skill;

@@ -178,3 +178,6 @@ mod retire;
 mod incidents;
 #[path = "cli/inference.rs"]
 mod inference;
+
+#[path = "cli/skill.rs"]
+mod skill;
