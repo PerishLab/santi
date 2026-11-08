@@ -48,6 +48,9 @@ pub(super) fn run() -> Result<(), String> {
                 .filter(|(name, _)| !name.starts_with(santi_core::environment::RESERVED)),
         );
     }
+    if let Some(base_url) = &spec.base_url {
+        command.env("SANTI_BASE_URL", base_url);
+    }
     command
         .env("SANTI_SOUL_ID", &spec.origin.soul)
         .env("SANTI_STRAND_ID", &spec.origin.strand)

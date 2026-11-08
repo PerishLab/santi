@@ -22,8 +22,14 @@ impl Service {
             record.job.cwd.as_deref(),
         )?;
         std::fs::create_dir_all(&cwd).map_err(|error| error.to_string())?;
+        let base_url = self
+            .config
+            .bind
+            .as_ref()
+            .map(|bind| format!("http://{bind}"));
         Ok(Launch {
             environment: record.environment.clone(),
+            base_url,
             job: record.job.clone(),
             stamp: record.generation.clone(),
             sidecar: record.supervisor.clone(),
