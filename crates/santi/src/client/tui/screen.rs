@@ -93,6 +93,7 @@ async fn drive(
     let mut strokes = keys::listen();
     let (sender, mut beats) = unbounded_channel();
     let target = Target::tui(request.client, request.base, &identity.strand);
+    let receipts = receipt::Receipts(target);
     let mut active = None;
     let mut listening = Some(Box::pin(resident(target, sender.clone())));
     let mut refresh = Some(Box::pin(context(request, identity)));
@@ -111,10 +112,10 @@ async fn drive(
             beat = beats.recv() => state.heard(beat),
             result = poll(&mut checking) => {
                 checking = None;
-                receipt::apply(state, result)
+                receipts.apply(state, result)
             },
             _ = recheck.tick(), if state.unsettled && state.receipt.is_some() && checking.is_none() => {
-                checking = receipt::pending(target, state.receipt.clone());
+                checking = receipts.pending(state.receipt.clone());
                 Step::Stay
             },
             () = poll(&mut active) => Step::Idle,
@@ -141,7 +142,7 @@ async fn drive(
             },
         };
         if step == Step::Refresh && state.unsettled && checking.is_none() {
-            checking = receipt::pending(target, state.receipt.clone());
+            checking = receipts.pending(state.receipt.clone());
         }
         match step {
             Step::Leave => return Ok(None),
@@ -161,7 +162,7 @@ async fn drive(
             }
             Step::Speak(text) => {
                 listening = None;
-                active = Some(Box::pin(receipt::dispatch(target, text, sender.clone())));
+                active = Some(Box::pin(receipts.dispatch(text, sender.clone())));
             }
             Step::Switch(next) => return Ok(Some(next)),
             Step::Listing(kind) => {

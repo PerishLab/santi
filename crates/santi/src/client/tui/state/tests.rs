@@ -109,6 +109,7 @@ fn failed() {
             "durably failed".into(),
         )));
         assert!(state.transcript().contains("Task failed."));
+        assert!(state.transcript().contains("Ctrl-T"));
         assert!(!state.transcript().contains("Interrupted. Send"));
         assert!(state.transcript().contains("prior effects may remain"));
     }

@@ -1,16 +1,21 @@
 use super::outcome::{pending, unsettled};
+use super::{Target, guidance};
 
-pub(crate) fn unknown(strand: &str, detail: String) -> anyhow::Error {
+pub(crate) fn unknown(target: Target<'_>, detail: String) -> anyhow::Error {
     unsettled(format!(
-        "strand send outcome=state_unknown: {detail}; the message may have been accepted, but its exact receipt was not proven; do not resend it; inspect with `santi strand runtime {strand}` and recover the accepted message's receipt/status before resuming or explicitly redriving with `santi strand drive {strand}`"
+        "strand send outcome=state_unknown: {detail}; the message may have been accepted, but its exact receipt was not proven; do not resend it; {} and recover the accepted message's receipt/status before resuming or {}",
+        guidance::inspect(target.base, target.strand, None),
+        guidance::drive(target.base, target.strand)
     ))
 }
 
-pub(crate) fn uncertain(strand: &str, receipt: &str, detail: String) -> anyhow::Error {
+pub(crate) fn uncertain(target: Target<'_>, receipt: &str, detail: String) -> anyhow::Error {
     pending(
         receipt,
         format!(
-            "watch outcome=state_unknown: {detail} for accepted receipt {receipt}; do not resend the accepted message; inspect with `santi receipt {receipt}` and `santi strand runtime {strand}`; resume the blocking condition or explicitly redrive with `santi strand drive {strand}`"
+            "watch outcome=state_unknown: {detail} for accepted receipt {receipt}; do not resend the accepted message; {}; resume the blocking condition or {}",
+            guidance::inspect(target.base, target.strand, Some(receipt)),
+            guidance::drive(target.base, target.strand)
         ),
     )
 }
@@ -21,24 +26,23 @@ pub(crate) fn accepted_warning(value: Option<&serde_json::Value>) -> Option<&ser
         .filter(|warning| !warning.is_null())
 }
 
-pub(crate) fn accepted_warning_error(warning: &serde_json::Value, receipt: &str) -> anyhow::Error {
-    let detail = if let Some(command) = warning
-        .pointer("/context/recovery/command")
+pub(crate) fn accepted_warning_error(
+    target: Target<'_>,
+    warning: &serde_json::Value,
+    receipt: &str,
+) -> anyhow::Error {
+    let code = warning
+        .get("code")
         .and_then(serde_json::Value::as_str)
-    {
+        .unwrap_or("unknown warning");
+    pending(
+        receipt,
         format!(
-            "message was accepted as exact receipt {receipt} but not driven; do not resend it; run `{command}`"
-        )
-    } else {
-        let code = warning
-            .get("code")
-            .and_then(serde_json::Value::as_str)
-            .unwrap_or("unknown warning");
-        format!(
-            "message was accepted as exact receipt {receipt} but not driven; do not resend it; inspect and resolve `{code}`"
-        )
-    };
-    pending(receipt, detail)
+            "message was accepted as exact receipt {receipt} but not driven; do not resend it; {}; inspect and resolve `{code}` before resuming or {}",
+            guidance::inspect(target.base, target.strand, Some(receipt)),
+            guidance::drive(target.base, target.strand)
+        ),
+    )
 }
 
 #[cfg(test)]
@@ -52,14 +56,12 @@ mod tests {
             "code": "runtime.strand.drive_failed",
             "context": { "recovery": { "command": "santi strand drive ss_direct" } }
         });
+        let client = reqwest::Client::new();
+        let target = super::Target::tui(&client, "http://localhost:43309", "ss_direct");
         let errors = [
-            unknown("ss_direct", "POST response was ambiguous".to_string()),
-            uncertain(
-                "ss_direct",
-                "inbox_direct",
-                "receipt was unreadable".to_string(),
-            ),
-            accepted_warning_error(&warning, "inbox_direct"),
+            unknown(target, "POST response was ambiguous".to_string()),
+            uncertain(target, "inbox_direct", "receipt was unreadable".to_string()),
+            accepted_warning_error(target, &warning, "inbox_direct"),
         ];
 
         for error in errors {

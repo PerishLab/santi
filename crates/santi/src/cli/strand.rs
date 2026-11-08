@@ -55,7 +55,7 @@ pub enum StrandCommand {
     Drive { id: Option<String> },
     #[command(
         about = "POST /api/v1/strands/{id}/send",
-        long_about = "POST /api/v1/strands/{id}/send.\n\nPositional forms: `send <id> <text>` or `send <text>` (id then falls back to --strand/SANTI_STRAND_ID). Soul comes from --soul/SANTI_SOUL_ID.\n\nWith --watch, success proves only that this response's exact inbox receipt belongs to the requested strand and reached durable completed. Durable failed is an error. Pending or unavailable proof is never success: after sixty seconds without an event or ten minutes total, the command reports outcome=state_unknown, says not to resend, and provides receipt/status plus resume/redrive doors. Queued follow-on work may remain after success; --watch does not prove strand idleness."
+        long_about = "POST /api/v1/strands/{id}/send.\n\nPositional forms: `send <id> <text>` or `send <text>` (id then falls back to --strand/SANTI_STRAND_ID). Soul comes from --soul/SANTI_SOUL_ID.\n\nFiltered --watch prints the exact completed receipt and service-specific inspection commands. Raw watch retains its event data format. With --watch, success proves only that this response's exact inbox receipt belongs to the requested strand and reached durable completed. Durable failed is an error. Pending or unavailable proof is never success: after sixty seconds without an event or ten minutes total, the command reports outcome=state_unknown, says not to resend, and provides receipt/status plus resume/redrive doors. Queued follow-on work may remain after success; --watch does not prove strand idleness."
     )]
     Send {
         #[arg(

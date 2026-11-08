@@ -30,6 +30,8 @@ pub(crate) fn pending(receipt: &str, detail: String) -> anyhow::Error {
 
 #[derive(Debug)]
 pub(crate) struct Failed {
+    pub(crate) base: String,
+    pub(crate) strand: String,
     pub(crate) receipt: String,
     pub(crate) turn: Option<String>,
 }
@@ -39,7 +41,8 @@ impl fmt::Display for Failed {
         let receipt = &self.receipt;
         write!(
             formatter,
-            "strand send outcome=failed: accepted receipt {receipt} reached its durable failed state; do not resend the accepted message; inspect with `santi receipt {receipt}`"
+            "strand send outcome=failed: accepted receipt {receipt} reached its durable failed state; do not resend the accepted message; {}",
+            super::guidance::inspect(&self.base, &self.strand, Some(receipt))
         )
     }
 }

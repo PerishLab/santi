@@ -49,7 +49,7 @@ impl State {
             Beat::Unsettled(detail) => {
                 self.busy = true;
                 self.unsettled = true;
-                self.push(detail);
+                self.push(format!("{detail}; press Ctrl-T for details"));
             }
         }
     }
@@ -80,7 +80,8 @@ impl State {
         self.push(if interrupted {
             "Interrupted. Send a new instruction to continue; prior effects are retained.".into()
         } else {
-            "Task failed. Inspect details before continuing; prior effects may remain.".into()
+            "Task failed. Press Ctrl-T for details before continuing; prior effects may remain."
+                .into()
         });
     }
 
@@ -101,7 +102,7 @@ impl State {
             }
             Err(error) => {
                 self.push(
-                    "Interruption is unconfirmed; the task may still be running. See details."
+                    "Interruption is unconfirmed; the task may still be running. Press Ctrl-T for details."
                         .into(),
                 );
                 self.detail(error);

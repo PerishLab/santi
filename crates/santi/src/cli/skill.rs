@@ -23,3 +23,15 @@ pub(crate) fn run(deed: Deed) -> Result<()> {
     );
     Ok(())
 }
+
+pub(super) fn focused(command: clap::Command) -> clap::Command {
+    command
+        .mut_args(|arg| {
+            if arg.is_global_set() {
+                arg.hide(true)
+            } else {
+                arg
+            }
+        })
+        .mut_subcommands(|command| command.defer(focused))
+}

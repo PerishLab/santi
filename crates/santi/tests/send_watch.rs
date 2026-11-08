@@ -72,7 +72,7 @@ async fn failure() {
     let (result, _) = invoke(&server.base).await;
     let error = result.expect_err("failed receipt");
     assert!(error.to_string().contains("outcome=failed"));
-    assert!(error.to_string().contains("santi receipt inbox_cli"));
+    assert!(error.to_string().contains("receipt 'inbox_cli'"));
     assert!(error.to_string().contains("do not resend"));
 }
 #[tokio::test]
@@ -132,9 +132,9 @@ async fn stream() {
     let error = result.expect_err("stream read failure").to_string();
     assert!(error.contains("outcome=state_unknown"));
     assert!(error.contains("event stream failed"));
-    assert!(error.contains("santi receipt inbox_cli"));
-    assert!(error.contains("santi strand runtime ss_cli"));
-    assert!(error.contains("santi strand drive ss_cli"));
+    assert!(error.contains("receipt 'inbox_cli'"));
+    assert!(error.contains("strand runtime 'ss_cli'"));
+    assert!(error.contains("strand drive 'ss_cli'"));
     assert!(error.contains("do not resend"));
     assert_eq!(server.counts.post.load(Ordering::SeqCst), 1);
 }
@@ -184,8 +184,8 @@ async fn liveness() {
             assert!(error.contains("outcome=failed"));
         } else {
             assert!(error.contains("state_unknown"));
-            assert!(error.contains("santi strand runtime ss_cli"));
-            assert!(error.contains("santi strand drive ss_cli"));
+            assert!(error.contains("strand runtime 'ss_cli'"));
+            assert!(error.contains("strand drive 'ss_cli'"));
         }
         if matches!(scenario, Scenario::Limit) {
             assert!(error.contains("watch reached its ten-minute proof limit"));
@@ -222,7 +222,7 @@ async fn warnings() {
     let error = result.expect_err("validated driver warning").to_string();
     assert!(error.contains("exact receipt inbox_cli"));
     assert!(error.contains("do not resend"));
-    assert!(error.contains("santi strand drive ss_cli"));
+    assert!(error.contains("strand drive 'ss_cli'"));
     let output = String::from_utf8(output).expect("warning output");
     assert!(output.contains("inbox_cli"));
 }
@@ -283,3 +283,6 @@ async fn redirect() {
     assert_eq!(posts.load(Ordering::SeqCst), 1);
     assert_eq!(replayed.load(Ordering::SeqCst), 0);
 }
+
+#[path = "send_watch/presentation.rs"]
+mod presentation;

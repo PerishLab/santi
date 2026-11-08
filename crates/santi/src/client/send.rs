@@ -12,9 +12,12 @@ pub struct Request<'a> {
 }
 
 mod fault;
+pub(crate) mod guidance;
 mod outcome;
+mod proof;
 pub(crate) use fault::{accepted_warning, accepted_warning_error, uncertain, unknown};
 pub(crate) use outcome::{Failed, Unsettled, pending};
+pub(crate) use proof::prove;
 
 struct Accepted(String);
 pub(crate) struct Completion(pub(crate) String);
@@ -91,8 +94,8 @@ pub(crate) async fn emission(
         Ok(response) => response,
         Err(error) if request.watch => {
             return Err(unknown(
-                request.target.strand,
-                format!("POST did not return a response: {error}"),
+                request.target,
+                format!("POST did not return a response: {}", error.without_url()),
             ));
         }
         Err(error) => return Err(anyhow::Error::new(error).context(format!("POST {url}"))),
@@ -103,7 +106,7 @@ pub(crate) async fn emission(
         let detail = text
             .map(|text| crate::watch::snippet(&text, 500))
             .map_or_else(
-                |error| format!("the response body was unreadable: {error}"),
+                |error| format!("the response body was unreadable: {}", error.without_url()),
                 |body| format!("response body `{body}`"),
             );
         anyhow::bail!(
@@ -113,8 +116,11 @@ pub(crate) async fn emission(
     let text = text.map_err(|error| {
         if request.watch {
             unknown(
-                request.target.strand,
-                format!("POST response body after status {status} was unreadable: {error}"),
+                request.target,
+                format!(
+                    "POST response body after status {status} was unreadable: {}",
+                    error.without_url()
+                ),
             )
         } else {
             anyhow::Error::new(error).context("read response body")
@@ -129,7 +135,7 @@ pub(crate) async fn emission(
             } else {
                 format!("POST returned status {status} with response body `{body}`")
             };
-            return Err(unknown(request.target.strand, detail));
+            return Err(unknown(request.target, detail));
         }
         print_response(output, accepted.as_ref(), &text)?;
         anyhow::bail!("request failed with status {status}");
@@ -137,7 +143,7 @@ pub(crate) async fn emission(
     if let Some(warning) = accepted_warning(accepted.as_ref()) {
         let proof = acceptance(accepted.as_ref(), request.target)?;
         print_response(output, accepted.as_ref(), &text)?;
-        return Err(accepted_warning_error(warning, &proof.0));
+        return Err(accepted_warning_error(request.target, warning, &proof.0));
     }
     if !request.watch {
         print_response(output, accepted.as_ref(), &text)?;
@@ -147,31 +153,42 @@ pub(crate) async fn emission(
     let watch = watch.expect("watched send subscribed");
     let receipt = accepted.0;
     crate::watch::follow(watch, receipt.clone(), output).await?;
+    if matches!(
+        request.target.presentation,
+        Presentation::Watch(WatchFormat::Filtered)
+    ) {
+        writeln!(
+            output,
+            "receipt {receipt} completed for strand {}; this does not establish Strand idleness or business completion; {}",
+            request.target.strand,
+            guidance::inspect(request.target.base, request.target.strand, Some(&receipt))
+        )?;
+    }
     Ok(Some(Completion(receipt)))
 }
 
 fn acceptance(value: Option<&serde_json::Value>, target: Target<'_>) -> Result<Accepted> {
     let Some(value) = value else {
         return Err(unknown(
-            target.strand,
+            target,
             "successful response was not valid JSON".to_string(),
         ));
     };
     let receipt = exact(value, "/receipt/inbox").ok_or_else(|| {
         unknown(
-            target.strand,
+            target,
             "successful response did not contain a valid exact receipt id".to_string(),
         )
     })?;
     let strand = exact(value, "/receipt/strand").ok_or_else(|| {
         unknown(
-            target.strand,
+            target,
             "successful response did not contain a valid receipt strand".to_string(),
         )
     })?;
     if strand != target.strand {
         return Err(unknown(
-            target.strand,
+            target,
             format!("successful response receipt belongs to strand {strand}"),
         ));
     }
@@ -180,14 +197,14 @@ fn acceptance(value: Option<&serde_json::Value>, target: Target<'_>) -> Result<A
         Some(_) => {
             exact(value, "/turn/id").ok_or_else(|| {
                 unknown(
-                    target.strand,
+                    target,
                     "successful response did not contain a valid exact turn id".to_string(),
                 )
             })?;
         }
         None => {
             return Err(unknown(
-                target.strand,
+                target,
                 "successful response did not classify its initial turn".to_string(),
             ));
         }
@@ -201,70 +218,6 @@ fn exact(value: &serde_json::Value, path: &str) -> Option<String> {
         .and_then(serde_json::Value::as_str)
         .filter(|held| !held.is_empty() && held.trim() == *held)
         .map(str::to_string)
-}
-
-pub(crate) async fn prove(target: Target<'_>, receipt: &str) -> Result<Proof> {
-    let url = format!("{}/api/v1/receipts/{receipt}", target.base);
-    let response = target
-        .client
-        .get(&url)
-        .timeout(TIMEOUT)
-        .send()
-        .await
-        .map_err(|error| uncertain(target.strand, receipt, format!("GET failed: {error}")))?;
-    let status = response.status();
-    let body = response.text().await.map_err(|error| {
-        uncertain(
-            target.strand,
-            receipt,
-            format!("response was unreadable: {error}"),
-        )
-    })?;
-    if !status.is_success() {
-        return Err(uncertain(
-            target.strand,
-            receipt,
-            format!("GET returned status {status}"),
-        ));
-    }
-    let value: serde_json::Value = serde_json::from_str(&body)
-        .map_err(|error| uncertain(target.strand, receipt, format!("invalid JSON: {error}")))?;
-    if field(&value, "inbox") != Some(receipt) || field(&value, "strand") != Some(target.strand) {
-        return Err(uncertain(
-            target.strand,
-            receipt,
-            "response identity did not match the accepted message".to_string(),
-        ));
-    }
-    match field(&value, "state") {
-        Some("completed") => Ok(Proof::Completed),
-        Some("failed") => Ok(Proof::Failed(
-            value
-                .get("transitions")
-                .and_then(serde_json::Value::as_array)
-                .and_then(|transitions| {
-                    transitions
-                        .iter()
-                        .rev()
-                        .find(|held| field(held, "state") == Some("failed"))
-                })
-                .and_then(|held| field(held, "turn"))
-                .filter(|turn| !turn.is_empty())
-                .map(str::to_string),
-        )),
-        Some(state @ ("accepted" | "recovered" | "driving")) => {
-            Ok(Proof::Pending(state.to_string()))
-        }
-        _ => Err(uncertain(
-            target.strand,
-            receipt,
-            "response did not contain a recognized durable state".to_string(),
-        )),
-    }
-}
-
-fn field<'a>(value: &'a serde_json::Value, name: &str) -> Option<&'a str> {
-    value.get(name).and_then(serde_json::Value::as_str)
 }
 
 fn print_response(

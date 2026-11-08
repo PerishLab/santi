@@ -81,11 +81,19 @@ pub(crate) async fn subscribe(target: Target<'_>) -> Result<Watch<'_>> {
     let response = tokio::time::timeout_at(started + SILENCE, target.client.get(&url).send())
         .await
         .map_err(|_| {
-            anyhow::anyhow!("GET {url} did not establish an event stream in sixty seconds")
+            anyhow::anyhow!(
+                "event stream did not establish in sixty seconds; {}",
+                crate::client::guidance::inspect(target.base, target.strand, None)
+            )
         })?
-        .with_context(|| format!("GET {url}"))?;
+        .map_err(|error| anyhow::Error::new(error.without_url()))
+        .with_context(|| crate::client::guidance::inspect(target.base, target.strand, None))?;
     if !response.status().is_success() {
-        anyhow::bail!("request failed with status {}", response.status());
+        anyhow::bail!(
+            "request failed with status {}; {}",
+            response.status(),
+            crate::client::guidance::inspect(target.base, target.strand, None)
+        );
     }
     let _ = HARNESS.try_with(|harness| harness.started.send(started));
     Ok(Watch {
@@ -120,7 +128,7 @@ pub(crate) async fn follow(
             Ok(Err(error)) => {
                 display.finish(output);
                 return Err(uncertain(
-                    target.strand,
+                    target,
                     &receipt,
                     format!("event stream failed: {error:#}"),
                 ));
@@ -169,6 +177,8 @@ async fn settle(target: Target<'_>, receipt: &str, boundary: Option<&str>) -> Re
     match prove(target, receipt).await? {
         Proof::Completed => Ok(true),
         Proof::Failed(turn) => Err(crate::client::Failed {
+            base: target.base.into(),
+            strand: target.strand.into(),
             receipt: receipt.into(),
             turn,
         }
@@ -176,10 +186,10 @@ async fn settle(target: Target<'_>, receipt: &str, boundary: Option<&str>) -> Re
         Proof::Pending(state) if boundary.is_some() => Err(crate::client::pending(
             receipt,
             format!(
-                "watch outcome=state_unknown: {} while accepted receipt {receipt} remained {state}; do not resend the accepted message; inspect with `santi receipt {receipt}` and `santi strand runtime {}`; resume the blocking condition or explicitly redrive with `santi strand drive {}`",
+                "watch outcome=state_unknown: {} while accepted receipt {receipt} remained {state}; do not resend the accepted message; {}; resume the blocking condition or {}",
                 boundary.expect("pending boundary"),
-                target.strand,
-                target.strand
+                crate::client::guidance::inspect(target.base, target.strand, Some(receipt)),
+                crate::client::guidance::drive(target.base, target.strand)
             ),
         )),
         Proof::Pending(_) => Ok(false),

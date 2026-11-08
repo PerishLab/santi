@@ -50,3 +50,42 @@ fn help() {
         assert!(stdout.contains(deed), "{stdout}");
     }
 }
+
+#[test]
+fn focused() {
+    let seat = tempfile::tempdir().unwrap();
+    for args in [
+        vec!["skill", "--help"],
+        vec!["skill", "install", "--help"],
+        vec!["skill", "status", "--help"],
+    ] {
+        let output = run(seat.path(), &args);
+        assert!(output.status.success(), "{output:?}");
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        for option in [
+            "--base-url",
+            "--api-key",
+            "--auth-password",
+            "--strand",
+            "--soul",
+        ] {
+            assert!(!stdout.contains(option), "{stdout}");
+        }
+        assert!(stdout.contains("--help"));
+    }
+    let output = run(seat.path(), &["strand", "send", "--help"]);
+    assert!(String::from_utf8_lossy(&output.stdout).contains("--base-url"));
+    let output = run(
+        seat.path(),
+        &[
+            "skill",
+            "list",
+            "--base-url",
+            "http://127.0.0.1:0",
+            "--api-key",
+            "secret",
+        ],
+    );
+    assert!(output.status.success(), "{output:?}");
+    assert!(!String::from_utf8_lossy(&output.stdout).contains("secret"));
+}
