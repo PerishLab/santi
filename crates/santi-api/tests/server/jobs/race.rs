@@ -75,6 +75,7 @@ async fn prepare(store: &santi_core::Store) {
                 timeout_seconds: 30,
                 output_limit_bytes: 4096,
                 remind_every_seconds: None,
+                notify_on_terminal: false,
                 request_sha256: "request_digest",
                 generation: "stamp_race",
                 supervisor_ref: "sidecar_race",
@@ -154,6 +155,7 @@ async fn releases() {
                     timeout: Some(30),
                     output: Some(4096),
                     remind: None,
+                    notify_on_terminal: false,
                 }
             )
             .await

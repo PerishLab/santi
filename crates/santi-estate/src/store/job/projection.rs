@@ -55,6 +55,30 @@ impl<'a> Projection<'a> {
         Ok(records)
     }
 
+    pub async fn unnotified(&self, limit: usize) -> Result<Vec<JobRecord>, String> {
+        let rows = self
+            .0
+            .core
+            .ask(
+                &form("Job")
+                    .when("notify_on_terminal", Op::Eq, "true")
+                    .missing("terminal_notified")
+                    .any("state", TERMINAL)
+                    .order("updated", Rank::Asc)
+                    .order("tag", Rank::Asc)
+                    .top(limit),
+            )
+            .await
+            .map_err(read::error)?;
+        let mut records = Vec::new();
+        for record in self.decode_all(rows.rows()).await? {
+            if record.terminal_notified.is_none() {
+                records.push(record);
+            }
+        }
+        Ok(records)
+    }
+
     pub async fn expired(&self, cutoff: &str, limit: usize) -> Result<Vec<ExpiredJob>, String> {
         let rows = self
             .0
@@ -135,6 +159,8 @@ impl<'a> Projection<'a> {
             runtime_warned: row.text("runtime_warned").is_some(),
             output_warned: row.text("output_warned").is_some(),
             reminder_tick: unsigned(row, "reminder_tick")?,
+            notify_on_terminal: row.flag("notify_on_terminal").unwrap_or(false),
+            terminal_notified: row.text("terminal_notified").map(str::to_string),
         })
     }
 

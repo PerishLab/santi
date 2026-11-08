@@ -33,6 +33,7 @@ pub struct JobDraft<'a> {
     pub timeout_seconds: u64,
     pub output_limit_bytes: u64,
     pub remind_every_seconds: Option<u64>,
+    pub notify_on_terminal: bool,
     pub request_sha256: &'a str,
     pub generation: &'a str,
     pub supervisor_ref: &'a str,
@@ -73,6 +74,7 @@ pub struct AttentionDraft<'a> {
     pub reminded: bool,
     pub tick: u64,
     pub next: Option<&'a str>,
+    pub terminal: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -86,6 +88,8 @@ pub struct JobRecord {
     pub runtime_warned: bool,
     pub output_warned: bool,
     pub reminder_tick: u64,
+    pub notify_on_terminal: bool,
+    pub terminal_notified: Option<String>,
 }
 
 #[derive(Debug, Clone)]

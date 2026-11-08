@@ -1,3 +1,4 @@
+mod notification;
 mod privacy;
 
 use santi_estate::{
@@ -89,6 +90,7 @@ async fn lifecycle() {
         timeout_seconds: 30,
         output_limit_bytes: 1024,
         remind_every_seconds: Some(5),
+        notify_on_terminal: false,
         request_sha256: "request_digest",
         generation: "stamp_test",
         supervisor_ref: "santi-stamp-test.service",
@@ -183,6 +185,7 @@ async fn lifecycle() {
                 reminded: true,
                 tick: 1,
                 next: Some(FINISHED),
+                terminal: false,
             },
             notice,
             10,
@@ -208,6 +211,7 @@ async fn lifecycle() {
                     reminded: true,
                     tick: 1,
                     next: Some(FINISHED),
+                    terminal: false,
                 },
                 notice,
                 10,
@@ -228,6 +232,7 @@ async fn lifecycle() {
                     reminded: false,
                     tick: 1,
                     next: None,
+                    terminal: false,
                 },
                 NoticeDraft {
                     revision: 3,

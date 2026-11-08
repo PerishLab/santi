@@ -134,6 +134,10 @@ impl Store {
         projection::Projection::new(self).active().await
     }
 
+    pub async fn unnotified(&self, limit: usize) -> Result<Vec<JobRecord>, String> {
+        projection::Projection::new(self).unnotified(limit).await
+    }
+
     pub async fn expired_jobs(
         &self,
         cutoff: &str,

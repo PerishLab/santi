@@ -82,6 +82,7 @@ async fn vertical() {
                 timeout: Some(30),
                 output: Some(4096),
                 remind: None,
+                notify_on_terminal: false,
             },
         )
         .await
@@ -107,6 +108,7 @@ async fn vertical() {
                 timeout: Some(30),
                 output: Some(4096),
                 remind: None,
+                notify_on_terminal: false,
             },
         )
         .await
@@ -206,6 +208,7 @@ async fn restarts() {
                 timeout: Some(30),
                 output: Some(4096),
                 remind: None,
+                notify_on_terminal: false,
             },
         )
         .await

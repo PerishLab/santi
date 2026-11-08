@@ -64,6 +64,8 @@ pub(crate) struct Job {
     output_limit_bytes: int,
     #[field(int, opt, min = 1)]
     remind_every_seconds: int,
+    #[field(bool, default = false)]
+    notify_on_terminal: bool,
     #[field(string)]
     request_sha256: string,
     #[field(string, unique)]
@@ -108,6 +110,8 @@ pub(crate) struct Job {
     finished: string,
     #[field(string, opt)]
     acknowledged: string,
+    #[field(string, opt)]
+    terminal_notified: string,
     #[field(int, default = 0, min = 0)]
     attention_revision: int,
     #[field(string, opt)]

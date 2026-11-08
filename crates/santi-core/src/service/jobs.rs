@@ -8,8 +8,10 @@ mod control;
 mod draft;
 mod handoff;
 mod logs;
+mod observe;
 mod paths;
 mod retention;
+mod terminal;
 mod watch;
 
 pub use logs::Read;
@@ -22,6 +24,7 @@ pub struct Draft {
     pub timeout: Option<u64>,
     pub output: Option<u64>,
     pub remind: Option<u64>,
+    pub notify_on_terminal: bool,
 }
 
 #[derive(Debug, Clone)]

@@ -151,6 +151,7 @@ async fn submission() {
                         timeout_seconds: 30,
                         output_limit_bytes: 1024,
                         remind_every_seconds: None,
+                        notify_on_terminal: false,
                         request_sha256: "late_digest",
                         generation: &format!("generation_{target}"),
                         supervisor_ref: &format!("supervisor_{target}"),

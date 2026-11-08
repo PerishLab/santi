@@ -3,7 +3,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use serde_json::json;
 use sha2::{Digest, Sha256};
 
-use super::Service;
+use super::{Service, terminal};
 use crate::{ingest, message, now, stamped};
 use santi_estate::JobRecord;
 
@@ -12,14 +12,14 @@ const DENOMINATOR: u128 = 5;
 
 pub(super) async fn capture(service: &Service, record: JobRecord) -> Result<(), String> {
     if record.job.state.terminal() {
-        return Ok(());
+        return terminal::finish(service, record).await;
     }
     let Some(started) = record.started_millis else {
         return Ok(());
     };
     let current = epoch()?;
     let elapsed = current.saturating_sub(started) as u64;
-    let (stdout, stderr) = output(service, &record)?;
+    let (stdout, stderr) = terminal::output(service, &record)?;
     let combined = stdout.saturating_add(stderr);
     let runtime = !record.runtime_warned
         && threshold(elapsed, record.job.timeout_seconds.saturating_mul(1000));
@@ -66,6 +66,7 @@ pub(super) async fn capture(service: &Service, record: JobRecord) -> Result<(), 
                 reminded,
                 tick,
                 next: next.as_deref(),
+                terminal: false,
             },
             santi_estate::NoticeDraft {
                 tag: &inbox,
@@ -155,22 +156,6 @@ fn causes(runtime: bool, output: bool, reminder: bool) -> Vec<String> {
 
 fn threshold(value: u64, limit: u64) -> bool {
     u128::from(value) * DENOMINATOR >= u128::from(limit) * NUMERATOR
-}
-
-fn output(service: &Service, record: &JobRecord) -> Result<(u64, u64), String> {
-    let directory = service.jobhome(record);
-    Ok((
-        size(&directory.join("stdout.log"))?,
-        size(&directory.join("stderr.log"))?,
-    ))
-}
-
-fn size(path: &std::path::Path) -> Result<u64, String> {
-    match std::fs::metadata(path) {
-        Ok(metadata) => Ok(metadata.len()),
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(0),
-        Err(error) => Err(error.to_string()),
-    }
 }
 
 fn epoch() -> Result<i64, String> {

@@ -22,6 +22,7 @@ pub struct CreateJobRequest {
     pub timeout_seconds: Option<u64>,
     pub output_limit_bytes: Option<u64>,
     pub remind_every_seconds: Option<u64>,
+    pub notify_on_terminal: Option<bool>,
 }
 
 #[derive(Debug, serde::Deserialize)]
@@ -187,6 +188,7 @@ impl Jobs {
                     timeout: request.timeout_seconds,
                     output: request.output_limit_bytes,
                     remind: request.remind_every_seconds,
+                    notify_on_terminal: request.notify_on_terminal.unwrap_or(false),
                 },
             )
             .await

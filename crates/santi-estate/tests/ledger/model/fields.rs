@@ -152,6 +152,7 @@ pub(super) const TEXT: &[(&str, &str, Class)] = &[
     ("strand:job", "started", Time),
     ("strand:job", "finished", Time),
     ("strand:job", "acknowledged", Time),
+    ("strand:job", "terminal_notified", Time),
     ("strand:job", "runtime_warned", Time),
     ("strand:job", "output_warned", Time),
     ("strand:job", "last_reminded", Time),

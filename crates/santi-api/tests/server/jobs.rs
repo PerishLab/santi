@@ -10,7 +10,9 @@ use santi_core::{
 use super::*;
 
 mod fixture;
+mod notification;
 mod race;
+mod recovery;
 
 struct FakeSupervisor {
     launches: Mutex<usize>,
@@ -90,6 +92,7 @@ async fn exercise(cwd: Option<&str>, native: bool) {
         timeout_seconds: Some(30),
         output_limit_bytes: Some(4096),
         remind_every_seconds: Some(5),
+        notify_on_terminal: None,
     };
 
     for cwd in [
