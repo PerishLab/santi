@@ -261,12 +261,12 @@ async fn restarts() {
 
 #[cfg(unix)]
 fn vertical_command() -> &'static str {
-    r#"test "$JOB_SCOPE_PROBE" = strand && test "$JOB_GLOBAL_PROBE" = global && test "$JOB_SOUL_PROBE" = soul && test "$JOB_REFERENCE_PROBE" = "$HOME" && test -n "$SANTI_JOB_ID" && test -z "${SANTI_JOB_CREATE_CAPABILITY-}" && printf 'vertical-ok\n'"#
+    r#"test "$JOB_SCOPE_PROBE" = strand && test "$JOB_GLOBAL_PROBE" = global && test "$JOB_SOUL_PROBE" = soul && test "$JOB_REFERENCE_PROBE" = "$HOME" && test "$SANTI_BASE_URL" = "http://127.0.0.1:0" && test -n "$SANTI_JOB_ID" && test -z "${SANTI_JOB_CREATE_CAPABILITY-}" && printf 'vertical-ok\n'"#
 }
 
 #[cfg(target_os = "windows")]
 fn vertical_command() -> &'static str {
-    r#"if ($env:JOB_SCOPE_PROBE -ne 'strand' -or $env:JOB_GLOBAL_PROBE -ne 'global' -or $env:JOB_SOUL_PROBE -ne 'soul' -or $env:JOB_REFERENCE_PROBE -ne $env:HOME -or !$env:SANTI_JOB_ID -or $env:SANTI_JOB_CREATE_CAPABILITY) { exit 9 }; Write-Output "vertical-ok""#
+    r#"if ($env:JOB_SCOPE_PROBE -ne 'strand' -or $env:JOB_GLOBAL_PROBE -ne 'global' -or $env:JOB_SOUL_PROBE -ne 'soul' -or $env:JOB_REFERENCE_PROBE -ne $env:HOME -or $env:SANTI_BASE_URL -ne 'http://127.0.0.1:0' -or !$env:SANTI_JOB_ID -or $env:SANTI_JOB_CREATE_CAPABILITY) { exit 9 }; Write-Output "vertical-ok""#
 }
 
 #[cfg(unix)]

@@ -8,6 +8,8 @@ use serde::{Deserialize, Serialize};
 pub(super) struct Spec {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub environment: Option<santi_estate::Environment>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub base_url: Option<String>,
     pub schema: String,
     pub id: String,
     pub origin: job::Origin,
@@ -39,6 +41,7 @@ impl Spec {
     pub(super) fn from(launch: &JobLaunch) -> Self {
         Self {
             environment: launch.environment.clone(),
+            base_url: launch.base_url.clone(),
             schema: "santi.job.execution.v2".to_string(),
             id: launch.job.id.clone(),
             origin: launch.job.origin.clone(),
@@ -123,6 +126,36 @@ mod tests {
         assert!(snapshot.matches(&serde_json::from_value(frozen.clone()).expect("same snapshot")));
         frozen["environment"]["PRIVATE_PROBE"] = "changed".into();
         assert!(!snapshot.matches(&serde_json::from_value(frozen).expect("different snapshot")));
+    }
+
+    #[test]
+    fn base_url() {
+        let value = serde_json::json!({
+            "schema": "santi.job.execution.v2", "id": "job_test",
+            "origin": { "soul": "soul_test", "strand": "strand_test", "turn": "turn_test",
+                "call": "call_test", "effect": "effect_test" },
+            "generation": "generation_test", "unit": "unit_test",
+            "description": "endpoint", "command": "true", "cwd": "/tmp", "output_limit_bytes": 1024
+        });
+        let legacy: Spec = serde_json::from_value(value.clone()).expect("spec without endpoint");
+        assert!(legacy.base_url.is_none());
+        assert!(
+            serde_json::to_value(&legacy)
+                .expect("encode legacy")
+                .get("base_url")
+                .is_none()
+        );
+
+        let mut recorded = value;
+        recorded["base_url"] = serde_json::json!("http://127.0.0.1:43309");
+        let endpoint: Spec = serde_json::from_value(recorded.clone()).expect("spec with endpoint");
+        assert_eq!(endpoint.base_url.as_deref(), Some("http://127.0.0.1:43309"));
+        assert!(legacy.matches(&endpoint));
+        assert!(endpoint.matches(&legacy));
+        assert_eq!(
+            serde_json::to_value(&endpoint).expect("encode endpoint")["base_url"],
+            "http://127.0.0.1:43309"
+        );
     }
 
     #[test]

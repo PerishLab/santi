@@ -23,6 +23,7 @@ fn retains() {
     #[cfg(target_os = "windows")]
     let command = r#"Write-Output "capability=$env:SANTI_JOB_CREATE_CAPABILITY"; Write-Output "soul=$env:SANTI_SOUL_ID"; [Console]::Error.WriteLine("stderr-probe"); exit 7"#;
     let launch = JobLaunch {
+        base_url: None,
         environment: Some(santi_estate::Environment(std::collections::BTreeMap::from(
             [
                 ("SANTI_SOUL_ID".to_string(), "forged".to_string()),
