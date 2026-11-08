@@ -37,6 +37,30 @@ fn api() {
     ] {
         assert!(document["components"]["schemas"].get(schema).is_some());
     }
+    let turn = &document["components"]["schemas"]["turn.Turn"];
+    let reference = turn["properties"]["finish"]["oneOf"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find_map(|shape| shape["$ref"].as_str());
+    assert_eq!(reference, Some("#/components/schemas/turn.Finish"));
+    let finish = &document["components"]["schemas"]["turn.Finish"];
+    assert!(
+        finish["description"]
+            .as_str()
+            .unwrap()
+            .contains("never states why the turn ended")
+    );
+    assert!(
+        finish["required"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|v| v == "span")
+    );
+    for field in ["span", "response", "status", "incomplete"] {
+        assert!(finish["properties"].get(field).is_some());
+    }
     let span = &document["components"]["schemas"]["thinking.Span"];
     assert!(span["properties"].get("round").is_some());
     let continuation = &document["components"]["schemas"]["thinking.Continuation"];
@@ -206,6 +230,6 @@ fn api() {
     let hash = format!("{:x}", Sha256::digest(text.as_bytes()));
     assert_eq!(
         hash,
-        "428434affdabe36e78af41b5203ce6eaac47d3f7546249d1ab2a977ddd61e845"
+        "c87246c63f95e5d4639d027b6c16cc88b2e837bd922c0668a9eca88291b3c5da"
     );
 }

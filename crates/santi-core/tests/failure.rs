@@ -7,6 +7,8 @@ use santi_provider::{Event, Item, Metadata, Provider, Request, Streaming};
 use std::sync::{Arc, Mutex};
 use tokio::time::{Duration, sleep};
 
+#[path = "failure/finish_turn.rs"]
+mod finish_turn;
 #[path = "failure/more.rs"]
 mod more;
 #[path = "failure/recovery.rs"]

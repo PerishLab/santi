@@ -232,7 +232,7 @@ impl Store {
         }
     }
 
-    async fn decode_thinking(&self, row: &keel::Row) -> Result<thinking::Span, String> {
+    pub(crate) async fn decode_thinking(&self, row: &keel::Row) -> Result<thinking::Span, String> {
         let key = row.key().to_string();
         let complete = read::one(&self.core, "ThinkingCompletion", "thinking", &key).await?;
         let failed = read::one(&self.core, "ThinkingFailure", "thinking", &key).await?;
