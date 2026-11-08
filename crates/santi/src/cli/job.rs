@@ -20,6 +20,11 @@ pub enum Job {
         output_limit_bytes: Option<u64>,
         #[arg(long)]
         remind_every_seconds: Option<u64>,
+        #[arg(
+            long,
+            help = "Request one terminal fact in the origin strand inbox after the job finishes (succeeded, failed, timed_out, cancelled or unknown); late work can depend on it"
+        )]
+        notify_on_terminal: bool,
     },
     #[command(about = "List jobs owned by --soul/SANTI_SOUL_ID")]
     List,

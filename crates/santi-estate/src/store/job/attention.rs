@@ -69,6 +69,9 @@ async fn update(
             fields.push(("next_reminder", next));
         }
     }
+    if attention.terminal {
+        fields.push(("terminal_notified", attention.at));
+    }
     tx.set("Job", job.key(), &fields).await?;
     if attention.reminded && attention.next.is_none() && job.text("next_reminder").is_some() {
         tx.unset("Job", job.key(), &["next_reminder"]).await?;

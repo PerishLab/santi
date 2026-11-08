@@ -257,6 +257,9 @@ impl Writer<'_, '_> {
         if let Some(remind) = remind.as_deref() {
             fields.push(("remind_every_seconds", remind));
         }
+        if draft.notify_on_terminal {
+            fields.push(("notify_on_terminal", "true"));
+        }
         self.0.put("Job", &fields).await
     }
 

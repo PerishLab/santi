@@ -2,16 +2,8 @@ use sha2::{Digest, Sha256};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use super::handoff::Handoff;
-use super::*;
+use super::{observe, terminal, *};
 use santi_estate::{JobRecord, Prepared};
-
-#[derive(PartialEq, Eq)]
-struct Status<'a> {
-    state: &'a job::State,
-    reason: Option<&'a str>,
-    exit: Option<i32>,
-    complete: bool,
-}
 
 impl Service {
     pub(crate) async fn permit(
@@ -53,7 +45,10 @@ impl Service {
     pub async fn spawn(&self, capability: &str, draft: Draft) -> Result<job::Accepted, String> {
         let normalized = draft::normalize(draft)?;
         let capability = hex::encode(Sha256::digest(capability.as_bytes()));
-        let (origin, consumed) = self.store.capability(&capability, epoch()?).await?;
+        let (origin, consumed) = self
+            .store
+            .capability(&capability, observe::epoch()?)
+            .await?;
         let environment = if consumed {
             None
         } else {
@@ -86,12 +81,13 @@ impl Service {
                     timeout_seconds: normalized.timeout,
                     output_limit_bytes: normalized.output,
                     remind_every_seconds: normalized.remind,
+                    notify_on_terminal: normalized.notify.is_some(),
                     request_sha256: &normalized.digest,
                     generation: &generation,
                     supervisor_ref: &supervisor,
                     created: &now,
                 },
-                epoch()?,
+                observe::epoch()?,
             )
             .await?;
         let record = match prepared {
@@ -147,10 +143,12 @@ impl Service {
             return Ok(None);
         }
         if record.job.state.terminal() {
+            terminal::report(self, &record).await;
             return Ok(Some(record.job));
         }
         let record = self.refresh(record).await?;
         if record.job.state.terminal() {
+            terminal::report(self, &record).await;
             return Ok(Some(record.job));
         }
         let record = self
@@ -164,7 +162,9 @@ impl Service {
             )
             .await?;
         self.supervisor.stop(&self.launch(&record)?)?;
-        self.refresh(record).await.map(|record| Some(record.job))
+        let record = self.refresh(record).await?;
+        terminal::report(self, &record).await;
+        Ok(Some(record.job))
     }
 
     pub async fn ack(&self, soul: &str, id: &str) -> Result<Option<job::Job>, String> {
@@ -177,13 +177,31 @@ impl Service {
         if record.job.acknowledged.is_some() {
             return Ok(Some(record.job));
         }
-        let record = if record.job.state.terminal() {
+        let mut record = if record.job.state.terminal() {
             record
         } else {
             self.refresh(record).await?
         };
         if !record.job.state.terminal() {
             return Err("only a terminal job can be acknowledged".to_string());
+        }
+        if record.notify_on_terminal && record.terminal_notified.is_none() {
+            if let Err(error) = terminal::finish(self, record.clone()).await {
+                return Err(format!(
+                    "terminal job notification is not yet durably recorded; retry acknowledgement: {error}"
+                ));
+            }
+            record = self
+                .store
+                .job_record(id)
+                .await?
+                .ok_or_else(|| "job not found".to_string())?;
+            if record.terminal_notified.is_none() {
+                return Err(
+                    "terminal job notification is not yet durably recorded; retry acknowledgement"
+                        .to_string(),
+                );
+            }
         }
         self.supervisor.acknowledge(&self.launch(&record)?)?;
         self.store
@@ -192,96 +210,8 @@ impl Service {
             .map(|record| Some(record.job))
     }
 
-    pub(super) async fn refresh(&self, record: JobRecord) -> Result<JobRecord, String> {
-        if record.job.acknowledged.is_some() {
-            return Ok(record);
-        }
-        if self
-            .handoffs
-            .lock()
-            .unwrap()
-            .contains_key(&record.generation)
-        {
-            return Ok(record);
-        }
-        let observation = self.supervisor.observe(&self.launch(&record)?)?;
-        let claimed = matches!(
-            &observation,
-            Observation::Claimed | Observation::Running | Observation::Terminal(_)
-        );
-        let record = if claimed && record.job.state == job::State::Submitting {
-            self.store.accept_job(&record.job.id, &crate::now()).await?
-        } else {
-            record
-        };
-        let transition = match observation {
-            Observation::Claimed => None,
-            Observation::Running => Some((job::State::Running, None, None)),
-            Observation::Terminal(terminal) => {
-                Some((terminal.state, terminal.reason, terminal.exit))
-            }
-            Observation::Aborted => Some((
-                job::State::Failed,
-                Some("submission_aborted".to_string()),
-                None,
-            )),
-            Observation::Missing if record.job.state.terminal() => None,
-            Observation::Missing if record.job.state == job::State::Submitting => Some((
-                job::State::Unknown,
-                Some("submission_unknown".to_string()),
-                None,
-            )),
-            Observation::Missing => Some((
-                job::State::Unknown,
-                Some("sidecar_evidence_missing".to_string()),
-                None,
-            )),
-        };
-        let Some((state, reason, exit)) = transition else {
-            return Ok(record);
-        };
-        let incomplete = state == job::State::Running && record.started_millis.is_none();
-        let current = Status {
-            state: &record.job.state,
-            reason: record.job.reason.as_deref(),
-            exit: record.job.exit_code,
-            complete: !incomplete,
-        };
-        let desired = Status {
-            state: &state,
-            reason: reason.as_deref(),
-            exit,
-            complete: true,
-        };
-        if current == desired {
-            return Ok(record);
-        }
-        self.store
-            .transition_job(
-                &record.job.id,
-                santi_estate::TransitionDraft {
-                    base: Some(&record.job.state),
-                    reason: reason.as_deref(),
-                    exit_code: exit,
-                    started_millis: incomplete.then(epoch).transpose()?,
-                    ..santi_estate::TransitionDraft::new(state, &crate::now())
-                },
-            )
-            .await
-    }
-
     fn detach(&self, record: &JobRecord) -> Result<(), String> {
         self.launch(record)
             .and_then(|launch| self.supervisor.detach(&launch))
     }
-}
-
-fn epoch() -> Result<i64, String> {
-    i64::try_from(
-        SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .map_err(|error| error.to_string())?
-            .as_millis(),
-    )
-    .map_err(|_| "current time is out of range".to_string())
 }

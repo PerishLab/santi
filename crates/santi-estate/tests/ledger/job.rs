@@ -51,6 +51,7 @@ pub(super) async fn job(store: &Store, strand: &str, turn: &str) {
                 timeout_seconds: 30,
                 output_limit_bytes: 1024,
                 remind_every_seconds: None,
+                notify_on_terminal: false,
                 request_sha256: "request_digest",
                 generation: &id("stamp"),
                 supervisor_ref: &id("supervisor"),

@@ -21,6 +21,8 @@ pub(super) struct Normalized {
     pub output: u64,
     #[serde(rename = "remind_every_seconds")]
     pub remind: Option<u64>,
+    #[serde(rename = "notify_on_terminal", skip_serializing_if = "Option::is_none")]
+    pub notify: Option<bool>,
     #[serde(skip)]
     pub digest: String,
 }
@@ -55,6 +57,7 @@ pub(super) fn normalize(draft: Draft) -> Result<Normalized, String> {
         .remind
         .map(|value| bounded("job reminder interval", value, TIMECAP))
         .transpose()?;
+    let notify = draft.notify_on_terminal.then_some(true);
     let mut normalized = Normalized {
         description,
         command,
@@ -62,6 +65,7 @@ pub(super) fn normalize(draft: Draft) -> Result<Normalized, String> {
         timeout,
         output,
         remind,
+        notify,
         digest: String::new(),
     };
     let encoded = serde_json::to_vec(&normalized).map_err(|error| error.to_string())?;
