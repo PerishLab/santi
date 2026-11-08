@@ -63,6 +63,22 @@ pub struct Turn {
     pub finished: Option<Timestamp>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub inference: Option<inference::Effective>,
+    pub finish: Option<Box<Finish>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema, PartialEq, Eq)]
+#[schema(
+    as = turn::Finish,
+    description = "Provider-native facts of the last filed provider round reached from the accepted receipt by its turn; identifies only that round and never states why the turn ended or any business result. Absent while the turn is running or when no round finishing fact was recorded. A present finish with neither status nor incomplete records unknown and never falls back to an earlier round; a truncated round does not itself continue the turn, and this fact never retries or replays a provider request."
+)]
+pub struct Finish {
+    pub span: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub response: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub status: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub incomplete: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]

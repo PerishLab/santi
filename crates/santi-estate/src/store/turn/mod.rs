@@ -213,6 +213,11 @@ impl Store {
             (Some(_), Some(_)) => return Err("turn has conflicting outcomes".to_string()),
         };
         let inference = self.inference(read::text(row, "tag")?).await?;
+        let finish = if outcome.status == turn::Status::Running {
+            None
+        } else {
+            self.finish(read::text(row, "tag")?).await?
+        };
         Ok(turn::Turn {
             id: read::text(row, "tag")?.to_string(),
             strand: read::related(&self.core, "Strand", read::int(row, "strand")?).await?,
@@ -225,7 +230,38 @@ impl Store {
             updated: read::text(row, "updated")?.to_string(),
             finished: outcome.finished,
             inference,
+            finish,
         })
+    }
+
+    async fn finish(&self, turn: &str) -> Result<Option<Box<turn::Finish>>, String> {
+        let turn = read::one(&self.core, "Turn", "tag", turn)
+            .await?
+            .ok_or_else(|| "turn not found".to_string())?;
+        let rows = self
+            .core
+            .ask(
+                &form("ThinkingSpan")
+                    .when("turn", Op::Eq, &turn.key().to_string())
+                    .order("created", Rank::Desc)
+                    .order("tag", Rank::Desc)
+                    .top(1),
+            )
+            .await
+            .map_err(read::error)?;
+        let Some(row) = rows.rows().first() else {
+            return Ok(None);
+        };
+        let span = self.decode_thinking(row).await?;
+        let Some(round) = span.round else {
+            return Ok(None);
+        };
+        Ok(Some(Box::new(turn::Finish {
+            span: span.id,
+            response: span.response,
+            status: round.status,
+            incomplete: round.incomplete,
+        })))
     }
 }
 
