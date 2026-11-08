@@ -46,14 +46,20 @@ async fn reconciles() {
     let mut state = waiting();
     for _ in 0..5 {
         assert_eq!(
-            apply(&mut state, inspect(target, "inbox_test".into()).await),
+            Receipts(target).apply(
+                &mut state,
+                Receipts(target).inspect("inbox_test".into()).await
+            ),
             Step::Stay
         );
         assert!(state.busy && state.unsettled);
         assert_eq!(state.typed, "next draft");
     }
     assert_eq!(
-        apply(&mut state, inspect(target, "inbox_test".into()).await),
+        Receipts(target).apply(
+            &mut state,
+            Receipts(target).inspect("inbox_test".into()).await
+        ),
         Step::Refresh
     );
     assert!(!state.busy && !state.unsettled && state.since.is_none());
@@ -65,9 +71,11 @@ async fn reconciles() {
 
 #[test]
 fn failed() {
+    let client = reqwest::Client::new();
+    let target = Target::tui(&client, "http://localhost:43309", "ss_test");
     let mut state = waiting();
     assert_eq!(
-        apply(&mut state, ("old_receipt".into(), Some(Proof::Completed))),
+        Receipts(target).apply(&mut state, ("old_receipt".into(), Some(Proof::Completed))),
         Step::Stay
     );
     assert!(state.busy && state.unsettled);
@@ -75,7 +83,7 @@ fn failed() {
     assert_eq!(state.struck(Some(Stroke::Enter)), Step::Refresh);
     assert!(state.busy && state.unsettled);
     assert_eq!(
-        apply(&mut state, ("inbox_test".into(), Some(Proof::Failed(None)))),
+        Receipts(target).apply(&mut state, ("inbox_test".into(), Some(Proof::Failed(None)))),
         Step::Refresh
     );
     assert!(!state.busy && !state.unsettled);

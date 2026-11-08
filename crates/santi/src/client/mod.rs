@@ -14,6 +14,7 @@ mod create;
 mod declarations;
 mod jobs;
 mod send;
+pub(crate) use send::guidance;
 mod strand;
 pub mod tui;
 
