@@ -93,3 +93,55 @@ pub struct Log {
     pub eof: bool,
     pub data: String,
 }
+
+#[derive(Debug, Clone, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+#[schema(as = job::QueryRequest)]
+pub struct QueryRequest {
+    #[serde(default)]
+    pub q: Option<String>,
+    #[serde(default)]
+    pub strand: Option<String>,
+    #[serde(default)]
+    pub all_strands: bool,
+    #[serde(default)]
+    pub state: Vec<String>,
+    #[serde(default)]
+    pub limit: Option<usize>,
+    #[serde(default)]
+    pub count: bool,
+}
+
+#[derive(Debug, Clone, Serialize, ToSchema)]
+#[serde(untagged)]
+#[schema(as = job::Query)]
+pub enum Query {
+    Rows(QueryRows),
+    Count(QueryCount),
+}
+
+#[derive(Debug, Clone, Serialize, ToSchema)]
+#[schema(as = job::QueryRows)]
+pub struct QueryRows {
+    pub rows: Vec<Job>,
+}
+
+#[derive(Debug, Clone, Serialize, ToSchema)]
+#[schema(as = job::QueryCount)]
+pub struct QueryCount {
+    pub count: usize,
+}
+
+#[derive(Debug, Clone)]
+pub enum QueryError {
+    Invalid(String),
+    Failed(String),
+}
+
+impl QueryError {
+    pub fn message(&self) -> &str {
+        match self {
+            Self::Invalid(message) | Self::Failed(message) => message,
+        }
+    }
+}

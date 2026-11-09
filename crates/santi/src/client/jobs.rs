@@ -3,7 +3,9 @@ use std::time::Duration;
 use anyhow::{Context, Result, bail};
 use serde_json::Value;
 
+use super::http::Http;
 use super::tui::{Identity, Request};
+use crate::cli::{ClientDefaults, Job};
 
 const KEPT: usize = 24;
 const LIMIT: usize = 4096;
@@ -205,4 +207,71 @@ fn safe(text: &str, limit: usize) -> String {
         .filter(|held| !held.is_control() || matches!(held, '\n' | '\t'))
         .take(limit)
         .collect()
+}
+
+pub(super) struct Query<'a, 'b> {
+    pub http: &'a Http<'b>,
+    pub base: &'a str,
+    pub defaults: &'a ClientDefaults,
+    pub explicit: bool,
+}
+
+pub(super) async fn query(query: Query<'_, '_>, command: Job) -> Result<()> {
+    let Query {
+        http,
+        base,
+        defaults,
+        explicit,
+    } = query;
+    let Job::Query {
+        all_strands,
+        state,
+        limit,
+        count,
+    } = command
+    else {
+        bail!("expected job query command");
+    };
+    if count && limit.is_some() {
+        bail!("--limit and --count cannot be combined");
+    }
+    let strand = if all_strands {
+        if explicit {
+            bail!("--strand conflicts with --all-strands");
+        }
+        None
+    } else {
+        match defaults.strand.as_deref().map(str::trim) {
+            Some(strand) if !strand.is_empty() => Some(strand.to_string()),
+            Some(_) => bail!("SANTI_STRAND_ID is empty; pass --strand or --all-strands"),
+            None => bail!("no strand context: pass --strand or --all-strands"),
+        }
+    };
+    let mut body = serde_json::json!({
+        "all_strands": strand.is_none(),
+        "state": state,
+        "count": count,
+    });
+    if let Some(strand) = &strand {
+        body["strand"] = serde_json::json!(strand);
+    }
+    if let Some(limit) = limit {
+        body["limit"] = serde_json::json!(limit);
+    }
+    http.owner(&format!("{base}/api/v1/query"), defaults.require()?, body)
+        .await
+}
+
+pub(super) async fn raw(
+    http: &Http<'_>,
+    base: &str,
+    defaults: &ClientDefaults,
+    dsl: String,
+) -> Result<()> {
+    http.owner(
+        &format!("{base}/api/v1/query"),
+        defaults.require()?,
+        serde_json::json!({ "q": dsl }),
+    )
+    .await
 }

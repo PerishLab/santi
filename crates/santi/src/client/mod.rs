@@ -4,9 +4,7 @@ use std::time::Duration;
 use anyhow::{Context, Result};
 use futures_util::StreamExt;
 
-use crate::cli::{
-    ClientDefaults, Command, CompactCommand, EffectCommand, Job, Turn, WatchFormat, Webhook,
-};
+use crate::cli::{ClientDefaults, Command, EffectCommand, Job, Turn, WatchFormat, Webhook};
 use crate::text::source::read_summary_file;
 use crate::watch::{next_sse_frame, render_watch_event};
 
@@ -38,13 +36,21 @@ struct Capsule<'a> {
     soul: Option<&'a str>,
 }
 
+pub(crate) struct Run<'a> {
+    pub base_url: &'a str,
+    pub bearer: Option<&'a str>,
+    pub defaults: &'a ClientDefaults,
+    pub explicit: bool,
+}
+
 #[locus::trace(with = plumb::observation::view())]
-pub(crate) async fn run(
-    base_url: &str,
-    bearer: Option<&str>,
-    defaults: &ClientDefaults,
-    command: Command,
-) -> Result<()> {
+pub(crate) async fn run(run: Run<'_>, command: Command) -> Result<()> {
+    let Run {
+        base_url,
+        bearer,
+        defaults,
+        explicit,
+    } = run;
     let client = build_client(bearer)?;
     let http = Http { client: &client };
     let base = base_url.trim_end_matches('/').to_string();
@@ -110,82 +116,8 @@ pub(crate) async fn run(
         Command::Inference(command) => {
             declarations::inference::run(&http, &base, defaults, command).await
         }
-        Command::Compact(CompactCommand::Exec {
-            first,
-            last,
-            summary,
-            summary_file,
-            absorb,
-        }) => {
-            let strand = defaults.resolve_strand(None)?;
-            let summary = match summary_file {
-                Some(path) => read_summary_file(&path)?,
-                None => summary.expect("clap requires summary or summary_file"),
-            };
-            let mut body = serde_json::json!({ "summary": summary });
-            if !absorb.is_empty() {
-                body["absorb"] = serde_json::Value::from(absorb);
-            }
-            if let (Some(first), Some(last)) = (first, last) {
-                body["first"] = serde_json::Value::from(first);
-                body["last"] = serde_json::Value::from(last);
-            }
-            if let Some(soul) = defaults.soul() {
-                body["soul"] = serde_json::Value::from(soul);
-            }
-            http.post(
-                &format!("{base}/api/v1/strands/{strand}/compact"),
-                Some(body),
-            )
-            .await
-        }
-        Command::Compact(CompactCommand::Capsule {
-            first,
-            last,
-            from,
-            to,
-            summary,
-            summary_file,
-            source,
-            reason,
-            risk,
-            queryability,
-            dry,
-        }) => {
-            let body = compact_capsule_body(Capsule {
-                first,
-                last,
-                from,
-                to,
-                summary,
-                file: summary_file,
-                source,
-                reason,
-                risk,
-                queryability,
-                preview: dry,
-                soul: defaults.soul(),
-            })?;
-            let strand = defaults.resolve_strand(None)?;
-            http.post(
-                &format!("{base}/api/v1/strands/{strand}/compact"),
-                Some(body),
-            )
-            .await
-        }
-        Command::Compact(CompactCommand::Query {
-            compact,
-            keyword,
-            page_index,
-            page_size,
-        }) => {
-            let mut url = format!(
-                "{base}/api/v1/compacts/{compact}?page_index={page_index}&page_size={page_size}"
-            );
-            if let Some(keyword) = keyword.filter(|k| !k.is_empty()) {
-                url.push_str(&format!("&keyword={}", urlencoding_encode(&keyword)));
-            }
-            http.get(&url).await
+        Command::Compact(command) => {
+            declarations::compact::run(&http, &base, defaults, command).await
         }
         Command::Job(Job::Create {
             description,
@@ -213,6 +145,19 @@ pub(crate) async fn run(
                     "remind_every_seconds": remind_every_seconds,
                     "notify_on_terminal": notify_on_terminal,
                 }),
+            )
+            .await
+        }
+        Command::Query { dsl } => jobs::raw(&http, &base, defaults, dsl).await,
+        Command::Job(command @ Job::Query { .. }) => {
+            jobs::query(
+                jobs::Query {
+                    http: &http,
+                    base: &base,
+                    defaults,
+                    explicit,
+                },
+                command,
             )
             .await
         }

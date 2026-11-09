@@ -47,6 +47,12 @@ include = ["crates/**/*.rs"]
 
 [vocabulary]
 term = [
+  { name = "QueryRequest", description = "Public Santi Job query request atom shared by the HTTP boundary and clients." },
+  { name = "QueryRows", description = "Public Santi bounded Job query row page atom." },
+  { name = "QueryCount", description = "Public Santi independent Job query count atom." },
+  { name = "QueryError", description = "Public Santi Job query failure classification atom." },
+  { name = "all_strands", description = "Public Santi Job query field selecting every soul-visible strand." },
+  { name = "job_query", description = "Santi estate and core operation serving bounded Job queries." },
   { name = "drive_strand_handler", description = "Public Santi API re-export of the HTTP Strand drive handler." },
   { name = "effect_status_handler", description = "Public Santi API re-export of the HTTP Effect status handler." },
   { name = "end_strand_handler", description = "Public Santi API re-export of the guarded Strand retirement handler." },

@@ -47,6 +47,15 @@ same transaction that ends the strand. Files follow the commit with best-effort
 cleanup and startup sweep recovery; physical collection follows Keel retention.
 Issue [#251](https://github.com/PerishLab/santi/issues/251) records the contract.
 
+`santi query` and the structured `santi job query` shortcut are bounded,
+read-only Job reads. Native Keel keeps `tag` as the public Job id and deliberately
+does not add an `id` alias. A native query must declare `limit` or `count`; the
+structured shortcut defaults to 20 rows. `--count` is the independent count of all
+matching Jobs within the selected scope and filters, not a truncated page. `--all-strands` overrides `SANTI_STRAND_ID`; only an
+explicit `--strand` with `--all-strands` conflicts. These reads never refresh
+process state and leave `santi job list` / `GET /api/v1/jobs` unchanged. Issue
+[#401](https://github.com/PerishLab/santi/issues/401) records the contract.
+
 Incident lists page retained active and resolved records by first-seen time and
 ID descending. Use the last returned ID as `before` to continue; new arrivals
 appear on a fresh first page. Exact incident inspection includes the persisted

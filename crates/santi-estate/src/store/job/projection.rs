@@ -110,7 +110,7 @@ impl<'a> Projection<'a> {
             .collect()
     }
 
-    async fn decode(&self, row: &keel::Row) -> Result<JobRecord, String> {
+    pub(super) async fn decode(&self, row: &keel::Row) -> Result<JobRecord, String> {
         let strand = self.related("Strand", read::int(row, "strand")?).await?;
         let soul = read::related(&self.0.core, "Soul", read::int(&strand, "soul")?).await?;
         let strand_tag = read::text(&strand, "tag")?.to_string();

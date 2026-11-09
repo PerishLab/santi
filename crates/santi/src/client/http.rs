@@ -82,78 +82,66 @@ pub(super) struct Http<'a> {
 }
 
 impl Http<'_> {
-    #[locus::trace(with = plumb::observation::view())]
-    pub(super) async fn get(&self, url: &str) -> Result<()> {
-        let response = self
-            .client
-            .get(url)
+    async fn send(&self, request: reqwest::RequestBuilder, label: String) -> Result<()> {
+        let response = request
             .timeout(TIMEOUT)
             .send()
             .await
-            .with_context(|| format!("GET {url}"))?;
+            .with_context(|| label)?;
         print_json(response).await
+    }
+
+    #[locus::trace(with = plumb::observation::view())]
+    pub(super) async fn get(&self, url: &str) -> Result<()> {
+        self.send(self.client.get(url), format!("GET {url}")).await
     }
 
     #[locus::trace(with = plumb::observation::view())]
     pub(super) async fn post(&self, url: &str, body: Option<serde_json::Value>) -> Result<()> {
-        let mut request = self.client.post(url).timeout(TIMEOUT);
+        let mut request = self.client.post(url);
         if let Some(body) = body {
             request = request.json(&body);
         }
-        let response = request
-            .send()
-            .await
-            .with_context(|| format!("POST {url}"))?;
-        print_json(response).await
+        self.send(request, format!("POST {url}")).await
     }
 
     #[locus::trace(with = plumb::observation::view())]
     pub(super) async fn patch(&self, url: &str, body: serde_json::Value) -> Result<()> {
-        let response = self
-            .client
-            .patch(url)
-            .json(&body)
-            .timeout(TIMEOUT)
-            .send()
+        self.send(self.client.patch(url).json(&body), format!("PATCH {url}"))
             .await
-            .with_context(|| format!("PATCH {url}"))?;
-        print_json(response).await
     }
 
     #[locus::trace(with = plumb::observation::view())]
     pub(super) async fn delete(&self, url: &str) -> Result<()> {
-        let response = self
-            .client
-            .delete(url)
-            .timeout(TIMEOUT)
-            .send()
+        self.send(self.client.delete(url), format!("DELETE {url}"))
             .await
-            .with_context(|| format!("DELETE {url}"))?;
-        print_json(response).await
     }
 
     pub(super) async fn owned(&self, url: &str, soul: &str) -> Result<()> {
-        let response = self
-            .client
-            .get(url)
-            .header("x-santi-soul-id", soul)
-            .timeout(TIMEOUT)
-            .send()
-            .await
-            .with_context(|| format!("GET {url}"))?;
-        print_json(response).await
+        self.send(
+            self.client.get(url).header("x-santi-soul-id", soul),
+            format!("GET {url}"),
+        )
+        .await
+    }
+
+    pub(super) async fn owner(&self, url: &str, soul: &str, body: serde_json::Value) -> Result<()> {
+        self.send(
+            self.client
+                .post(url)
+                .header("x-santi-soul-id", soul)
+                .json(&body),
+            format!("POST {url}"),
+        )
+        .await
     }
 
     pub(super) async fn act(&self, url: &str, soul: &str) -> Result<()> {
-        let response = self
-            .client
-            .post(url)
-            .header("x-santi-soul-id", soul)
-            .timeout(TIMEOUT)
-            .send()
-            .await
-            .with_context(|| format!("POST {url}"))?;
-        print_json(response).await
+        self.send(
+            self.client.post(url).header("x-santi-soul-id", soul),
+            format!("POST {url}"),
+        )
+        .await
     }
 
     pub(super) async fn spawn(

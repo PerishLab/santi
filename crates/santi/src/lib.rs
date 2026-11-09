@@ -230,19 +230,16 @@ pub mod watch;
 #[cfg(feature = "client")]
 use anyhow::Result;
 #[cfg(feature = "client")]
-use clap::Parser;
-
-#[cfg(feature = "client")]
 use auth::{Credentials, resolve_edge_bearer};
 #[cfg(feature = "client")]
-use cli::{BASE, Cli, ClientDefaults, Command, Inference, Scope, StrandCommand};
+use cli::{BASE, Cli, ClientDefaults, Command};
 #[cfg(feature = "client")]
 use config::ClientPartial;
 #[cfg(feature = "client")]
 pub async fn run() -> Result<()> {
-    let cli = Cli::parse();
+    let (cli, explicit) = crate::cli::parse()?;
     let observation = observation::start(&cli.command);
-    let result = execute(cli).await;
+    let result = execute(cli, explicit).await;
     if let Some(observation) = observation {
         observation.finish(if result.is_ok() { 0 } else { 1 });
     }
@@ -251,7 +248,7 @@ pub async fn run() -> Result<()> {
 
 #[cfg(feature = "client")]
 #[locus::trace(with = plumb::observation::view())]
-async fn execute(cli: Cli) -> Result<()> {
+async fn execute(cli: Cli, explicit: bool) -> Result<()> {
     let Cli {
         base_url,
         api_key,
@@ -267,13 +264,7 @@ async fn execute(cli: Cli) -> Result<()> {
     if let Command::Skill(deed) = command {
         return cli::skill::run(deed);
     }
-    let stated = match &command {
-        Command::Inference(Inference::Soul(Scope::Set(edit)))
-        | Command::Inference(Inference::Strand(Scope::Set(edit))) => edit.declaration(),
-        Command::Strand(StrandCommand::Create(delta))
-        | Command::Strand(StrandCommand::Fork { delta, .. }) => delta.declaration(),
-        _ => inference::Declaration::default(),
-    };
+    let stated = cli::declaration(&command);
     let client = config::client(ClientPartial {
         base_url: base_url.map(Some),
         api_key: api_key.map(Some),
@@ -296,5 +287,14 @@ async fn execute(cli: Cli) -> Result<()> {
     })
     .await?;
     let base = client.base_url.unwrap_or_else(|| BASE.to_owned());
-    client::run(&base, bearer.as_deref(), &defaults, command).await
+    client::run(
+        client::Run {
+            base_url: &base,
+            bearer: bearer.as_deref(),
+            defaults: &defaults,
+            explicit,
+        },
+        command,
+    )
+    .await
 }

@@ -11,6 +11,7 @@ use super::*;
 
 mod fixture;
 mod notification;
+mod query;
 mod race;
 mod recovery;
 

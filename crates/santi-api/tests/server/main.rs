@@ -59,6 +59,26 @@ impl Provider for DriverProvider {
 }
 
 mod openapi {
+    fn refs(value: &serde_json::Value, root: &serde_json::Value) {
+        if let Some(reference) = value.get("$ref").and_then(|reference| reference.as_str()) {
+            let pointer = reference.strip_prefix('#').expect("local ref");
+            assert!(root.pointer(pointer).is_some(), "dangling ref {reference}");
+        }
+        match value {
+            serde_json::Value::Object(fields) => {
+                for field in fields.values() {
+                    refs(field, root);
+                }
+            }
+            serde_json::Value::Array(items) => {
+                for item in items {
+                    refs(item, root);
+                }
+            }
+            _ => {}
+        }
+    }
+
     #[test]
     fn lists() {
         let document = santi_api::export_openapi_json().expect("export openapi");
@@ -76,6 +96,15 @@ mod openapi {
         assert!(document.contains("/api/v1/effects/{effect}/resolve"));
         assert!(document.contains("/api/v1/effects/{effect}/trace"));
         assert!(document.contains("/api/v1/jobs/{job}/logs"));
+        assert!(document.contains("/api/v1/query"));
+        assert!(document.contains("job.Query"));
+        assert!(document.contains("job.QueryRequest"));
+        let root: serde_json::Value = serde_json::from_str(&document).expect("openapi json");
+        let query = root
+            .pointer("/paths/~1api~1v1~1query/post/responses/200/content/application~1json/schema")
+            .expect("query 200 schema");
+        assert!(query.get("$ref").is_some(), "{query}");
+        refs(&root, &root);
         assert!(document.contains("job.Accepted"));
         assert!(document.contains("trace.Record"));
         assert!(document.contains("ingest.Receipt"));

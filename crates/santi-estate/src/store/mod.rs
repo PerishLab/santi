@@ -141,6 +141,40 @@ impl Store {
         Ok(strands)
     }
 
+    pub async fn keys(&self, soul: &str) -> Result<Vec<String>, String> {
+        let Some(soul) = read::one(&self.core, "Soul", "tag", soul).await? else {
+            return Ok(Vec::new());
+        };
+        let soul_key = soul.key().to_string();
+        let rows = self
+            .core
+            .ask(&keel::form("Strand").when("soul", keel::Op::Eq, &soul_key))
+            .await
+            .map_err(read::error)?;
+        Ok(rows
+            .rows()
+            .iter()
+            .map(|row| row.key().to_string())
+            .collect())
+    }
+
+    pub async fn strand_key(&self, soul: &str, tag: &str) -> Result<Option<String>, String> {
+        let Some(soul) = read::one(&self.core, "Soul", "tag", soul).await? else {
+            return Ok(None);
+        };
+        let soul_key = soul.key().to_string();
+        let rows = self
+            .core
+            .ask(&keel::form("Strand").when("tag", keel::Op::Eq, tag).when(
+                "soul",
+                keel::Op::Eq,
+                &soul_key,
+            ))
+            .await
+            .map_err(read::error)?;
+        Ok(rows.rows().first().map(|row| row.key().to_string()))
+    }
+
     pub async fn labeled(
         &self,
         soul: &str,

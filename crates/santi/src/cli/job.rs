@@ -28,6 +28,35 @@ pub enum Job {
     },
     #[command(about = "List jobs owned by --soul/SANTI_SOUL_ID")]
     List,
+    #[command(
+        about = "Query soul-visible jobs with bounded rows or an independent count",
+        long_about = "Query soul-visible jobs with bounded rows or an independent count. Examples: santi job query --strand ss_x --state running --limit 20; santi job query --all-strands --count; santi query 'from Job where tag = \"job_...\" limit 5'. The public job id is the Job tag."
+    )]
+    Query {
+        #[arg(
+            long,
+            help = "Query every strand visible to --soul/SANTI_SOUL_ID; overrides SANTI_STRAND_ID"
+        )]
+        all_strands: bool,
+        #[arg(
+            long,
+            value_name = "STATE",
+            action = clap::ArgAction::Append,
+            help = "Repeatable job state filter"
+        )]
+        state: Vec<String>,
+        #[arg(
+            long,
+            value_name = "N",
+            help = "Maximum rows, 1..=200; default 20; mutually exclusive with --count"
+        )]
+        limit: Option<usize>,
+        #[arg(
+            long,
+            help = "Return the independent total count instead of a bounded row page"
+        )]
+        count: bool,
+    },
     #[command(about = "Get one soul-owned job")]
     Get { id: String },
     #[command(about = "Cancel one soul-owned job and its process tree")]

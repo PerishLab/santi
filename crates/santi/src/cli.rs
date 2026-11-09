@@ -108,6 +108,16 @@ pub enum Command {
     #[command(about = "Query one durable accepted-message obligation by inbox receipt id")]
     Receipt { inbox: String },
     #[command(
+        about = "Run a read-only Keel query over soul-visible Jobs through POST /api/v1/query",
+        long_about = "Run a bounded read-only Keel query over soul-visible Jobs. The public job id is the Job tag, so native field examples are: santi query 'from Job where tag = \"job_...\" limit 5'; santi query 'from Job where state = \"running\" order by created desc, tag desc limit 20'; santi query 'from Job count'. Use tag rather than an id alias."
+    )]
+    Query {
+        #[arg(
+            help = "Keel query text, for example: from Job where state = \"running\" order by created desc, tag desc limit 20"
+        )]
+        dsl: String,
+    },
+    #[command(
         about = "Inspect or take over one receipt reply window; never infer the most recent input"
     )]
     Reply(reply::Reply),
@@ -272,7 +282,6 @@ pub enum WatchFormat {
     )]
     Raw,
 }
-
 pub mod alarm;
 mod compact;
 mod defaults;

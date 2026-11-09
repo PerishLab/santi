@@ -113,6 +113,7 @@ pub(super) fn router(service: Service) -> Router {
         .route("/api/v1/jobs/{job}/cancel", super::jobs::cancel())
         .route("/api/v1/jobs/{job}/logs", super::jobs::logs())
         .route("/api/v1/jobs/{job}/ack", super::jobs::acknowledge())
+        .route("/api/v1/query", post(super::jobs::query::query()))
         .route(
             "/api/v1/strands/{strand}",
             get_strand().merge(routing::delete(end_strand)),

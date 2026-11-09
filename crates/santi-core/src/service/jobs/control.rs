@@ -119,6 +119,14 @@ impl Service {
         self.refresh(record).await.map(|record| Some(record.job))
     }
 
+    pub async fn job_query(
+        &self,
+        soul: &str,
+        request: job::QueryRequest,
+    ) -> Result<job::Query, job::QueryError> {
+        self.store.job_query(soul, request).await
+    }
+
     pub async fn jobs(&self, soul: &str) -> Result<Vec<job::Job>, String> {
         let active = self.store.active_jobs().await?;
         for record in active

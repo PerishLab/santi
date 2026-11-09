@@ -23,6 +23,7 @@ fn name(command: &crate::cli::Command) -> &'static str {
         Command::Errors { .. } => "errors",
         Command::Incident { .. } => "incident",
         Command::Receipt { .. } => "receipt",
+        Command::Query { .. } => "query",
         Command::Reply(_) => "reply",
         Command::Effect(_) => "effect",
         Command::Strand(_) => "strand",
