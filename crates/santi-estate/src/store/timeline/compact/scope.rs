@@ -1,9 +1,12 @@
+use super::thread::{self, Thread};
 use keel::adapt::{Error, db::Sqlite};
 use keel::{Op, Tx, form};
+use santi_model::compact;
 
 pub(super) struct Scope {
     pub(super) spans: Vec<Span>,
     pub(super) messages: Vec<Boundary>,
+    pub(super) thread: Thread,
 }
 
 #[derive(Clone)]
@@ -71,7 +74,12 @@ pub(super) async fn load(tx: &mut Tx<'_, Sqlite>, strand: &str) -> Result<Scope,
         .filter(|span| !covered(span, &spans))
         .cloned()
         .collect();
-    Ok(Scope { spans, messages })
+    let thread = thread::load(tx, strand).await?;
+    Ok(Scope {
+        spans,
+        messages,
+        thread,
+    })
 }
 
 pub(super) fn eligible(message: &keel::Row) -> bool {
@@ -101,4 +109,53 @@ fn text<'a>(row: &'a keel::Row, field: &str) -> Result<&'a str, Error> {
 fn number(row: &keel::Row, field: &str) -> Result<i64, Error> {
     row.int(field)
         .ok_or_else(|| Error::Adapt(format!("compact {field} missing")))
+}
+
+impl Scope {
+    pub(super) fn window(&self, candidates: &[i64]) -> Option<(i64, i64)> {
+        for start in candidates {
+            if let Some(range) = self.narrowed(*start, candidates) {
+                return Some(range);
+            }
+        }
+        None
+    }
+
+    fn narrowed(&self, start: i64, candidates: &[i64]) -> Option<(i64, i64)> {
+        let holes = self.thread.holes(start)?;
+        let mut end = *candidates.last()?;
+        while let Some(low) = covering(&holes, end) {
+            let previous = candidates.iter().rfind(|seat| **seat < low)?;
+            if *previous < start {
+                return None;
+            }
+            end = *previous;
+        }
+        Some((start, end))
+    }
+
+    pub(super) fn checked(&self, range: &compact::Range) -> Result<(), String> {
+        let first = self
+            .messages
+            .iter()
+            .find(|message| message.tag == range.first);
+        let last = self
+            .messages
+            .iter()
+            .find(|message| message.tag == range.last);
+        match (first, last) {
+            (Some(first), Some(last)) => match self.thread.split(first.sequence, last.sequence) {
+                Some(reason) => Err(reason),
+                None => Ok(()),
+            },
+            _ => Ok(()),
+        }
+    }
+}
+
+fn covering(holes: &[(i64, i64)], end: i64) -> Option<i64> {
+    holes
+        .iter()
+        .find(|(low, high)| *low <= end && end <= *high)
+        .map(|(low, _)| *low)
 }
