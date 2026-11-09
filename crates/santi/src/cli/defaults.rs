@@ -1,5 +1,7 @@
+use super::{Command, Inference, Scope, StrandCommand};
 use crate::inference::Declaration;
 use anyhow::Result;
+use clap::{CommandFactory, FromArgMatches, parser::ValueSource};
 
 pub struct ClientDefaults {
     pub strand: Option<String>,
@@ -46,5 +48,25 @@ pub fn split_send_args(
             Ok((defaults.resolve_strand(None)?, text))
         }
         _ => anyhow::bail!("send takes `<id> <text>` or `<text>`"),
+    }
+}
+
+pub fn parse() -> std::result::Result<(super::Cli, bool), clap::Error> {
+    let matches = super::Cli::command().get_matches();
+    let explicit = matches.value_source("strand") == Some(ValueSource::CommandLine)
+        || matches
+            .subcommand()
+            .is_some_and(|(_, sub)| sub.value_source("strand") == Some(ValueSource::CommandLine));
+    let cli = super::Cli::from_arg_matches(&matches)?;
+    Ok((cli, explicit))
+}
+
+pub fn declaration(command: &Command) -> Declaration {
+    match command {
+        Command::Inference(Inference::Soul(Scope::Set(edit)))
+        | Command::Inference(Inference::Strand(Scope::Set(edit))) => edit.declaration(),
+        Command::Strand(StrandCommand::Create(delta))
+        | Command::Strand(StrandCommand::Fork { delta, .. }) => delta.declaration(),
+        _ => Declaration::default(),
     }
 }

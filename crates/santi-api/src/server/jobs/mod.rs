@@ -11,6 +11,8 @@ use santi_core::{
 
 use super::ApiError;
 
+pub(super) mod query;
+
 const CAPABILITY: &str = "x-santi-job-capability";
 const SOUL: &str = "x-santi-soul-id";
 

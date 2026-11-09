@@ -4,6 +4,7 @@ use santi_model::job;
 
 mod attention;
 mod projection;
+mod query;
 mod types;
 mod write;
 

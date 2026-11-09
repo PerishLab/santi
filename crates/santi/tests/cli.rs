@@ -181,3 +181,6 @@ mod inference;
 
 #[path = "cli/skill.rs"]
 mod skill;
+
+#[path = "cli/query.rs"]
+mod query;
