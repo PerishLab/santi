@@ -31,7 +31,7 @@ pub(super) fn refused(gauge: &Gauge) -> bool {
 }
 
 pub(super) fn banded(gauge: &Gauge) -> Band {
-    if gauge.held > gauge.slots {
+    if gauge.slots > 0 && gauge.held >= gauge.slots {
         return Band::Slots;
     }
     let Some(ceiling) = gauge.ceiling.filter(|ceiling| *ceiling > 0) else {

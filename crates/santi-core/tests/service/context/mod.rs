@@ -10,7 +10,7 @@ mod switch;
 mod maintenance;
 #[path = "../../execution/pause/mod.rs"]
 mod pause;
-#[path = "../remind.rs"]
+#[path = "../remind/mod.rs"]
 mod remind;
 use super::support::*;
 use santi_core::service::{self, Service};

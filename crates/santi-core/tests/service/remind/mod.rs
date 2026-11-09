@@ -296,3 +296,4 @@ async fn unbudgeted() {
     assert_eq!(slots.settled, 0);
     assert_eq!(slots.allowance, 90_000);
 }
+mod slots;

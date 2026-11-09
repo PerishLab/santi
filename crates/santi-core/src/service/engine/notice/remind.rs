@@ -6,7 +6,7 @@ use super::{Band, Observed, REFERENCE};
 fn urged(band: Band) -> &'static str {
     match band {
         Band::Slots => {
-            "Every compact slot is occupied. Merge two or more contiguous occupied Compact IDs into one summary to free a slot. Compact projection headers identify the slots and their covered Message IDs."
+            "Every compact slot is occupied. Merge two or more contiguous occupied Compact IDs into one summary to free a slot with `santi compact exec`; compact projection headers identify the slots and their covered Message IDs."
         }
         Band::Hard => {
             "Little headroom remains before ordinary tools are withheld for context maintenance. Compact settled context through `santi compact exec` while shell is available."
