@@ -34,7 +34,10 @@ async fn exercise(dry: bool, capsule: bool) {
         )
         .await
         .expect_err("a compact cannot orphan retained tool calls");
-    assert!(refused.contains("continuation"), "{refused}");
+    assert!(
+        refused.contains("compact.exchange") || refused.contains("compact.anchor"),
+        "{refused}"
+    );
     assert!(store.compacts(&strand.id).await.unwrap().is_empty());
 
     let report = service

@@ -5,8 +5,11 @@ use santi_model::compact;
 mod admit;
 mod page;
 mod plan;
+mod rule;
+mod scan;
 mod scope;
 mod selection;
+mod thread;
 
 #[derive(Clone, Copy)]
 pub struct Limits {

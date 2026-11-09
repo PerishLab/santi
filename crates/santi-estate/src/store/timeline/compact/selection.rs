@@ -33,6 +33,7 @@ impl Scope {
                 Some((from, to)) => self.resolve(from, to)?,
                 None => self.settled()?,
             };
+            self.checked(&range)?;
             return Ok(compact::Choice {
                 range,
                 requested: None,
@@ -42,6 +43,7 @@ impl Scope {
             return Err(self.reversed(first, last, &slots));
         }
         let range = self.reach(first, last, &slots)?;
+        self.checked(&range)?;
         let requested = compact::Range {
             first: first.tag.clone(),
             last: last.tag.clone(),
@@ -84,8 +86,10 @@ impl Scope {
 
     fn reversed(&self, first: &Boundary, last: &Boundary, slots: &[&Span]) -> String {
         let swapped = match self.reach(last, first, slots) {
-            Ok(range) => format!("; ready to submit: {}", argued(&range)),
-            Err(_) => String::new(),
+            Ok(range) if self.checked(&range).is_ok() => {
+                format!("; ready to submit: {}", argued(&range))
+            }
+            _ => String::new(),
         };
         format!(
             "[compact.order] compact first {} (sequence {}) comes after last {} (sequence {}){swapped}",
@@ -103,18 +107,28 @@ impl Scope {
             .map(|span| format!("{} (covering {} to {})", span.compact, span.head, span.tail))
             .collect::<Vec<_>>()
             .join(", ");
-        let mut forward = vec![format!(
-            "{} (encloses and absorbs the slot)",
-            argued(&self.enclosed(from, to))
-        )];
-        if let Some(range) = self.excluded(from, to) {
+        let mut forward = Vec::new();
+        let enclosed = self.enclosed(from, to);
+        if self.checked(&enclosed).is_ok() {
+            forward.push(format!(
+                "{} (encloses and absorbs the slot)",
+                argued(&enclosed)
+            ));
+        }
+        if let Some(range) = self.excluded(from, to)
+            && self.checked(&range).is_ok()
+        {
             forward.push(format!("{} (leaves the slot out)", argued(&range)));
         }
+        let ready = if forward.is_empty() {
+            "No enclosing or excluding range passes the same checks, so choose eligible message boundaries that enclose the slot entirely or leave it out".to_string()
+        } else {
+            format!("Ready to submit: {}", forward.join("; or "))
+        };
         Err(format!(
-            "[compact.overlap] compact range {} to {} partially overlaps occupied slot {slots}; a range must enclose a slot or leave it out. Ready to submit: {}",
+            "[compact.overlap] compact range {} to {} partially overlaps occupied slot {slots}; a range must enclose a slot or leave it out. {ready}",
             self.tag(from),
-            self.tag(to),
-            forward.join("; or ")
+            self.tag(to)
         ))
     }
 
@@ -194,13 +208,15 @@ impl Scope {
             .split_last()
             .map(|(_, settled)| settled)
             .unwrap_or_default();
-        settled
-            .first()
-            .zip(settled.last())
-            .and_then(|(first, last)| self.inward(first.sequence, last.sequence))
+        let candidates = settled
+            .iter()
+            .filter(|message| message.fixed)
+            .map(|message| message.sequence)
+            .collect::<Vec<_>>();
+        self.window(&candidates)
             .map(|(from, to)| self.range(from, to))
             .ok_or_else(|| format!(
-                "[compact.settled] compact has no settled range to collapse: no eligible boundary lies after sequence {floor} outside the live exchange, and the most recent message is always kept out of a default range; name first/last or absorb occupied slots to choose a range yourself"
+                "[compact.settled] compact has no settled range to collapse: no eligible boundary lies after sequence {floor} outside the live exchange and outside every recorded tool exchange, and the most recent message is always kept out of a default range; name first/last or absorb occupied slots to choose a range yourself"
             ))
     }
 

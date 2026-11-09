@@ -80,13 +80,17 @@ pub(super) async fn build(
     first: &str,
     last: &str,
 ) -> Result<Plan, keel::adapt::Error> {
-    let strand = Reader(tx).need("Strand", strand).await?;
+    let tag = strand;
+    let strand = Reader(tx).need("Strand", tag).await?;
     let (first_row, from) = boundary(tx, strand.key(), first, "from").await?;
     let (last_row, to) = boundary(tx, strand.key(), last, "to").await?;
     if from > to {
         return Err(keel::adapt::Error::Adapt(
             "[compact.order] compact from must not be after to".into(),
         ));
+    }
+    if let Some(reason) = super::thread::load(tx, tag).await?.split(from, to) {
+        return Err(keel::adapt::Error::Adapt(reason));
     }
     let mut absorbed = Vec::new();
     let rows = tx
