@@ -62,3 +62,30 @@ pub async fn stop(
         .map(Json)
         .ok_or_else(|| ApiError::not_found("turn not found"))
 }
+
+#[utoipa::path(
+    get,
+    path = "/api/v1/turns/{turn}",
+    params(("turn" = String, Path)),
+    responses(
+        (status = 200, body = turn::Turn),
+        (status = 404, body = Fault),
+        (status = 500, body = Fault)
+    )
+)]
+pub async fn show(
+    State(service): State<Service>,
+    Path(turn): Path<String>,
+) -> Result<Json<turn::Turn>, ApiError> {
+    service
+        .turn(&turn)
+        .await
+        .map_err(ApiError::from_service)?
+        .map(Json)
+        .ok_or_else(|| ApiError::not_found("turn not found"))
+}
+
+#[cfg(test)]
+mod support;
+#[cfg(test)]
+mod tests;

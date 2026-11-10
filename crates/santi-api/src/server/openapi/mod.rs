@@ -87,6 +87,7 @@ use santi_core::{material, soul, strand, stream};
         super::routes::snapshot,
         super::routes::execution_tail,
         super::routes::turn_events,
+        super::routes::show,
         super::routes::stop,
         super::routes::enroll,
         super::routes::downstreams,

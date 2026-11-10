@@ -7,7 +7,7 @@ mod tests;
 use super::*;
 use crate::Ruled;
 use crate::{Incident, now, soul::Soul, strand::Strand, tag};
-use crate::{budget, effect, ingest, receipt, soul, strand, stream, webhook};
+use crate::{budget, effect, ingest, receipt, soul, strand, stream, turn, webhook};
 
 pub enum Admission {
     Accepted(ingest::Outcome),
@@ -34,6 +34,10 @@ impl Service {
         let memory = request.memory.as_deref().unwrap_or_default();
         super::publication::publish(&self.runtime(), &soul, memory.as_bytes())?;
         self.store.create_soul(&soul, &now(), inference).await
+    }
+
+    pub async fn turn(&self, turn: &str) -> Result<Option<turn::Turn>, String> {
+        self.store.turn(turn).await
     }
 
     pub async fn souls(&self) -> Result<Vec<Soul>, String> {

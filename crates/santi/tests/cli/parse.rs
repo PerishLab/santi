@@ -3,7 +3,6 @@ use santi::cli::{
     Cli, Command, CompactCommand, EffectCommand, EffectOutcomeArg, Environment, EnvironmentScope,
     Job, StrandCommand, Strategy, Stream, Turn, WatchFormat, Webhook,
 };
-
 #[test]
 fn receipt() {
     let parsed = Cli::try_parse_from(["santi", "receipt", "inbox_123"]).unwrap();
@@ -12,17 +11,20 @@ fn receipt() {
     };
     assert_eq!(inbox, "inbox_123");
 }
-
 #[test]
 fn turns() {
     assert!(Cli::try_parse_from(["santi", "turn", "active"]).is_ok());
+    let parsed = Cli::try_parse_from(["santi", "turn", "show", "turn_123"]).unwrap();
+    let Command::Turn(Turn::Show { id }) = parsed.command else {
+        panic!("expected turn show command");
+    };
+    assert_eq!(id, "turn_123");
     let parsed = Cli::try_parse_from(["santi", "turn", "stop", "turn_123"]).unwrap();
     let Command::Turn(Turn::Stop { id }) = parsed.command else {
         panic!("expected turn stop command");
     };
     assert_eq!(id, "turn_123");
 }
-
 #[test]
 fn environment() {
     let parsed = Cli::try_parse_from([
@@ -49,7 +51,6 @@ fn environment() {
     assert_eq!(name, "STIM_BASE_URL");
     assert_eq!(value, "https://stim.example.com");
 }
-
 #[test]
 fn jobs() {
     let parsed = Cli::try_parse_from([
@@ -87,7 +88,6 @@ fn jobs() {
     assert_eq!(output_limit_bytes, Some(4096));
     assert_eq!(remind_every_seconds, Some(30));
     assert!(!notify_on_terminal);
-
     let parsed = Cli::try_parse_from([
         "santi", "job", "logs", "job_1", "--stream", "stderr", "--cursor", "12", "--limit", "80",
     ])

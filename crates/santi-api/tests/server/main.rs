@@ -109,6 +109,12 @@ mod openapi {
         assert!(document.contains("trace.Record"));
         assert!(document.contains("ingest.Receipt"));
         assert!(document.contains("/api/v1/turn-events/stream"));
+        assert!(
+            serde_json::from_str::<serde_json::Value>(&document).expect("openapi json")["paths"]
+                ["/api/v1/turns/{turn}"]["get"]
+                .is_object(),
+            "exact turn read not registered"
+        );
         assert!(document.contains("/api/v1/turns/{turn}/stop"));
         assert!(document.contains("turn.Stop"));
         assert!(document.contains("active.Projection"));
