@@ -197,6 +197,7 @@ pub(crate) async fn run(run: Run<'_>, command: Command) -> Result<()> {
                 .await
         }
         Command::Alarm(command) => declarations::alarm::run(&http, &base, defaults, command).await,
+        Command::Turn(Turn::Show { id }) => http.get(&format!("{base}/api/v1/turns/{id}")).await,
         Command::Turn(Turn::Stop { id }) => {
             http.post(&format!("{base}/api/v1/turns/{id}/stop"), None)
                 .await

@@ -170,15 +170,15 @@ pub enum EffectCommand {
         evidence: String,
     },
 }
-
 #[derive(Subcommand)]
 pub enum Turn {
     #[command(about = "List bounded active sibling turns for --soul, excluding --strand")]
     Active,
+    #[command(about = "Read one exact turn (GET /api/v1/turns/{id})")]
+    Show { id: String },
     #[command(about = "Idempotently stop one exact running turn")]
     Stop { id: String },
 }
-
 #[derive(Subcommand)]
 pub enum Environment {
     #[command(about = "List declarations for one soul or strand")]
