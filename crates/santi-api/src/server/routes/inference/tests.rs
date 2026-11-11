@@ -152,6 +152,8 @@ async fn call(
     (status, value)
 }
 
+#[path = "create.rs"]
+mod create;
 #[path = "media.rs"]
 mod media;
 #[path = "read.rs"]

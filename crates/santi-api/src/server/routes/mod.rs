@@ -46,7 +46,6 @@ pub(super) async fn optional<T: DeserializeOwned>(request: Request) -> Result<Op
         ));
     }
     serde_json::from_slice(&bytes)
-        .map(Some)
         .map_err(|error| ApiError::bad_request(format!("invalid JSON request body: {error}")))
 }
 
