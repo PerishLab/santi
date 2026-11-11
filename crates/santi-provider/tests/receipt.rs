@@ -96,7 +96,9 @@ async fn completions() {
 
 #[tokio::test]
 async fn unlisted() {
-    let url = served(&[r#"{"type":"response.completed","response":{"id":"resp_1"}}"#]);
+    let url = served(&[
+        r#"{"type":"response.completed","response":{"id":"resp_1","status":"completed","model":"gpt-5.5","usage":{"input_tokens":120,"input_tokens_details":{"cached_tokens":100},"output_tokens":30,"output_tokens_details":{"reasoning_tokens":20}}}}"#,
+    ]);
     let provider = OpenAI::new(openai::Config {
         key: "test-key".to_string(),
         model: "gpt-5.5".to_string(),
@@ -109,10 +111,24 @@ async fn unlisted() {
         attempts: None,
         headers: Vec::new(),
     });
-    let (receipts, _) = traced(&provider).await;
+    let (receipts, reports) = traced(&provider).await;
     assert_eq!(receipts.len(), 1);
     assert_eq!(receipts[0].status, 200);
     assert!(receipts[0].headers.is_empty());
+    assert_eq!(
+        reports,
+        vec![Report {
+            status: Some("completed".to_string()),
+            incomplete: None,
+            model: Some("gpt-5.5".to_string()),
+            usage: Some(Usage {
+                input: Some(120),
+                cached: Some(100),
+                output: Some(30),
+                reasoning: Some(20),
+            }),
+        }]
+    );
 }
 
 fn allowed() -> Vec<String> {
