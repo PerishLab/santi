@@ -12,10 +12,10 @@ fn urged(band: Band) -> &'static str {
             "Little headroom remains before ordinary tools are withheld for context maintenance. Compact settled context through `santi compact exec` while shell is available."
         }
         Band::Firm => {
-            "Headroom is shrinking. Compacting settled context now costs less than compacting under pressure later."
+            "Headroom is shrinking. Compact settled context through `santi compact exec` while shell is available."
         }
         _ => {
-            "This strand is getting large. Compact settled context when useful; the summary preserves the facts and references you need to continue."
+            "This strand is getting large. When useful, compact settled context through `santi compact exec` while shell is available; the summary preserves the facts and references you need to continue."
         }
     }
 }
