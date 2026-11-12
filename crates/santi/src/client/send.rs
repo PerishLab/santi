@@ -92,17 +92,26 @@ pub(crate) async fn emission(
         .await;
     let response = match response {
         Ok(response) => response,
-        Err(error) if request.watch => {
-            return Err(unknown(
-                request.target,
-                format!("POST did not return a response: {}", error.without_url()),
-            ));
+        Err(error) => {
+            super::transport(&error);
+            if request.watch {
+                return Err(unknown(
+                    request.target,
+                    format!("POST did not return a response: {}", error.without_url()),
+                ));
+            }
+            return Err(anyhow::Error::new(error).context(format!("POST {url}")));
         }
-        Err(error) => return Err(anyhow::Error::new(error).context(format!("POST {url}"))),
     };
     let status = response.status();
     let text = response.text().await;
+    if let Err(error) = &text {
+        super::transport(error);
+    }
     if status.is_client_error() && request.watch {
+        if let Ok(body) = &text {
+            super::body(body);
+        }
         let detail = text
             .map(|text| crate::watch::snippet(&text, 500))
             .map_or_else(
@@ -128,6 +137,7 @@ pub(crate) async fn emission(
     })?;
     let accepted = serde_json::from_str::<serde_json::Value>(&text).ok();
     if !status.is_success() {
+        super::body(&text);
         if request.watch {
             let body = crate::watch::snippet(&text, 500);
             let detail = if body.is_empty() {

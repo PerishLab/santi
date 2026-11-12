@@ -2,14 +2,6 @@ use anyhow::Result;
 
 use super::*;
 
-const REFUSALS: [&str; 5] = [
-    "request.invalid_argument",
-    "request.unauthorized",
-    "resource.not_found",
-    "runtime.unavailable",
-    "runtime.internal",
-];
-
 pub(super) fn compact_capsule_body(capsule: Capsule<'_>) -> Result<serde_json::Value> {
     let Capsule {
         first,
@@ -83,11 +75,14 @@ pub(super) struct Http<'a> {
 
 impl Http<'_> {
     async fn send(&self, request: reqwest::RequestBuilder, label: String) -> Result<()> {
-        let response = request
-            .timeout(TIMEOUT)
-            .send()
-            .await
-            .with_context(|| label)?;
+        let response = request.timeout(TIMEOUT).send().await;
+        let response = match response {
+            Ok(response) => response,
+            Err(error) => {
+                transport(&error);
+                return Err(anyhow::Error::new(error)).with_context(|| label);
+            }
+        };
         print_json(response).await
     }
 
@@ -157,8 +152,14 @@ impl Http<'_> {
             .json(&body)
             .timeout(TIMEOUT)
             .send()
-            .await
-            .with_context(|| format!("POST {url}"))?;
+            .await;
+        let response = match response {
+            Ok(response) => response,
+            Err(error) => {
+                transport(&error);
+                return Err(anyhow::Error::new(error)).with_context(|| format!("POST {url}"));
+            }
+        };
         if !response.status().is_success() {
             return refuse(response).await;
         }
@@ -166,14 +167,17 @@ impl Http<'_> {
     }
 
     pub(super) async fn follow(&self, url: &str, format: WatchFormat) -> Result<()> {
-        let response = self
-            .client
-            .get(url)
-            .send()
-            .await
-            .with_context(|| format!("GET {url}"))?;
+        let response = self.client.get(url).send().await;
+        let response = match response {
+            Ok(response) => response,
+            Err(error) => {
+                transport(&error);
+                return Err(anyhow::Error::new(error)).with_context(|| format!("GET {url}"));
+            }
+        };
         let status = response.status();
         if !status.is_success() {
+            unexpected();
             anyhow::bail!("request failed with status {status}");
         }
         let mut stream = response.bytes_stream();
@@ -181,7 +185,7 @@ impl Http<'_> {
         match format {
             WatchFormat::Raw => {
                 while let Some(chunk) = stream.next().await {
-                    let chunk = chunk.context("read event stream")?;
+                    let chunk = read(chunk).context("read event stream")?;
                     stdout.write_all(&chunk).context("write event chunk")?;
                     stdout.flush().ok();
                 }
@@ -199,24 +203,16 @@ impl Http<'_> {
 
 pub(super) async fn print_json(response: reqwest::Response) -> Result<()> {
     let status = response.status();
-    let text = response.text().await.context("read response body")?;
+    let text = read(response.text().await).context("read response body")?;
     match serde_json::from_str::<serde_json::Value>(&text) {
         Ok(value) => println!("{}", serde_json::to_string_pretty(&value)?),
         Err(_) => println!("{text}"),
     }
     if !status.is_success() {
-        if let Some(code) = refusal(&text) {
-            plumb::observation::fault(code);
-        }
+        body(&text);
         anyhow::bail!("request failed with status {status}");
     }
     Ok(())
-}
-
-fn refusal(text: &str) -> Option<&'static str> {
-    let value: serde_json::Value = serde_json::from_str(text).ok()?;
-    let code = value.get("code")?.as_str()?;
-    REFUSALS.into_iter().find(|known| *known == code)
 }
 
 pub(super) fn strand_send_body(text: String, soul: Option<&str>) -> serde_json::Value {
@@ -245,17 +241,19 @@ async fn refuse(mut response: reqwest::Response) -> Result<()> {
         status,
         reqwest::StatusCode::BAD_REQUEST | reqwest::StatusCode::CONFLICT
     ) {
+        unexpected();
         anyhow::bail!("job creation failed with status {status}");
     }
-    let mut body = Vec::new();
-    while let Ok(Some(chunk)) = response.chunk().await {
-        if chunk.len() > LIMIT - body.len() {
+    let mut payload = Vec::new();
+    while let Some(chunk) = next(&mut response).await {
+        if chunk.len() > LIMIT - payload.len() {
             break;
         }
-        body.extend_from_slice(&chunk);
+        payload.extend_from_slice(&chunk);
     }
+    body(&String::from_utf8_lossy(&payload));
     let value =
-        serde_json::from_slice::<serde_json::Value>(&body).unwrap_or(serde_json::Value::Null);
+        serde_json::from_slice::<serde_json::Value>(&payload).unwrap_or(serde_json::Value::Null);
     match (
         status,
         value.get("message").and_then(serde_json::Value::as_str),
@@ -281,4 +279,15 @@ pub(super) fn page(url: String, limit: i64, before: Option<&str>) -> Result<Stri
         url.query_pairs_mut().append_pair("before", before);
     }
     Ok(url.into())
+}
+
+async fn next(response: &mut reqwest::Response) -> Option<Vec<u8>> {
+    match response.chunk().await {
+        Ok(Some(chunk)) => Some(chunk.to_vec()),
+        Ok(None) => None,
+        Err(error) => {
+            transport(&error);
+            None
+        }
+    }
 }

@@ -135,12 +135,18 @@ impl Reader<'_, '_> {
             .timeout(TIMEOUT)
             .send()
             .await
+            .inspect_err(crate::client::transport)
             .context("read job response")?;
         let status = response.status();
         if !status.is_success() {
+            crate::client::unexpected();
             bail!("job request failed with status {status}");
         }
-        response.json().await.context("decode job response")
+        response
+            .json()
+            .await
+            .inspect_err(crate::client::transport)
+            .context("decode job response")
     }
 }
 

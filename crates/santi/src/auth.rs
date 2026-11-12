@@ -93,20 +93,43 @@ async fn fetch_edge_jwt(
         )
         .body(body)
         .send()
-        .await
-        .with_context(|| format!("POST {token_url}"))?;
+        .await;
+    let response = match response {
+        Ok(response) => response,
+        Err(error) => {
+            crate::client::exchange();
+            return Err(anyhow::Error::new(error)).with_context(|| format!("POST {token_url}"));
+        }
+    };
     let status = response.status();
-    let text = response.text().await.context("read token response")?;
+    let text = response
+        .text()
+        .await
+        .map_err(|error| {
+            crate::client::exchange();
+            anyhow::Error::new(error)
+        })
+        .context("read token response")?;
     if !status.is_success() {
+        crate::client::exchange();
         let detail: String = text.chars().take(200).collect();
         anyhow::bail!("edge token endpoint {token_url} -> {status}: {detail}");
     }
-    let value: serde_json::Value = serde_json::from_str(&text).context("parse token response")?;
+    let value: serde_json::Value = serde_json::from_str(&text)
+        .map_err(|error| {
+            crate::client::exchange();
+            anyhow::Error::new(error)
+        })
+        .context("parse token response")?;
     let access_token = value
         .get("access_token")
         .and_then(|t| t.as_str())
-        .context("token response missing access_token")?
-        .to_string();
+        .map(str::to_string)
+        .or_else(|| {
+            crate::client::exchange();
+            None
+        })
+        .context("token response missing access_token")?;
     let expires_in = value
         .get("expires_in")
         .and_then(|t| t.as_u64())

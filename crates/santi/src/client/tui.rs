@@ -232,6 +232,7 @@ impl Request<'_> {
             .timeout(TIMEOUT)
             .send()
             .await
+            .inspect_err(crate::client::transport)
             .with_context(|| format!("GET {url}"))?;
         decode(response).await
     }
