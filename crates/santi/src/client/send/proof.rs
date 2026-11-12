@@ -9,6 +9,7 @@ pub(crate) async fn prove(target: Target<'_>, receipt: &str) -> Result<Proof> {
         .timeout(TIMEOUT)
         .send()
         .await
+        .inspect_err(crate::client::transport)
         .map_err(|error| {
             uncertain(
                 target,
@@ -17,14 +18,19 @@ pub(crate) async fn prove(target: Target<'_>, receipt: &str) -> Result<Proof> {
             )
         })?;
     let status = response.status();
-    let body = response.text().await.map_err(|error| {
-        uncertain(
-            target,
-            receipt,
-            format!("response was unreadable: {}", error.without_url()),
-        )
-    })?;
+    let body = response
+        .text()
+        .await
+        .inspect_err(crate::client::transport)
+        .map_err(|error| {
+            uncertain(
+                target,
+                receipt,
+                format!("response was unreadable: {}", error.without_url()),
+            )
+        })?;
     if !status.is_success() {
+        crate::client::body(&body);
         return Err(uncertain(
             target,
             receipt,

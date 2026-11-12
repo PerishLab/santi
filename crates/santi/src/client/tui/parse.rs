@@ -97,8 +97,13 @@ fn readable(text: &str, limit: usize) -> Vec<String> {
 
 pub(super) async fn decode(response: reqwest::Response) -> Result<serde_json::Value> {
     let status = response.status();
-    let body = response.text().await.context("read response body")?;
+    let body = response
+        .text()
+        .await
+        .inspect_err(crate::client::transport)
+        .context("read response body")?;
     if !status.is_success() {
+        crate::client::body(&body);
         anyhow::bail!(
             "request failed with status {status}: {}",
             snippet(&body, 500)

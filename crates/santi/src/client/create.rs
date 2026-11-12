@@ -19,21 +19,27 @@ pub(super) async fn post(
     if let Some(body) = body {
         call = call.json(&body);
     }
-    let response = call
-        .send()
-        .await
-        .map_err(|error| creation.unknown(format!("POST {url} returned no response: {error}")))?;
+    let response = match call.send().await {
+        Ok(response) => response,
+        Err(error) => {
+            super::transport(&error);
+            return Err(creation.unknown(format!("POST {url} returned no response: {error}")));
+        }
+    };
     let status = response.status();
     let body = response.text().await.map_err(|error| {
+        super::transport(&error);
         creation.unknown(format!("read response body with status {status}: {error}"))
     })?;
     if status.is_client_error() {
+        super::body(&body);
         return Err(creation.refused(format!(
             "POST {url} returned status {status}: {}",
             crate::watch::snippet(&body, 500)
         )));
     }
     if !status.is_success() {
+        super::body(&body);
         return Err(creation.unknown(format!(
             "POST {url} returned ambiguous status {status}: {}",
             crate::watch::snippet(&body, 500)
@@ -98,12 +104,19 @@ impl Http<'_> {
         if let Some(body) = body {
             request = request.json(&body);
         }
-        let response = request
-            .send()
-            .await
-            .map_err(|error| unknown(soul, format!("POST {url} returned no response: {error}")))?;
+        let response = match request.send().await {
+            Ok(response) => response,
+            Err(error) => {
+                super::transport(&error);
+                return Err(unknown(
+                    soul,
+                    format!("POST {url} returned no response: {error}"),
+                ));
+            }
+        };
         let status = response.status();
         let body = response.text().await.map_err(|error| {
+            super::transport(&error);
             unknown(
                 soul,
                 format!(

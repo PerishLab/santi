@@ -241,5 +241,48 @@ pub(crate) async fn run(run: Run<'_>, command: Command) -> Result<()> {
     }
 }
 
+const AUTH: &str = "auth.exchange";
+const CONNECT: &str = "transport.connect";
+const UNEXPECTED: &str = "http.unexpected";
+const REFUSALS: [&str; 5] = [
+    "request.invalid_argument",
+    "request.unauthorized",
+    "resource.not_found",
+    "runtime.unavailable",
+    "runtime.internal",
+];
+
+pub(crate) fn read<T>(result: std::result::Result<T, reqwest::Error>) -> anyhow::Result<T> {
+    result.map_err(|error| {
+        transport(&error);
+        anyhow::Error::new(error)
+    })
+}
+
+pub(crate) fn transport(error: &reqwest::Error) {
+    if error.is_timeout() {
+        plumb::observation::fault("transport.timeout");
+    } else if error.is_connect() {
+        plumb::observation::fault(CONNECT);
+    }
+}
+
+pub(crate) fn body(text: &str) {
+    plumb::observation::fault(code(text).unwrap_or(UNEXPECTED));
+}
+
+pub(crate) fn unexpected() {
+    plumb::observation::fault(UNEXPECTED);
+}
+
+pub(crate) fn exchange() {
+    plumb::observation::fault(AUTH);
+}
+
+fn code(text: &str) -> Option<&'static str> {
+    let value: serde_json::Value = serde_json::from_str(text).ok()?;
+    let held = value.get("code")?.as_str()?;
+    REFUSALS.into_iter().find(|known| *known == held)
+}
 mod http;
 use http::*;

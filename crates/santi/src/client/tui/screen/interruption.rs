@@ -13,9 +13,11 @@ async fn stop(target: Target<'_>, turn: &str) -> Result<bool, String> {
         .timeout(TIMEOUT)
         .send()
         .await
+        .inspect_err(crate::client::transport)
         .map_err(|error| format!("interrupt for turn {turn} is unconfirmed: {error}"))?;
     let status = response.status();
     if !status.is_success() {
+        crate::client::unexpected();
         return Err(format!(
             "interrupt for turn {turn} returned status {status}"
         ));
@@ -23,6 +25,7 @@ async fn stop(target: Target<'_>, turn: &str) -> Result<bool, String> {
     let value: serde_json::Value = response
         .json()
         .await
+        .inspect_err(crate::client::transport)
         .map_err(|error| format!("interrupt response for turn {turn} is unreadable: {error}"))?;
     if value
         .pointer("/turn/id")

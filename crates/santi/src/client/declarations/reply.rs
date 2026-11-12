@@ -19,14 +19,32 @@ impl Reply<'_> {
         let operation = args.operation.context("reply requires operation")?;
         let strand = self.defaults.resolve_strand(None)?;
         let body = json!({"strand":strand,"operation":operation,"text":text});
-        let response = self.http.client.post(&url).json(&body).timeout(TIMEOUT).send().await
-            .context("reply outcome unknown; inspect exact receipt/operation; never create a new operation to retry")?;
+        let response = self
+            .http
+            .client
+            .post(&url)
+            .json(&body)
+            .timeout(TIMEOUT)
+            .send()
+            .await;
+        let response = match response {
+            Ok(response) => response,
+            Err(error) => {
+                super::super::transport(&error);
+                return Err(anyhow::Error::new(error))
+                    .context("reply outcome unknown; inspect exact receipt/operation; never create a new operation to retry");
+            }
+        };
         if !response.status().is_success() {
             return super::super::http::print_json(response).await;
         }
         let mut status: Value = response
             .json()
             .await
+            .map_err(|error| {
+                super::super::transport(&error);
+                anyhow::Error::new(error)
+            })
             .context("reply response incomplete; inspect exact receipt/operation")?;
         if !args.watch {
             return print(status);
@@ -50,11 +68,21 @@ impl Reply<'_> {
                 .get(&url)
                 .timeout(deadline.saturating_duration_since(tokio::time::Instant::now()))
                 .send()
-                .await?;
+                .await;
+            let response = match response {
+                Ok(response) => response,
+                Err(error) => {
+                    super::super::transport(&error);
+                    return Err(anyhow::Error::new(error));
+                }
+            };
             if !response.status().is_success() {
                 return super::super::http::print_json(response).await;
             }
-            status = response.json().await?;
+            status = response.json().await.map_err(|error| {
+                super::super::transport(&error);
+                anyhow::Error::new(error)
+            })?;
         }
     }
 
