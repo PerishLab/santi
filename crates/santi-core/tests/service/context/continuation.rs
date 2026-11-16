@@ -6,6 +6,7 @@ mod maintenance;
 mod pressure;
 mod preview;
 mod refusal;
+mod session;
 mod toolonly;
 
 use super::super::support::*;
@@ -28,6 +29,7 @@ impl Script {
         Self {
             limit: None,
             chat: Chat::new(Config {
+                outgoing: Default::default(),
                 provider: "deepseek".into(),
                 key: "fixture".into(),
                 model: "flash".into(),
@@ -222,6 +224,7 @@ async fn restores() {
     );
     let request = next
         .prepare(Request {
+            strand: None,
             model: "flash".into(),
             instructions: None,
             input: inherited,

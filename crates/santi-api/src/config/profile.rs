@@ -18,6 +18,7 @@ pub struct OpenAiResponses {
     pub maintenance: usize,
     pub attempts: Option<u32>,
     pub headers: Vec<String>,
+    pub outgoing: std::collections::BTreeMap<String, String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -33,6 +34,7 @@ pub struct ChatCompletions {
     pub bytes: usize,
     pub maintenance: usize,
     pub headers: Vec<String>,
+    pub outgoing: std::collections::BTreeMap<String, String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -60,6 +62,8 @@ pub enum Profile {
         attempts: Option<u32>,
         #[serde(default)]
         headers: Option<Vec<String>>,
+        #[serde(default, rename = "request_headers")]
+        outgoing: std::collections::BTreeMap<String, String>,
     },
     ChatCompletions {
         #[serde(default)]
@@ -82,6 +86,8 @@ pub enum Profile {
         maintenance_bytes: Option<usize>,
         #[serde(default)]
         headers: Option<Vec<String>>,
+        #[serde(default, rename = "request_headers")]
+        outgoing: std::collections::BTreeMap<String, String>,
     },
 }
 
@@ -123,6 +129,7 @@ impl Profile {
                 maintenance_bytes,
                 attempts,
                 headers,
+                outgoing,
             } => Ok(Resolved::OpenAiResponses(OpenAiResponses {
                 api_key: required(api_key, provider, "api_key")?,
                 model: required(model, provider, "model")?,
@@ -135,6 +142,7 @@ impl Profile {
                 maintenance: capacity(*bytes, *maintenance_bytes, provider)?,
                 attempts: *attempts,
                 headers: super::headers::allowed(headers.as_deref(), provider)?,
+                outgoing: super::headers::requests(outgoing, provider)?,
             })),
             Profile::ChatCompletions {
                 api_key,
@@ -147,6 +155,7 @@ impl Profile {
                 bytes,
                 maintenance_bytes,
                 headers,
+                outgoing,
             } => Ok(Resolved::ChatCompletions(ChatCompletions {
                 provider: provider.to_string(),
                 api_key: required(api_key, provider, "api_key")?,
@@ -159,6 +168,7 @@ impl Profile {
                 bytes: positive(*bytes, provider, "bytes")?,
                 maintenance: capacity(*bytes, *maintenance_bytes, provider)?,
                 headers: super::headers::allowed(headers.as_deref(), provider)?,
+                outgoing: super::headers::requests(outgoing, provider)?,
             })),
         }
     }

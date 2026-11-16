@@ -49,6 +49,7 @@ pub(crate) async fn posted(mut config: Config) -> Value {
     let provider = OpenAI::new(config);
     let mut stream = provider
         .stream(Request {
+            strand: None,
             model: provider.metadata().model,
             instructions: Some("system guidance".to_string()),
             input: vec![Item::Message {
@@ -97,6 +98,7 @@ pub(crate) async fn bare(mut config: Config) -> Value {
     let provider = OpenAI::new(config);
     let mut stream = provider
         .stream(Request {
+            strand: None,
             model: provider.metadata().model,
             instructions: Some("system guidance".to_string()),
             input: vec![Item::Message {
@@ -121,6 +123,7 @@ pub(crate) async fn bare(mut config: Config) -> Value {
 pub(crate) async fn replayed() -> Value {
     let listener = TcpListener::bind("127.0.0.1:0").expect("bind test server");
     let config = Config {
+        outgoing: Default::default(),
         key: "test-key".to_string(),
         model: "gpt-5.5".to_string(),
         url: format!("http://{}", listener.local_addr().expect("local address")),
@@ -151,6 +154,7 @@ pub(crate) async fn replayed() -> Value {
     let provider = OpenAI::new(config);
     let mut stream = provider
         .stream(Request {
+            strand: None,
             model: provider.metadata().model,
             instructions: None,
             input: vec![Item::Call {
@@ -190,6 +194,7 @@ pub(crate) async fn events(lines: Vec<&'static str>) -> Vec<Event> {
 pub(crate) async fn captured(lines: Vec<&'static str>) -> Vec<Event> {
     let listener = TcpListener::bind("127.0.0.1:0").expect("bind test server");
     let config = Config {
+        outgoing: Default::default(),
         key: "test-key".to_string(),
         model: "gpt-5.5".to_string(),
         url: format!("http://{}", listener.local_addr().expect("local address")),
@@ -218,6 +223,7 @@ pub(crate) async fn captured(lines: Vec<&'static str>) -> Vec<Event> {
     let provider = OpenAI::new(config);
     let mut stream = provider
         .stream(Request {
+            strand: None,
             model: provider.metadata().model,
             instructions: None,
             input: vec![Item::Message {

@@ -20,6 +20,7 @@ version = "0.0.0"
 
 [workspace.dependencies]
 plumb = { version = "0", registry = "perish" }
+radicula-template = { version = "0", registry = "perish" }
 aes = "0.8.4"
 anyhow = "1.0.100"
 async-stream = "0.3.6"

@@ -116,6 +116,7 @@ impl Service {
             let offered = attempt!(Operation::Assembly, self.offers(strand, Some(turn)).await);
             let composition = attempt!(Operation::Prompt, self.composition(strand).await);
             let request = Request {
+                strand: Some(strand.to_string()),
                 model: metadata.model,
                 instructions: Some(composition.text.clone()),
                 input,

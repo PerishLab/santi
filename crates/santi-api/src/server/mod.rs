@@ -25,7 +25,7 @@ pub fn export_openapi_json() -> Result<String, String> {
 
 pub async fn serve() -> Result<(), String> {
     let held = crate::runtime::held();
-    provider::build(held.resolved()?);
+    provider::build(held.resolved()?)?;
     let resolver = std::sync::Arc::new(provider::Catalog {
         profiles: &held.providers,
     });

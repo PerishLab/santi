@@ -35,6 +35,7 @@ pub(crate) async fn posted(mut config: Config) -> Value {
 pub(crate) async fn itemized(items: Vec<Item>) -> Value {
     let listener = TcpListener::bind("127.0.0.1:0").expect("bind test server");
     let config = Config {
+        outgoing: Default::default(),
         provider: "deepseek".to_string(),
         key: "test-key".to_string(),
         model: "deepseek-v4-pro".to_string(),
@@ -85,6 +86,7 @@ pub(crate) async fn events(lines: Vec<&'static str>) -> Vec<Event> {
 pub(crate) async fn captured(lines: Vec<&'static str>) -> Vec<Event> {
     let listener = TcpListener::bind("127.0.0.1:0").expect("bind test server");
     let config = Config {
+        outgoing: Default::default(),
         provider: "deepseek".to_string(),
         key: "test-key".to_string(),
         model: "deepseek-v4-pro".to_string(),
@@ -121,6 +123,7 @@ pub(crate) fn request(model: String, extra_items: Vec<Item>) -> Request {
     }];
     input.extend(extra_items);
     Request {
+        strand: None,
         model,
         instructions: Some("system guidance".to_string()),
         input,

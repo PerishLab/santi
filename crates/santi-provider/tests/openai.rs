@@ -4,6 +4,7 @@ use santi_provider::{Event, Trace};
 #[tokio::test]
 async fn sent() {
     let body = posted(Config {
+        outgoing: Default::default(),
         key: "test-key".to_string(),
         model: "gpt-5.5".to_string(),
         url: String::new(),
@@ -48,6 +49,7 @@ async fn sent() {
 #[tokio::test]
 async fn omitted() {
     let body = posted(Config {
+        outgoing: Default::default(),
         key: "test-key".to_string(),
         model: "gpt-4.1".to_string(),
         url: String::new(),
@@ -69,6 +71,7 @@ async fn omitted() {
 #[tokio::test]
 async fn unstored() {
     let body = bare(Config {
+        outgoing: Default::default(),
         key: "test-key".to_string(),
         model: "gpt-4.1".to_string(),
         url: String::new(),

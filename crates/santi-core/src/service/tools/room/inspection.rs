@@ -179,6 +179,7 @@ async fn discovers() {
             .contains("query slots or messages")
     );
     let mut request = santi_provider::Request {
+        strand: None,
         model: "unused".into(),
         instructions: None,
         input: Vec::new(),

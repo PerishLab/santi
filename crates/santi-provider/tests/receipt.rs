@@ -19,6 +19,7 @@ async fn responses() {
         r#"{"type":"response.completed","response":{"id":"resp_1","status":"completed","model":"gpt-5.5","usage":{"input_tokens":120,"input_tokens_details":{"cached_tokens":100},"output_tokens":30,"output_tokens_details":{"reasoning_tokens":20}}}}"#,
     ]);
     let provider = OpenAI::new(openai::Config {
+        outgoing: Default::default(),
         key: "test-key".to_string(),
         model: "gpt-5.5".to_string(),
         url,
@@ -64,6 +65,7 @@ async fn completions() {
         r#"{"id":"chat_1","model":"deepseek-v4-pro","choices":[{"delta":{},"finish_reason":"length"}],"usage":{"prompt_tokens":50,"prompt_tokens_details":{"cached_tokens":40},"completion_tokens":8,"completion_tokens_details":{"reasoning_tokens":5}}}"#,
     ]);
     let provider = Chat::new(completions::Config {
+        outgoing: Default::default(),
         provider: "deepseek".to_string(),
         key: "test-key".to_string(),
         model: "deepseek-v4-pro".to_string(),
@@ -100,6 +102,7 @@ async fn unlisted() {
         r#"{"type":"response.completed","response":{"id":"resp_1","status":"completed","model":"gpt-5.5","usage":{"input_tokens":120,"input_tokens_details":{"cached_tokens":100},"output_tokens":30,"output_tokens_details":{"reasoning_tokens":20}}}}"#,
     ]);
     let provider = OpenAI::new(openai::Config {
+        outgoing: Default::default(),
         key: "test-key".to_string(),
         model: "gpt-5.5".to_string(),
         url,
@@ -163,6 +166,7 @@ fn receipted(receipts: Vec<Receipt>) -> Vec<Vec<(String, String)>> {
 async fn traced(provider: &dyn Provider) -> (Vec<Receipt>, Vec<Report>) {
     let mut stream = provider
         .stream(Request {
+            strand: None,
             model: provider.metadata().model,
             instructions: None,
             input: vec![Item::Message {

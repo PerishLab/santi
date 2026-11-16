@@ -102,3 +102,13 @@ maintenance_bytes = 750000
 # Optional deterministic Get acknowledgement after durable Feishu intake.
 # [webhooks.feishu]
 # acknowledge = "bot"
+
+# Optional outgoing headers for either inference protocol. Values use strict
+# Radicula {{name}} templates with exactly these two runtime variables.
+# Existing `headers` above selects response headers to record, independently.
+# [providers.openai.request_headers]
+# User-Agent = "{{meta.user_agent}}"
+# x-opencode-session = "santi-{{strand.id}}"
+# No outgoing headers are added unless configured. Templates accept literal text
+# and exact variable names; unknown or unavailable variables refuse the request.
+# Authentication and HTTP transport/body-control headers cannot be overridden.

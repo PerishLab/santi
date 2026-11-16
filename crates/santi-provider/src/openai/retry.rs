@@ -9,6 +9,7 @@ use crate::{Event, Receipt, Trace};
 use super::stream::frames;
 
 pub(super) struct Attempt {
+    pub(super) outgoing: reqwest::header::HeaderMap,
     pub(super) client: Client,
     pub(super) url: String,
     pub(super) key: String,
@@ -103,6 +104,7 @@ async fn opened(attempt: &Attempt) -> Result<(Response, Receipt), String> {
         .client
         .post(&attempt.url)
         .bearer_auth(&attempt.key)
+        .headers(attempt.outgoing.clone())
         .json(&attempt.body)
         .send()
         .await
