@@ -91,6 +91,7 @@ fn provider(url: String, chat: bool) -> Arc<dyn Provider> {
     if chat {
         Arc::new(santi_provider::chat::completions::Chat::new(
             santi_provider::chat::completions::Config {
+                outgoing: Default::default(),
                 provider: "deepseek".into(),
                 key: "test".into(),
                 model: "test".into(),
@@ -107,6 +108,7 @@ fn provider(url: String, chat: bool) -> Arc<dyn Provider> {
     } else {
         Arc::new(santi_provider::openai::OpenAI::new(
             santi_provider::openai::Config {
+                outgoing: Default::default(),
                 key: "test".into(),
                 model: "test".into(),
                 url,

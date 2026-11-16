@@ -4,6 +4,7 @@ use santi_provider::{Event, Item, Trace};
 #[tokio::test]
 async fn mapped() {
     let body = posted(Config {
+        outgoing: Default::default(),
         provider: "deepseek".to_string(),
         key: "test-key".to_string(),
         model: "deepseek-v4-pro".to_string(),

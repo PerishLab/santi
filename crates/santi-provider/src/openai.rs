@@ -8,6 +8,7 @@ use crate::{Metadata, Provider, Request, Streaming};
 
 #[derive(Debug, Clone)]
 pub struct Config {
+    pub outgoing: crate::Headers,
     pub key: String,
     pub model: String,
     pub url: String,
@@ -54,12 +55,14 @@ impl Provider for OpenAI {
 
     async fn stream(&self, request: Request) -> Result<Streaming, String> {
         let url = format!("{}/responses", self.config.url.trim_end_matches('/'));
+        let headers = self.config.outgoing.render(request.strand.as_deref())?;
         let body = body(&self.config, request);
         let sent = std::time::Instant::now();
         let response = self
             .client
             .post(&url)
             .bearer_auth(&self.config.key)
+            .headers(headers.clone())
             .json(&body)
             .send()
             .await
@@ -74,6 +77,7 @@ impl Provider for OpenAI {
         let receipt = crate::receipt::received(&response, &self.config.headers, sent);
         Ok(Box::pin(retried(
             Attempt {
+                outgoing: headers,
                 client: self.client.clone(),
                 url,
                 key: self.config.key.clone(),

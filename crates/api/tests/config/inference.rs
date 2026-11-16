@@ -1,6 +1,44 @@
 use super::{Providers, read};
 
 #[test]
+fn headers() {
+    for kind in ["chat_completions", "openai_responses"] {
+        let source = format!(
+            r#"
+provider = "fixture"
+[providers.fixture]
+kind = "{kind}"
+api_key = "test"
+model = "test"
+base_url = "http://provider.test"
+bytes = 1000
+headers = ["x-request-id"]
+[providers.fixture.request_headers]
+User-Agent = "{{{{meta.user_agent}}}}"
+x-session = "{{{{strand.id}}}}"
+"#
+        );
+        let held = read(&source);
+        let profile = held.providers["fixture"].resolve("fixture").unwrap();
+        match profile {
+            santi_api::config::Resolved::ChatCompletions(profile) => {
+                assert_eq!(profile.headers, ["x-request-id"]);
+                assert_eq!(profile.outgoing["User-Agent"], "{{meta.user_agent}}");
+            }
+            santi_api::config::Resolved::OpenAiResponses(profile) => {
+                assert_eq!(profile.headers, ["x-request-id"]);
+                assert_eq!(profile.outgoing["User-Agent"], "{{meta.user_agent}}");
+            }
+        }
+        for value in ["{{unknown}}", "{{strand.id}", r"bad\r\nvalue"] {
+            let source = source.replace("{{strand.id}}", value);
+            let held = read(&source);
+            assert!(held.providers["fixture"].resolve("fixture").is_err());
+        }
+    }
+}
+
+#[test]
 fn rebases() {
     use santi_core::inference::{Declaration, Effective, Origin};
 

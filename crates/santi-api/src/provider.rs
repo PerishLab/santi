@@ -23,19 +23,20 @@ impl santi_core::provider::Resolver for Catalog {
             )
         })?;
         let resolved = profile.resolve(&effective.provider)?.rebase(effective)?;
-        Ok(build(resolved))
+        build(resolved)
     }
 }
 
-pub fn build(config: Resolved) -> Arc<dyn Provider> {
+pub fn build(config: Resolved) -> Result<Arc<dyn Provider>, String> {
     match config {
         Resolved::OpenAiResponses(config) => responses(config),
         Resolved::ChatCompletions(config) => completions(config),
     }
 }
 
-fn responses(config: OpenAiResponses) -> Arc<dyn Provider> {
-    Arc::new(openai::OpenAI::new(openai::Config {
+fn responses(config: OpenAiResponses) -> Result<Arc<dyn Provider>, String> {
+    Ok(Arc::new(openai::OpenAI::new(openai::Config {
+        outgoing: crate::config::headers::compile(&config.outgoing)?,
         key: config.api_key,
         model: config.model,
         url: config.base_url,
@@ -46,11 +47,12 @@ fn responses(config: OpenAiResponses) -> Arc<dyn Provider> {
         maintenance: Some(config.maintenance),
         attempts: config.attempts,
         headers: config.headers,
-    }))
+    })))
 }
 
-fn completions(config: ChatCompletions) -> Arc<dyn Provider> {
-    Arc::new(completions::Chat::new(completions::Config {
+fn completions(config: ChatCompletions) -> Result<Arc<dyn Provider>, String> {
+    Ok(Arc::new(completions::Chat::new(completions::Config {
+        outgoing: crate::config::headers::compile(&config.outgoing)?,
         provider: config.provider,
         key: config.api_key,
         model: config.model,
@@ -62,7 +64,7 @@ fn completions(config: ChatCompletions) -> Arc<dyn Provider> {
         bytes: Some(config.bytes),
         maintenance: Some(config.maintenance),
         headers: config.headers,
-    }))
+    })))
 }
 
 #[cfg(test)]
@@ -194,6 +196,9 @@ base_url = "http://{address}"
 reasoning_effort = "low"
 bytes = 1000
 maintenance_bytes = 1500
+[chat.request_headers]
+User-Agent = "{{{{meta.user_agent}}}}"
+x-session = "{{{{strand.id}}}}"
 "#
         );
         let profiles: BTreeMap<String, Profile> = toml::from_str(&raw).unwrap();
@@ -209,6 +214,7 @@ maintenance_bytes = 1500
             .unwrap();
         let provider = resolver.build(&effective).unwrap();
         let request = santi_provider::Request {
+            strand: Some("ss_factory".into()),
             model: effective.model.clone(),
             instructions: None,
             input: vec![santi_provider::Item::Message {
@@ -228,6 +234,10 @@ maintenance_bytes = 1500
             }
         }
         let raw = received.await.unwrap();
+        let head = raw.to_ascii_lowercase();
+        let agent = plumb::agent!("SANTI", "santi-api").unwrap();
+        assert!(head.contains(&format!("user-agent: {}\r\n", agent.value())));
+        assert!(head.contains("x-session: ss_factory\r\n"));
         assert!(raw.contains("\"model\":\"declared\""), "{raw}");
         assert!(raw.contains("\"reasoning_effort\":\"high\""), "{raw}");
     }

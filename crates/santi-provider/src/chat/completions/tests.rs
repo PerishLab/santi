@@ -5,6 +5,7 @@ use santi_model::thinking::Continuation;
 
 fn config() -> Config {
     Config {
+        outgoing: Default::default(),
         provider: "deepseek".into(),
         key: "fixture".into(),
         model: "flash".into(),
@@ -31,6 +32,7 @@ fn state(content: &str, calls: usize) -> Continuation {
 
 fn request(input: Vec<Item>) -> Request {
     Request {
+        strand: None,
         model: "flash".into(),
         instructions: Some("instruction".into()),
         input,

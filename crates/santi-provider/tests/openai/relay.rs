@@ -39,6 +39,7 @@ pub(crate) async fn collected(url: String, attempts: Option<u32>) -> Vec<Event> 
 
 async fn collect(url: String, attempts: Option<u32>) -> Vec<Event> {
     let provider = OpenAI::new(Config {
+        outgoing: Default::default(),
         key: "test-key".to_string(),
         model: "gpt-test".to_string(),
         url,
@@ -52,6 +53,7 @@ async fn collect(url: String, attempts: Option<u32>) -> Vec<Event> {
     });
     let mut stream = provider
         .stream(Request {
+            strand: None,
             model: provider.metadata().model,
             instructions: None,
             input: vec![Item::Message {

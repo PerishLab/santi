@@ -23,3 +23,21 @@ pub(super) fn allowed(names: Option<&[String]>, provider: &str) -> Result<Vec<St
     }
     Ok(allowed)
 }
+
+pub(super) fn requests(
+    values: &std::collections::BTreeMap<String, String>,
+    provider: &str,
+) -> Result<std::collections::BTreeMap<String, String>, String> {
+    compile(values).map_err(|error| format!("provider {provider}: {error}"))?;
+    Ok(values.clone())
+}
+
+pub(crate) fn compile(
+    values: &std::collections::BTreeMap<String, String>,
+) -> Result<santi_provider::Headers, String> {
+    if values.is_empty() {
+        return Ok(Default::default());
+    }
+    let agent = plumb::agent!("SANTI", "santi-api")?;
+    santi_provider::Headers::new(values, agent.value())
+}

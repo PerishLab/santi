@@ -73,6 +73,7 @@ impl Service {
         tools: Vec<santi_provider::Tool>,
     ) -> Result<santi_provider::Request, String> {
         provider.prepare(santi_provider::Request {
+            strand: None,
             model: provider.metadata().model,
             instructions: Some(instructions),
             input,

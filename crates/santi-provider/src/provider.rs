@@ -27,6 +27,7 @@ pub enum Item {
 
 #[derive(Debug, Clone)]
 pub struct Request {
+    pub strand: Option<String>,
     pub model: String,
     pub instructions: Option<String>,
     pub input: Vec<Item>,

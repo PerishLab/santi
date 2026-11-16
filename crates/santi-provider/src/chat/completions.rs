@@ -7,6 +7,7 @@ use crate::{Metadata, Provider, Request, Streaming};
 
 #[derive(Debug, Clone)]
 pub struct Config {
+    pub outgoing: crate::Headers,
     pub provider: String,
     pub key: String,
     pub model: String,
@@ -96,6 +97,7 @@ impl Provider for Chat {
     async fn stream(&self, request: Request) -> Result<Streaming, String> {
         let request = self.prepare(request)?;
         replay::validate(&self.config, &request, true)?;
+        let headers = self.config.outgoing.render(request.strand.as_deref())?;
         let continuation = santi_model::thinking::Continuation {
             calls: 0,
             provider: self.config.provider.clone(),
@@ -111,6 +113,7 @@ impl Provider for Chat {
                 self.config.url.trim_end_matches('/')
             ))
             .bearer_auth(&self.config.key)
+            .headers(headers)
             .json(&body(&self.config, request))
             .send()
             .await
