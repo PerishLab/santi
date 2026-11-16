@@ -25,6 +25,10 @@ pub(super) fn condensed(compact: &compact::Compact, fallback: Range) -> String {
         "declared_source": noted(metadata, "declared_source").unwrap_or("not_declared"),
         "source_trust": noted(metadata, "source_trust")
             .unwrap_or(if capsuled { "caller_declared" } else { "not_declared" }),
+        "covered_entry_range": {
+            "first": compact.first,
+            "last": compact.last,
+        },
         "covered_message_range": {
             "first": compact.first,
             "last": compact.last,

@@ -206,22 +206,6 @@ impl Writer<'_, '_> {
         Ok(true)
     }
 
-    async fn message_sequence(
-        &mut self,
-        strand: i64,
-        message: i64,
-    ) -> Result<i64, keel::adapt::Error> {
-        self.0
-            .one(
-                &form("StrandEntry")
-                    .when("strand", Op::Eq, &strand.to_string())
-                    .when("message", Op::Eq, &message.to_string()),
-            )
-            .await?
-            .and_then(|row| row.int("sequence"))
-            .ok_or_else(|| keel::adapt::Error::Missing("compact boundary entry".into()))
-    }
-
     async fn need(&mut self, unit: &str, tag: &str) -> Result<Row, keel::adapt::Error> {
         self.0
             .one(&form(unit).when("tag", Op::Eq, tag))

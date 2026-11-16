@@ -23,7 +23,6 @@ impl Service {
         let entries = self.store.entries(strand).await?;
         let seats = entries
             .iter()
-            .filter(|entry| entry.kind == crate::strand::Target::Message)
             .map(|entry| (entry.target.as_str(), entry.seq))
             .collect::<HashMap<_, _>>();
         let mut spans = Vec::new();

@@ -1,5 +1,5 @@
 use super::super::target;
-use super::{Store, plan, read};
+use super::{Store, read};
 use keel::adapt::db::Sqlite;
 use keel::{Op, Rank, Row, Tx, form};
 use santi_model::compact;
@@ -54,10 +54,10 @@ async fn entries(
     compact: &compact::Compact,
 ) -> Result<Vec<compact::Entry>, keel::adapt::Error> {
     let strand = Reader(tx).need("Strand", &compact.strand).await?;
-    let first = Reader(tx).need("Message", &compact.first).await?;
-    let last = Reader(tx).need("Message", &compact.last).await?;
-    let from = plan::sequence(tx, strand.key(), first.key()).await?;
-    let to = plan::sequence(tx, strand.key(), last.key()).await?;
+    let row = Reader(tx).need("Compact", &compact.id).await?;
+    let (first, last) = super::boundary::Reader(tx).ends(&row).await?;
+    let from = super::boundary::number(&first, "sequence")?;
+    let to = super::boundary::number(&last, "sequence")?;
     let rows = tx
         .ask(
             &form("StrandEntry")

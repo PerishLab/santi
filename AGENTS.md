@@ -109,6 +109,17 @@ available through the material tool during maintenance.
 `crates/santi-core/src/service/flow/memory.rs` owns memory pressure
 and maintenance.
 
+Compact ranges retain exact timeline boundaries. New Compact head/tail relations
+name StrandEntry rows; legacy first/last Message relations remain readable.
+first/last selectors accept fixed projected Messages and proven complete exchange
+anchors/results. from/to retain Message-sequence meaning. Default selection keeps
+the latest Message and the entire active exchange live; it can compact an earlier
+tool-only exchange without fabricating assistant text. Selection, preview and
+commit share exchange safety checks. Query, occupancy, projection and fork use
+the same entry range. The visible covered_entry_range names these record IDs;
+covered_message_range remains its historical wire alias. Issue #274 owns this
+contract and its estate-continuity checks.
+
 For execution and recovery changes, follow
 `crates/santi-core/src/service/flow` into `crates/santi-estate/src/store`.
 Receipt, completion, and effect behavior is exercised in

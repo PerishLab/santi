@@ -3,6 +3,7 @@ use keel::{Op, Rank, form};
 use santi_model::compact;
 
 mod admit;
+pub(in crate::store) mod boundary;
 mod page;
 mod plan;
 mod rule;
@@ -130,12 +131,23 @@ impl Store {
     }
 
     async fn decode_compact(&self, row: &keel::Row) -> Result<compact::Compact, String> {
+        let (first, last) = self
+            .core
+            .batch(async |tx| {
+                let (head, tail) = boundary::Reader(tx).ends(row).await?;
+                Ok((
+                    boundary::Reader(tx).tag(&head).await?,
+                    boundary::Reader(tx).tag(&tail).await?,
+                ))
+            })
+            .await
+            .map_err(read::error)?;
         Ok(compact::Compact {
             id: read::text(row, "tag")?.to_string(),
             strand: read::related(&self.core, "Strand", read::int(row, "strand")?).await?,
             summary: read::text(row, "summary")?.to_string(),
-            first: read::related(&self.core, "Message", read::int(row, "first")?).await?,
-            last: read::related(&self.core, "Message", read::int(row, "last")?).await?,
+            first,
+            last,
             created: row.text("created").map(str::to_string),
             metadata: row
                 .text("metadata")
@@ -170,8 +182,8 @@ pub(in crate::store) async fn create(
         ("summary", draft.summary),
         ("created", draft.created),
         ("strand", strand.as_str()),
-        ("first", first.as_str()),
-        ("last", last.as_str()),
+        ("head", first.as_str()),
+        ("tail", last.as_str()),
     ];
     if let Some(metadata) = metadata {
         fields.push(("metadata", metadata));

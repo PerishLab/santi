@@ -5,7 +5,7 @@ use santi_model::compact;
 
 pub(super) struct Scope {
     pub(super) spans: Vec<Span>,
-    pub(super) messages: Vec<Boundary>,
+    pub(super) boundaries: Vec<Boundary>,
     pub(super) thread: Thread,
 }
 
@@ -24,6 +24,7 @@ pub(super) struct Boundary {
     pub(super) tag: String,
     pub(super) sequence: i64,
     pub(super) fixed: bool,
+    pub(super) message: bool,
 }
 
 pub(super) async fn load(tx: &mut Tx<'_, Sqlite>, strand: &str) -> Result<Scope, Error> {
@@ -34,21 +35,25 @@ pub(super) async fn load(tx: &mut Tx<'_, Sqlite>, strand: &str) -> Result<Scope,
         .ask(
             &form("StrandEntry")
                 .when("strand", Op::Eq, &key)
-                .when("target_type", Op::Eq, "message")
                 .order("sequence", keel::Rank::Asc),
         )
         .await?
         .rows()
         .to_vec();
-    let mut messages = Vec::with_capacity(rows.len());
+    let mut boundaries = Vec::with_capacity(rows.len());
     for entry in rows {
         let row = crate::store::entry::aim(tx, &entry).await?;
         let tag = text(&row, "tag")?;
-        messages.push(Boundary {
-            key: row.key(),
+        boundaries.push(Boundary {
+            key: entry.key(),
             tag: tag.into(),
             sequence: number(&entry, "sequence")?,
-            fixed: eligible(&row),
+            fixed: if entry.text("target_type") == Some("message") {
+                eligible(&row)
+            } else {
+                matches!(entry.text("target_type"), Some("thinking" | "tool_result"))
+            },
+            message: entry.text("target_type") == Some("message"),
         });
     }
     let rows = tx
@@ -58,8 +63,9 @@ pub(super) async fn load(tx: &mut Tx<'_, Sqlite>, strand: &str) -> Result<Scope,
         .to_vec();
     let mut spans = Vec::with_capacity(rows.len());
     for row in rows {
-        let first = boundary(&messages, number(&row, "first")?)?;
-        let last = boundary(&messages, number(&row, "last")?)?;
+        let (head, tail) = super::boundary::Reader(tx).ends(&row).await?;
+        let first = boundary(&boundaries, head.key())?;
+        let last = boundary(&boundaries, tail.key())?;
         spans.push(Span {
             from: first.sequence,
             to: last.sequence,
@@ -75,9 +81,15 @@ pub(super) async fn load(tx: &mut Tx<'_, Sqlite>, strand: &str) -> Result<Scope,
         .cloned()
         .collect();
     let thread = thread::load(tx, strand).await?;
+    let endpoints = thread.endpoints();
+    for message in &mut boundaries {
+        if !message.message {
+            message.fixed &= endpoints.contains(&message.sequence);
+        }
+    }
     Ok(Scope {
         spans,
-        messages,
+        boundaries,
         thread,
     })
 }
@@ -94,8 +106,8 @@ fn covered(span: &Span, spans: &[Span]) -> bool {
     })
 }
 
-fn boundary(messages: &[Boundary], key: i64) -> Result<&Boundary, Error> {
-    messages
+fn boundary(boundaries: &[Boundary], key: i64) -> Result<&Boundary, Error> {
+    boundaries
         .iter()
         .find(|message| message.key == key)
         .ok_or_else(|| Error::Missing("compact boundary message".into()))
@@ -112,6 +124,42 @@ fn number(row: &keel::Row, field: &str) -> Result<i64, Error> {
 }
 
 impl Scope {
+    pub(super) fn settled(&self) -> Result<compact::Range, String> {
+        let floor = self.spans.iter().map(|span| span.to).max().unwrap_or(0);
+        let latest = self
+            .boundaries
+            .iter()
+            .rfind(|entry| entry.message)
+            .map(|entry| entry.sequence);
+        let candidates = self
+            .boundaries
+            .iter()
+            .filter(|entry| entry.fixed && entry.sequence > floor && Some(entry.sequence) != latest)
+            .map(|entry| entry.sequence)
+            .collect::<Vec<_>>();
+        let range = match latest {
+            Some(latest) => {
+                let before = candidates
+                    .iter()
+                    .copied()
+                    .filter(|at| *at < latest)
+                    .collect::<Vec<_>>();
+                let after = candidates
+                    .iter()
+                    .copied()
+                    .filter(|at| *at > latest)
+                    .collect::<Vec<_>>();
+                self.window(&before).or_else(|| self.window(&after))
+            }
+            None => self.window(&candidates),
+        };
+        range
+            .map(|(from, to)| self.range(from, to))
+            .ok_or_else(|| format!(
+                "[compact.settled] compact has no settled range to collapse: no eligible boundary lies after sequence {floor} outside the live exchange and at whole recorded tool-exchange boundaries, and the most recent message is always kept out of a default range; name first/last or absorb occupied slots to choose a range yourself"
+            ))
+    }
+
     pub(super) fn window(&self, candidates: &[i64]) -> Option<(i64, i64)> {
         for start in candidates {
             if let Some(range) = self.narrowed(*start, candidates) {
@@ -136,11 +184,11 @@ impl Scope {
 
     pub(super) fn checked(&self, range: &compact::Range) -> Result<(), String> {
         let first = self
-            .messages
+            .boundaries
             .iter()
             .find(|message| message.tag == range.first);
         let last = self
-            .messages
+            .boundaries
             .iter()
             .find(|message| message.tag == range.last);
         match (first, last) {

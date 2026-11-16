@@ -51,10 +51,10 @@ impl Rule {
                 start,
                 end: Some(end),
             } => format!(
-                "[compact.exchange] compact {from}..{to} would cut or hide part of the tool exchange recorded at timeline positions {start} through {end}; enclose the whole exchange with eligible message boundaries (first/last or from/to naming fixed messages) lying before its reasoning anchor and after its last matching result, or keep the range entirely outside it. Those timeline positions are not message selectors"
+                "[compact.exchange] compact {from}..{to} would cut or hide part of the tool exchange recorded at timeline positions {start} through {end}; enclose the whole exchange using first/last boundary IDs at or before its reasoning anchor and at or after its final matching result, or keep the range entirely outside it. from/to still select Message sequences, not arbitrary timeline positions"
             ),
             Rule::Exchange { start, end: None } => format!(
-                "[compact.exchange] compact {from}..{to} touches the tool exchange recorded from timeline position {start}, whose declared calls, results or text are not all recorded yet; an unfinished or unprovable exchange cannot be hidden, so end the range at an eligible message boundary before it or wait until it is complete. That timeline position is not a message selector"
+                "[compact.exchange] compact {from}..{to} touches the tool exchange recorded from timeline position {start}, whose declared calls, results or text are not all recorded yet; an unfinished or unprovable exchange cannot be hidden, so end the range at an eligible boundary before it or wait until it is complete. That timeline position is not a message selector"
             ),
             Rule::Anchor {
                 at,
@@ -69,7 +69,7 @@ impl Rule {
                 start,
                 end: Some(end),
             } => format!(
-                "[compact.exchange] compact {from}..{to} overlaps the exchange recorded at timeline positions {start} through {end}, whose calls, results or continuation state do not agree; that history cannot be collapsed safely, so choose eligible message boundaries entirely before or after it. Those timeline positions are not message selectors"
+                "[compact.exchange] compact {from}..{to} overlaps the exchange recorded at timeline positions {start} through {end}, whose calls, results or continuation state do not agree; that history cannot be collapsed safely, so choose eligible boundaries entirely before or after it. Those timeline positions are not message selectors"
             ),
             Rule::Broken { start, end: None } => format!(
                 "[compact.exchange] compact {from}..{to} overlaps the exchange recorded from timeline position {start}, whose declared calls, results, text or continuation state are not all recorded yet; an unfinished or unprovable exchange cannot be hidden, so end at an eligible message boundary before it or wait until it is complete. That timeline position is not a message selector"
@@ -79,6 +79,18 @@ impl Rule {
 }
 
 impl Thread {
+    pub(super) fn endpoints(&self) -> Vec<i64> {
+        self.rules
+            .iter()
+            .flat_map(|rule| match *rule {
+                Rule::Exchange {
+                    start,
+                    end: Some(end),
+                } => vec![start, end],
+                _ => Vec::new(),
+            })
+            .collect()
+    }
     pub(crate) fn split(&self, from: i64, to: i64) -> Option<String> {
         self.rules.iter().find_map(|rule| match rule.block(from) {
             Block::Dead => Some(rule.explain(from, to)),

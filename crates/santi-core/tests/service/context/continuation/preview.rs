@@ -108,7 +108,7 @@ fn request(first: &str, last: &str, dry: bool, capsule: bool) -> compact::Exec {
     }
 }
 
-async fn opened(store: &santi_core::Store, strand: &str) {
+pub(super) async fn opened(store: &santi_core::Store, strand: &str) {
     let now = santi_core::now();
     pinned(
         store,
@@ -156,7 +156,7 @@ async fn called(store: &santi_core::Store, tag: &str) {
         .unwrap();
 }
 
-async fn closed(store: &santi_core::Store, strand: &str) {
+pub(super) async fn closed(store: &santi_core::Store, strand: &str) {
     called(store, "call_second").await;
     for (tag, call) in [
         ("reply_active", "call_active"),

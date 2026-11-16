@@ -25,7 +25,7 @@ impl Scope {
             Bounds {first: Some(first), last: Some(last), from: None, to: None} => Some((self.located("first", first)?, self.located("last", last)?)),
             Bounds {first: None, last: None, from: Some(from), to: Some(to)} => Some((self.seated("from", from)?, self.seated("to", to)?)),
             Bounds {first: None, last: None, from: None, to: None} => None,
-            _ => return Err("[compact.form] compact takes first and last together as message ids, or from and to together as message sequences, never one end alone or a mixture; omit them all to compact the settled history since the last occupied slot".into()),
+            _ => return Err("[compact.form] compact takes first and last together as boundary ids, or from and to together as message sequences, never one end alone or a mixture; omit them all to compact the settled history since the last occupied slot".into()),
         };
         let slots = self.chosen(&request.absorb, named.is_none())?;
         let Some((first, last)) = named else {
@@ -60,7 +60,9 @@ impl Scope {
         last: &Boundary,
         slots: &[&Span],
     ) -> Result<compact::Range, String> {
-        let Some((from, to)) = self.inward(first.sequence, last.sequence) else {
+        let Some((from, to)) =
+            self.inward(first.sequence, last.sequence, first.message && last.message)
+        else {
             let named = slots
                 .iter()
                 .map(|span| span.compact.clone())
@@ -73,7 +75,7 @@ impl Scope {
                 _ => String::new(),
             };
             return Err(format!(
-                "[compact.empty] no eligible boundary lies between {} and {}: a boundary must be fixed soul or system text, so pending and aborted messages never are; query messages to choose boundaries{absorb}",
+                "[compact.empty] no eligible boundary lies between {} and {}: a boundary must be fixed soul/system text or a proven completed exchange endpoint; query messages to choose boundaries{absorb}",
                 first.tag, last.tag
             ));
         };
@@ -143,9 +145,9 @@ impl Scope {
     fn excluded(&self, mut from: i64, mut to: i64) -> Option<compact::Range> {
         while let Some(span) = self.partial(from, to).first() {
             if span.from <= from {
-                from = self.inward(span.to + 1, to)?.0;
+                from = self.inward(span.to + 1, to, false)?.0;
             } else {
-                to = self.inward(from, span.from - 1)?.1;
+                to = self.inward(from, span.from - 1, false)?.1;
             }
         }
         Some(self.range(from, to))
@@ -158,11 +160,13 @@ impl Scope {
             .collect()
     }
 
-    fn inward(&self, from: i64, to: i64) -> Option<(i64, i64)> {
-        let mut eligible = self
-            .messages
-            .iter()
-            .filter(|message| message.fixed && (from..=to).contains(&message.sequence));
+    fn inward(&self, from: i64, to: i64, messages: bool) -> Option<(i64, i64)> {
+        let mut eligible = self.boundaries.iter().filter(|message| {
+            match (message.fixed, messages, message.message) {
+                (true, false, _) | (true, true, true) => (from..=to).contains(&message.sequence),
+                _ => false,
+            }
+        });
         let first = eligible.next()?.sequence;
         let last = eligible
             .next_back()
@@ -170,7 +174,7 @@ impl Scope {
         Some((first, last))
     }
 
-    fn range(&self, from: i64, to: i64) -> compact::Range {
+    pub(super) fn range(&self, from: i64, to: i64) -> compact::Range {
         compact::Range {
             first: self.tag(from),
             last: self.tag(to),
@@ -178,7 +182,7 @@ impl Scope {
     }
 
     fn tag(&self, sequence: i64) -> String {
-        self.messages
+        self.boundaries
             .iter()
             .find(|message| message.sequence == sequence)
             .map(|message| message.tag.clone())
@@ -186,38 +190,15 @@ impl Scope {
     }
 
     fn located(&self, label: &str, tag: &str) -> Result<&Boundary, String> {
-        self.messages
+        self.boundaries
             .iter()
             .find(|message| message.tag == tag)
-            .ok_or_else(|| format!("[compact.unknown] compact {label} {tag} is not a message in this strand; query slots or messages for current references"))
+            .ok_or_else(|| format!("[compact.unknown] compact {label} {tag} is not a boundary in this strand; query slots or messages for current references"))
     }
 
     fn seated(&self, label: &str, sequence: i64) -> Result<&Boundary, String> {
-        self.messages.iter().find(|message| message.sequence == sequence)
+        self.boundaries.iter().find(|message| message.message && message.sequence == sequence)
             .ok_or_else(|| format!("[compact.unknown] compact {label} {sequence} is not a message sequence in this strand; from/to take message sequences, while tool and turn records carry sequences of their own and are not messages; query messages to pick a boundary, or pass first/last with message ids instead"))
-    }
-
-    pub(super) fn settled(&self) -> Result<compact::Range, String> {
-        let floor = self.spans.iter().map(|span| span.to).max().unwrap_or(0);
-        let loose = self
-            .messages
-            .iter()
-            .filter(|message| message.sequence > floor)
-            .collect::<Vec<_>>();
-        let settled = loose
-            .split_last()
-            .map(|(_, settled)| settled)
-            .unwrap_or_default();
-        let candidates = settled
-            .iter()
-            .filter(|message| message.fixed)
-            .map(|message| message.sequence)
-            .collect::<Vec<_>>();
-        self.window(&candidates)
-            .map(|(from, to)| self.range(from, to))
-            .ok_or_else(|| format!(
-                "[compact.settled] compact has no settled range to collapse: no eligible boundary lies after sequence {floor} outside the live exchange and outside every recorded tool exchange, and the most recent message is always kept out of a default range; name first/last or absorb occupied slots to choose a range yourself"
-            ))
     }
 
     fn chosen(&self, named: &[String], alone: bool) -> Result<Vec<&Span>, String> {

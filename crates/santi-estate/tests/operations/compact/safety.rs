@@ -1,5 +1,6 @@
 mod edge;
 mod partial;
+mod toolonly;
 
 use std::collections::BTreeMap;
 
@@ -228,7 +229,7 @@ async fn shrinks() {
         .await
         .expect("default selection");
     assert_eq!(choice.range.first, "m0");
-    assert_eq!(choice.range.last, "m0");
+    assert_eq!(choice.range.last, "r0");
     assert_eq!(choice.requested, None);
 
     let one = store

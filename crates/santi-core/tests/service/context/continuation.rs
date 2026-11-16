@@ -6,6 +6,7 @@ mod maintenance;
 mod pressure;
 mod preview;
 mod refusal;
+mod toolonly;
 
 use super::super::support::*;
 use santi_core::service::{self, Service};

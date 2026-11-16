@@ -19,7 +19,7 @@ pub struct Compact {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
-#[schema(as = compact::Exec)]
+#[schema(as = compact::Exec, description = "first/last select fixed messages or proven complete tool-exchange endpoints by record ID; from/to retain Message sequence semantics. Omit selectors to compact settled history while retaining the latest Message and live exchange.")]
 pub struct Exec {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub first: Option<String>,
@@ -73,7 +73,7 @@ pub struct Report {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
-#[schema(as = compact::Range)]
+#[schema(as = compact::Range, description = "Boundary record IDs. A boundary is a fixed projected Message or proven complete exchange endpoint; these are not arbitrary timeline positions.")]
 pub struct Range {
     pub first: String,
     pub last: String,

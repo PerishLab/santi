@@ -1,5 +1,5 @@
 use super::job::ToolCall;
-use super::ledger::{Message, Strand, Turn};
+use super::ledger::{Message, Strand, StrandEntry, Turn};
 use keel::atom::{int, string};
 use keel::resource;
 
@@ -105,8 +105,12 @@ pub(crate) struct Compact {
     metadata: string,
     #[relation(Strand, many2one, root)]
     strand: Strand,
-    #[relation(Message, many2one)]
+    #[relation(Message, many2one, opt)]
     first: Message,
-    #[relation(Message, many2one)]
+    #[relation(Message, many2one, opt)]
     last: Message,
+    #[relation(StrandEntry, many2one, opt)]
+    head: StrandEntry,
+    #[relation(StrandEntry, many2one, opt)]
+    tail: StrandEntry,
 }
