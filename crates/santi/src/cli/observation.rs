@@ -58,6 +58,7 @@ fn name(command: &crate::cli::Command) -> &'static str {
             StrandCommand::Get { .. } => "strand.get",
             StrandCommand::Messages { .. } => "strand.messages",
             StrandCommand::Runtime { .. } => "strand.runtime",
+            StrandCommand::Activity { .. } => "strand.activity",
             StrandCommand::ExecutionTail { .. } => "strand.execution-tail",
             StrandCommand::Budget { .. } => "strand.budget",
             StrandCommand::Errors { .. } => "strand.errors",
@@ -185,6 +186,7 @@ mod tests {
         check(&["strand", "get"], "strand.get");
         check(&["strand", "messages"], "strand.messages");
         check(&["strand", "runtime"], "strand.runtime");
+        check(&["strand", "activity"], "strand.activity");
         check(&["strand", "execution-tail"], "strand.execution-tail");
         check(&["strand", "budget"], "strand.budget");
         check(&["strand", "errors"], "strand.errors");

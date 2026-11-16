@@ -43,7 +43,7 @@ impl<'a> Receipts<'a> {
                     )
                 ),
             ))),
-            Some(Proof::Pending(_)) | None => Step::Stay,
+            Some(Proof::Pending { .. }) | None => Step::Stay,
         }
     }
 

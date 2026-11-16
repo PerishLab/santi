@@ -185,7 +185,8 @@ async fn liveness() {
         } else {
             assert!(error.contains("state_unknown"));
             assert!(error.contains("strand runtime 'ss_cli'"));
-            assert!(error.contains("strand drive 'ss_cli'"));
+            assert!(error.contains("strand activity 'ss_cli'"));
+            assert!(!error.contains("explicitly redrive"));
         }
         if matches!(scenario, Scenario::Limit) {
             assert!(error.contains("watch reached its ten-minute proof limit"));
@@ -286,3 +287,6 @@ async fn redirect() {
 
 #[path = "send_watch/presentation.rs"]
 mod presentation;
+
+#[path = "send_watch/progress.rs"]
+mod progress;

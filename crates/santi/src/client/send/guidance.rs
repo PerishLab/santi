@@ -2,9 +2,10 @@ pub(crate) fn inspect(base: &str, strand: &str, receipt: Option<&str>) -> String
     let Some(runtime) = command(base, "strand runtime", strand) else {
         return "select a credential-free HTTP(S) service URL explicitly with --base-url to inspect this receipt and Strand; no command was generated".into();
     };
+    let activity = command(base, "strand activity", strand).expect("validated service and strand");
     match receipt.and_then(|id| command(base, "receipt", id)) {
-        Some(receipt) => format!("inspect with `{receipt}` and `{runtime}`"),
-        None => format!("inspect with `{runtime}`"),
+        Some(receipt) => format!("inspect with `{receipt}`, `{runtime}` and `{activity}`"),
+        None => format!("inspect with `{runtime}` and `{activity}`"),
     }
 }
 

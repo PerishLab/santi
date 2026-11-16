@@ -23,7 +23,7 @@ struct Accepted(String);
 pub(crate) struct Completion(pub(crate) String);
 
 pub(crate) enum Proof {
-    Pending(String),
+    Pending { state: String, turn: Option<String> },
     Completed,
     Failed(Option<String>),
 }
