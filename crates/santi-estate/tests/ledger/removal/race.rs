@@ -1,4 +1,4 @@
-use super::super::seed::{FIRST, SUDO, inbox, seed};
+use super::super::seed::{FIRST, SOUL, SUDO, inbox, seed};
 use super::guards::strand;
 use santi_estate::{Store, TurnDraft};
 use santi_model::{message, turn};
@@ -82,6 +82,78 @@ async fn admission() {
     }
 }
 
+async fn settled(store: &Store, tag: &str) {
+    let turn = format!("turn_{tag}");
+    store
+        .create_turn(TurnDraft {
+            tag: &turn,
+            strand: tag,
+            trigger: turn::Trigger::StrandSend,
+            from: 0,
+            created: FIRST,
+        })
+        .await
+        .expect("turn");
+    super::super::job::job(store, tag, &turn).await;
+    super::guards::finish(store, &turn).await;
+    store
+        .reconcile_effects(&turn, FIRST)
+        .await
+        .expect("reconcile");
+    store
+        .transition_job(
+            &format!("job_{tag}"),
+            santi_estate::TransitionDraft::new(santi_model::job::State::Succeeded, FIRST),
+        )
+        .await
+        .expect("complete");
+    store
+        .acknowledge_job(&format!("job_{tag}"), FIRST)
+        .await
+        .expect("ack");
+    store
+        .create_capability(santi_estate::CapabilityDraft {
+            digest: tag,
+            expires: 1000,
+            soul: SOUL,
+            strand: tag,
+            turn: &turn,
+            call: &format!("job_call_{tag}"),
+            effect: &format!("job_effect_{tag}"),
+            created: FIRST,
+        })
+        .await
+        .expect("late submission capability");
+}
+
+async fn submit(
+    store: &Store,
+    strand: &str,
+    supervisor: &str,
+) -> Result<santi_estate::Prepared, String> {
+    store
+        .prepare_job(
+            strand,
+            santi_estate::JobDraft {
+                environment: None,
+                tag: &format!("late_{strand}"),
+                description: "late job",
+                command: "true",
+                cwd: None,
+                timeout_seconds: 30,
+                output_limit_bytes: 1024,
+                remind_every_seconds: None,
+                notify_on_terminal: false,
+                request_sha256: "late_digest",
+                generation: &format!("generation_{strand}"),
+                supervisor_ref: supervisor,
+                created: FIRST,
+            },
+            500,
+        )
+        .await
+}
+
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn submission() {
     let temp = tempfile::tempdir().expect("temp");
@@ -92,74 +164,15 @@ async fn submission() {
     for index in 0..20 {
         let tag = format!("submission_{index}");
         strand(&store, &tag).await;
-        let turn = format!("turn_{tag}");
-        store
-            .create_turn(TurnDraft {
-                tag: &turn,
-                strand: &tag,
-                trigger: turn::Trigger::StrandSend,
-                from: 0,
-                created: FIRST,
-            })
-            .await
-            .expect("turn");
-        super::super::job::job(&store, &tag, &turn).await;
-        super::guards::finish(&store, &turn).await;
-        store
-            .reconcile_effects(&turn, FIRST)
-            .await
-            .expect("reconcile");
-        store
-            .transition_job(
-                &format!("job_{tag}"),
-                santi_estate::TransitionDraft::new(santi_model::job::State::Succeeded, FIRST),
-            )
-            .await
-            .expect("complete");
-        store
-            .acknowledge_job(&format!("job_{tag}"), FIRST)
-            .await
-            .expect("ack");
-        store
-            .create_capability(santi_estate::CapabilityDraft {
-                digest: &tag,
-                expires: 1000,
-                soul: super::super::seed::SOUL,
-                strand: &tag,
-                turn: &turn,
-                call: &format!("job_call_{tag}"),
-                effect: &format!("job_effect_{tag}"),
-                created: FIRST,
-            })
-            .await
-            .expect("late submission capability");
+        settled(&store, &tag).await;
         let barrier = Arc::new(Barrier::new(2));
         let aside = other.clone();
         let target = tag.clone();
         let ready = barrier.clone();
         let writer = tokio::spawn(async move {
             ready.wait().await;
-            aside
-                .prepare_job(
-                    &target,
-                    santi_estate::JobDraft {
-                        environment: None,
-                        tag: &format!("late_{target}"),
-                        description: "late job",
-                        command: "true",
-                        cwd: None,
-                        timeout_seconds: 30,
-                        output_limit_bytes: 1024,
-                        remind_every_seconds: None,
-                        notify_on_terminal: false,
-                        request_sha256: "late_digest",
-                        generation: &format!("generation_{target}"),
-                        supervisor_ref: &format!("supervisor_{target}"),
-                        created: FIRST,
-                    },
-                    500,
-                )
-                .await
+            let supervisor = format!("late_supervisor_{target}");
+            submit(&aside, &target, &supervisor).await
         });
         barrier.wait().await;
         let ended = store.end_strand(&tag).await;
@@ -190,4 +203,68 @@ async fn submission() {
             );
         }
     }
+}
+
+#[tokio::test]
+async fn qualification() {
+    let temp = tempfile::tempdir().expect("temp");
+    let store = Store::bootstrap(temp.path().join("estate.sqlite"), SUDO)
+        .await
+        .expect("open");
+    seed(&store).await;
+    let tag = "qualification";
+    strand(&store, tag).await;
+    settled(&store, tag).await;
+    let taken = submit(&store, tag, &format!("supervisor_{tag}"))
+        .await
+        .expect_err("settled supervisor is taken");
+    assert!(taken.contains("supervisor_ref taken"), "{taken}");
+    assert!(
+        store
+            .job_record(&format!("late_{tag}"))
+            .await
+            .expect("job")
+            .is_none(),
+        "rejected contender left a job"
+    );
+    let original = store
+        .job_record(&format!("job_{tag}"))
+        .await
+        .expect("job")
+        .expect("settled job");
+    assert_eq!(original.job.state, santi_model::job::State::Succeeded);
+    assert!(store.strand(tag).await.expect("strand").is_some());
+    let santi_estate::Prepared::New(record) =
+        submit(&store, tag, &format!("late_supervisor_{tag}"))
+            .await
+            .expect("independent supervisor is admissible")
+    else {
+        panic!("late job must be new");
+    };
+    assert_eq!(record.job.id, format!("late_{tag}"));
+    assert_eq!(
+        store
+            .job_record(&format!("job_{tag}"))
+            .await
+            .expect("job")
+            .expect("settled job")
+            .job
+            .state,
+        santi_model::job::State::Succeeded
+    );
+    assert!(
+        store
+            .end_strand(tag)
+            .await
+            .expect_err("active job protects")
+            .contains("active job")
+    );
+    assert!(store.strand(tag).await.expect("strand").is_some());
+    assert!(
+        store
+            .job_record(&format!("late_{tag}"))
+            .await
+            .expect("protected job")
+            .is_some()
+    );
 }
