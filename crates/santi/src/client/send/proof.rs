@@ -63,7 +63,21 @@ pub(crate) async fn prove(target: Target<'_>, receipt: &str) -> Result<Proof> {
                 .map(str::to_string),
         )),
         Some(state @ ("accepted" | "recovered" | "driving")) => {
-            Ok(Proof::Pending(state.to_string()))
+            let latest = value
+                .get("transitions")
+                .and_then(serde_json::Value::as_array)
+                .and_then(|transitions| transitions.last());
+            let turn = latest
+                .filter(|held| state == "driving" && field(held, "state") == Some(state))
+                .and_then(|held| field(held, "turn"))
+                .filter(|turn| {
+                    !turn.is_empty() && turn.trim() == *turn && !turn.chars().any(char::is_control)
+                })
+                .map(str::to_string);
+            Ok(Proof::Pending {
+                state: state.to_string(),
+                turn,
+            })
         }
         _ => Err(uncertain(
             target,

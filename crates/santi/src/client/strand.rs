@@ -35,6 +35,11 @@ pub(super) async fn run(
             http.get(&format!("{base}/api/v1/strands/{id}/runtime"))
                 .await
         }
+        StrandCommand::Activity { id } => {
+            let id = defaults.resolve_strand(id)?;
+            http.get(&format!("{base}/api/v1/strands/{id}/activity"))
+                .await
+        }
         StrandCommand::ExecutionTail { id } => {
             let id = defaults.resolve_strand(id)?;
             http.get(&format!("{base}/api/v1/strands/{id}/execution-tail"))

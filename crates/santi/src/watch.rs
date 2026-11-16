@@ -191,16 +191,16 @@ async fn settle(target: Target<'_>, receipt: &str, boundary: Option<&str>) -> Re
             turn,
         }
         .into()),
-        Proof::Pending(state) if boundary.is_some() => Err(crate::client::pending(
+        Proof::Pending { state, turn } if boundary.is_some() => Err(crate::client::pending(
             receipt,
             format!(
-                "watch outcome=state_unknown: {} while accepted receipt {receipt} remained {state}; do not resend the accepted message; {}; resume the blocking condition or {}",
+                "watch outcome=state_unknown: {} while accepted receipt {receipt} remained {state}; {}; do not resend the accepted message; continue observing the same receipt; {}; silence alone does not authorize stop or drive",
                 boundary.expect("pending boundary"),
-                crate::client::guidance::inspect(target.base, target.strand, Some(receipt)),
-                crate::client::guidance::drive(target.base, target.strand)
+                progress::read(target, turn.as_deref()).await,
+                crate::client::guidance::inspect(target.base, target.strand, Some(receipt))
             ),
         )),
-        Proof::Pending(_) => Ok(false),
+        Proof::Pending { .. } => Ok(false),
     }
 }
 fn terminal(event: &str, data: &str) -> bool {
@@ -209,6 +209,7 @@ fn terminal(event: &str, data: &str) -> bool {
 }
 mod bound;
 mod display;
+mod progress;
 mod render;
 mod sse;
 pub use sse::next_sse_frame;
