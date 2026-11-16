@@ -238,25 +238,8 @@ async fn hull() {
         .selection("strand_test", &default(), LIMITS)
         .await
         .expect("default skips the unsafe left candidate");
-    assert_eq!(inward.range.first, "m3");
+    assert_eq!(inward.range.first, "s0");
     assert_eq!(inward.range.last, "m3");
-
-    let bare = opened(&temp.path().join("bare.sqlite")).await;
-    let other = Writer(&bare);
-    other.turn("turn_test").await;
-    other
-        .thought("s0", "turn_test", round(&["shell"], 7, Some(1)))
-        .await;
-    other
-        .fixed("n0", message::Role::Soul, "soul_test", "assistant")
-        .await;
-    other.call("c0", "turn_test").await;
-    other.result("r0", "c0").await;
-    other
-        .fixed("n1", message::Role::Soul, "soul_test", "latest")
-        .await;
-    let error = other.refuse(&default(), "[compact.settled]").await;
-    assert!(error.contains("name first/last or absorb"), "{error}");
 }
 
 #[tokio::test]

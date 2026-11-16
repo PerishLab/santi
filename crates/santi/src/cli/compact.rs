@@ -21,13 +21,13 @@ pub enum CompactCommand {
     )]
     Exec {
         #[arg(
-            help = "First message of the range (a fixed projected message id). Omit both --first and --last to collapse everything settled since the last occupied slot, keeping the most recent message live",
+            help = "First boundary id: fixed projected message or completed exchange reasoning anchor. Omit both --first and --last to collapse everything settled since the last occupied slot, keeping the most recent message live",
             long,
             requires = "last"
         )]
         first: Option<String>,
         #[arg(
-            help = "Last message of the range (a fixed projected message id)",
+            help = "Last boundary id: fixed projected message or completed exchange final result",
             long,
             requires = "first"
         )]
@@ -56,13 +56,13 @@ pub enum CompactCommand {
     #[command(about = "Create a provider-visible compact capsule with provenance/risk metadata")]
     Capsule {
         #[arg(
-            help = "First message of the range (a fixed projected message id)",
+            help = "First boundary id: fixed projected message or completed exchange reasoning anchor",
             long,
             conflicts_with = "from"
         )]
         first: Option<String>,
         #[arg(
-            help = "Last message of the range (a fixed projected message id)",
+            help = "Last boundary id: fixed projected message or completed exchange final result",
             long,
             conflicts_with = "to"
         )]

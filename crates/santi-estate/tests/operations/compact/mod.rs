@@ -1,3 +1,4 @@
+mod legacy;
 mod safety;
 mod selection;
 

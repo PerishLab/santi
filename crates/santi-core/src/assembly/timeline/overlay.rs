@@ -23,7 +23,6 @@ pub(super) async fn build(
 ) -> Result<Vec<Overlay>, String> {
     let seats = entries
         .iter()
-        .filter(|entry| entry.kind == strand::Target::Message)
         .map(|entry| (entry.target.as_str(), entry.seq))
         .collect::<HashMap<_, _>>();
     let mut overlays = Vec::new();
@@ -68,5 +67,5 @@ fn seat(seats: &HashMap<&str, i64>, message: &str) -> Result<i64, String> {
     seats
         .get(message)
         .copied()
-        .ok_or_else(|| format!("compact boundary message {message} missing from strand"))
+        .ok_or_else(|| format!("compact boundary {message} missing from strand"))
 }

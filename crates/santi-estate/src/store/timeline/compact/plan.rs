@@ -1,5 +1,5 @@
 use keel::adapt::db::Sqlite;
-use keel::{Op, Row, Tx, form};
+use keel::{Op, Tx, form};
 use santi_model::compact;
 
 pub(super) struct Plan {
@@ -13,8 +13,6 @@ pub(super) struct Plan {
     pub(super) absorbed: Vec<(i64, String)>,
     pub(super) collapsed: i64,
 }
-
-struct Reader<'a, 'tx>(&'a mut Tx<'tx, Sqlite>);
 
 impl Plan {
     pub(super) fn report(&self, tag: &str, dry: bool) -> compact::Report {
@@ -80,38 +78,40 @@ pub(super) async fn build(
     first: &str,
     last: &str,
 ) -> Result<Plan, keel::adapt::Error> {
-    let tag = strand;
-    let strand = Reader(tx).need("Strand", tag).await?;
-    let (first_row, from) = boundary(tx, strand.key(), first, "from").await?;
-    let (last_row, to) = boundary(tx, strand.key(), last, "to").await?;
+    let scope = super::scope::load(tx, strand).await?;
+    let head = boundary(&scope, first, "from")?;
+    let tail = boundary(&scope, last, "to")?;
+    let from = head.sequence;
+    let to = tail.sequence;
+    let strand = crate::store::read::need(tx, "Strand", "tag", strand).await?;
     if from > to {
         return Err(keel::adapt::Error::Adapt(
             "[compact.order] compact from must not be after to".into(),
         ));
     }
-    if let Some(reason) = super::thread::load(tx, tag).await?.split(from, to) {
+    if let Some(reason) = scope.thread.split(from, to) {
         return Err(keel::adapt::Error::Adapt(reason));
     }
     let mut absorbed = Vec::new();
     let rows = tx
-        .ask(&form("Compact").when("strand", Op::Eq, &strand.key().to_string()))
+        .ask(&form("Compact").when("strand", Op::Eq, &strand.to_string()))
         .await?
         .rows()
         .to_vec();
     for compact in rows {
-        let start = compact
-            .int("first")
-            .ok_or_else(|| keel::adapt::Error::Adapt("compact first missing".into()))?;
-        let end = compact
-            .int("last")
-            .ok_or_else(|| keel::adapt::Error::Adapt("compact last missing".into()))?;
-        let start = sequence(tx, strand.key(), start).await?;
-        let end = sequence(tx, strand.key(), end).await?;
+        let (head, tail) = super::boundary::Reader(tx).ends(&compact).await?;
+        let start = super::boundary::number(&head, "sequence")?;
+        let end = super::boundary::number(&tail, "sequence")?;
         if end < from || start > to {
             continue;
         }
         if from <= start && end <= to {
-            absorbed.push((compact.key(), text(&compact, "tag")?.to_string()));
+            absorbed.push((
+                compact.key(),
+                crate::store::read::text(&compact, "tag")
+                    .map_err(keel::adapt::Error::Adapt)?
+                    .to_string(),
+            ));
             continue;
         }
         return Err(keel::adapt::Error::Adapt(
@@ -121,7 +121,7 @@ pub(super) async fn build(
     let collapsed = tx
         .ask(
             &form("StrandEntry")
-                .when("strand", Op::Eq, &strand.key().to_string())
+                .when("strand", Op::Eq, &strand.to_string())
                 .when("sequence", Op::Ge, &from.to_string())
                 .when("sequence", Op::Le, &to.to_string()),
         )
@@ -129,11 +129,11 @@ pub(super) async fn build(
         .rows()
         .len() as i64;
     Ok(Plan {
-        strand: strand.key(),
-        first: first_row.key(),
-        last: last_row.key(),
-        first_tag: text(&first_row, "tag")?.to_string(),
-        last_tag: text(&last_row, "tag")?.to_string(),
+        strand,
+        first: head.key,
+        last: tail.key,
+        first_tag: head.tag.clone(),
+        last_tag: tail.tag.clone(),
         from,
         to,
         absorbed,
@@ -141,61 +141,22 @@ pub(super) async fn build(
     })
 }
 
-async fn boundary(
-    tx: &mut Tx<'_, Sqlite>,
-    strand: i64,
+fn boundary<'a>(
+    scope: &'a super::scope::Scope,
     tag: &str,
     label: &str,
-) -> Result<(Row, i64), keel::adapt::Error> {
-    let message = Reader(tx).need("Message", tag).await?;
-    if !super::scope::eligible(&message) {
+) -> Result<&'a super::scope::Boundary, keel::adapt::Error> {
+    let found = scope
+        .boundaries
+        .iter()
+        .find(|entry| entry.tag == tag)
+        .ok_or_else(|| {
+            keel::adapt::Error::Missing(format!("compact {label} boundary {tag} in this strand"))
+        })?;
+    if !found.fixed {
         return Err(keel::adapt::Error::Adapt(format!(
-            "[compact.boundary] compact {label} boundary must be a fixed projected message"
+            "[compact.boundary] compact {label} boundary must be a fixed projected message or a proven completed exchange endpoint"
         )));
     }
-    let entry = tx
-        .one(
-            &form("StrandEntry")
-                .when("strand", Op::Eq, &strand.to_string())
-                .when("message", Op::Eq, &message.key().to_string()),
-        )
-        .await?
-        .ok_or_else(|| {
-            keel::adapt::Error::Adapt(format!(
-                "[compact.unknown] compact {label} message not in this strand"
-            ))
-        })?;
-    let sequence = entry
-        .int("sequence")
-        .ok_or_else(|| keel::adapt::Error::Adapt("compact sequence missing".into()))?;
-    Ok((message, sequence))
-}
-
-pub(super) async fn sequence(
-    tx: &mut Tx<'_, Sqlite>,
-    strand: i64,
-    message: i64,
-) -> Result<i64, keel::adapt::Error> {
-    tx.one(
-        &form("StrandEntry")
-            .when("strand", Op::Eq, &strand.to_string())
-            .when("message", Op::Eq, &message.to_string()),
-    )
-    .await?
-    .and_then(|row| row.int("sequence"))
-    .ok_or_else(|| keel::adapt::Error::Missing("compact boundary entry".into()))
-}
-
-impl Reader<'_, '_> {
-    async fn need(&mut self, unit: &str, tag: &str) -> Result<Row, keel::adapt::Error> {
-        self.0
-            .one(&form(unit).when("tag", Op::Eq, tag))
-            .await?
-            .ok_or_else(|| keel::adapt::Error::Missing(format!("{unit} {tag}")))
-    }
-}
-
-fn text<'a>(row: &'a Row, field: &str) -> Result<&'a str, keel::adapt::Error> {
-    row.text(field)
-        .ok_or_else(|| keel::adapt::Error::Adapt(format!("compact {field} missing")))
+    Ok(found)
 }

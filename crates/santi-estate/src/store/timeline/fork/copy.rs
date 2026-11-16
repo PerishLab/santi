@@ -51,23 +51,24 @@ pub(super) async fn compacts(
         .rows()
         .to_vec();
     for compact in compacts {
-        let first = int(&compact, "first")?;
-        let last = int(&compact, "last")?;
-        let from = Writer(tx).message_sequence(parent, first).await?;
-        let to = Writer(tx).message_sequence(parent, last).await?;
+        let (head, tail) = super::super::compact::boundary::Reader(tx)
+            .ends(&compact)
+            .await?;
+        let from = int(&head, "sequence")?;
+        let to = int(&tail, "sequence")?;
         if from > at || to > at {
             continue;
         }
         let tag = santi_model::tag("cmp");
-        let first = first.to_string();
-        let last = last.to_string();
+        let first = seat(tx, child, from).await?.to_string();
+        let last = seat(tx, child, to).await?.to_string();
         let child = child.to_string();
         let mut fields = vec![
             ("tag", tag.as_str()),
             ("summary", text(&compact, "summary")?),
             ("strand", child.as_str()),
-            ("first", first.as_str()),
-            ("last", last.as_str()),
+            ("head", first.as_str()),
+            ("tail", last.as_str()),
         ];
         if let Some(created) = compact.text("created") {
             fields.push(("created", created));
@@ -78,4 +79,19 @@ pub(super) async fn compacts(
         tx.put("Compact", &fields).await?;
     }
     Ok(())
+}
+
+async fn seat(
+    tx: &mut Tx<'_, Sqlite>,
+    strand: i64,
+    sequence: i64,
+) -> Result<i64, keel::adapt::Error> {
+    tx.one(
+        &form("StrandEntry")
+            .when("strand", Op::Eq, &strand.to_string())
+            .when("sequence", Op::Eq, &sequence.to_string()),
+    )
+    .await?
+    .map(|row| row.key())
+    .ok_or_else(|| keel::adapt::Error::Missing("fork compact boundary entry".into()))
 }
