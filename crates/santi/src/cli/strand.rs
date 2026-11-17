@@ -47,10 +47,12 @@ pub enum StrandCommand {
     },
     #[command(
         about = "Fork a complete history prefix (id falls back to --strand)",
-        long_about = "POST /api/v1/strands/{id}/fork. In-flight or failed execution is excluded at its turn boundary; the returned strand.fork is the actual inherited sequence. The child shares its soul and retains a complete history prefix, without inheriting active execution or effects. Strand workspace files are copied as they exist now, not rewound to the history boundary. Inference flags declare the child's own delta; omitted flags copy the parent's own delta, while --inherit declares an empty delta that inherits from the soul."
+        long_about = "POST /api/v1/strands/{id}/fork. --at selects an exact historical sequence; an unsafe or unavailable position is refused with valid-position guidance. Without --at, in-flight or failed execution is excluded at its turn boundary; the returned strand.fork is the actual inherited sequence. The child shares its soul and retains a complete history prefix, without inheriting active execution or effects. The response's workspace=current means files are copied as they exist now, not rewound to the history boundary. Inference flags declare the child's own delta; omitted flags copy the parent's own delta, while --inherit declares an empty delta that inherits from the soul."
     )]
     Fork {
         id: Option<String>,
+        #[arg(long, value_parser = clap::value_parser!(i64).range(0..))]
+        at: Option<i64>,
         #[command(flatten)]
         delta: Delta,
     },

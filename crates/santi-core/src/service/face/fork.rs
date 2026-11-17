@@ -14,29 +14,39 @@ impl Service {
         parent: &str,
         inference: Option<&crate::inference::Declaration>,
     ) -> Result<strand::Forked, String> {
+        self.branching(parent, None, inference).await
+    }
+
+    pub async fn branching(
+        &self,
+        parent: &str,
+        at: Option<i64>,
+        inference: Option<&crate::inference::Declaration>,
+    ) -> Result<strand::Forked, String> {
         let parent = self
             .store
             .strand(parent)
             .await?
             .ok_or_else(|| "parent strand not found".to_string())?;
-        let fork = parent.next - 1;
+        let fork = at.unwrap_or(parent.next - 1);
         let child_tag = crate::tag("ss");
-        let (child, _) = self
-            .store
-            .branching(
-                santi_estate::ForkDraft {
-                    tag: &child_tag,
-                    parent: &parent.id,
-                    at: fork,
-                    inference,
-                    created: &crate::now(),
-                },
-                |target, candidate, lower| {
-                    self.infer(target, candidate, lower)
-                        .map_err(|error| format!("inference rejected: {error}"))
-                },
-            )
-            .await?;
+        let draft = santi_estate::ForkDraft {
+            tag: &child_tag,
+            parent: &parent.id,
+            at: fork,
+            inference,
+            created: &crate::now(),
+        };
+        let validate = |target,
+                        candidate: &crate::inference::Declaration,
+                        lower: Option<&crate::inference::Declaration>| {
+            self.infer(target, candidate, lower)
+                .map_err(|error| format!("inference rejected: {error}"))
+        };
+        let (child, _) = match at {
+            Some(_) => self.store.positioning(draft, validate).await?,
+            None => self.store.branching(draft, validate).await?,
+        };
         if let Err(error) = self.bequeath(&parent.id, &child.id) {
             let nursery = self.strandhome(&child.id);
             if let Some(child_root) = nursery.parent() {
@@ -47,7 +57,10 @@ impl Service {
             let _ = self.store.discard_fork(&child.id).await;
             return Err(format!("fork workspace sync failed: {error}"));
         }
-        Ok(strand::Forked { strand: child })
+        Ok(strand::Forked {
+            strand: child,
+            workspace: strand::Workspace::Current,
+        })
     }
 
     fn bequeath(&self, parent: &str, child_strand_id: &str) -> Result<(), String> {

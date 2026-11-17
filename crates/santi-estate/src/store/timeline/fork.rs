@@ -41,7 +41,33 @@ impl Store {
             .core
             .batch(async |tx| {
                 let parent = Writer(tx).need("Strand", draft.parent).await?;
-                let at = checkpoint::selected(tx, &parent, draft.at).await?;
+                let at = checkpoint::Reader(tx).selected(&parent, draft.at).await?;
+                creating(tx, ForkDraft { at, ..draft }, &validate).await
+            })
+            .await
+            .map_err(read::error)?;
+        let strand = self
+            .strand(&tag)
+            .await?
+            .ok_or_else(|| "forked strand missing".to_string())?;
+        Ok((strand, checked))
+    }
+
+    pub async fn positioning<V>(
+        &self,
+        draft: ForkDraft<'_>,
+        validate: impl Fn(
+            crate::Target,
+            &santi_model::inference::Declaration,
+            Option<&santi_model::inference::Declaration>,
+        ) -> Result<V, String>,
+    ) -> Result<(santi_model::strand::Strand, Option<V>), String> {
+        let tag = draft.tag.to_string();
+        let checked = self
+            .core
+            .batch(async |tx| {
+                let parent = Writer(tx).need("Strand", draft.parent).await?;
+                let at = checkpoint::Reader(tx).position(&parent, draft.at).await?;
                 creating(tx, ForkDraft { at, ..draft }, &validate).await
             })
             .await

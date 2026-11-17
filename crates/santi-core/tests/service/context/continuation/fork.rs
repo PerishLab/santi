@@ -1,6 +1,9 @@
 use super::*;
 use santi_estate::{CallDraft, ForkDraft, ReplyDraft, ThinkingDraft, TurnDraft};
 
+#[path = "positions.rs"]
+mod positions;
+
 #[tokio::test]
 async fn active() {
     let temp = tempfile::tempdir().unwrap();
