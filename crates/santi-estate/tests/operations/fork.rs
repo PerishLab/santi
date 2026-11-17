@@ -4,6 +4,9 @@ use santi_model::{message, turn};
 const FIRST: &str = "2026-07-28T00:00:00.000Z";
 const LATER: &str = "2026-07-28T00:01:00.000Z";
 
+#[path = "projection/positions.rs"]
+mod positions;
+
 #[tokio::test]
 async fn occurrences() {
     let temp = tempfile::tempdir().expect("temp");

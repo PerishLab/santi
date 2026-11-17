@@ -59,13 +59,11 @@ pub(super) async fn run(
             )?)
             .await
         }
-        StrandCommand::Fork { id, delta } => {
+        StrandCommand::Fork { id, at, delta } => {
             let id = defaults.resolve_strand(id)?;
-            http.post(
-                &format!("{base}/api/v1/strands/{id}/fork"),
-                delta.body(&defaults.held)?,
-            )
-            .await
+            let body = positioned(delta.body(&defaults.held)?, at);
+            http.post(&format!("{base}/api/v1/strands/{id}/fork"), body)
+                .await
         }
         StrandCommand::Drive { id } => {
             let id = defaults.resolve_strand(id)?;
@@ -92,4 +90,11 @@ pub(super) async fn run(
                 .await
         }
     }
+}
+
+fn positioned(mut body: Option<serde_json::Value>, at: Option<i64>) -> Option<serde_json::Value> {
+    if let Some(at) = at {
+        body.get_or_insert_with(|| serde_json::json!({}))["at"] = at.into();
+    }
+    body
 }

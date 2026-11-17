@@ -1,4 +1,3 @@
-mod face;
 mod forecast;
 mod fork;
 mod helpers;

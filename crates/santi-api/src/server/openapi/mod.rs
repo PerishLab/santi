@@ -114,6 +114,8 @@ use santi_core::{material, soul, strand, stream};
         santi_core::downstream::Draft,
         santi_core::ingest::Request,
         strand::Forked,
+        strand::Fork,
+        strand::Workspace,
         soul::Draft,
         environ::Scope,
         environ::Variable,

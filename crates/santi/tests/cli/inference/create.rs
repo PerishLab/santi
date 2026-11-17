@@ -163,3 +163,51 @@ async fn forked() {
     support::applied(&output);
     assert_eq!(support::json(&request), json!({"inference": {}}));
 }
+
+#[tokio::test]
+async fn positioned() {
+    let home = support::home();
+    for (flags, expected) in [
+        (vec!["--at", "0"], json!({"at": 0})),
+        (
+            vec!["--at", "12", "--inherit"],
+            json!({"at": 12, "inference": {}}),
+        ),
+        (
+            vec!["--at", "12", "--model", "chosen"],
+            json!({"at": 12, "inference": {"model": "chosen"}}),
+        ),
+    ] {
+        let wire = support::serve("200 OK", FORKED).await;
+        let mut args = vec!["strand", "fork", "ss_parent"];
+        args.extend(flags);
+        let (output, request) = support::call(wire, home.path(), &[], &args).await;
+        support::applied(&output);
+        assert_eq!(
+            support::line(&request),
+            "POST /api/v1/strands/ss_parent/fork HTTP/1.1"
+        );
+        assert_eq!(support::json(&request), expected);
+    }
+
+    let wire = support::serve("200 OK", FORKED).await;
+    let (output, request) = support::call(
+        wire,
+        home.path(),
+        &[
+            ("SANTI_STRAND_ID", "ss_env"),
+            ("SANTI_INFERENCE_MODEL", "held"),
+        ],
+        &["strand", "fork", "--at", "5"],
+    )
+    .await;
+    support::applied(&output);
+    assert_eq!(
+        support::line(&request),
+        "POST /api/v1/strands/ss_env/fork HTTP/1.1"
+    );
+    assert_eq!(
+        support::json(&request),
+        json!({"at": 5, "inference": {"model": "held"}})
+    );
+}

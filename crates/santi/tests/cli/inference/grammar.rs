@@ -220,10 +220,11 @@ fn creates() {
     );
 
     let parsed = Cli::try_parse_from(["santi", "strand", "fork", "ss_parent"]).unwrap();
-    let Command::Strand(StrandCommand::Fork { id, delta }) = parsed.command else {
+    let Command::Strand(StrandCommand::Fork { id, delta, at }) = parsed.command else {
         panic!("expected strand fork");
     };
     assert_eq!(id.as_deref(), Some("ss_parent"));
+    assert_eq!(at, None);
     assert!(delta.body(&Declaration::default()).unwrap().is_none());
 
     let parsed =
@@ -246,4 +247,26 @@ fn send() {
         );
     }
     assert!(Cli::try_parse_from(["santi", "strand", "send", "hello"]).is_ok());
+}
+
+#[test]
+fn position() {
+    let parsed = Cli::try_parse_from(["santi", "strand", "fork", "ss_parent", "--at", "0"])
+        .expect("historical fork");
+    let Command::Strand(StrandCommand::Fork { at, .. }) = parsed.command else {
+        panic!("expected fork");
+    };
+    assert_eq!(at, Some(0));
+    for invalid in ["-1", "9223372036854775808", "wrong"] {
+        assert!(
+            Cli::try_parse_from([
+                "santi",
+                "strand",
+                "fork",
+                "ss_parent",
+                &format!("--at={invalid}")
+            ])
+            .is_err()
+        );
+    }
 }

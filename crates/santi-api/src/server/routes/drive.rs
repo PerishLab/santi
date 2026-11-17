@@ -1,5 +1,5 @@
 use super::*;
-use santi_core::{budget, compact, inference, strand, stream};
+use santi_core::{budget, compact, strand, stream};
 
 #[utoipa::path(
     post,
@@ -53,9 +53,9 @@ pub async fn drive(
 #[utoipa::path(
     post,
     path = "/api/v1/strands/{strand}/fork",
-    summary = "Fork a complete history prefix, excluding in-flight or failed turns. strand.fork reports the actual inherited sequence; workspace files are copied as they exist now, not as of that sequence. Omit inference to copy the parent strand's own declaration by value; an explicit inference object replaces the child's declaration, and an empty object inherits from the shared soul.",
+    summary = "Fork a complete history prefix, excluding in-flight or failed turns. Optional at selects an exact safe historical sequence; an unavailable position is refused with valid-position guidance. Without at the existing head checkpoint is selected. strand.fork reports the inherited sequence; workspace=current means files are copied as they exist now, not as of that sequence. Omit inference to copy the parent strand's own declaration by value; an explicit inference object replaces the child's declaration, and an empty object inherits from the shared soul.",
     params(("strand" = String, Path)),
-    request_body = Option<inference::Draft>,
+    request_body = Option<strand::Fork>,
     responses(
         (status = 200, body = strand::Forked),
         (status = 400, body = Fault),
@@ -68,9 +68,9 @@ pub(super) fn fork() -> MethodRouter<Service> {
         |State(service): State<Service>,
          Path(strand): Path<String>,
          request: axum::extract::Request| async move {
-            let selected: Option<inference::Draft> = super::optional(request).await?;
+            let selected: Option<strand::Fork> = super::optional(request).await?;
             Drive(service)
-                .fork(strand, selected.and_then(|draft| draft.inference).as_ref())
+                .fork(strand, selected.unwrap_or_default())
                 .await
         },
     )
@@ -195,10 +195,10 @@ impl Drive {
     async fn fork(
         &self,
         strand: String,
-        inference: Option<&inference::Declaration>,
+        request: strand::Fork,
     ) -> Result<Json<strand::Forked>, ApiError> {
         self.0
-            .forking(&strand, inference)
+            .branching(&strand, request.at, request.inference.as_ref())
             .await
             .map(Json)
             .map_err(super::inference::reject)

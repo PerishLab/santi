@@ -1,5 +1,8 @@
 use sha2::{Digest, Sha256};
 
+#[path = "contract/fork.rs"]
+mod fork;
+
 #[test]
 fn api() {
     let text = santi_api::export_openapi_json().expect("export openapi");
@@ -239,6 +242,6 @@ fn api() {
     let hash = format!("{:x}", Sha256::digest(text.as_bytes()));
     assert_eq!(
         hash,
-        "24ef6ee2c7e0533fd286a4210ee597340d2601b082dc101d3bfd613d20224d01"
+        "bfb841f683ec98ea6aa10c105810b56806f555412fd43a058bbaef863f373e70"
     );
 }

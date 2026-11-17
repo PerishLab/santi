@@ -53,6 +53,25 @@ pub struct Created {
 #[schema(as = strand::Forked)]
 pub struct Forked {
     pub strand: Strand,
+    #[serde(default)]
+    pub workspace: Workspace,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+#[schema(as = strand::Fork)]
+pub struct Fork {
+    #[schema(minimum = 0)]
+    pub at: Option<i64>,
+    pub inference: Option<crate::inference::Declaration>,
+}
+
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, ToSchema, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+#[schema(as = strand::Workspace)]
+pub enum Workspace {
+    #[default]
+    Current,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
