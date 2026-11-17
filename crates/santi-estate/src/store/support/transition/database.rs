@@ -5,7 +5,7 @@ use std::path::Path;
 pub(super) async fn probe(path: &Path) -> Result<(i64, Vec<String>), String> {
     let options = SqliteConnectOptions::new()
         .filename(path)
-        .read_only(true)
+        .read_only(false)
         .create_if_missing(false);
     let mut conn = SqliteConnection::connect_with(&options)
         .await
