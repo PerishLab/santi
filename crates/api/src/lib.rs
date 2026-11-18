@@ -38,20 +38,9 @@ pub async fn run() -> Result<()> {
         Command::Doctor { storage_only, jobs } => {
             let origin = config::origin(config.as_deref()).map_err(anyhow::Error::msg)?;
             config::boot(config.as_deref(), over.partial()).map_err(anyhow::Error::msg)?;
-            let report = if storage_only {
-                santi_api::runtime::held().paths.doctor().await
-            } else {
-                santi_api::ops::doctor().await
-            }
-            .map_err(anyhow::Error::msg)?;
-            let jobs = if jobs {
-                Some(
-                    santi_api::jobs::readiness::inspect(&santi_api::runtime::held().environment)
-                        .await,
-                )
-            } else {
-                None
-            };
+            let (report, jobs) = doctor::inspect(storage_only, jobs)
+                .await
+                .map_err(anyhow::Error::msg)?;
             let ok = report.ok && jobs.as_ref().is_none_or(|jobs| jobs.ok);
             println!(
                 "{}",

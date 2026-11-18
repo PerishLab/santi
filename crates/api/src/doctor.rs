@@ -3,6 +3,30 @@ use serde::Serialize;
 use crate::config::context::Origin;
 use santi_api::ops::DoctorReport;
 
+pub async fn inspect(
+    storage_only: bool,
+    jobs: bool,
+) -> Result<(DoctorReport, Option<santi_api::jobs::readiness::Report>), String> {
+    let storage = async {
+        if storage_only {
+            santi_api::runtime::held().paths.doctor().await
+        } else {
+            santi_api::ops::doctor().await
+        }
+    };
+    tokio::try_join!(storage, probes(jobs))
+}
+
+async fn probes(jobs: bool) -> Result<Option<santi_api::jobs::readiness::Report>, String> {
+    if !jobs {
+        return Ok(None);
+    }
+    let held = santi_api::runtime::held();
+    Ok(Some(
+        santi_api::jobs::readiness::inspect(&held.environment).await,
+    ))
+}
+
 #[derive(Serialize)]
 pub struct Report {
     config: Origin,
