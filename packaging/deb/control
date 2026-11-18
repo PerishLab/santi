@@ -2,7 +2,7 @@ Package: santi-api
 Version: __VERSION__
 Architecture: amd64
 Maintainer: PerishLab <libertecode@proton.me>
-Depends: adduser, tar, dpkg
+Depends: adduser, tar, dpkg, libpam-systemd
 Section: admin
 Priority: optional
 Homepage: https://github.com/PerishLab/santi
