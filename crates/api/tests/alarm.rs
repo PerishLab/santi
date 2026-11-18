@@ -8,6 +8,7 @@ fn endpoint(temp: &tempfile::TempDir) -> Cron {
     plumb::testing::executable(
         &command,
         r#"#!/bin/sh
+printf '%s\n' "${1:-(none)}" >> "$0.calls"
 if [ "$1" = '-l' ]; then
     if [ -f "$0.table" ]; then cat "$0.table"; exit 0; fi
     echo 'no crontab for test' >&2
@@ -26,6 +27,14 @@ cat > "$0.table"
         "http://127.0.0.1:43307".into(),
         temp.path().to_path_buf(),
     )
+}
+
+fn calls(temp: &tempfile::TempDir) -> Vec<String> {
+    std::fs::read_to_string(temp.path().join("crontab.calls"))
+        .unwrap_or_default()
+        .lines()
+        .map(str::to_string)
+        .collect()
 }
 
 fn alarm() -> alarm::Alarm {
@@ -58,8 +67,12 @@ fn lifecycle() {
     assert!(first.starts_with(unrelated));
     assert!(first.contains("santi space/santi' --base-url 'http://127.0.0.1:43307' alarm fire 'alarm_test' --generation 1"));
     assert!(!first.contains(&input.text));
+    assert_eq!(calls(&temp), vec!["-l", "-l", "-", "-l"]);
+    std::fs::write(temp.path().join("crontab.calls"), "").unwrap();
     endpoint.apply(std::slice::from_ref(&input)).unwrap();
     assert_eq!(std::fs::read_to_string(&table).unwrap(), first);
+    assert_eq!(calls(&temp), vec!["-l"]);
+    std::fs::write(temp.path().join("crontab.calls"), "").unwrap();
     let mut changed = input;
     changed.generation = 2;
     changed.cron = "0 * * * *".into();
@@ -69,6 +82,7 @@ fn lifecycle() {
             .unwrap()
             .contains("--generation 1")
     );
+    assert_eq!(calls(&temp), vec!["-l", "-l", "-", "-l"]);
     let restarted = Cron::new(
         temp.path().join("crontab"),
         Vec::new(),
@@ -88,16 +102,21 @@ fn retry() {
     let input = alarm();
     assert!(endpoint.apply(std::slice::from_ref(&input)).is_err());
     assert!(!temp.path().join("crontab.table").exists());
+    assert_eq!(calls(&temp), vec!["-l", "-l", "-"]);
     std::fs::remove_file(refusal).unwrap();
+    std::fs::write(temp.path().join("crontab.calls"), "").unwrap();
     endpoint.apply(std::slice::from_ref(&input)).unwrap();
+    assert_eq!(calls(&temp), vec!["-l", "-l", "-", "-l"]);
     let table = temp.path().join("crontab.table");
     let first = std::fs::read_to_string(&table).unwrap();
     std::fs::write(&table, "# unrelated drift\n").unwrap();
+    std::fs::write(temp.path().join("crontab.calls"), "").unwrap();
     endpoint.apply(std::slice::from_ref(&input)).unwrap();
     let repaired = std::fs::read_to_string(&table).unwrap();
     assert!(repaired.starts_with("# unrelated drift\n"));
     assert_eq!(repaired.matches("alarm fire").count(), 1);
     assert_ne!(first, repaired);
+    assert_eq!(calls(&temp), vec!["-l", "-l", "-", "-l"]);
 }
 
 #[test]

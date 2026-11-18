@@ -89,12 +89,13 @@ impl Cron {
     fn converge(&self, alarms: &[alarm::Alarm]) -> Result<(), String> {
         let old = process::read(&self.command)?;
         let next = self.render(&old, alarms)?;
-        if old != next {
-            if process::read(&self.command)? != old {
-                return Err("alarm cron changed during observation".into());
-            }
-            process::install(&self.command, &next)?;
+        if old == next {
+            return Ok(());
         }
+        if process::read(&self.command)? != old {
+            return Err("alarm cron changed during observation".into());
+        }
+        process::install(&self.command, &next)?;
         if process::read(&self.command)? != next {
             return Err(
                 "alarm cron installation outcome is unknown; adaptor will reconcile".into(),

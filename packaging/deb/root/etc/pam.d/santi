@@ -1,0 +1,2 @@
+@include common-account
+session required pam_systemd.so

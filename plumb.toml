@@ -57,7 +57,7 @@ release = "Explicit unlock ends the deliberate hold; File drop also closes the f
 verification = "cron asserts the production Radicula attempt refuses the independently held alarm.lock."
 [guard.lock.review.evidence]
 "crates/santi-api/tests/locks.rs" = "cee692c4d5e20e587fbd3b6a482e0c069cc524e9af2a949dc871898d9f61b429"
-"crates/santi-api/src/adaptor/cron/mod.rs" = "2f6baed9ea57c4321352db5d9e192b243e30aaf0d440f58c2cc0c9310dbd1ef4"
+"crates/santi-api/src/adaptor/cron/mod.rs" = "0e8393b2af7330f453b15dd800e9d9d664b130076edde62c06537a94dcb38b82"
 
 [[guard.lock.review]]
 reference = "e1c38288f08c5d34037714b28a6f4b54bcb9d140eed320e9f1c711c57ccc12d7"
@@ -80,7 +80,7 @@ release = "Explicit unlock or fixture File drop releases the probe."
 verification = "cron requires native try_lock to succeed after successful production apply."
 [guard.lock.review.evidence]
 "crates/santi-api/tests/locks.rs" = "cee692c4d5e20e587fbd3b6a482e0c069cc524e9af2a949dc871898d9f61b429"
-"crates/santi-api/src/adaptor/cron/mod.rs" = "2f6baed9ea57c4321352db5d9e192b243e30aaf0d440f58c2cc0c9310dbd1ef4"
+"crates/santi-api/src/adaptor/cron/mod.rs" = "0e8393b2af7330f453b15dd800e9d9d664b130076edde62c06537a94dcb38b82"
 
 [[guard.lock.review]]
 reference = "b4682d68a7c87f595afdea4b18ade69d253e6298eb10423e6c917711361344d8"
@@ -91,7 +91,7 @@ release = "Explicit unlock or fixture File drop releases the probe."
 verification = "cron asserts missing-executable failure, then successful native reacquisition and retained lock path."
 [guard.lock.review.evidence]
 "crates/santi-api/tests/locks.rs" = "cee692c4d5e20e587fbd3b6a482e0c069cc524e9af2a949dc871898d9f61b429"
-"crates/santi-api/src/adaptor/cron/mod.rs" = "2f6baed9ea57c4321352db5d9e192b243e30aaf0d440f58c2cc0c9310dbd1ef4"
+"crates/santi-api/src/adaptor/cron/mod.rs" = "0e8393b2af7330f453b15dd800e9d9d664b130076edde62c06537a94dcb38b82"
 
 [[guard.lock.review]]
 reference = "3c6d2c5885058f8e93ae712a2dcd3d8cc130ba2b4fd75cf84805e1a2bdc1e88e"
@@ -114,7 +114,7 @@ release = "Explicit native unlock; fixture File drop remains the unwind fallback
 verification = "cron subsequently reaches the expected missing-executable failure rather than contention."
 [guard.lock.review.evidence]
 "crates/santi-api/tests/locks.rs" = "cee692c4d5e20e587fbd3b6a482e0c069cc524e9af2a949dc871898d9f61b429"
-"crates/santi-api/src/adaptor/cron/mod.rs" = "2f6baed9ea57c4321352db5d9e192b243e30aaf0d440f58c2cc0c9310dbd1ef4"
+"crates/santi-api/src/adaptor/cron/mod.rs" = "0e8393b2af7330f453b15dd800e9d9d664b130076edde62c06537a94dcb38b82"
 
 [[guard.lock.review]]
 reference = "9ac2c3b1132fe78eef7dc35ab5446cf43c68af3e21352ef9a803d8216b7ed915"
@@ -125,7 +125,7 @@ release = "Explicit native unlock; File drop closes the descriptor on assertion 
 verification = "cron asserts alarm.lock remains a regular file after the probe is released."
 [guard.lock.review.evidence]
 "crates/santi-api/tests/locks.rs" = "cee692c4d5e20e587fbd3b6a482e0c069cc524e9af2a949dc871898d9f61b429"
-"crates/santi-api/src/adaptor/cron/mod.rs" = "2f6baed9ea57c4321352db5d9e192b243e30aaf0d440f58c2cc0c9310dbd1ef4"
+"crates/santi-api/src/adaptor/cron/mod.rs" = "0e8393b2af7330f453b15dd800e9d9d664b130076edde62c06537a94dcb38b82"
 
 [[guard.lock.review]]
 reference = "815f584c780cbbdc88ef1d965a91bb1ce0226a42676ca0ccf3e83f3c25988580"
@@ -136,7 +136,7 @@ release = "This explicit unlock is followed by successful production apply; File
 verification = "cron asserts empty alarm apply succeeds after independent native release."
 [guard.lock.review.evidence]
 "crates/santi-api/tests/locks.rs" = "cee692c4d5e20e587fbd3b6a482e0c069cc524e9af2a949dc871898d9f61b429"
-"crates/santi-api/src/adaptor/cron/mod.rs" = "2f6baed9ea57c4321352db5d9e192b243e30aaf0d440f58c2cc0c9310dbd1ef4"
+"crates/santi-api/src/adaptor/cron/mod.rs" = "0e8393b2af7330f453b15dd800e9d9d664b130076edde62c06537a94dcb38b82"
 
 [[guard.lock.review]]
 reference = "6bcaa0c90fcfdeccf798c35905f15460e86b0281ecc74c4a757538bc9c425ef2"
@@ -159,7 +159,7 @@ release = "Explicit unlock ends the deliberate hold; File drop also closes the f
 verification = "cron asserts the production Radicula attempt refuses the independently held alarm.lock."
 [guard.lock.review.evidence]
 "crates/santi-api/tests/locks.rs" = "cee692c4d5e20e587fbd3b6a482e0c069cc524e9af2a949dc871898d9f61b429"
-"crates/santi-api/src/adaptor/cron/mod.rs" = "2f6baed9ea57c4321352db5d9e192b243e30aaf0d440f58c2cc0c9310dbd1ef4"
+"crates/santi-api/src/adaptor/cron/mod.rs" = "0e8393b2af7330f453b15dd800e9d9d664b130076edde62c06537a94dcb38b82"
 
 [[guard.lock.review]]
 reference = "67476857dd5899f6d506f5fd61d69da902ccebd7d0c469db66103c9c9606d2bb"
@@ -182,7 +182,7 @@ release = "Explicit unlock or fixture File drop releases the probe."
 verification = "cron requires native try_lock to succeed after successful production apply."
 [guard.lock.review.evidence]
 "crates/santi-api/tests/locks.rs" = "cee692c4d5e20e587fbd3b6a482e0c069cc524e9af2a949dc871898d9f61b429"
-"crates/santi-api/src/adaptor/cron/mod.rs" = "2f6baed9ea57c4321352db5d9e192b243e30aaf0d440f58c2cc0c9310dbd1ef4"
+"crates/santi-api/src/adaptor/cron/mod.rs" = "0e8393b2af7330f453b15dd800e9d9d664b130076edde62c06537a94dcb38b82"
 
 [[guard.lock.review]]
 reference = "ee237ee5220873fcdfbc586283bc8948e02ca0706b865c1ea04637afee9af4a3"
@@ -193,7 +193,7 @@ release = "Explicit unlock or fixture File drop releases the probe."
 verification = "cron asserts missing-executable failure, then successful native reacquisition and retained lock path."
 [guard.lock.review.evidence]
 "crates/santi-api/tests/locks.rs" = "cee692c4d5e20e587fbd3b6a482e0c069cc524e9af2a949dc871898d9f61b429"
-"crates/santi-api/src/adaptor/cron/mod.rs" = "2f6baed9ea57c4321352db5d9e192b243e30aaf0d440f58c2cc0c9310dbd1ef4"
+"crates/santi-api/src/adaptor/cron/mod.rs" = "0e8393b2af7330f453b15dd800e9d9d664b130076edde62c06537a94dcb38b82"
 
 [[guard.lock.review]]
 reference = "a1fd6ba8170f0bff576e58c47f47cb06d524dc94e631b9efaf5aac56b51fe133"
@@ -216,7 +216,7 @@ release = "Explicit native unlock; fixture File drop remains the unwind fallback
 verification = "cron subsequently reaches the expected missing-executable failure rather than contention."
 [guard.lock.review.evidence]
 "crates/santi-api/tests/locks.rs" = "cee692c4d5e20e587fbd3b6a482e0c069cc524e9af2a949dc871898d9f61b429"
-"crates/santi-api/src/adaptor/cron/mod.rs" = "2f6baed9ea57c4321352db5d9e192b243e30aaf0d440f58c2cc0c9310dbd1ef4"
+"crates/santi-api/src/adaptor/cron/mod.rs" = "0e8393b2af7330f453b15dd800e9d9d664b130076edde62c06537a94dcb38b82"
 
 [[guard.lock.review]]
 reference = "31723749b219510f83b263bd2d229a170c3765bb8095a4ecb1cafb52dc56f1ae"
@@ -227,7 +227,7 @@ release = "Explicit native unlock; File drop closes the descriptor on assertion 
 verification = "cron asserts alarm.lock remains a regular file after the probe is released."
 [guard.lock.review.evidence]
 "crates/santi-api/tests/locks.rs" = "cee692c4d5e20e587fbd3b6a482e0c069cc524e9af2a949dc871898d9f61b429"
-"crates/santi-api/src/adaptor/cron/mod.rs" = "2f6baed9ea57c4321352db5d9e192b243e30aaf0d440f58c2cc0c9310dbd1ef4"
+"crates/santi-api/src/adaptor/cron/mod.rs" = "0e8393b2af7330f453b15dd800e9d9d664b130076edde62c06537a94dcb38b82"
 
 [[guard.lock.review]]
 reference = "9587a639f9c0dcabbceffd9fe2d622edbb5cfd19e5f8b7959f04f48ef05b20d6"
@@ -238,7 +238,7 @@ release = "This explicit unlock is followed by successful production apply; File
 verification = "cron asserts empty alarm apply succeeds after independent native release."
 [guard.lock.review.evidence]
 "crates/santi-api/tests/locks.rs" = "cee692c4d5e20e587fbd3b6a482e0c069cc524e9af2a949dc871898d9f61b429"
-"crates/santi-api/src/adaptor/cron/mod.rs" = "2f6baed9ea57c4321352db5d9e192b243e30aaf0d440f58c2cc0c9310dbd1ef4"
+"crates/santi-api/src/adaptor/cron/mod.rs" = "0e8393b2af7330f453b15dd800e9d9d664b130076edde62c06537a94dcb38b82"
 
 [[guard.lock.review]]
 reference = "da7b17e5da8e9f8703c01d698df802a79c3bce1bebe1c6cc64ad387f19923f77"
