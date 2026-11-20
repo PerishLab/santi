@@ -89,16 +89,6 @@ reasoning_effort = ""
 bytes = 500000
 maintenance_bytes = 750000
 
-[providers.siliconflow]
-kind = "chat_completions"
-api_key = ""
-model = "zai-org/GLM-5.2"
-base_url = "https://api.siliconflow.cn/v1"
-thinking = ""
-reasoning_effort = ""
-bytes = 500000
-maintenance_bytes = 750000
-
 # Optional deterministic Get acknowledgement after durable Feishu intake.
 # [webhooks.feishu]
 # acknowledge = "bot"
