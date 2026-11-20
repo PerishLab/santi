@@ -103,6 +103,7 @@ impl Provider for Chat {
             provider: self.config.provider.clone(),
             model: request.model.clone(),
             endpoint: self.config.url.clone(),
+            parts: None,
             content: None,
         };
         let sent = std::time::Instant::now();

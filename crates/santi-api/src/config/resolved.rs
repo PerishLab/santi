@@ -11,6 +11,10 @@ impl Resolved {
                 config.model = effective.model.clone();
                 config.reasoning_effort = effective.reasoning_effort.clone();
             }
+            Self::Gemini(config) => {
+                config.model = effective.model.clone();
+                config.reasoning_effort = effective.reasoning_effort.clone();
+            }
             Self::ChatCompletions(config) => {
                 config.model = effective.model.clone();
                 config.reasoning_effort = effective.reasoning_effort.clone();
@@ -22,6 +26,7 @@ impl Resolved {
     pub fn effort(&self) -> Option<&str> {
         match self {
             Self::OpenAiResponses(config) => config.reasoning_effort.as_deref(),
+            Self::Gemini(config) => config.reasoning_effort.as_deref(),
             Self::ChatCompletions(config) => config.reasoning_effort.as_deref(),
         }
     }
@@ -29,6 +34,7 @@ impl Resolved {
     pub fn kind(&self) -> &'static str {
         match self {
             Self::OpenAiResponses(_) => "openai_responses",
+            Self::Gemini(_) => "gemini_generate_content",
             Self::ChatCompletions(_) => "chat_completions",
         }
     }
@@ -36,6 +42,7 @@ impl Resolved {
     pub fn model(&self) -> &str {
         match self {
             Self::OpenAiResponses(config) => &config.model,
+            Self::Gemini(config) => &config.model,
             Self::ChatCompletions(config) => &config.model,
         }
     }
@@ -43,6 +50,7 @@ impl Resolved {
     pub fn maintenance(&self) -> usize {
         match self {
             Self::OpenAiResponses(config) => config.maintenance,
+            Self::Gemini(config) => config.maintenance,
             Self::ChatCompletions(config) => config.maintenance,
         }
     }
@@ -50,6 +58,7 @@ impl Resolved {
     pub fn bytes(&self) -> usize {
         match self {
             Self::OpenAiResponses(config) => config.bytes,
+            Self::Gemini(config) => config.bytes,
             Self::ChatCompletions(config) => config.bytes,
         }
     }

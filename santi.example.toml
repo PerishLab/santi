@@ -112,3 +112,12 @@ maintenance_bytes = 750000
 # No outgoing headers are added unless configured. Templates accept literal text
 # and exact variable names; unknown or unavailable variables refuse the request.
 # Authentication and HTTP transport/body-control headers cannot be overridden.
+
+# Optional Gemini native streaming through a gateway that accepts Bearer auth.
+# Select this profile per strand to compare original signed model-part replay.
+# [providers.gemini]
+# kind = "gemini_generate_content"
+# base_url = "https://api.teamorouter.ai/v1beta"
+# api_key = "env://TEAMOROUTER_API_KEY"
+# model = "gemini-4-neon"
+# bytes = 120000

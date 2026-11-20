@@ -1,4 +1,5 @@
 pub mod chat;
+pub mod gemini;
 mod headers;
 pub mod openai;
 mod provider;

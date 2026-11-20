@@ -2,7 +2,11 @@ use super::{Providers, read};
 
 #[test]
 fn headers() {
-    for kind in ["chat_completions", "openai_responses"] {
+    for kind in [
+        "chat_completions",
+        "openai_responses",
+        "gemini_generate_content",
+    ] {
         let source = format!(
             r#"
 provider = "fixture"
@@ -20,16 +24,13 @@ x-session = "{{{{strand.id}}}}"
         );
         let held = read(&source);
         let profile = held.providers["fixture"].resolve("fixture").unwrap();
-        match profile {
-            santi_api::config::Resolved::ChatCompletions(profile) => {
-                assert_eq!(profile.headers, ["x-request-id"]);
-                assert_eq!(profile.outgoing["User-Agent"], "{{meta.user_agent}}");
-            }
-            santi_api::config::Resolved::OpenAiResponses(profile) => {
-                assert_eq!(profile.headers, ["x-request-id"]);
-                assert_eq!(profile.outgoing["User-Agent"], "{{meta.user_agent}}");
-            }
-        }
+        let (headers, outgoing) = match profile {
+            santi_api::config::Resolved::ChatCompletions(p) => (p.headers, p.outgoing),
+            santi_api::config::Resolved::OpenAiResponses(p) => (p.headers, p.outgoing),
+            santi_api::config::Resolved::Gemini(p) => (p.headers, p.outgoing),
+        };
+        assert_eq!(headers, ["x-request-id"]);
+        assert_eq!(outgoing["User-Agent"], "{{meta.user_agent}}");
         for value in ["{{unknown}}", "{{strand.id}", r"bad\r\nvalue"] {
             let source = source.replace("{{strand.id}}", value);
             let held = read(&source);
