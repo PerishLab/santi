@@ -128,6 +128,9 @@ fn compatible(
     request: &Request,
     state: &santi_model::thinking::Continuation,
 ) -> Result<(), String> {
+    if state.parts.is_some() {
+        return Err("Gemini continuation cannot be replayed as chat history".into());
+    }
     if state.provider == config.provider
         && state.model == request.model
         && state.endpoint == config.url

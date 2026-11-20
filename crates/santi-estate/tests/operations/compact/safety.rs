@@ -86,6 +86,7 @@ fn round(calls: &[&str], text: usize, continuation: Option<usize>) -> thinking::
                 provider: "test".into(),
                 model: "test".into(),
                 endpoint: "http://test.invalid".into(),
+                parts: None,
                 content: None,
             })
         }),

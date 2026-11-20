@@ -158,6 +158,7 @@ fn headers() {
     for (kind, configured, expected) in [
         ("openai_responses", "", Ok(vec!["x-request-id"])),
         ("chat_completions", "", Ok(vec!["x-request-id"])),
+        ("gemini_generate_content", "", Ok(vec!["x-request-id"])),
         ("openai_responses", "headers = []", Ok(vec![])),
         (
             "chat_completions",
@@ -179,6 +180,7 @@ fn headers() {
         let resolved = profile.resolve("test").map(|resolved| match resolved {
             santi_api::config::Resolved::OpenAiResponses(config) => config.headers,
             santi_api::config::Resolved::ChatCompletions(config) => config.headers,
+            santi_api::config::Resolved::Gemini(config) => config.headers,
         });
         assert_eq!(
             resolved,

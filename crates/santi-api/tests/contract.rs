@@ -77,12 +77,13 @@ fn api() {
     assert!(span["properties"].get("round").is_some());
     let continuation = &document["components"]["schemas"]["thinking.Continuation"];
     assert!(continuation["properties"].get("content").is_some());
+    assert!(continuation["properties"].get("parts").is_some());
     assert!(
         !continuation["required"]
             .as_array()
             .unwrap()
             .iter()
-            .any(|field| field == "content")
+            .any(|field| field == "content" || field == "parts")
     );
     let cap = &document["components"]["schemas"]["budget.Cap"];
     let timeout = &document["components"]["schemas"]["budget.Execution"]["properties"]["timeout"];
@@ -242,6 +243,6 @@ fn api() {
     let hash = format!("{:x}", Sha256::digest(text.as_bytes()));
     assert_eq!(
         hash,
-        "bfb841f683ec98ea6aa10c105810b56806f555412fd43a058bbaef863f373e70"
+        "5b8fcde4258192fc20a35193a75baf4413858a07fb51f29cbdd3700c1d1889ee"
     );
 }

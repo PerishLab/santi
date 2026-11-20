@@ -67,6 +67,7 @@ impl Frame {
                 provider: "synthetic".into(),
                 model: "fixed".into(),
                 endpoint: "http://provider.invalid".into(),
+                parts: None,
                 content: Some(format!("retained 工具🙂 {index}")),
             };
             let continuation = index.is_multiple_of(2).then(|| Box::new(retained.clone()));
