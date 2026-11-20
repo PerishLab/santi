@@ -67,11 +67,11 @@ thinking = ""
 reasoning_effort = ""
 bytes = 500000
 
-[providers.siliconflow]
+[providers.alternate]
 kind = "chat_completions"
 api_key = ""
-model = "zai-org/GLM-5.2"
-base_url = "https://api.siliconflow.cn/v1"
+model = "example-model"
+base_url = "https://example.invalid/v1"
 thinking = ""
 reasoning_effort = ""
 bytes = 500000
