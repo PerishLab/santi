@@ -85,6 +85,7 @@ fn state(content: &str, calls: usize) -> thinking::Continuation {
         provider: "deepseek".into(),
         model: "flash".into(),
         endpoint: "http://provider.test".into(),
+        parts: None,
         content: Some(content.into()),
         calls,
     }

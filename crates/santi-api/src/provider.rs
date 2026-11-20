@@ -31,6 +31,20 @@ pub fn build(config: Resolved) -> Result<Arc<dyn Provider>, String> {
     match config {
         Resolved::OpenAiResponses(config) => responses(config),
         Resolved::ChatCompletions(config) => completions(config),
+        Resolved::Gemini(config) => Ok(Arc::new(santi_provider::gemini::Gemini::new(
+            santi_provider::gemini::Config {
+                outgoing: crate::config::headers::compile(&config.outgoing)?,
+                provider: config.provider,
+                key: config.api_key,
+                model: config.model,
+                url: config.base_url,
+                effort: config.reasoning_effort,
+                ceiling: config.max_tokens,
+                bytes: config.bytes,
+                maintenance: config.maintenance,
+                headers: config.headers,
+            },
+        )?)),
     }
 }
 

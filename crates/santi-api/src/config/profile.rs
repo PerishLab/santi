@@ -1,9 +1,12 @@
+mod fields;
 use super::*;
+use fields::{capacity, optional, positive, required};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Resolved {
     OpenAiResponses(OpenAiResponses),
     ChatCompletions(ChatCompletions),
+    Gemini(Gemini),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -17,6 +20,20 @@ pub struct OpenAiResponses {
     pub bytes: usize,
     pub maintenance: usize,
     pub attempts: Option<u32>,
+    pub headers: Vec<String>,
+    pub outgoing: std::collections::BTreeMap<String, String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Gemini {
+    pub provider: String,
+    pub api_key: String,
+    pub model: String,
+    pub base_url: String,
+    pub reasoning_effort: Option<String>,
+    pub max_tokens: Option<u32>,
+    pub bytes: usize,
+    pub maintenance: usize,
     pub headers: Vec<String>,
     pub outgoing: std::collections::BTreeMap<String, String>,
 }
@@ -65,6 +82,27 @@ pub enum Profile {
         #[serde(default, rename = "request_headers")]
         outgoing: std::collections::BTreeMap<String, String>,
     },
+    #[serde(rename = "gemini_generate_content")]
+    Gemini {
+        #[serde(default)]
+        api_key: Option<String>,
+        #[serde(default)]
+        model: Option<String>,
+        #[serde(default)]
+        base_url: Option<String>,
+        #[serde(default)]
+        reasoning_effort: Option<String>,
+        #[serde(default)]
+        max_tokens: Option<u32>,
+        #[serde(default, alias = "input_budget_bytes")]
+        bytes: Option<usize>,
+        #[serde(default)]
+        maintenance_bytes: Option<usize>,
+        #[serde(default)]
+        headers: Option<Vec<String>>,
+        #[serde(default, rename = "request_headers")]
+        outgoing: std::collections::BTreeMap<String, String>,
+    },
     ChatCompletions {
         #[serde(default)]
         api_key: Option<String>,
@@ -95,17 +133,23 @@ impl Profile {
     pub fn kind(&self) -> &'static str {
         match self {
             Self::OpenAiResponses { .. } => "openai_responses",
+            Self::Gemini { .. } => "gemini_generate_content",
             Self::ChatCompletions { .. } => "chat_completions",
         }
     }
 
     pub fn model(&self, provider: &str) -> Option<String> {
-        let (Self::OpenAiResponses { model, .. } | Self::ChatCompletions { model, .. }) = self;
+        let (Self::OpenAiResponses { model, .. }
+        | Self::Gemini { model, .. }
+        | Self::ChatCompletions { model, .. }) = self;
         optional(model, provider, "model").ok().flatten()
     }
 
     pub fn effort(&self, provider: &str) -> Option<String> {
         let (Self::OpenAiResponses {
+            reasoning_effort, ..
+        }
+        | Self::Gemini {
             reasoning_effort, ..
         }
         | Self::ChatCompletions {
@@ -144,6 +188,28 @@ impl Profile {
                 headers: super::headers::allowed(headers.as_deref(), provider)?,
                 outgoing: super::headers::requests(outgoing, provider)?,
             })),
+            Profile::Gemini {
+                api_key,
+                model,
+                base_url,
+                reasoning_effort,
+                max_tokens,
+                bytes,
+                maintenance_bytes,
+                headers,
+                outgoing,
+            } => Ok(Resolved::Gemini(Gemini {
+                provider: provider.to_string(),
+                api_key: required(api_key, provider, "api_key")?,
+                model: required(model, provider, "model")?,
+                base_url: required(base_url, provider, "base_url")?,
+                reasoning_effort: optional(reasoning_effort, provider, "reasoning_effort")?,
+                max_tokens: *max_tokens,
+                bytes: positive(*bytes, provider, "bytes")?,
+                maintenance: capacity(*bytes, *maintenance_bytes, provider)?,
+                headers: super::headers::allowed(headers.as_deref(), provider)?,
+                outgoing: super::headers::requests(outgoing, provider)?,
+            })),
             Profile::ChatCompletions {
                 api_key,
                 model,
@@ -172,55 +238,6 @@ impl Profile {
             })),
         }
     }
-}
-
-fn capacity(
-    bytes: Option<usize>,
-    maintenance: Option<usize>,
-    provider: &str,
-) -> Result<usize, String> {
-    let bytes = positive(bytes, provider, "bytes")?;
-    let ceiling = bytes.saturating_add(bytes / 2);
-    let maintenance = maintenance.unwrap_or(ceiling).min(ceiling);
-    if maintenance <= bytes {
-        return Err(format!(
-            "provider {provider} maintenance_bytes must exceed bytes"
-        ));
-    }
-    Ok(maintenance)
-}
-
-fn required(value: &Option<String>, provider: &str, field: &str) -> Result<String, String> {
-    optional(value, provider, field)?
-        .ok_or_else(|| format!("provider {provider} field {field} is required"))
-}
-
-fn positive(value: Option<usize>, provider: &str, field: &str) -> Result<usize, String> {
-    let value = value.ok_or_else(|| format!("provider {provider} field {field} is required"))?;
-    if value == 0 {
-        return Err(format!(
-            "provider {provider} field {field} must be greater than zero"
-        ));
-    }
-    Ok(value)
-}
-
-fn optional(value: &Option<String>, provider: &str, field: &str) -> Result<Option<String>, String> {
-    let Some(raw) = value.as_deref().and_then(trimmed) else {
-        return Ok(None);
-    };
-    let Some(var) = raw.strip_prefix("env://") else {
-        return Ok(Some(raw));
-    };
-    let var = var.trim();
-    if var.is_empty() {
-        return Err(format!(
-            "provider {provider} field {field}: env:// reference is missing a variable name"
-        ));
-    }
-    env(var).map(Some).ok_or_else(|| {
-        format!("provider {provider} field {field} references env://{var}, which is unset or empty")
-    })
 }
 
 pub fn env(name: &str) -> Option<String> {

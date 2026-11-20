@@ -25,6 +25,7 @@ fn state(content: &str, calls: usize) -> Continuation {
         provider: "deepseek".into(),
         model: "flash".into(),
         endpoint: "http://provider.test/v1".into(),
+        parts: None,
         content: Some(content.into()),
         calls,
     }
