@@ -13,8 +13,7 @@ async fn pin() {
         &f.store,
         &f.strand.id,
         Selection {
-            provider: "alpha",
-            model: "alpha-model",
+            scenario: "gateway/family/alpha",
             effort: "low",
         },
     )
@@ -32,7 +31,7 @@ async fn pin() {
         .lock()
         .unwrap()
         .iter()
-        .filter(|c| c.kind == "estimate" && c.provider == "alpha")
+        .filter(|c| c.kind == "estimate" && c.provider == "gateway/family/alpha")
         .count();
     assert!(
         estimate > 0,
@@ -44,15 +43,14 @@ async fn pin() {
             .lock()
             .unwrap()
             .iter()
-            .any(|c| c.kind == "estimate" && c.provider == "beta")
+            .any(|c| c.kind == "estimate" && c.provider == "gateway/family/beta")
     );
 
     declare(
         &f.store,
         &f.strand.id,
         Selection {
-            provider: "beta",
-            model: "beta-model",
+            scenario: "gateway/family/beta",
             effort: "high",
         },
     )
@@ -78,7 +76,7 @@ async fn pin() {
             next.model.as_str(),
             next.effort.as_deref()
         ),
-        ("beta", "beta-model", Some("high"))
+        ("gateway/family/beta", "beta-model", Some("high"))
     );
 }
 
@@ -89,8 +87,7 @@ async fn race() {
         &f.store,
         &f.strand.id,
         Selection {
-            provider: "alpha",
-            model: "alpha-model",
+            scenario: "gateway/family/alpha",
             effort: "low",
         },
     )
@@ -100,11 +97,11 @@ async fn race() {
     f.service.drive(&f.strand.id).await.unwrap();
     until(&f.store, &f.strand.id, santi_core::turn::Status::Running).await;
     let first = observed(&f.layers, "stream", "first").await;
-    assert_eq!(first.provider, "alpha");
+    assert_eq!(first.provider, "gateway/family/alpha");
     f.layers.gate.send(true).unwrap();
     until(&f.store, &f.strand.id, santi_core::turn::Status::Completed).await;
     enqueue(&f.store, &f.strand.id, "second").await;
     f.service.drive(&f.strand.id).await.unwrap();
     let next = observed(&f.layers, "stream", "second").await;
-    assert_eq!(next.provider, "beta");
+    assert_eq!(next.provider, "gateway/family/beta");
 }

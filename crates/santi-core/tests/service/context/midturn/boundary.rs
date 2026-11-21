@@ -28,8 +28,7 @@ async fn boundary() {
         store,
         strand,
         Selection {
-            provider: "beta",
-            model: "beta-model",
+            scenario: "gateway/family/beta",
             effort: "high",
         },
     )
@@ -51,7 +50,7 @@ async fn boundary() {
         let requests = rounds.requests.lock().unwrap();
         assert_eq!(requests.len(), 2);
         assert_eq!(markers(&requests[1].2), 1);
-        assert_eq!(requests[1].0, "alpha");
+        assert_eq!(requests[1].0, "gateway/family/alpha");
         assert_eq!(requests[1].1.as_deref(), Some("low"));
         assert_eq!(requests[1].2.model, "alpha-model");
         let calls: Vec<_> = requests[1]
@@ -149,7 +148,7 @@ async fn boundary() {
     .await
     .unwrap();
     let requests = rounds.requests.lock().unwrap();
-    assert_eq!(requests[2].0, "beta");
+    assert_eq!(requests[2].0, "gateway/family/beta");
     assert_eq!(requests[2].1.as_deref(), Some("high"));
     eprintln!(
         "candidate boundary: round2 marker=1; supplement Driving once on original Turn; input_prepared round2; complete call/output; frozen alpha/low; next Turn beta/high"

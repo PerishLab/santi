@@ -65,21 +65,34 @@ impl Store {
 
     pub async fn register(&self, definition: Definition) -> Result<Record, String> {
         self.core
-            .batch(async |tx| writer::write(tx, None, definition).await)
+            .batch(async |tx| writer::write(tx, None, definition, None).await)
             .await
             .map_err(read::error)
     }
 
     pub async fn amend(&self, expected: Record, definition: Definition) -> Result<Record, String> {
+        self.amending(expected, definition, None).await
+    }
+
+    pub async fn amending(
+        &self,
+        expected: Record,
+        definition: Definition,
+        service: Option<&str>,
+    ) -> Result<Record, String> {
         self.core
-            .batch(async |tx| writer::write(tx, Some(expected), definition).await)
+            .batch(async |tx| writer::write(tx, Some(expected), definition, service).await)
             .await
             .map_err(read::error)
     }
 
     pub async fn withdraw(&self, expected: Record) -> Result<(), String> {
+        self.withdrawing(expected, None).await
+    }
+
+    pub async fn withdrawing(&self, expected: Record, service: Option<&str>) -> Result<(), String> {
         self.core
-            .batch(async |tx| writer::delete(tx, expected).await)
+            .batch(async |tx| writer::delete(tx, expected, service).await)
             .await
             .map_err(read::error)
     }

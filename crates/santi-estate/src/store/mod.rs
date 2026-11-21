@@ -78,20 +78,34 @@ impl Store {
         now: &str,
         inference: Option<&santi_model::inference::Declaration>,
     ) -> Result<santi_model::soul::Soul, String> {
+        self.awakening(tag, now, inference, |_| Ok(())).await
+    }
+
+    pub async fn awakening(
+        &self,
+        tag: &str,
+        now: &str,
+        inference: Option<&santi_model::inference::Declaration>,
+        publish: impl FnOnce(&[santi_model::catalog::Record]) -> Result<(), String>,
+    ) -> Result<santi_model::soul::Soul, String> {
         let mut fields = vec![("tag", tag), ("created", now), ("updated", now)];
         if let Some(inference) = inference {
-            inference.validate()?;
-            if let Some(provider) = inference.provider.as_deref() {
-                fields.push(("provider", provider));
-            }
-            if let Some(model) = inference.model.as_deref() {
-                fields.push(("model", model));
-            }
-            if let Some(effort) = inference.reasoning_effort.as_deref() {
-                fields.push(("reasoning_effort", effort));
-            }
+            inference
+                .validate()
+                .map_err(|error| format!("inference rejected: {error}"))?;
+            support::inference::fields(inference, &mut fields);
         }
-        self.core.put("Soul", &fields).await.map_err(read::error)?;
+        self.core
+            .batch(async |tx| {
+                tx.put("Soul", &fields).await?;
+                let rows = match inference {
+                    Some(_) => support::inference::snapshot(tx).await?,
+                    None => Vec::new(),
+                };
+                publish(&rows).map_err(keel::adapt::Error::Adapt)
+            })
+            .await
+            .map_err(read::error)?;
         self.soul(tag)
             .await?
             .ok_or_else(|| "created soul missing".to_string())

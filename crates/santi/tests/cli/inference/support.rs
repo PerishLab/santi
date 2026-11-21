@@ -102,6 +102,7 @@ pub async fn invoke(base: &str, home: &Path, env: &[(&str, &str)], args: &[&str]
         .env_remove("SANTI_TOKEN_CACHE")
         .env_remove("SANTI_STRAND_ID")
         .env_remove("SANTI_SOUL_ID")
+        .env_remove("SANTI_INFERENCE_SCENARIO")
         .env_remove("SANTI_INFERENCE_PROVIDER")
         .env_remove("SANTI_INFERENCE_MODEL")
         .env_remove("SANTI_INFERENCE_REASONING_EFFORT");
@@ -122,7 +123,7 @@ pub fn file(home: &Path, text: &str) -> PathBuf {
     path
 }
 
-pub const READ: &str = r#"{"declaration":{"provider":"p","model":"m","reasoning_effort":null},"effective":{"provider":"p","model":"m","source":{"provider":"strand","model":"strand"}},"source":{"provider":"strand","model":"strand"}}"#;
+pub const READ: &str = r#"{"declaration":{"scenario":"edge/family/work"},"effective":{"provider":"edge/family/work","model":"m","source":{"provider":"strand","model":"offering"}},"source":{"provider":"strand","model":"offering"}}"#;
 
 pub async fn call(
     wire: Wire,

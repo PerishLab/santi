@@ -39,12 +39,11 @@ impl Listen {
     }
 }
 
-#[derive(Debug, Cascade)]
+#[derive(Debug, Default, Cascade)]
+#[cascade(strict)]
 pub struct Config {
     #[cascade(arg)]
-    pub provider: String,
-    #[cascade(arg)]
-    pub model: Option<String>,
+    pub scenario: Option<String>,
     #[cascade(arg)]
     pub reasoning_effort: Option<String>,
     #[cascade(section)]
@@ -65,32 +64,8 @@ pub struct Config {
     pub memory: Memory,
     pub materials: santi_core::material::Sources,
     pub environment: BTreeMap<String, String>,
-    pub providers: BTreeMap<String, Profile>,
     pub custody: BTreeMap<String, Profile>,
     pub souls: BTreeMap<String, soul::Identity>,
-}
-
-impl Default for Config {
-    fn default() -> Self {
-        Config {
-            provider: "openai".to_string(),
-            model: None,
-            reasoning_effort: None,
-            listen: Listen::default(),
-            server: Server::default(),
-            jobs: Jobs::default(),
-            paths: Paths::default(),
-            webhooks: Webhooks::default(),
-            capability: Capability::default(),
-            execution: Execution::default(),
-            memory: Memory::default(),
-            materials: Default::default(),
-            environment: BTreeMap::new(),
-            providers: BTreeMap::new(),
-            custody: BTreeMap::new(),
-            souls: BTreeMap::new(),
-        }
-    }
 }
 
 #[derive(Debug, Cascade)]
@@ -219,6 +194,13 @@ pub fn origin(over: Option<&str>) -> Result<context::Origin, String> {
 }
 
 pub fn boot(config: Option<&str>, over: ConfigPartial) -> Result<(), String> {
+    for key in ["SANTI_PROVIDER", "SANTI_MODEL", "SANTI_PROVIDERS"] {
+        if env(key).is_some() {
+            return Err(format!(
+                "{key} is retired; set SANTI_SCENARIO for the service selection"
+            ));
+        }
+    }
     let file = path(config);
     let file = file.is_file().then_some(file.as_path());
     let held = resolved(file, over).map_err(|error| error.to_string())?;
@@ -235,16 +217,16 @@ fn resolved(
 
 fn runtime(held: Config) -> Result<Runtime, String> {
     let home = home();
+    let inference = santi_core::inference::Declaration {
+        scenario: held.scenario,
+        reasoning_effort: held.reasoning_effort,
+    };
+    inference.validate()?;
     Ok(Runtime {
         operator: held.server.operator,
         bind: held.listen.address(),
         port: held.listen.port,
-        inference: santi_core::inference::Declaration {
-            provider: Some(held.provider),
-            model: held.model,
-            reasoning_effort: held.reasoning_effort,
-        },
-        providers: held.providers,
+        inference,
         custody: held.custody,
         environment: held.environment,
         paths: Layout {

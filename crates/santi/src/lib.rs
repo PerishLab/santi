@@ -53,7 +53,7 @@ async fn execute(cli: Cli, explicit: bool) -> Result<()> {
     if let Command::Skill(deed) = command {
         return cli::skill::run(deed);
     }
-    let stated = cli::declaration(&command);
+    let stated = cli::declaration(&command)?;
     let client = config::client(ClientPartial {
         operator: None,
         base_url: base_url.map(Some),

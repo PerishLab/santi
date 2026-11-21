@@ -1,4 +1,5 @@
-provider = "openai"
+# Register the scenario, offering, candidate and preference in the estate before sending a turn.
+scenario = "openai/gpt/assistance"
 
 [souls.soul_default]
 name = "Adam Santi"
@@ -6,10 +7,9 @@ name = "Adam Santi"
 [souls.soul_default.channels]
 
 # Optional inference declaration for this Soul. Missing fields inherit the
-# service provider defaults; a strand's own declaration overrides the Soul.
+# service declaration; a strand's own declaration overrides the Soul.
 # [souls.soul_default.inference]
-# provider = "deepseek"
-# model = "deepseek-flash"
+# scenario = "deepseek/deepseek/analysis"
 # reasoning_effort = "high"
 
 # Shared Soul MEMORY source bytes, independent of provider/compact capacity.
@@ -64,10 +64,9 @@ ttl_seconds = 120
 # root = "/absolute/path/to/native/materials"
 # format = "native"
 
-[providers.openai]
+[custody.responses]
 kind = "openai_responses"
-api_key = ""
-model = ""
+api_key = "env://OPENAI_API_KEY"
 base_url = "https://api.openai.com/v1"
 reasoning_effort = ""
 summary = ""
@@ -77,10 +76,9 @@ maintenance_bytes = 750000
 # are always refused.
 headers = ["x-request-id"]
 
-[providers.deepseek]
+[custody.chat]
 kind = "chat_completions"
-api_key = ""
-model = "deepseek-flash"
+api_key = "env://DEEPSEEK_API_KEY"
 base_url = "https://api.deepseek.com"
 thinking = "enabled"
 # Replay original reasoning within the runtime-selected history when tools are offered.
@@ -96,7 +94,7 @@ maintenance_bytes = 750000
 # Optional outgoing headers for either inference protocol. Values use strict
 # Radicula {{name}} templates with exactly these two runtime variables.
 # Existing `headers` above selects response headers to record, independently.
-# [providers.openai.request_headers]
+# [custody.responses.request_headers]
 # User-Agent = "{{meta.user_agent}}"
 # x-opencode-session = "santi-{{strand.id}}"
 # No outgoing headers are added unless configured. Templates accept literal text
@@ -105,28 +103,18 @@ maintenance_bytes = 750000
 
 # Optional Gemini native streaming through a gateway that accepts Bearer auth.
 # Select this profile per strand to compare original signed model-part replay.
-# [providers.gemini]
+# [custody.native]
 # kind = "gemini_generate_content"
 # base_url = "https://api.teamorouter.ai/v1beta"
 # api_key = "env://TEAMOROUTER_API_KEY"
-# model = "gemini-4-neon"
 # bytes = 120000
 
-# Estate-managed inference: set the top-level provider (or a soul/strand
-# override) to an access, alias, or "provider/family/scenario". A scenario
-# requires a preferred candidate and always uses that offering's model.
-# The catalog contains only credential = "custody://router"; this separate
-# operator profile must match the access protocol and endpoint exactly.
-# [custody.router]
-# For a migrated Chat Completions or native Gemini profile, set identity to the original
-# provider name to retain its history replay identity, e.g. identity = "deepseek".
-# Model, endpoint, and protocol must still match the recorded continuation.
-# With request_headers, provide a dedicated random 32-byte hex HMAC key.
-# Keep it with custody across restarts; never reuse the API key or Keel sudo.
-# seal = "env://SANTI_ROUTER_POLICY_KEY"
-# kind = "chat_completions"
-# api_key = "env://ROUTER_API_KEY"
-# base_url = "https://router.example.invalid/v1"
-# model = "direct-selection-default"
-# bytes = 120000
-# replay = "history"
+# The operator file holds a random token of at least 32 characters.
+# [server]
+# operator = "/absolute/path/to/private/catalog-token"
+#
+# An access with credential = "custody://responses" binds to [custody.responses].
+# Match its endpoint and protocol to the catalog. For request_headers provision
+# a dedicated 32-byte hex seal in the custody profile, for example via
+# seal = "env://SANTI_TRANSPORT_SEAL". Preserve the identity and policy of
+# transports used by recoverable turns.

@@ -20,25 +20,20 @@ impl Service {
         self.store.register(definition).await
     }
 
-    fn referenced(&self, record: &Record) -> bool {
-        matches!(&record.definition, Definition::Access { name, .. } | Definition::Alias { name, .. }
-            if self.declaration.provider.as_ref() == Some(name))
-    }
-
     pub async fn amend(&self, edit: Amendment) -> Result<Record, String> {
-        if self.referenced(&edit.expected)
-            && edit.expected.definition.name() != edit.replacement.name()
-        {
-            return Err("source referenced by service declaration".into());
-        }
-        self.store.amend(edit.expected, edit.replacement).await
+        self.store
+            .amending(
+                edit.expected,
+                edit.replacement,
+                self.declaration.scenario.as_deref(),
+            )
+            .await
     }
 
     pub async fn withdraw(&self, record: Record) -> Result<(), String> {
-        if self.referenced(&record) {
-            return Err("source referenced by service declaration".into());
-        }
-        self.store.withdraw(record).await
+        self.store
+            .withdrawing(record, self.declaration.scenario.as_deref())
+            .await
     }
 
     pub(crate) fn infer(
@@ -125,7 +120,6 @@ impl Service {
         tag: &str,
         patch: &Patch,
     ) -> Result<Reading, String> {
-        let rows = self.store.sources().await?;
         let created = now();
         let (declaration, effective) = self
             .store
@@ -136,8 +130,8 @@ impl Service {
                     patch,
                     now: &created,
                 },
-                |target, candidate, parent| {
-                    self.infer(&rows, target, candidate, parent)
+                |target, candidate, parent, rows| {
+                    self.infer(rows, target, candidate, parent)
                         .map_err(|error| format!("inference rejected: {error}"))
                 },
             )
@@ -168,7 +162,6 @@ impl Service {
         if self.store.soul(soul).await?.is_none() {
             return Err("soul not found".to_string());
         }
-        let rows = self.store.sources().await?;
         let created = now();
         let (strand, _) = self
             .store
@@ -182,8 +175,8 @@ impl Service {
                     inference,
                     created: &created,
                 },
-                |target, candidate, parent| {
-                    self.infer(&rows, target, candidate, parent)
+                |target, candidate, parent, rows| {
+                    self.infer(rows, target, candidate, parent)
                         .map_err(|error| format!("inference rejected: {error}"))
                 },
             )

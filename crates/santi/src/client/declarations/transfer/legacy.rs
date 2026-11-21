@@ -49,6 +49,7 @@ struct Entry {
     provider: String,
     access: String,
     custody: String,
+    #[serde(default)]
     aliases: Vec<String>,
     #[serde(default, rename = "default_in_custody")]
     private: bool,
@@ -78,7 +79,11 @@ fn covered(entries: &BTreeMap<String, Entry>, profile: &str, model: Option<&str>
 pub(super) fn convert(source: &str, mapping: &str) -> Result<(Graph, Value)> {
     let legacy: Legacy =
         toml::from_str(source).map_err(|_| anyhow!("invalid legacy service TOML"))?;
-    let Mapping { profiles } = toml::from_str(mapping).map_err(|_| anyhow!("invalid mapping: each profiles.NAME requires provider, access, custody, aliases and offerings"))?;
+    let Mapping { profiles } = toml::from_str(mapping).map_err(|_| {
+        anyhow!(
+            "invalid mapping: each profiles.NAME requires provider, access, custody and offerings"
+        )
+    })?;
     let before: BTreeSet<_> = legacy.providers.keys().collect();
     let after: BTreeSet<_> = profiles.keys().collect();
     ensure!(
@@ -99,10 +104,6 @@ pub(super) fn convert(source: &str, mapping: &str) -> Result<(Graph, Value)> {
         ensure!(
             name(&m.custody),
             "profile {old}: expected custody name, not a credential"
-        );
-        ensure!(
-            &m.access == old || m.aliases.contains(old),
-            "profile {old}: preserve the legacy name as access or alias"
         );
         if !m.private {
             covered(&profiles, old, p.model.as_deref())?;

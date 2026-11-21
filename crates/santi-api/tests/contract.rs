@@ -240,9 +240,16 @@ fn api() {
             .contains("attestation")
     );
     assert!(schema["properties"].get("resolution").is_some());
+    for name in ["inference.Declaration", "inference.Patch"] {
+        let fields = document["components"]["schemas"][name]["properties"]
+            .as_object()
+            .unwrap();
+        assert!(fields.contains_key("scenario") && fields.contains_key("reasoning_effort"));
+        assert_eq!(fields.len(), 2);
+    }
     let hash = format!("{:x}", Sha256::digest(text.as_bytes()));
     assert_eq!(
         hash,
-        "94f036bb03fef9e494e1435c4b6a2ddc0be4d33002347ec09ddf2cec54ec6b10"
+        "208821643f6313aa2470daaae88f506af09435e8d05b66cf8202241a8e0b0792"
     );
 }

@@ -23,7 +23,7 @@ provider = "gateway"
 access = "route"
 custody = "operator"
 aliases = ["old"]
-offerings = {"approved.model" = "operator-choice"}
+offerings = {"approved.model" = "reasoning"}
 "#;
 
 #[test]
@@ -57,6 +57,13 @@ fn custody() {
 }
 
 #[test]
+fn rename() {
+    let mapping = MAP.replace("aliases = [\"old\"]", "");
+    let (graph, _) = legacy::convert(SOURCE, &mapping).unwrap();
+    assert!(graph.rows().all(|row| row["kind"] != "alias"));
+}
+
+#[test]
 fn coverage() {
     for (source, mapping, expected) in [
         (
@@ -74,7 +81,11 @@ fn coverage() {
             MAP.into(),
             "model not covered",
         ),
-        (SOURCE.into(), MAP.replace("[\"old\"]", "[]"), "preserve"),
+        (
+            SOURCE.into(),
+            MAP.replace("reasoning", "two-words"),
+            "invalid family name",
+        ),
         (
             SOURCE.replace(
                 "https://gateway.invalid",

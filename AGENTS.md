@@ -78,18 +78,24 @@ file. Provision the same random token (at least 32 characters) in private
 files for the two operators. Access definitions carry only a `custody://`
 reference to a transport credential.
 
-An operator activates estate selection by configuring the `custody` table.
-Legacy `providers` remain authoritative during staging while `custody` is
-empty. Keep each complete transport profile in operator custody. Endpoint
-and protocol must match the access declaration. Migrated Chat and Gemini
-profiles can retain their old continuation identity. Profiles with request
-header templates also require a private policy seal, independent of the
-provider API key. Keep this seal with the transport configuration for recovery.
+Service, Soul and Strand inference declarations select a scenario by its full
+path, for example `teamorouter/gemini/recall`. The supplier and family each
+occupy one lowercase ASCII word. The scenario occupies one to three lowercase
+words separated by dots. Look up the exact path and its preferred candidate.
+The offering supplies the wire model and the access identifies its transport.
+Reasoning effort can be inherited or overridden independently. Each admitted
+turn records its actual choice. Older turns retain the facts they recorded.
 
-A declaration may select `provider/family/scenario`. Santi resolves the
-preferred offering at turn admission and records the route and its historical
-names. Direct access, compatibility aliases and explicit models remain
-available. Reading an older turn reports the inference it actually captured.
+Keep credentials and transport policy in operator custody. Endpoint and
+protocol must match the access declaration. Chat and Gemini profiles can
+retain their admitted continuation identity. Request-header templates require
+a private policy seal held with the transport configuration for recovery.
+
+Qualify a new offering in an isolated instance: select the candidate in that
+instance, run the scenario criterion, and inspect its admitted turn. Compare
+the evidence for each candidate under the same criterion before changing the
+operating preference. See crates/santi/INFERENCE-TRANSFER.md for the operator
+commands.
 
 The runtime selects history independently of provider reasoning continuity.
 Thinking summaries are inspection text; original protocol continuation state is
@@ -169,8 +175,9 @@ cargo test --locked --workspace
 
 Run `plumb doctor .` and `ectropy .` before and after repository shape changes.
 
-For a real-provider turn, reuse the ignored repo-root `santi.toml` when it is
-configured. Run `santi-api --config santi.toml serve` in a separate terminal, then:
+For a real-provider turn, use private custody and a qualified scenario in the
+chosen test estate. Start `santi-api --config santi.toml serve` for that
+estate and point the client at its listener, then:
 
 ```sh
 SID=$(santi strand create | jq -r .strand.id)

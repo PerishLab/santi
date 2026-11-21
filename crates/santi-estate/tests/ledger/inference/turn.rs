@@ -166,8 +166,7 @@ async fn rollback() {
 async fn legacy() {
     let (_temp, path, store) = start().await;
     let patch = Patch {
-        provider: Some(Some("provider_b".to_string())),
-        model: Some(Some("model_b".to_string())),
+        scenario: Some(Some("gateway/family/next".into())),
         reasoning_effort: Some(Some("high".to_string())),
     };
     store

@@ -9,8 +9,7 @@ async fn strands() {
         &f.store,
         &f.strand.id,
         Selection {
-            provider: "alpha",
-            model: "alpha-model",
+            scenario: "gateway/family/alpha",
             effort: "low",
         },
     )
@@ -19,8 +18,7 @@ async fn strands() {
         &f.store,
         &second.id,
         Selection {
-            provider: "beta",
-            model: "beta-model",
+            scenario: "gateway/family/beta",
             effort: "high",
         },
     )
@@ -42,7 +40,7 @@ async fn strands() {
             alpha.model.as_str(),
             alpha.effort.as_deref()
         ),
-        ("alpha", "alpha-model", Some("low"))
+        ("gateway/family/alpha", "alpha-model", Some("low"))
     );
     assert_eq!(
         (
@@ -50,7 +48,7 @@ async fn strands() {
             beta.model.as_str(),
             beta.effort.as_deref()
         ),
-        ("beta", "beta-model", Some("high"))
+        ("gateway/family/beta", "beta-model", Some("high"))
     );
     assert_eq!(
         f.layers

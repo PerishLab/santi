@@ -28,20 +28,21 @@ async fn fork() {
             Target::Strand,
             &parent.id,
             &Patch {
-                provider: Some(Some("openai".into())),
+                scenario: Some(Some("gateway/gpt/review".into())),
                 ..Default::default()
             },
             NOW,
         )
         .await
         .expect("edit parent");
-    assert_eq!(edited.provider.as_deref(), Some("openai"));
+    assert_eq!(edited.scenario.as_deref(), Some("gateway/gpt/review"));
     let child = store.strand(&child.id).await.expect("child").expect("held");
-    assert_eq!(child.inference.provider.as_deref(), Some("deepseek"));
-    assert_eq!(child.inference.model.as_deref(), Some("deepseek-chat"));
+    assert_eq!(
+        child.inference.scenario.as_deref(),
+        Some("gateway/deepseek/recall")
+    );
     let explicit = Declaration {
-        provider: Some("openai".into()),
-        model: None,
+        scenario: Some("gateway/gpt/review".into()),
         reasoning_effort: None,
     };
     let other = store
@@ -56,7 +57,6 @@ async fn fork() {
         .expect("fork explicit");
     assert_eq!(other.inference, explicit);
     assert_eq!(other.soul, parent.soul);
-    assert!(other.inference.model.is_none());
     assert!(other.inference.reasoning_effort.is_none());
     let bare = store
         .create_strand(StrandDraft {

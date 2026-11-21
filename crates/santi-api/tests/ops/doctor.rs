@@ -1,3 +1,5 @@
+#[path = "../support/catalog.rs"]
+mod catalog;
 use std::collections::BTreeMap;
 use std::path::Path;
 use std::time::Duration;
@@ -14,12 +16,13 @@ async fn reports() {
         .seed(santi_core::GENESIS, &santi_core::now())
         .await
         .expect("seed");
+    catalog::qualify(&store, &[("review", "gpt-5.5")]).await;
     let held = runtime_under(temp.path(), Some(120000));
 
     let report = paths.configured(&held).await.expect("doctor");
     assert!(report.ok, "expected healthy: {report:?}");
     let provider = report.provider.expect("provider report");
-    assert_eq!(provider.profile.as_deref(), Some("openai"));
+    assert_eq!(provider.scenario.as_deref(), Some("gateway/family/review"));
     assert_eq!(provider.kind.as_deref(), Some("openai_responses"));
     assert_eq!(provider.model.as_deref(), Some("gpt-5.5"));
     assert_eq!(provider.effort.as_deref(), Some("medium"));
@@ -37,15 +40,15 @@ async fn rebase() {
         .seed(santi_core::GENESIS, &santi_core::now())
         .await
         .expect("seed");
+    catalog::qualify(&store, &[("review", "gpt-5.5")]).await;
     let mut held = runtime_under(temp.path(), Some(120000));
-    held.inference.model = Some("service-model".into());
     held.inference.reasoning_effort = Some("high".into());
 
     let report = paths.configured(&held).await.expect("doctor");
     assert!(report.ok, "expected healthy: {report:?}");
     let provider = report.provider.expect("provider report");
-    assert_eq!(provider.profile.as_deref(), Some("openai"));
-    assert_eq!(provider.model.as_deref(), Some("service-model"));
+    assert_eq!(provider.scenario.as_deref(), Some("gateway/family/review"));
+    assert_eq!(provider.model.as_deref(), Some("gpt-5.5"));
     assert_eq!(provider.effort.as_deref(), Some("high"));
     assert_eq!(provider.source.as_deref(), Some("service_selection"));
 }
@@ -59,16 +62,17 @@ async fn rejects() {
         .seed(santi_core::GENESIS, &santi_core::now())
         .await
         .expect("seed");
+    catalog::qualify(&store, &[("review", "gpt-5.5")]).await;
     let held = runtime_under(temp.path(), None);
 
     let report = paths.configured(&held).await.expect("doctor");
     assert!(!report.ok);
     let provider = report.provider.expect("provider report");
     assert!(!provider.ok);
-    assert_eq!(provider.profile.as_deref(), Some("openai"));
+    assert_eq!(provider.scenario.as_deref(), Some("gateway/family/review"));
     assert_eq!(
         provider.error.as_deref(),
-        Some("provider openai field bytes is required")
+        Some("provider estate/1/access/1 field bytes is required")
     );
 }
 
@@ -83,17 +87,16 @@ fn paths_under(root: &Path) -> Layout {
 fn runtime_under(root: &Path, budget: Option<usize>) -> Runtime {
     #[derive(serde::Deserialize)]
     struct File {
-        providers: BTreeMap<String, Profile>,
+        custody: BTreeMap<String, Profile>,
     }
     let budget = budget
         .map(|value| format!("bytes = {value}"))
         .unwrap_or_default();
     let file: File = toml::from_str(&format!(
         r#"
-        [providers.openai]
+        [custody.operator]
         kind = "openai_responses"
         api_key = "test-key"
-        model = "gpt-5.5"
         reasoning_effort = "medium"
         {budget}
         "#
@@ -104,12 +107,10 @@ fn runtime_under(root: &Path, budget: Option<usize>) -> Runtime {
         bind: "127.0.0.1:0".to_string(),
         port: 0,
         inference: santi_core::inference::Declaration {
-            provider: Some("openai".to_string()),
-            model: None,
+            scenario: Some("gateway/family/review".to_string()),
             reasoning_effort: None,
         },
-        providers: file.providers,
-        custody: Default::default(),
+        custody: file.custody,
         environment: Default::default(),
         paths: paths_under(root),
         grace: Duration::from_secs(600),
@@ -144,10 +145,13 @@ fn capacity() {
         ("maintenance_bytes = 100", None),
         ("maintenance_bytes = 0", None),
     ] {
-        let profile: Profile = toml::from_str(&format!("kind = \"openai_responses\"\napi_key = \"test\"\nmodel = \"test\"\nbytes = 100\n{configured}")).unwrap();
+        let profile: Profile = toml::from_str(&format!(
+            "kind = \"openai_responses\"\napi_key = \"test\"\nbytes = 100\n{configured}"
+        ))
+        .unwrap();
         assert_eq!(
             profile
-                .resolve("test")
+                .resolve("test", "wire-model")
                 .ok()
                 .map(|resolved| resolved.maintenance()),
             expected
@@ -178,12 +182,14 @@ fn headers() {
             Err("provider test field headers may not record set-cookie"),
         ),
     ] {
-        let profile: Profile = toml::from_str(&format!("kind = \"{kind}\"\napi_key = \"test\"\nmodel = \"test\"\nbase_url = \"http://test\"\nbytes = 100\n{configured}")).unwrap();
-        let resolved = profile.resolve("test").map(|resolved| match resolved {
-            santi_api::config::Resolved::OpenAiResponses(config) => config.headers,
-            santi_api::config::Resolved::ChatCompletions(config) => config.headers,
-            santi_api::config::Resolved::Gemini(config) => config.headers,
-        });
+        let profile: Profile = toml::from_str(&format!("kind = \"{kind}\"\napi_key = \"test\"\nbase_url = \"http://test\"\nbytes = 100\n{configured}")).unwrap();
+        let resolved = profile
+            .resolve("test", "wire-model")
+            .map(|resolved| match resolved {
+                santi_api::config::Resolved::OpenAiResponses(config) => config.headers,
+                santi_api::config::Resolved::ChatCompletions(config) => config.headers,
+                santi_api::config::Resolved::Gemini(config) => config.headers,
+            });
         assert_eq!(
             resolved,
             expected

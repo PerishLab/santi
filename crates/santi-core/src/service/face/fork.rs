@@ -37,11 +37,11 @@ impl Service {
             inference,
             created: &crate::now(),
         };
-        let rows = self.store.sources().await?;
         let validate = |target,
                         candidate: &crate::inference::Declaration,
-                        lower: Option<&crate::inference::Declaration>| {
-            self.infer(&rows, target, candidate, lower)
+                        lower: Option<&crate::inference::Declaration>,
+                        rows: &[crate::sources::Record]| {
+            self.infer(rows, target, candidate, lower)
                 .map_err(|error| format!("inference rejected: {error}"))
         };
         let (child, _) = match at {

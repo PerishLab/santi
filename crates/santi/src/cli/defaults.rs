@@ -75,12 +75,18 @@ pub fn parse() -> std::result::Result<(super::Cli, bool), clap::Error> {
     Ok((cli, explicit))
 }
 
-pub fn declaration(command: &Command) -> Declaration {
-    match command {
+pub fn declaration(command: &Command) -> Result<Declaration> {
+    let stated = match command {
         Command::Inference(Inference::Soul(Scope::Set(edit)))
         | Command::Inference(Inference::Strand(Scope::Set(edit))) => edit.declaration(),
         Command::Strand(StrandCommand::Create(delta))
         | Command::Strand(StrandCommand::Fork { delta, .. }) => delta.declaration(),
-        _ => Declaration::default(),
+        _ => return Ok(Declaration::default()),
+    };
+    for key in ["SANTI_INFERENCE_PROVIDER", "SANTI_INFERENCE_MODEL"] {
+        if plumb::config::value(key).is_some() {
+            anyhow::bail!("{key} is retired; use SANTI_INFERENCE_SCENARIO");
+        }
     }
+    Ok(stated)
 }

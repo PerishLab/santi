@@ -10,8 +10,7 @@ mod turn;
 
 fn declaration() -> Declaration {
     Declaration {
-        provider: Some("deepseek".into()),
-        model: Some("deepseek-chat".into()),
+        scenario: Some("gateway/deepseek/recall".into()),
         reasoning_effort: Some("high".into()),
     }
 }

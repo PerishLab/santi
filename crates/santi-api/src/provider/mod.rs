@@ -4,18 +4,17 @@ use std::sync::Arc;
 use santi_core::inference::{Declaration, Effective, Origin};
 use santi_provider::{Provider, chat::completions, openai};
 
-use crate::config::{ChatCompletions, OpenAiResponses, Profile, Providers, Resolved};
+use crate::config::{ChatCompletions, OpenAiResponses, Profile, Resolved};
 
 mod estate;
 
 pub struct Catalog<'a> {
     pub custody: &'a BTreeMap<String, Profile>,
-    pub profiles: &'a BTreeMap<String, Profile>,
 }
 
 impl santi_core::provider::Resolver for Catalog<'_> {
     fn resolve(&self, layers: &[(&Declaration, Origin)]) -> Result<Effective, String> {
-        Effective::resolve(layers, &Providers(self.profiles))
+        self.select(layers, &[])
     }
 
     fn selecting(
@@ -23,9 +22,6 @@ impl santi_core::provider::Resolver for Catalog<'_> {
         layers: &[(&Declaration, Origin)],
         rows: &[santi_core::sources::Record],
     ) -> Result<Effective, String> {
-        if self.custody.is_empty() {
-            return self.resolve(layers);
-        }
         self.select(layers, rows)
     }
 
@@ -36,17 +32,12 @@ impl santi_core::provider::Resolver for Catalog<'_> {
 
 impl Catalog<'_> {
     pub(crate) fn configured(&self, effective: &Effective) -> Result<Resolved, String> {
-        if let Some(route) = &effective.source.route {
-            let resolved = self.bound(route)?;
-            return resolved.rebase(effective);
-        }
-        let profile = self.profiles.get(&effective.provider).ok_or_else(|| {
-            format!(
-                "provider {} is not defined in the config",
-                effective.provider
-            )
-        })?;
-        profile.resolve(&effective.provider)?.rebase(effective)
+        let route = effective
+            .source
+            .route
+            .as_ref()
+            .ok_or("admitted turn has no recorded transport")?;
+        self.bound(route, &effective.model)?.rebase(effective)
     }
 }
 
@@ -109,68 +100,6 @@ mod tests {
     use super::*;
     use santi_core::provider::Resolver;
 
-    fn profiles() -> &'static BTreeMap<String, Profile> {
-        let parsed: BTreeMap<String, Profile> = toml::from_str(
-            r#"
-[chat]
-kind = "chat_completions"
-api_key = "fixture"
-model = "default"
-base_url = "http://provider.test"
-reasoning_effort = "low"
-bytes = 1000
-maintenance_bytes = 1500
-"#,
-        )
-        .unwrap();
-        Box::leak(Box::new(parsed))
-    }
-
-    #[test]
-    fn builds() {
-        let resolver = Catalog {
-            custody: Box::leak(Box::default()),
-            profiles: profiles(),
-        };
-        let declaration = Declaration {
-            provider: Some("chat".into()),
-            model: Some("declared".into()),
-            reasoning_effort: Some("high".into()),
-        };
-        let effective = resolver
-            .resolve(&[(&declaration, Origin::Service)])
-            .unwrap();
-        assert_eq!(effective.provider, "chat");
-        assert_eq!(effective.model, "declared");
-        assert_eq!(effective.reasoning_effort.as_deref(), Some("high"));
-
-        let provider = resolver.build(&effective).unwrap();
-        let metadata = provider.metadata();
-        assert_eq!(&*metadata.provider, "chat");
-        assert_eq!(metadata.model, "declared");
-        let budget = metadata.budget.expect("profile budget");
-        assert_eq!(budget.bytes, 1000);
-        assert_eq!(budget.maintenance, 1500);
-        assert_eq!(budget.source, "provider_config");
-    }
-
-    #[test]
-    fn rejects() {
-        let resolver = Catalog {
-            custody: Box::leak(Box::default()),
-            profiles: profiles(),
-        };
-        let declaration = Declaration {
-            provider: Some("missing".into()),
-            ..Default::default()
-        };
-        let error = resolver
-            .resolve(&[(&declaration, Origin::Service)])
-            .unwrap_err();
-
-        assert!(error.contains("missing"), "{error}");
-    }
-
     fn boundary(raw: &[u8]) -> Option<usize> {
         raw.windows(4).position(|part| part == b"\r\n\r\n")
     }
@@ -227,34 +156,44 @@ maintenance_bytes = 1500
 
         let raw = format!(
             r#"
-[chat]
+[operator]
 kind = "chat_completions"
 api_key = "fixture-key"
-model = "default"
 base_url = "http://{address}"
 reasoning_effort = "low"
 bytes = 1000
 maintenance_bytes = 1500
-[chat.request_headers]
+seal = "dededededededededededededededededededededededededededededededede"
+[operator.request_headers]
 User-Agent = "{{{{meta.user_agent}}}}"
 x-session = "{{{{strand.id}}}}"
 "#
         );
-        let profiles: BTreeMap<String, Profile> = toml::from_str(&raw).unwrap();
-        let profiles = Box::leak(Box::new(profiles));
-        let resolver = Catalog {
-            profiles,
-            custody: Box::leak(Box::default()),
+        use santi_core::sources::{Definition, Protocol};
+        let custody = toml::from_str(&raw).unwrap();
+        let resolver = Catalog { custody: &custody };
+        let mut rows = estate::tests::graph();
+        let Definition::Access {
+            protocol, endpoint, ..
+        } = &mut rows[3].definition
+        else {
+            unreachable!()
         };
+        *protocol = Protocol::ChatCompletions;
+        *endpoint = format!("http://{address}");
         let declaration = Declaration {
-            provider: Some("chat".into()),
-            model: Some("declared".into()),
+            scenario: Some("gateway/family/review".into()),
             reasoning_effort: Some("high".into()),
         };
         let effective = resolver
-            .resolve(&[(&declaration, Origin::Service)])
+            .selecting(&[(&declaration, Origin::Service)], &rows)
             .unwrap();
         let provider = resolver.build(&effective).unwrap();
+        let metadata = provider.metadata();
+        let budget = metadata.budget.unwrap();
+        assert_eq!(metadata.model, "offered");
+        assert_eq!((budget.bytes, budget.maintenance), (1000, 1500));
+        assert_eq!(budget.source, "provider_config");
         let request = santi_provider::Request {
             strand: Some("ss_factory".into()),
             model: effective.model.clone(),
@@ -280,7 +219,7 @@ x-session = "{{{{strand.id}}}}"
         let agent = plumb::agent!("SANTI", "santi-api").unwrap();
         assert!(head.contains(&format!("user-agent: {}\r\n", agent.value())));
         assert!(head.contains("x-session: ss_factory\r\n"));
-        assert!(raw.contains("\"model\":\"declared\""), "{raw}");
+        assert!(raw.contains("\"model\":\"offered\""), "{raw}");
         assert!(raw.contains("\"reasoning_effort\":\"high\""), "{raw}");
     }
 }

@@ -125,7 +125,9 @@ impl Service {
         supervisor: Arc<dyn jobs::Supervisor>,
     ) -> Result<Self, String> {
         crate::environment::validate(&config.environment)?;
+        declaration.validate()?;
         let store = Store::open(&config.database).await?;
+        store.declarations().await?;
         store.seed(crate::GENESIS, &crate::now()).await?;
         let traces = traces::Writer::start(store.clone());
         let sink = radicula_trace::Sink::from(traces);

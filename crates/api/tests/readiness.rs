@@ -7,6 +7,8 @@ use std::{
 };
 
 use serde_json::Value;
+#[path = "../../santi-api/tests/support/catalog.rs"]
+mod catalog;
 
 struct Fixture {
     root: tempfile::TempDir,
@@ -58,13 +60,14 @@ impl Fixture {
             .seed(santi_core::GENESIS, &santi_core::now())
             .await
             .unwrap();
+        catalog::qualify(&store, &[("review", "gpt-6.1-sol")]).await;
         drop(store);
         fixture
     }
 
     fn config(&self, path: &str) {
         let text = format!(
-            "provider='probe'\n[environment]\nPATH={path:?}\n[providers.probe]\nkind='openai_responses'\napi_key='PROBE_SECRET'\nmodel='gpt-6.1-sol'\nreasoning_effort='medium'\nbytes=500000\n"
+            "scenario='gateway/family/review'\n[environment]\nPATH={path:?}\n[custody.operator]\nkind='openai_responses'\napi_key='PROBE_SECRET'\nreasoning_effort='medium'\nbytes=500000\n"
         );
         std::fs::write(self.root.path().join("santi.toml"), text).unwrap();
     }

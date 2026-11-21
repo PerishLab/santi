@@ -2,28 +2,28 @@ use radicula_config::Cascade;
 use serde::{Deserialize, Deserializer, Serialize};
 use utoipa::ToSchema;
 
+mod grammar;
+pub use grammar::{path, scenario, word};
+
 #[derive(Debug, Clone, Default, Serialize, Deserialize, ToSchema, PartialEq, Eq, Cascade)]
 #[cascade(strict)]
 #[serde(deny_unknown_fields)]
 #[schema(as = inference::Declaration)]
 pub struct Declaration {
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub provider: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub model: Option<String>,
+    pub scenario: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reasoning_effort: Option<String>,
 }
 
 impl Declaration {
     pub fn empty(&self) -> bool {
-        self.provider.is_none() && self.model.is_none() && self.reasoning_effort.is_none()
+        self.scenario.is_none() && self.reasoning_effort.is_none()
     }
 
     pub fn partial(&self) -> DeclarationPartial {
         DeclarationPartial {
-            provider: self.provider.clone().map(Some),
-            model: self.model.clone().map(Some),
+            scenario: self.scenario.clone().map(Some),
             reasoning_effort: self.reasoning_effort.clone().map(Some),
         }
     }
@@ -33,16 +33,15 @@ impl Declaration {
     }
 
     pub fn validate(&self) -> Result<(), String> {
-        for (field, value) in [
-            ("provider", &self.provider),
-            ("model", &self.model),
-            ("reasoning_effort", &self.reasoning_effort),
-        ] {
-            if let Some(value) = value
-                && value.trim().is_empty()
-            {
-                return Err(format!("inference {field} must not be empty"));
-            }
+        if self.scenario.as_deref().is_some_and(|value| !path(value)) {
+            return Err("inference scenario requires provider/family/scene with one to three lowercase scene words joined by dots".into());
+        }
+        if self
+            .reasoning_effort
+            .as_deref()
+            .is_some_and(|value| value.trim().is_empty())
+        {
+            return Err("inference reasoning_effort must not be empty".into());
         }
         Ok(())
     }
@@ -57,13 +56,7 @@ pub struct Patch {
         skip_serializing_if = "Option::is_none",
         deserialize_with = "nullable"
     )]
-    pub provider: Option<Option<String>>,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        deserialize_with = "nullable"
-    )]
-    pub model: Option<Option<String>>,
+    pub scenario: Option<Option<String>>,
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
@@ -75,16 +68,14 @@ pub struct Patch {
 impl Patch {
     pub fn apply(&self, base: &Declaration) -> Declaration {
         base.clone().merge(DeclarationPartial {
-            provider: self.provider.clone(),
-            model: self.model.clone(),
+            scenario: self.scenario.clone(),
             reasoning_effort: self.reasoning_effort.clone(),
         })
     }
 
     pub fn touches(&self, field: &str) -> bool {
         match field {
-            "provider" => self.provider.is_some(),
-            "model" => self.model.is_some(),
+            "scenario" => self.scenario.is_some(),
             "reasoning_effort" => self.reasoning_effort.is_some(),
             _ => false,
         }
@@ -131,7 +122,7 @@ pub struct Defaults {
 }
 
 pub trait Directory {
-    fn defaults(&self, provider: &str) -> Result<Defaults, String>;
+    fn defaults(&self, scenario: &str) -> Result<Defaults, String>;
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema, PartialEq, Eq)]
@@ -156,26 +147,23 @@ impl Effective {
         for (declaration, _) in layers {
             merged = merged.merge(declaration.partial());
         }
-        let provider = merged
-            .provider
-            .clone()
-            .ok_or_else(|| "inference resolution requires a provider".to_string())?;
-        let defaults = providers.defaults(&provider)?;
+        let scenario = merged
+            .scenario
+            .ok_or_else(|| "inference resolution requires a scenario".to_string())?;
+        let defaults = providers.defaults(&scenario)?;
         if defaults.model.trim().is_empty() {
-            return Err(format!("provider {provider} has an empty default model"));
+            return Err(format!("scenario {scenario} resolved to an empty model"));
         }
-        let model = merged.model.unwrap_or(defaults.model);
         let reasoning_effort = merged.reasoning_effort.or(defaults.reasoning_effort);
         Ok(Self {
-            provider: provider.clone(),
-            model,
+            provider: scenario,
+            model: defaults.model,
             reasoning_effort: reasoning_effort.clone(),
             source: Source {
                 route: None,
-                provider: origin(layers, |declaration| declaration.provider.is_some())
+                provider: origin(layers, |declaration| declaration.scenario.is_some())
                     .unwrap_or(Origin::Default),
-                model: origin(layers, |declaration| declaration.model.is_some())
-                    .unwrap_or(Origin::Default),
+                model: Origin::Default,
                 reasoning_effort: origin(layers, |declaration| {
                     declaration.reasoning_effort.is_some()
                 })

@@ -171,8 +171,7 @@ pub(super) async fn open(ending: Ending) -> Fixture {
         &store,
         &strand,
         Selection {
-            provider: "alpha",
-            model: "alpha-model",
+            scenario: "gateway/family/alpha",
             effort: "low",
         },
     )

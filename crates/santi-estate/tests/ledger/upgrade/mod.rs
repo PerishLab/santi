@@ -229,14 +229,14 @@ async fn inference() {
             Target::Strand,
             "ss_old",
             &santi_model::inference::Patch {
-                model: Some(Some("next-model".into())),
+                scenario: Some(Some("gateway/family/next".into())),
                 ..Default::default()
             },
             NOW,
         )
         .await
         .expect("declare");
-    assert_eq!(declared.model.as_deref(), Some("next-model"));
+    assert_eq!(declared.scenario.as_deref(), Some("gateway/family/next"));
     store
         .place(santi_estate::MessageDraft {
             tag: "msg_new",
@@ -261,9 +261,9 @@ async fn inference() {
             .unwrap()
             .unwrap()
             .inference
-            .model
+            .scenario
             .as_deref(),
-        Some("next-model")
+        Some("gateway/family/next")
     );
     assert_eq!(store.messages("ss_old").await.unwrap().len(), 2);
 }

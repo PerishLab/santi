@@ -18,9 +18,10 @@ pub(crate) struct Call {
 pub(crate) struct Catalog;
 
 impl Directory for Catalog {
-    fn defaults(&self, provider: &str) -> Result<Defaults, String> {
+    fn defaults(&self, scenario: &str) -> Result<Defaults, String> {
+        let name = scenario.rsplit('/').next().unwrap();
         Ok(Defaults {
-            model: format!("{provider}-default"),
+            model: format!("{name}-model"),
             reasoning_effort: None,
         })
     }
@@ -144,7 +145,7 @@ impl Resolver for Layers {
     fn resolve(&self, layers: &[(&Declaration, Origin)]) -> Result<Effective, String> {
         let mut effective = Effective::resolve(layers, &Catalog)?;
         if self.switch.load(Ordering::SeqCst) && self.resolves.fetch_add(1, Ordering::SeqCst) > 0 {
-            effective.provider = "beta".into();
+            effective.provider = "gateway/family/beta".into();
             effective.model = "beta-model".into();
             effective.reasoning_effort = Some("high".into());
         }
@@ -153,13 +154,13 @@ impl Resolver for Layers {
 
     fn build(&self, effective: &Effective) -> Result<Arc<dyn Provider>, String> {
         self.builds.fetch_add(1, Ordering::SeqCst);
-        if effective.provider == "missing" {
+        if effective.provider == "gateway/family/missing" {
             return Err("provider missing is not defined".into());
         }
         let (bytes, maintenance) = match effective.provider.as_str() {
-            "alpha" => (200_000, 300_000),
-            "beta" => (400_000, 600_000),
-            "gamma" => (600_000, 900_000),
+            "gateway/family/alpha" => (200_000, 300_000),
+            "gateway/family/beta" => (400_000, 600_000),
+            "gateway/family/gamma" => (600_000, 900_000),
             _ => (80_000, 120_000),
         };
         Ok(Arc::new(Recorder {
@@ -176,15 +177,13 @@ impl Resolver for Layers {
 }
 
 pub(crate) struct Selection<'a> {
-    pub(crate) provider: &'a str,
-    pub(crate) model: &'a str,
+    pub(crate) scenario: &'a str,
     pub(crate) effort: &'a str,
 }
 
-pub(crate) fn patch(provider: &str, model: &str, effort: &str) -> Patch {
+fn patch(scenario: &str, effort: &str) -> Patch {
     Patch {
-        provider: Some(Some(provider.into())),
-        model: Some(Some(model.into())),
+        scenario: Some(Some(scenario.into())),
         reasoning_effort: Some(Some(effort.into())),
     }
 }
@@ -233,7 +232,7 @@ pub(crate) async fn declare(store: &Store, strand: &str, selection: Selection<'_
         .declare(
             Target::Strand,
             strand,
-            &patch(selection.provider, selection.model, selection.effort),
+            &patch(selection.scenario, selection.effort),
             &santi_core::now(),
         )
         .await

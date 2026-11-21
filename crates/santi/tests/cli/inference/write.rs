@@ -16,10 +16,8 @@ async fn patches() {
             "soul",
             "set",
             "soul_one",
-            "--provider",
-            "edge",
-            "--model",
-            "m1",
+            "--scenario",
+            "edge/family/work",
             "--reasoning-effort",
             "high",
         ],
@@ -32,7 +30,7 @@ async fn patches() {
     );
     assert_eq!(
         support::json(&request),
-        json!({"provider": "edge", "model": "m1", "reasoning_effort": "high"})
+        json!({"scenario": "edge/family/work", "reasoning_effort": "high"})
     );
 
     let wire = support::serve("200 OK", READ).await;
@@ -40,7 +38,14 @@ async fn patches() {
         wire,
         home.path(),
         &[],
-        &["inference", "strand", "set", "ss_one", "--model", "m2"],
+        &[
+            "inference",
+            "strand",
+            "set",
+            "ss_one",
+            "--scenario",
+            "edge/family/review",
+        ],
     )
     .await;
     support::applied(&output);
@@ -48,7 +53,10 @@ async fn patches() {
         support::line(&request),
         "PATCH /api/v1/strands/ss_one/inference HTTP/1.1"
     );
-    assert_eq!(support::json(&request), json!({"model": "m2"}));
+    assert_eq!(
+        support::json(&request),
+        json!({"scenario": "edge/family/review"})
+    );
 }
 
 #[tokio::test]
@@ -65,15 +73,12 @@ async fn clears() {
             "set",
             "ss_one",
             "--clear",
-            "provider,model",
+            "scenario",
         ],
     )
     .await;
     support::applied(&output);
-    assert_eq!(
-        support::json(&request),
-        json!({"provider": null, "model": null})
-    );
+    assert_eq!(support::json(&request), json!({"scenario": null}));
 
     let wire = support::serve("200 OK", READ).await;
     let (output, request) = support::call(

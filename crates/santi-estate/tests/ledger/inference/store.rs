@@ -17,24 +17,22 @@ async fn roundtrip() {
             Target::Strand,
             &strand.id,
             &Patch {
-                model: Some(None),
+                scenario: Some(None),
                 ..Default::default()
             },
             NOW,
         )
         .await
-        .expect("clear model");
-    assert_eq!(cleared.provider.as_deref(), Some("deepseek"));
-    assert_eq!(cleared.model, None);
+        .expect("clear scenario");
+    assert_eq!(cleared.scenario, None);
     assert_eq!(cleared.reasoning_effort.as_deref(), Some("high"));
     let empty = store
         .declare(
             Target::Strand,
             &strand.id,
             &Patch {
-                provider: Some(None),
+                scenario: Some(None),
                 reasoning_effort: Some(None),
-                ..Default::default()
             },
             NOW,
         )
@@ -97,45 +95,45 @@ async fn atomic() {
             Target::Strand,
             &strand.id,
             &Patch {
-                model: Some(Some("next-model".into())),
+                scenario: Some(Some("gateway/deepseek/analysis".into())),
                 ..Default::default()
             },
             NOW,
         )
         .await
         .expect("one field");
-    assert_eq!(patched.provider.as_deref(), Some("deepseek"));
-    assert_eq!(patched.model.as_deref(), Some("next-model"));
+    assert_eq!(
+        patched.scenario.as_deref(),
+        Some("gateway/deepseek/analysis")
+    );
     assert_eq!(patched.reasoning_effort.as_deref(), Some("high"));
     let adjusted = store
         .declare(
             Target::Strand,
             &strand.id,
             &Patch {
-                model: Some(Some("final-model".into())),
+                scenario: Some(Some("gateway/gpt/recall".into())),
                 reasoning_effort: Some(None),
-                ..Default::default()
             },
             NOW,
         )
         .await
         .expect("modify and clear");
-    assert_eq!(adjusted.provider.as_deref(), Some("deepseek"));
-    assert_eq!(adjusted.model.as_deref(), Some("final-model"));
+    assert_eq!(adjusted.scenario.as_deref(), Some("gateway/gpt/recall"));
     assert_eq!(adjusted.reasoning_effort, None);
     let error = store
         .declare(
             Target::Strand,
             &strand.id,
             &Patch {
-                model: Some(Some("  ".into())),
+                scenario: Some(Some("  ".into())),
                 ..Default::default()
             },
             NOW,
         )
         .await
-        .expect_err("invalid model");
-    assert!(error.contains("must not be empty"), "{error}");
+        .expect_err("invalid scenario");
+    assert!(error.contains("scenario"), "{error}");
     let unchanged = store
         .strand(&strand.id)
         .await
@@ -147,28 +145,27 @@ async fn atomic() {
             Target::Soul,
             "soul",
             &Patch {
-                provider: Some(Some("openai".into())),
+                scenario: Some(Some("gateway/gpt/review".into())),
                 ..Default::default()
             },
             NOW,
         )
         .await
         .expect("soul patch");
-    assert_eq!(soul.provider.as_deref(), Some("openai"));
-    assert_eq!(soul.model, None);
+    assert_eq!(soul.scenario.as_deref(), Some("gateway/gpt/review"));
     assert_eq!(soul.reasoning_effort, None);
     let soul = store
         .declare(
             Target::Soul,
             "soul",
             &Patch {
-                provider: Some(None),
+                scenario: Some(None),
                 ..Default::default()
             },
             NOW,
         )
         .await
-        .expect("clear soul provider");
+        .expect("clear soul scenario");
     assert!(soul.empty());
 
     drop(store);
@@ -190,5 +187,61 @@ async fn atomic() {
             .expect("held")
             .inference,
         soul
+    );
+}
+
+#[tokio::test]
+async fn predecessor() {
+    use keel::adapt::db::Sqlite;
+    let temp = tempfile::tempdir().unwrap();
+    let path = temp.path().join("estate.sqlite");
+    drop(Store::bootstrap(&path, SUDO).await.unwrap());
+    let core = keel::bind(santi_estate::graph(), Sqlite::file(&path).await.unwrap())
+        .await
+        .unwrap();
+    let id = core
+        .put(
+            "Soul",
+            &[
+                ("tag", "consumer"),
+                ("created", NOW),
+                ("updated", NOW),
+                ("provider", "gateway/gpt/review"),
+                ("model", "old-model"),
+            ],
+        )
+        .await
+        .unwrap();
+    let store = Store::open(&path).await.unwrap();
+    let error = store.declarations().await.unwrap_err();
+    assert!(
+        error.contains("consumer") && error.contains("legacy model override"),
+        "{error}"
+    );
+    core.unset("Soul", id, &["model"]).await.unwrap();
+    core.set("Soul", id, &[("provider", "direct")])
+        .await
+        .unwrap();
+    assert!(
+        store
+            .soul("consumer")
+            .await
+            .unwrap_err()
+            .contains("scenario")
+    );
+    core.set("Soul", id, &[("provider", "gateway/gpt/review")])
+        .await
+        .unwrap();
+    store.declarations().await.unwrap();
+    assert_eq!(
+        store
+            .soul("consumer")
+            .await
+            .unwrap()
+            .unwrap()
+            .inference
+            .scenario
+            .as_deref(),
+        Some("gateway/gpt/review")
     );
 }

@@ -9,8 +9,7 @@ async fn lifecycle() {
         &f.store,
         &f.strand.id,
         Selection {
-            provider: "alpha",
-            model: "alpha-model",
+            scenario: "gateway/family/alpha",
             effort: "low",
         },
     )

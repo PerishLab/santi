@@ -65,38 +65,24 @@ pub(super) fn verify(
     {
         return Err(changed.into());
     }
-    let offering = rows.iter().find_map(|r| match &r.definition {
-        D::Offering {
-            access,
-            model,
-            family,
-        } if *access == route.access.id && model == &selected.model => Some((r.id, *family)),
-        _ => None,
-    });
-    if route.offering != offering.map(|o| o.0)
-        || route.family.as_ref().map(|f| f.id) != offering.map(|o| o.1)
+    let family = route.family.as_ref().ok_or(changed)?;
+    let scene = route.scenario.as_ref().ok_or(changed)?;
+    let offering = route.offering.ok_or(changed)?;
+    let candidate = route.candidate.ok_or(changed)?;
+    let choice = dir.explain(&route.provider.name, &family.name, &scene.name)?;
+    if selected.provider != format!("{}/{}/{}", route.provider.name, family.name, scene.name) {
+        return Err(changed.into());
+    }
+    if choice.family != family.id
+        || choice.scenario != scene.id
+        || choice.preferred != Some(candidate)
     {
         return Err(changed.into());
     }
-    if let Some(family) = &route.family
-        && dir.find(Kind::Family, family.id)?.name() != Some(family.name.as_str())
+    if !matches!(dir.find(Kind::Candidate, candidate)?, D::Candidate { offering: id, .. } if *id == offering)
+        || !matches!(dir.find(Kind::Offering, offering)?, D::Offering { access, model, family: id }
+            if *access == route.access.id && *id == family.id && model == &selected.model)
     {
-        return Err(changed.into());
-    }
-    if let Some(scene) = &route.scenario {
-        let family = route.family.as_ref().ok_or(changed)?;
-        let choice = dir.explain(&route.provider.name, &family.name, &scene.name)?;
-        let candidate = route.candidate.ok_or(changed)?;
-        if selected.provider != format!("{}/{}/{}", route.provider.name, family.name, scene.name)
-            || choice.scenario != scene.id || choice.preferred != Some(candidate)
-        { return Err(changed.into()); }
-        if !matches!(dir.find(Kind::Candidate, candidate)?, D::Candidate { offering, .. } if Some(*offering) == route.offering)
-        {
-            return Err(changed.into());
-        }
-    } else if route.candidate.is_some() || !(selected.provider == route.access.name || rows.iter().any(|r| {
-        matches!(&r.definition, D::Alias { name, access } if name == &selected.provider && *access == route.access.id)
-    })) {
         return Err(changed.into());
     }
     Ok(())

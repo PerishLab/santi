@@ -19,7 +19,11 @@ fn key(row: &Value) -> Result<Key> {
         }
         let s = row[field].as_str().context("missing catalog text field")?;
         let valid = match field {
-            "name" => name(s),
+            "name" => match kind {
+                "provider" | "family" => crate::inference::word(s),
+                "scenario" => crate::inference::scenario(s),
+                _ => name(s),
+            },
             "model" => model(s),
             "credential" => s.strip_prefix("custody://").is_some_and(name),
             "protocol" => matches!(

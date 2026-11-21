@@ -5,8 +5,7 @@ use serde_json::json;
 
 fn held() -> Declaration {
     Declaration {
-        provider: Some("held-provider".into()),
-        model: Some("held-model".into()),
+        scenario: Some("held/family/work".into()),
         reasoning_effort: None,
     }
 }
@@ -34,10 +33,8 @@ fn sets() {
         "soul",
         "set",
         "soul_one",
-        "--provider",
-        "edge",
-        "--model",
-        "m1",
+        "--scenario",
+        "edge/family/work",
         "--reasoning-effort",
         "high",
     ])
@@ -49,8 +46,7 @@ fn sets() {
     assert_eq!(
         edit.declaration(),
         Declaration {
-            provider: Some("edge".into()),
-            model: Some("m1".into()),
+            scenario: Some("edge/family/work".into()),
             reasoning_effort: Some("high".into()),
         }
     );
@@ -64,7 +60,7 @@ fn clears() {
         "strand",
         "set",
         "--clear",
-        "provider,model",
+        "scenario",
         "--clear",
         "reasoning-effort",
         "ss_one",
@@ -74,10 +70,7 @@ fn clears() {
         panic!("expected strand inference set");
     };
     assert_eq!(edit.id.as_deref(), Some("ss_one"));
-    assert_eq!(
-        edit.clear,
-        vec![Field::Provider, Field::Model, Field::Effort]
-    );
+    assert_eq!(edit.clear, vec![Field::Scenario, Field::Effort]);
 
     let parsed = Cli::try_parse_from([
         "santi",
@@ -98,26 +91,23 @@ fn clears() {
 #[test]
 fn patch() {
     let edit = Edit {
-        provider: None,
-        model: None,
+        scenario: None,
         reasoning_effort: None,
-        clear: vec![Field::Model],
+        clear: vec![Field::Scenario],
         ..Default::default()
     };
     assert_eq!(
         edit.patch(&held()).unwrap(),
         Patch {
-            provider: Some(Some("held-provider".into())),
-            model: Some(None),
+            scenario: Some(None),
             reasoning_effort: None,
         }
     );
 
     let edit = Edit {
-        provider: Some("cli-provider".into()),
-        model: None,
+        scenario: Some("cli/family/work".into()),
         reasoning_effort: None,
-        clear: vec![Field::Provider],
+        clear: vec![Field::Scenario],
         ..Default::default()
     };
     assert!(edit.patch(&held()).is_err());
@@ -125,16 +115,27 @@ fn patch() {
 
 #[test]
 fn rejects() {
+    for flag in ["--provider", "--model"] {
+        for mut args in [
+            vec!["santi", "inference", "soul", "set"],
+            vec!["santi", "inference", "strand", "set"],
+            vec!["santi", "strand", "create"],
+            vec!["santi", "strand", "fork", "ss_parent"],
+        ] {
+            args.extend([flag, "edge"]);
+            assert!(Cli::try_parse_from(args).is_err());
+        }
+    }
     assert!(Edit::default().patch(&Declaration::default()).is_err());
 
     let empty = Edit {
-        provider: Some("  ".into()),
+        scenario: Some("  ".into()),
         ..Default::default()
     };
     assert!(empty.patch(&Declaration::default()).is_err());
 
     let unknown = Edit {
-        clear: vec![Field::Model],
+        clear: vec![Field::Scenario],
         ..Default::default()
     };
     assert!(unknown.patch(&Declaration::default()).is_ok());
@@ -167,16 +168,16 @@ fn bodies() {
     );
     assert_eq!(
         Delta {
-            provider: Some("p".into()),
+            scenario: Some("edge/family/work".into()),
             ..Default::default()
         }
         .body(&Declaration::default())
         .unwrap(),
-        Some(json!({"inference": {"provider": "p"}}))
+        Some(json!({"inference": {"scenario": "edge/family/work"}}))
     );
     assert_eq!(
         Delta::default().body(&held()).unwrap(),
-        Some(json!({"inference": {"provider": "held-provider", "model": "held-model"}}))
+        Some(json!({"inference": {"scenario": "held/family/work"}}))
     );
     assert_eq!(
         Delta {
@@ -190,7 +191,7 @@ fn bodies() {
     assert!(
         Delta {
             inherit: true,
-            provider: Some("p".into()),
+            scenario: Some("edge/family/work".into()),
             ..Default::default()
         }
         .body(&Declaration::default())
@@ -206,17 +207,32 @@ fn creates() {
     };
     assert!(delta.body(&Declaration::default()).unwrap().is_none());
 
-    let parsed = Cli::try_parse_from(["santi", "strand", "create", "--model", "m"]).unwrap();
+    let parsed = Cli::try_parse_from([
+        "santi",
+        "strand",
+        "create",
+        "--scenario",
+        "edge/family/work",
+    ])
+    .unwrap();
     let Command::Strand(StrandCommand::Create(delta)) = parsed.command else {
         panic!("expected strand create");
     };
     assert_eq!(
         delta.body(&Declaration::default()).unwrap(),
-        Some(json!({"inference": {"model": "m"}}))
+        Some(json!({"inference": {"scenario": "edge/family/work"}}))
     );
 
     assert!(
-        Cli::try_parse_from(["santi", "strand", "create", "--inherit", "--model", "m"]).is_err()
+        Cli::try_parse_from([
+            "santi",
+            "strand",
+            "create",
+            "--inherit",
+            "--scenario",
+            "edge/family/work"
+        ])
+        .is_err()
     );
 
     let parsed = Cli::try_parse_from(["santi", "strand", "fork", "ss_parent"]).unwrap();
@@ -240,7 +256,7 @@ fn creates() {
 
 #[test]
 fn send() {
-    for flag in ["--model", "--provider", "--reasoning-effort"] {
+    for flag in ["--scenario", "--model", "--provider", "--reasoning-effort"] {
         assert!(
             Cli::try_parse_from(["santi", "strand", "send", flag, "value", "hello"]).is_err(),
             "send must reject {flag}"

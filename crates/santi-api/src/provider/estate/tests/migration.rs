@@ -6,7 +6,6 @@ kind = "chat_completions"
 identity = "deepseek"
 api_key = "fixture-one"
 base_url = "https://fixture.invalid/v1"
-model = "offered"
 thinking = "enabled"
 replay = "history"
 bytes = 1000
@@ -17,7 +16,6 @@ request_headers = { x-private = "private-one", x-opencode-session = "first-{{str
 fn imported(profile: &str) -> Catalog<'static> {
     Catalog {
         custody: Box::leak(Box::new(toml::from_str(profile).unwrap())),
-        profiles: Box::leak(Box::default()),
     }
 }
 
@@ -30,7 +28,7 @@ fn migration() {
     };
     *protocol = Protocol::ChatCompletions;
     let direct = Declaration {
-        provider: Some("legacy".into()),
+        scenario: Some("gateway/family/review".into()),
         ..Default::default()
     };
     let admitted = resolver
@@ -46,7 +44,9 @@ fn migration() {
     ] {
         assert!(!exported.contains(private));
     }
-    let old = resolver.custody["operator"].resolve("deepseek").unwrap();
+    let old = resolver.custody["operator"]
+        .resolve("deepseek", "offered")
+        .unwrap();
     let metadata = crate::provider::build(old).unwrap().metadata();
     let state = Continuation {
         provider: metadata.provider.to_string(),
@@ -124,8 +124,12 @@ async fn wire() {
     let server = tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
     let config = PROFILE.replace("https://fixture.invalid/v1", &url);
     let legacy = imported(&config.replace("identity = \"deepseek\"", ""));
-    let old =
-        crate::provider::build(legacy.custody["operator"].resolve("deepseek").unwrap()).unwrap();
+    let old = crate::provider::build(
+        legacy.custody["operator"]
+            .resolve("deepseek", "offered")
+            .unwrap(),
+    )
+    .unwrap();
     let mut request = Request {
         strand: Some("fixture".into()),
         model: "offered".into(),
@@ -161,7 +165,7 @@ async fn wire() {
     *endpoint = url;
     let catalog = imported(&config);
     let direct = Declaration {
-        provider: Some("legacy".into()),
+        scenario: Some("gateway/family/review".into()),
         ..Default::default()
     };
     let effective = catalog
@@ -187,7 +191,7 @@ fn signature() {
         .replace("replay = \"history\"", "");
     let catalog = imported(&raw);
     let direct = Declaration {
-        provider: Some("legacy".into()),
+        scenario: Some("gateway/family/review".into()),
         ..Default::default()
     };
     let selected = catalog
@@ -221,25 +225,20 @@ fn signature() {
 
 #[test]
 fn staging() {
-    let profiles = toml::from_str(PROFILE).unwrap();
     let custody = Default::default();
-    let catalog = Catalog {
-        profiles: &profiles,
-        custody: &custody,
-    };
+    let catalog = Catalog { custody: &custody };
     let declaration = Declaration {
-        provider: Some("operator".into()),
+        scenario: Some("gateway/family/review".into()),
         ..Default::default()
     };
-    let partial = [Record {
-        id: 1,
-        definition: D::Provider {
-            name: "teamorouter".into(),
-        },
-    }];
-    let selection = catalog
-        .selecting(&[(&declaration, Origin::Service)], &partial)
-        .unwrap();
-    assert_eq!(selection.provider, "operator");
-    assert!(selection.source.route.is_none());
+    assert!(
+        catalog
+            .selecting(&[(&declaration, Origin::Service)], &[])
+            .is_err()
+    );
+    assert!(
+        catalog
+            .selecting(&[(&declaration, Origin::Service)], &graph())
+            .is_err()
+    );
 }
