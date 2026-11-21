@@ -82,6 +82,7 @@ async fn fixture() -> (tempfile::TempDir, Service) {
         .unwrap();
     drop(store);
     let service = Service::open(
+        "fixture/model/execution",
         santi_core::service::Config {
             database: database.display().to_string(),
             runtime: directory.path().join("runtime").display().to_string(),

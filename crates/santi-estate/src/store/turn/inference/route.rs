@@ -70,7 +70,9 @@ pub(super) fn verify(
     let offering = route.offering.ok_or(changed)?;
     let candidate = route.candidate.ok_or(changed)?;
     let choice = dir.explain(&route.provider.name, &family.name, &scene.name)?;
-    if selected.provider != format!("{}/{}/{}", route.provider.name, family.name, scene.name) {
+    if selected.selection.value().as_str()
+        != format!("{}/{}/{}", route.provider.name, family.name, scene.name)
+    {
         return Err(changed.into());
     }
     if choice.family != family.id

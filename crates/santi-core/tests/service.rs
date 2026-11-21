@@ -1,3 +1,5 @@
+const SCENARIO: &str = "fixture/model/execution";
+
 #[path = "service/alarms.rs"]
 mod alarms;
 #[path = "service/basic.rs"]

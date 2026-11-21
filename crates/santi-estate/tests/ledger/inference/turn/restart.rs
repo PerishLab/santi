@@ -79,13 +79,87 @@ async fn reopen() {
         })
         .await
         .unwrap();
+    let mut prior = old.clone();
+    prior.selection = Selection::Provider("gateway/family/scene".into());
+    prior.source.selection = Selection::Provider(Origin::Strand);
+    let error = store.begin(draft("prior"), &prior).await.unwrap_err();
+    assert!(error.contains("new turn requires a scenario"), "{error}");
+    assert!(store.turn("prior").await.unwrap().is_none());
     let mut direct = old.clone();
-    direct.provider = "original".into();
     let route = direct.source.route.as_mut().unwrap();
     route.scenario = None;
     route.candidate = None;
     assert!(store.begin(draft("direct"), &direct).await.is_err());
     assert!(store.turn("direct").await.unwrap().is_none());
+    let legacy = store
+        .create_turn(TurnDraft {
+            tag: "legacy",
+            strand: STRAND,
+            trigger: turn::Trigger::System,
+            from: 0,
+            created: LATER,
+        })
+        .await
+        .unwrap();
+    let core = keel::bind(
+        santi_estate::graph(),
+        keel::adapt::db::Sqlite::file(&path).await.unwrap(),
+    )
+    .await
+    .unwrap();
+    let key = core
+        .one(&keel::form("Turn").when("tag", keel::Op::Eq, "legacy"))
+        .await
+        .unwrap()
+        .unwrap()
+        .key()
+        .to_string();
+    core.put(
+        "Inference",
+        &[
+            ("turn", &key),
+            ("provider", "gateway/family/scene"),
+            ("model", "model_a"),
+            ("reasoning_effort", "low"),
+            (
+                "source",
+                r#"{"provider":"strand","model":"offering","reasoning_effort":"strand"}"#,
+            ),
+            ("created", LATER),
+        ],
+    )
+    .await
+    .unwrap();
+    core.put(
+        "Route",
+        &[
+            ("turn", &key),
+            ("provider", &provider.id.to_string()),
+            ("provider_name", "gateway"),
+            ("access", &access.id.to_string()),
+            ("access_name", "original"),
+            ("family", &family.id.to_string()),
+            ("family_name", "family"),
+            ("scenario", &scene.id.to_string()),
+            ("scenario_name", "scene"),
+            ("offering", &offer.id.to_string()),
+            ("candidate", &candidate.id.to_string()),
+            ("protocol", "chat_completions"),
+            ("endpoint", "https://fixture.invalid/v1"),
+            ("custody", "local"),
+            ("identity", "fixture"),
+            ("policy", "test"),
+            ("replay", "true"),
+            ("thinking", "enabled"),
+        ],
+    )
+    .await
+    .unwrap();
+    drop(core);
+    store
+        .complete_turn("legacy", legacy.from, LATER)
+        .await
+        .unwrap();
     let one = drain(&store, "turn_one", &old).await;
     assert_eq!(one.turn.inference.as_ref(), Some(&old));
     store
@@ -123,7 +197,7 @@ async fn reopen() {
     );
 
     accept(&store, "inbox_two", "next").await;
-    let next = choice("provider_b", "model_b", Some("high"));
+    let next = choice("fixture/family/b", "model_b", Some("high"));
     let two = drain(&store, "turn_two", &next).await;
     assert_eq!(two.turn.inference.as_ref(), Some(&next));
     store
@@ -133,13 +207,38 @@ async fn reopen() {
 
     drop(store);
     let store = Store::open(&path).await.expect("reopen");
-    for (tag, expected) in [("turn_one", Some(old)), ("turn_two", Some(next))] {
+    let mut historical = old.clone();
+    historical.selection = Selection::Provider("gateway/family/scene".into());
+    historical.source.selection = Selection::Provider(Origin::Strand);
+    for (tag, expected) in [
+        ("legacy", historical),
+        ("turn_one", old),
+        ("turn_two", next),
+    ] {
         let turn = store.turn(tag).await.expect("turn").expect("present");
-        assert_eq!(turn.inference, expected, "restart snapshot {tag}");
+        let reading = store
+            .inference(tag)
+            .await
+            .expect("inference")
+            .expect("present");
         assert_eq!(
-            store.inference(tag).await.expect("inference"),
-            expected,
-            "restart inference {tag}"
+            turn.inference.as_ref(),
+            Some(&expected),
+            "restart snapshot {tag}"
         );
+        assert_eq!(reading, expected, "restart inference {tag}");
+        let wire = serde_json::to_value(reading).unwrap();
+        let (field, absent) = if tag == "legacy" {
+            ("provider", "scenario")
+        } else {
+            ("scenario", "provider")
+        };
+        assert_eq!(wire[field], expected.selection.value().as_str());
+        assert_eq!(wire["source"][field], "strand");
+        assert!(wire.get(absent).is_none() && wire["source"].get(absent).is_none());
+        if tag != "turn_two" {
+            assert_eq!(wire["source"]["route"]["provider"]["name"], "gateway");
+            assert_eq!(wire["source"]["route"]["access"]["name"], "original");
+        }
     }
 }

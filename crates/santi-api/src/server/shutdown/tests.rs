@@ -35,6 +35,7 @@ async fn open(temp: &tempfile::TempDir, provider: Arc<Waiting>) -> Service {
     .await
     .unwrap();
     Service::open(
+        "fixture/model/execution",
         service::Config {
             database: temp.path().join("db").display().to_string(),
             runtime: temp.path().join("runtime").display().to_string(),

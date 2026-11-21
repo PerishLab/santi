@@ -7,6 +7,7 @@ async fn capsule() {
     let temp = tempfile::tempdir().expect("temp dir");
     bootstrap(&temp).await;
     let service = Service::open(
+        crate::SCENARIO,
         service::Config {
             database: temp.path().join("santi.sqlite").display().to_string(),
             runtime: temp.path().join("runtime").display().to_string(),
@@ -93,6 +94,7 @@ async fn overlaps() {
     let temp = tempfile::tempdir().expect("temp dir");
     bootstrap(&temp).await;
     let service = Service::open(
+        crate::SCENARIO,
         service::Config {
             database: temp.path().join("santi.sqlite").display().to_string(),
             runtime: temp.path().join("runtime").display().to_string(),

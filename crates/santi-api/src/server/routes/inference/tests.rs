@@ -25,7 +25,7 @@ impl JobSupervisor for Idle {
     }
 }
 
-async fn serve(declaration: Declaration) -> (tempfile::TempDir, axum::Router) {
+async fn serve(declaration: Declaration, endpoint: &str) -> (tempfile::TempDir, axum::Router) {
     let root = tempfile::tempdir().unwrap();
     let database = root.path().join("db");
     let store = santi_core::Store::bootstrap(
@@ -36,6 +36,7 @@ async fn serve(declaration: Declaration) -> (tempfile::TempDir, axum::Router) {
     .unwrap();
     catalog::qualify(
         &store,
+        endpoint,
         &[
             ("routine", "service-model"),
             ("review", "seat-model"),
@@ -44,9 +45,10 @@ async fn serve(declaration: Declaration) -> (tempfile::TempDir, axum::Router) {
         ],
     )
     .await;
-    let custody =
-        toml::from_str("[operator]\nkind='openai_responses'\napi_key='fixture'\nbytes=1000")
-            .unwrap();
+    let custody = toml::from_str(&format!(
+        "[operator]\nkind='openai_responses'\napi_key='fixture'\nbytes=500000\nbase_url='{endpoint}'"
+    ))
+    .unwrap();
     let service = Service::provided(
         service::Config {
             database: database.display().to_string(),
@@ -68,10 +70,13 @@ async fn serve(declaration: Declaration) -> (tempfile::TempDir, axum::Router) {
 }
 
 async fn fixture() -> (tempfile::TempDir, axum::Router) {
-    serve(Declaration {
-        scenario: Some("gateway/family/routine".into()),
-        reasoning_effort: None,
-    })
+    serve(
+        Declaration {
+            scenario: Some("gateway/family/routine".into()),
+            reasoning_effort: None,
+        },
+        "https://api.openai.com/v1",
+    )
     .await
 }
 

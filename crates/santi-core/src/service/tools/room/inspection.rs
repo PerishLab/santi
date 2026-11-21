@@ -48,6 +48,7 @@ async fn discovers() {
     .await
     .unwrap();
     let service = Service::open(
+        "fixture/model/execution",
         crate::service::Config {
             database: database.display().to_string(),
             runtime: temp.path().join("runtime").display().to_string(),

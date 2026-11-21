@@ -106,6 +106,7 @@ async fn down() {
 
 async fn service(temp: &tempfile::TempDir, database: &std::path::Path) -> Service {
     Service::open(
+        "fixture/model/execution",
         service::Config {
             database: database.display().to_string(),
             runtime: temp.path().join("runtime").display().to_string(),

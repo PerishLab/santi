@@ -241,6 +241,7 @@ fn guidance(error: &santi_core::Fault, inbox: &str, state: &str) {
 
 async fn reopened(temp: &tempfile::TempDir, provider: Arc<FailureProvider>) -> Service {
     Service::open(
+        crate::SCENARIO,
         service::Config {
             database: temp.path().join("santi.sqlite").display().to_string(),
             runtime: temp.path().join("runtime").display().to_string(),

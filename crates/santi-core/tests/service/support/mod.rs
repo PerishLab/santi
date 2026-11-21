@@ -78,14 +78,16 @@ impl Provider for FakeProvider {
     }
 }
 
-pub(crate) fn fixed(provider: &str, model: &str) -> santi_core::inference::Effective {
+pub(crate) fn fixed(scenario: &str, model: &str) -> santi_core::inference::Effective {
     santi_core::inference::Effective {
-        provider: provider.to_string(),
+        selection: santi_core::inference::Selection::Scenario(scenario.into()),
         model: model.to_string(),
         reasoning_effort: None,
         source: santi_core::inference::Source {
             route: None,
-            provider: santi_core::inference::Origin::Default,
+            selection: santi_core::inference::Selection::Scenario(
+                santi_core::inference::Origin::Service,
+            ),
             model: santi_core::inference::Origin::Default,
             reasoning_effort: None,
         },

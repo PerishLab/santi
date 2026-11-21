@@ -68,10 +68,16 @@ fn switch() {
         &Map::two(),
     )
     .unwrap();
-    assert_eq!(effective.provider, "gateway/beta/work");
+    assert_eq!(
+        effective.selection,
+        Selection::Scenario("gateway/beta/work".into())
+    );
     assert_eq!(effective.model, "beta-default");
     assert_eq!(effective.reasoning_effort.as_deref(), Some("high"));
-    assert_eq!(effective.source.provider, Origin::Strand);
+    assert_eq!(
+        effective.source.selection,
+        Selection::Scenario(Origin::Strand)
+    );
     assert_eq!(effective.source.model, Origin::Default);
     assert_eq!(effective.source.reasoning_effort, Some(Origin::Default));
 }
@@ -103,7 +109,10 @@ fn wins() {
     assert_eq!(effective.reasoning_effort.as_deref(), Some("medium"));
     assert_eq!(effective.source.model, Origin::Default);
     assert_eq!(effective.source.reasoning_effort, Some(Origin::Soul));
-    assert_eq!(effective.source.provider, Origin::Service);
+    assert_eq!(
+        effective.source.selection,
+        Selection::Scenario(Origin::Service)
+    );
 }
 
 #[test]
@@ -195,4 +204,32 @@ fn vocabulary() {
         model: "vendor/model-4.1".into(),
     };
     assert!(offering.validate().is_ok());
+}
+
+#[test]
+fn snapshot() {
+    use serde_json::json;
+    for line in [
+        r#"{"provider":"old","scenario":"g/f/a","model":"m","source":{"scenario":"strand","model":"offering"}}"#,
+        r#"{"scenario":"g/f/a","model":"m","source":{"provider":"strand","scenario":"strand","model":"offering"}}"#,
+        r#"{"scenario":"g/f/a","model":"m","source":{"provider":"strand","model":"offering"}}"#,
+        r#"{"scenario":"old","model":"m","source":{"scenario":"strand","model":"offering"}}"#,
+    ] {
+        assert!(serde_json::from_str::<Effective>(line).is_err(), "{line}");
+    }
+    for (key, selector) in [
+        ("provider", "old"),
+        ("provider", "gateway/family/non-canonical"),
+        ("provider", "gateway/family/recall"),
+        ("scenario", "gateway/family/recall"),
+    ] {
+        let wire = json!({
+            key: selector,
+            "model": "wire-model",
+            "source": {key: "strand", "model": "offering"}
+        });
+        let value: Effective = serde_json::from_value(wire.clone()).unwrap();
+        assert_eq!(value.selection.value(), selector);
+        assert_eq!(serde_json::to_value(value).unwrap(), wire);
+    }
 }

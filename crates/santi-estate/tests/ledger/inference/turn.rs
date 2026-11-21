@@ -1,20 +1,20 @@
 use super::super::{NOW, SUDO};
 use santi_estate::{Begun, DrainDraft, InboxDraft, Opening, Store, StrandDraft, Target, TurnDraft};
-use santi_model::inference::{Effective, Origin, Patch, Source};
+use santi_model::inference::{Effective, Origin, Patch, Selection, Source};
 use santi_model::{message, receipt, turn};
 
 const LATER: &str = "2026-07-28T00:01:00.000Z";
 const SOUL: &str = "soul_test";
 pub(super) const STRAND: &str = "strand_test";
 
-pub(super) fn choice(provider: &str, model: &str, effort: Option<&str>) -> Effective {
+pub(super) fn choice(scenario: &str, model: &str, effort: Option<&str>) -> Effective {
     Effective {
-        provider: provider.to_string(),
+        selection: Selection::Scenario(scenario.into()),
         model: model.to_string(),
         reasoning_effort: effort.map(str::to_string),
         source: Source {
             route: None,
-            provider: Origin::Strand,
+            selection: Selection::Scenario(Origin::Strand),
             model: Origin::Strand,
             reasoning_effort: effort.map(|_| Origin::Strand),
         },
@@ -87,7 +87,7 @@ async fn drain(store: &Store, tag: &str, effective: &Effective) -> Begun {
 #[tokio::test]
 async fn started() {
     let (_temp, _path, store) = start().await;
-    let chosen = choice("provider_a", "model_a", Some("high"));
+    let chosen = choice("fixture/family/a", "model_a", Some("high"));
     let begun = drain(&store, "turn_one", &chosen).await;
     assert_eq!(begun.turn.id, "turn_one");
     assert_eq!(begun.turn.inference.as_ref(), Some(&chosen));
@@ -105,7 +105,10 @@ async fn started() {
         .expect("inference")
         .expect("recorded");
     assert_eq!(read, chosen);
-    assert_eq!(read.provider, "provider_a");
+    assert_eq!(
+        read.selection,
+        Selection::Scenario("fixture/family/a".into())
+    );
     assert_eq!(read.model, "model_a");
     assert_eq!(read.reasoning_effort.as_deref(), Some("high"));
 
@@ -122,7 +125,7 @@ async fn started() {
 #[tokio::test]
 async fn rollback() {
     let (_temp, _path, store) = start().await;
-    let original = choice("provider_a", "model_a", Some("low"));
+    let original = choice("fixture/family/a", "model_a", Some("low"));
     let one = drain(&store, "turn_one", &original).await;
     store
         .complete_turn("turn_one", one.turn.from, LATER)
@@ -130,7 +133,7 @@ async fn rollback() {
         .expect("complete");
     accept(&store, "inbox_retry", "retry").await;
 
-    let replacement = choice("provider_b", "model_b", Some("high"));
+    let replacement = choice("fixture/family/b", "model_b", Some("high"));
     let failed = store.begin(draft("turn_one"), &replacement).await;
     assert!(
         failed.is_err(),

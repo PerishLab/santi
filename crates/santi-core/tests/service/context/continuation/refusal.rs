@@ -43,7 +43,9 @@ async fn retry() {
         inflated(tools(), 196_608),
         finish("answer"),
     ]));
-    let service = Service::open(config(&temp), setup.clone()).await.unwrap();
+    let service = Service::open(crate::SCENARIO, config(&temp), setup.clone())
+        .await
+        .unwrap();
     let strand = service.weave().await.unwrap().strand;
     send(&service, &strand.id).await;
     let messages = service.strand(&strand.id).await.unwrap().unwrap().messages;
@@ -80,7 +82,9 @@ async fn retry() {
         release: tokio::sync::Notify::new(),
         armed: AtomicBool::new(true),
     });
-    let service = Service::open(config(&temp), gate.clone()).await.unwrap();
+    let service = Service::open(crate::SCENARIO, config(&temp), gate.clone())
+        .await
+        .unwrap();
     let pressured = service
         .audit(&strand.id)
         .await

@@ -84,7 +84,7 @@ async fn pending() {
         entered: tokio::sync::Notify::new(),
         release: tokio::sync::Notify::new(),
     });
-    let service = Service::open(config.clone(), provider.clone())
+    let service = Service::open(crate::SCENARIO, config.clone(), provider.clone())
         .await
         .unwrap();
     let strand = service.weave().await.unwrap().strand;

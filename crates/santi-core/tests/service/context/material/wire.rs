@@ -21,7 +21,7 @@ async fn transmitted(chat: bool) {
     let temp = tempfile::tempdir().unwrap();
     bootstrap(&temp).await;
     source(&temp, "wire-marker");
-    let service = Service::open(config(&temp), provider)
+    let service = Service::open(crate::SCENARIO, config(&temp), provider)
         .await
         .unwrap()
         .catalogued(sources(&temp))

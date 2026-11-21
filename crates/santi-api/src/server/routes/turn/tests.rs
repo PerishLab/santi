@@ -168,12 +168,12 @@ async fn turn_ops() {
         .await
         .expect("inbox");
     let effective = inference::Effective {
-        provider: "test-provider".to_string(),
+        selection: inference::Selection::Scenario("fixture/model/execution".into()),
         model: "test-model".to_string(),
         reasoning_effort: None,
         source: inference::Source {
             route: None,
-            provider: inference::Origin::Strand,
+            selection: inference::Selection::Scenario(inference::Origin::Strand),
             model: inference::Origin::Strand,
             reasoning_effort: None,
         },

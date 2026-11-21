@@ -21,7 +21,11 @@ Provider and family names each use one lowercase ASCII word. A scenario name
 contains one to three such words joined by dots. Keep the wire model ID exactly
 as supplied. A service, Soul or Strand declares a full path such as
 `gateway/alpha/recall.correction`; a missing preference fails selection.
-Completed turns retain the model and route admitted at the time.
+Live choices and new turns report the path in `effective.scenario` or
+`turn.inference.scenario`, with its origin in `source.scenario`. Turn snapshots
+made by earlier versions retain their original `provider` and `source.provider`
+fields even when the original value was a scenario path. The actual supplier
+is available in the recorded route when supplied at admission.
 
 In client TOML, replace the old `[inference]` provider and model fields with
 `scenario = "gateway/alpha/recall.correction"`, or remove the override to

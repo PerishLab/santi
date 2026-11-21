@@ -9,6 +9,7 @@ async fn ingests() {
     bootstrap(&temp).await;
     let provider = Arc::new(FakeProvider::default());
     let service = Service::open(
+        crate::SCENARIO,
         service::Config {
             database: temp.path().join("santi.sqlite").display().to_string(),
             runtime: temp.path().join("runtime").display().to_string(),
@@ -96,7 +97,7 @@ async fn drains() {
     let provider = Arc::new(FakeProvider::default());
 
     let strand = {
-        let service = Service::open(config.clone(), provider.clone())
+        let service = Service::open(crate::SCENARIO, config.clone(), provider.clone())
             .await
             .expect("open service");
         service.weave().await.expect("create strand").strand.id
@@ -122,7 +123,7 @@ async fn drains() {
         .expect("enqueue inbox");
     drop(store);
 
-    let service = Service::open(config, provider.clone())
+    let service = Service::open(crate::SCENARIO, config, provider.clone())
         .await
         .expect("reopen service");
     service.resume().await.expect("resume pending");
@@ -157,7 +158,7 @@ async fn started() {
         environment: Default::default(),
     };
     let provider = Arc::new(FakeProvider::default());
-    let service = Service::open(config.clone(), provider.clone())
+    let service = Service::open(crate::SCENARIO, config.clone(), provider.clone())
         .await
         .expect("open service");
     let strand = service.weave().await.expect("create strand").strand;
@@ -175,7 +176,7 @@ async fn started() {
         .expect("durable send");
     drop(service);
 
-    let service = Service::open(config, provider)
+    let service = Service::open(crate::SCENARIO, config, provider)
         .await
         .expect("reopen service");
     let (left, right) = tokio::join!(service.drive(&strand.id), service.drive(&strand.id));

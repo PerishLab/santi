@@ -1,7 +1,7 @@
 use santi_core::Store;
 use santi_core::sources::{Definition, Protocol};
 
-pub async fn qualify(store: &Store, scenarios: &[(&str, &str)]) {
+pub async fn qualify(store: &Store, endpoint: &str, scenarios: &[(&str, &str)]) {
     let provider = store
         .register(Definition::Provider {
             name: "gateway".into(),
@@ -19,7 +19,7 @@ pub async fn qualify(store: &Store, scenarios: &[(&str, &str)]) {
             name: "operator".into(),
             provider: provider.id,
             protocol: Protocol::OpenAiResponses,
-            endpoint: "https://api.openai.com/v1".into(),
+            endpoint: endpoint.into(),
             credential: "custody://operator".into(),
         })
         .await

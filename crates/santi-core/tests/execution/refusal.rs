@@ -20,6 +20,7 @@ async fn verify(work: usize, rounds: usize, calls: usize, batch: usize) {
         ..Default::default()
     });
     let service = Service::open(
+        crate::SCENARIO,
         service::Config {
             database: temp.path().join("santi.sqlite").display().to_string(),
             runtime: temp.path().join("runtime").display().to_string(),

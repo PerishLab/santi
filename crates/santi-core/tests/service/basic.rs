@@ -7,6 +7,7 @@ async fn seats() {
     let temp = tempfile::tempdir().expect("temp dir");
     bootstrap(&temp).await;
     let service = Service::open(
+        crate::SCENARIO,
         service::Config {
             database: temp.path().join("santi.sqlite").display().to_string(),
             runtime: temp.path().join("runtime").display().to_string(),
@@ -54,6 +55,7 @@ async fn publication() {
     bootstrap(&temp).await;
     let runtime = temp.path().join("runtime");
     let service = Service::open(
+        crate::SCENARIO,
         service::Config {
             database: temp.path().join("santi.sqlite").display().to_string(),
             runtime: runtime.display().to_string(),
@@ -98,6 +100,7 @@ async fn visibility() {
     let runtime = temp.path().join("blocked");
     std::fs::write(&runtime, "not a directory").expect("block runtime directory");
     let service = Service::open(
+        crate::SCENARIO,
         service::Config {
             database: temp.path().join("santi.sqlite").display().to_string(),
             runtime: runtime.display().to_string(),
@@ -130,6 +133,7 @@ async fn sends() {
     bootstrap(&temp).await;
     let provider = Arc::new(FakeProvider::default());
     let service = Service::open(
+        crate::SCENARIO,
         service::Config {
             database: temp.path().join("santi.sqlite").display().to_string(),
             runtime: temp.path().join("runtime").display().to_string(),

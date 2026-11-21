@@ -31,6 +31,7 @@ async fn recovery() {
     bootstrap(&temp).await;
     let endpoint = Arc::new(Flaky(AtomicBool::new(true)));
     let service = Service::open(
+        crate::SCENARIO,
         service::Config {
             database: temp.path().join("santi.sqlite").display().to_string(),
             runtime: temp.path().join("runtime").display().to_string(),

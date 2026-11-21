@@ -2,7 +2,7 @@ mod route;
 use super::{Store, read};
 use keel::adapt::db::Sqlite;
 use keel::{Op, Tx, form};
-use santi_model::inference::{Effective, Source};
+use santi_model::inference::{Effective, Selection, Source};
 
 impl Store {
     pub async fn inference(&self, tag: &str) -> Result<Option<Effective>, String> {
@@ -22,7 +22,9 @@ impl Store {
             .transpose()?
             .map(Box::new);
         Ok(Some(Effective {
-            provider: read::text(&row, "provider")?.to_string(),
+            selection: source
+                .selection
+                .with(read::text(&row, "provider")?.to_owned()),
             model: read::text(&row, "model")?.to_string(),
             reasoning_effort: row.text("reasoning_effort").map(str::to_string),
             source,
@@ -36,6 +38,14 @@ pub(in crate::store) async fn record(
     effective: &Effective,
     created: &str,
 ) -> Result<(), keel::adapt::Error> {
+    effective
+        .check()
+        .map_err(|error| keel::adapt::Error::Adapt(error.into()))?;
+    let Selection::Scenario(scenario) = &effective.selection else {
+        return Err(keel::adapt::Error::Adapt(
+            "new turn requires a scenario".into(),
+        ));
+    };
     let key = read::need(tx, "Turn", "tag", tag).await?.to_string();
     if tx
         .one(&form("Inference").when("turn", Op::Eq, &key))
@@ -55,7 +65,7 @@ pub(in crate::store) async fn record(
     let source = serde_json::to_string(&origins)
         .map_err(|error| keel::adapt::Error::Adapt(error.to_string()))?;
     let mut values = vec![
-        ("provider", effective.provider.as_str()),
+        ("provider", scenario.as_str()),
         ("model", effective.model.as_str()),
         ("source", source.as_str()),
         ("created", created),

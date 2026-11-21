@@ -16,9 +16,9 @@ async fn patches() {
     )
     .await;
     assert_eq!(status, StatusCode::OK);
-    assert_eq!(reading["effective"]["provider"], "gateway/family/routine");
+    assert_eq!(reading["effective"]["scenario"], "gateway/family/routine");
     assert_eq!(reading["effective"]["model"], "service-model");
-    assert_eq!(reading["effective"]["source"]["provider"], "service");
+    assert_eq!(reading["effective"]["source"]["scenario"], "service");
     assert_eq!(reading["effective"]["source"]["model"], "offering");
 
     let (status, reading) = call(
@@ -55,9 +55,9 @@ async fn patches() {
     )
     .await;
     assert_eq!(status, StatusCode::OK, "{reading}");
-    assert_eq!(reading["effective"]["provider"], "gateway/family/alternate");
+    assert_eq!(reading["effective"]["scenario"], "gateway/family/alternate");
     assert_eq!(reading["effective"]["model"], "alternate-model");
-    assert_eq!(reading["effective"]["source"]["provider"], "strand");
+    assert_eq!(reading["effective"]["source"]["scenario"], "strand");
     assert_eq!(reading["effective"]["source"]["reasoning_effort"], "strand");
 
     let (status, reading) = call(
@@ -69,8 +69,8 @@ async fn patches() {
     .await;
     assert_eq!(status, StatusCode::OK, "{reading}");
     assert_eq!(reading["declaration"].get("scenario"), None);
-    assert_eq!(reading["effective"]["source"]["provider"], "soul");
-    assert_eq!(reading["effective"]["provider"], "gateway/family/review");
+    assert_eq!(reading["effective"]["source"]["scenario"], "soul");
+    assert_eq!(reading["effective"]["scenario"], "gateway/family/review");
 
     for body in [
         serde_json::json!({"unknown": "x"}),

@@ -53,6 +53,7 @@ async fn open(provider: Arc<Scripted>) -> (tempfile::TempDir, Service) {
     .await
     .expect("bootstrap");
     let opened = Service::open(
+        crate::SCENARIO,
         service::Config {
             database: database.display().to_string(),
             runtime: temp.path().join("runtime").display().to_string(),

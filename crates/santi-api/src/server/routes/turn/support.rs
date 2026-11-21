@@ -41,6 +41,7 @@ pub(super) async fn open(temp: &tempfile::TempDir) -> (Store, Service) {
         .await
         .expect("seed");
     let service = Service::open(
+        "fixture/model/execution",
         service::Config {
             database: database.display().to_string(),
             runtime: temp.path().join("runtime").display().to_string(),

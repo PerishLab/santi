@@ -110,6 +110,7 @@ async fn authority() {
     #[cfg(windows)]
     let effect = "if (Test-Path caller-feedback.marker) { Write-Output -NoNewline green } else { New-Item caller-feedback.marker -ItemType File | Out-Null; Write-Output -NoNewline red; exit 7 }";
     let service = Service::open(
+        crate::SCENARIO,
         service::Config {
             database: temp.path().join("santi.sqlite").display().to_string(),
             runtime: temp.path().join("runtime").display().to_string(),

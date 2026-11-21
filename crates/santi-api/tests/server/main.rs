@@ -205,6 +205,7 @@ mod effects {
         drop(store);
 
         let service = Service::open(
+            "fixture/model/execution",
             service::Config {
                 database: database.display().to_string(),
                 runtime: temp.path().join("runtime").display().to_string(),

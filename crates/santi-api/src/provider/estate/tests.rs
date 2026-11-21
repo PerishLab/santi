@@ -98,7 +98,10 @@ fn continuity() {
         (&strand, Origin::Strand),
     ];
     let selected = resolver.selecting(&layers, &rows).unwrap();
-    assert_eq!(selected.source.provider, Origin::Soul);
+    assert_eq!(
+        selected.source.selection,
+        santi_core::inference::Selection::Scenario(Origin::Soul)
+    );
     assert_eq!(selected.source.model, Origin::Offering);
     assert_eq!(selected.source.reasoning_effort, Some(Origin::Strand));
     let route = selected.source.route.as_ref().unwrap();

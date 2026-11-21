@@ -14,7 +14,7 @@ async fn exercise(dry: bool, capsule: bool) {
     let mut provider = Script::new(vec![tools(), finish("answer"), finish("resumed")]);
     provider.limit = Some(500_000);
     let provider = Arc::new(provider);
-    let service = Service::open(config(&temp), provider.clone())
+    let service = Service::open(crate::SCENARIO, config(&temp), provider.clone())
         .await
         .unwrap();
     let strand = service.weave().await.unwrap().strand;
@@ -116,7 +116,7 @@ pub(super) async fn opened(store: &santi_core::Store, strand: &str) {
         Seed {
             tag: "turn_active",
             text: "active input",
-            effective: &fixed("deepseek", "flash"),
+            effective: &fixed(crate::SCENARIO, "flash"),
         },
     )
     .await;
@@ -186,7 +186,9 @@ async fn refused() {
     bootstrap(&temp).await;
 
     let provider = Arc::new(Script::new(vec![tools(), finish("answer")]));
-    let service = Service::open(config(&temp), provider).await.unwrap();
+    let service = Service::open(crate::SCENARIO, config(&temp), provider)
+        .await
+        .unwrap();
     let strand = service.weave().await.unwrap().strand;
     send(&service, &strand.id).await;
     let messages = service.strand(&strand.id).await.unwrap().unwrap().messages;

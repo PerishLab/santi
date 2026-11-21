@@ -28,18 +28,23 @@ struct Opened {
     strand: String,
 }
 
-async fn opened() -> Opened {
-    let temp = tempfile::tempdir().unwrap();
-    bootstrap(&temp).await;
-    let config = service::Config {
+fn config(temp: &tempfile::TempDir) -> service::Config {
+    service::Config {
         database: temp.path().join("santi.sqlite").display().to_string(),
         runtime: temp.path().join("runtime").display().to_string(),
         execution: temp.path().join("execution").display().to_string(),
         bind: None,
         constitution: None,
         environment: Default::default(),
-    };
-    let service = service::Service::open(config.clone(), Arc::new(Plain(FakeProvider::default())))
+    }
+}
+
+async fn opened() -> Opened {
+    let temp = tempfile::tempdir().unwrap();
+    bootstrap(&temp).await;
+    let config = config(&temp);
+    let provider = Arc::new(Plain(FakeProvider::default()));
+    let service = service::Service::open(crate::SCENARIO, config.clone(), provider)
         .await
         .unwrap();
     let strand = service.weave().await.unwrap().strand.id;
@@ -164,7 +169,7 @@ async fn unweighed() {
         Seed {
             tag: "turn_thought",
             text: "thought input",
-            effective: &fixed("plain", "plain"),
+            effective: &fixed(crate::SCENARIO, "plain"),
         },
     )
     .await;
@@ -201,7 +206,7 @@ async fn framed() {
         Seed {
             tag: "turn_framed",
             text: "framed input",
-            effective: &fixed("plain", "plain"),
+            effective: &fixed(crate::SCENARIO, "plain"),
         },
     )
     .await;
@@ -276,15 +281,8 @@ async fn rearms() {
 async fn unbudgeted() {
     let temp = tempfile::tempdir().unwrap();
     bootstrap(&temp).await;
-    let config = service::Config {
-        database: temp.path().join("santi.sqlite").display().to_string(),
-        runtime: temp.path().join("runtime").display().to_string(),
-        execution: temp.path().join("execution").display().to_string(),
-        bind: None,
-        constitution: None,
-        environment: Default::default(),
-    };
-    let service = service::Service::open(config, Arc::new(FakeProvider::default()))
+    let provider = Arc::new(FakeProvider::default());
+    let service = service::Service::open(crate::SCENARIO, config(&temp), provider)
         .await
         .unwrap();
     let strand = service.weave().await.unwrap().strand.id;

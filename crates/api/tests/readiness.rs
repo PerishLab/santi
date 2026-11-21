@@ -60,7 +60,12 @@ impl Fixture {
             .seed(santi_core::GENESIS, &santi_core::now())
             .await
             .unwrap();
-        catalog::qualify(&store, &[("review", "gpt-6.1-sol")]).await;
+        catalog::qualify(
+            &store,
+            "https://api.openai.com/v1",
+            &[("review", "gpt-6.1-sol")],
+        )
+        .await;
         drop(store);
         fixture
     }

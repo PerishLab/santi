@@ -9,7 +9,7 @@ async fn identity() {
         finish("first"),
         finish("second"),
     ]));
-    let service = Service::open(config(&temp), provider.clone())
+    let service = Service::open(crate::SCENARIO, config(&temp), provider.clone())
         .await
         .unwrap();
     let strand = service.weave().await.unwrap().strand;
@@ -42,7 +42,9 @@ async fn identity() {
     drop(service);
 
     let next = Arc::new(Script::new(vec![finish("restart"), finish("fork")]));
-    let service = Service::open(config(&temp), next.clone()).await.unwrap();
+    let service = Service::open(crate::SCENARIO, config(&temp), next.clone())
+        .await
+        .unwrap();
     send(&service, &strand.id).await;
     let child = service.fork(&strand.id).await.unwrap().strand;
     send(&service, &child.id).await;

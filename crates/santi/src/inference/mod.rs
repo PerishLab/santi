@@ -3,7 +3,9 @@ use serde::{Deserialize, Deserializer, Serialize};
 use utoipa::ToSchema;
 
 mod grammar;
+mod selection;
 pub use grammar::{path, scenario, word};
+pub use selection::Selection;
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, ToSchema, PartialEq, Eq, Cascade)]
 #[cascade(strict)]
@@ -103,11 +105,14 @@ pub enum Origin {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
 #[schema(as = inference::Source)]
 pub struct Source {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub route: Option<Box<Route>>,
-    pub provider: Origin,
+    #[serde(flatten)]
+    #[schema(inline)]
+    pub selection: Selection<Origin>,
     pub model: Origin,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reasoning_effort: Option<Origin>,
@@ -126,9 +131,12 @@ pub trait Directory {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema, PartialEq, Eq)]
+#[serde(remote = "Self", deny_unknown_fields)]
 #[schema(as = inference::Effective)]
 pub struct Effective {
-    pub provider: String,
+    #[serde(flatten)]
+    #[schema(inline)]
+    pub selection: Selection<String>,
     pub model: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reasoning_effort: Option<String>,
@@ -156,13 +164,15 @@ impl Effective {
         }
         let reasoning_effort = merged.reasoning_effort.or(defaults.reasoning_effort);
         Ok(Self {
-            provider: scenario,
+            selection: Selection::Scenario(scenario),
             model: defaults.model,
             reasoning_effort: reasoning_effort.clone(),
             source: Source {
                 route: None,
-                provider: origin(layers, |declaration| declaration.scenario.is_some())
-                    .unwrap_or(Origin::Default),
+                selection: Selection::Scenario(
+                    origin(layers, |declaration| declaration.scenario.is_some())
+                        .unwrap_or(Origin::Default),
+                ),
                 model: Origin::Default,
                 reasoning_effort: origin(layers, |declaration| {
                     declaration.reasoning_effort.is_some()

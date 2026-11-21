@@ -132,6 +132,7 @@ async fn seed(temp: &tempfile::TempDir) -> String {
 async fn app(temp: &tempfile::TempDir) -> Router {
     let database = seed(temp).await;
     let service = Service::open(
+        "fixture/model/execution",
         Config {
             database,
             runtime: temp.path().join("runtime").display().to_string(),

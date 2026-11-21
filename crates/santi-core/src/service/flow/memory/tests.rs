@@ -40,6 +40,7 @@ impl Fixture {
         .await
         .unwrap();
         let service = Service::open(
+            "fixture/model/execution",
             Config {
                 database: database.display().to_string(),
                 runtime: temp.path().join("runtime").display().to_string(),

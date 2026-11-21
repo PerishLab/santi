@@ -59,7 +59,7 @@ async fn reuse() {
         constitution: None,
         environment: Default::default(),
     };
-    let service = Service::open(config.clone(), provider.clone())
+    let service = Service::open(crate::SCENARIO, config.clone(), provider.clone())
         .await
         .expect("open service");
     let strand = service.weave().await.expect("create strand").strand;
@@ -72,7 +72,7 @@ async fn reuse() {
 
     drop(service);
     enqueue(&config, &strand.id, "second pending input").await;
-    let service = Service::open(config, provider)
+    let service = Service::open(crate::SCENARIO, config, provider)
         .await
         .expect("reopen service");
     service
@@ -161,6 +161,7 @@ async fn capacity() {
         bytes: bytes.clone(),
     });
     let service = Service::open(
+        crate::SCENARIO,
         service::Config {
             database: temp.path().join("santi.sqlite").display().to_string(),
             runtime: temp.path().join("runtime").display().to_string(),

@@ -41,6 +41,7 @@ pub(super) async fn open_service(
     .await
     .expect("bootstrap");
     Service::open(
+        crate::SCENARIO,
         service::Config {
             database: temp.path().join("santi.sqlite").display().to_string(),
             runtime: temp.path().join("runtime").display().to_string(),

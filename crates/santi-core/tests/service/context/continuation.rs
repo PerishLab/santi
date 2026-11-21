@@ -171,7 +171,7 @@ async fn restores() {
     let temp = tempfile::tempdir().unwrap();
     bootstrap(&temp).await;
     let provider = Arc::new(Script::new(vec![tools(), finish("answer")]));
-    let service = Service::open(config(&temp), provider.clone())
+    let service = Service::open(crate::SCENARIO, config(&temp), provider.clone())
         .await
         .unwrap();
     let strand = service.weave().await.unwrap().strand;
@@ -210,7 +210,9 @@ async fn restores() {
     );
     drop(service);
     let next = Arc::new(Script::new(vec![finish("followup")]));
-    let service = Service::open(config(&temp), next.clone()).await.unwrap();
+    let service = Service::open(crate::SCENARIO, config(&temp), next.clone())
+        .await
+        .unwrap();
     send(&service, &strand.id).await;
     assert_eq!(
         originals(&next.requests.lock().unwrap()[0].input),
@@ -256,7 +258,7 @@ async fn compacts() {
         finish("answer"),
         finish("followup"),
     ]));
-    let service = Service::open(config(&temp), provider.clone())
+    let service = Service::open(crate::SCENARIO, config(&temp), provider.clone())
         .await
         .unwrap();
     let strand = service.weave().await.unwrap().strand;

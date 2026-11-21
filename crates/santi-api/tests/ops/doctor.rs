@@ -16,7 +16,12 @@ async fn reports() {
         .seed(santi_core::GENESIS, &santi_core::now())
         .await
         .expect("seed");
-    catalog::qualify(&store, &[("review", "gpt-5.5")]).await;
+    catalog::qualify(
+        &store,
+        "https://api.openai.com/v1",
+        &[("review", "gpt-5.5")],
+    )
+    .await;
     let held = runtime_under(temp.path(), Some(120000));
 
     let report = paths.configured(&held).await.expect("doctor");
@@ -40,7 +45,12 @@ async fn rebase() {
         .seed(santi_core::GENESIS, &santi_core::now())
         .await
         .expect("seed");
-    catalog::qualify(&store, &[("review", "gpt-5.5")]).await;
+    catalog::qualify(
+        &store,
+        "https://api.openai.com/v1",
+        &[("review", "gpt-5.5")],
+    )
+    .await;
     let mut held = runtime_under(temp.path(), Some(120000));
     held.inference.reasoning_effort = Some("high".into());
 
@@ -62,7 +72,12 @@ async fn rejects() {
         .seed(santi_core::GENESIS, &santi_core::now())
         .await
         .expect("seed");
-    catalog::qualify(&store, &[("review", "gpt-5.5")]).await;
+    catalog::qualify(
+        &store,
+        "https://api.openai.com/v1",
+        &[("review", "gpt-5.5")],
+    )
+    .await;
     let held = runtime_under(temp.path(), None);
 
     let report = paths.configured(&held).await.expect("doctor");

@@ -14,6 +14,7 @@ async fn secrets() {
         ..Default::default()
     });
     let service = Service::open(
+        crate::SCENARIO,
         service::Config {
             database: temp.path().join("santi.sqlite").display().to_string(),
             runtime: temp.path().join("runtime").display().to_string(),

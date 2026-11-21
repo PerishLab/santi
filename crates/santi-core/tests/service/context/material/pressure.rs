@@ -31,6 +31,7 @@ async fn refusal() {
     source(&temp, "pressure-marker");
     let small = Arc::new(AtomicBool::new(false));
     let service = Service::open(
+        crate::SCENARIO,
         config(&temp),
         Arc::new(Limited {
             small: small.clone(),
@@ -141,6 +142,7 @@ async fn maintenance() {
     let requests = Arc::new(Mutex::new(Vec::new()));
     let cfg = config(&temp);
     let service = Service::open(
+        crate::SCENARIO,
         cfg.clone(),
         Arc::new(Maintenance {
             requests: requests.clone(),

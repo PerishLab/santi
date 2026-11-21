@@ -6,6 +6,7 @@ use utoipa::{
 };
 
 mod descriptions;
+mod inference;
 mod security;
 use descriptions::{COMPONENT_DESCRIPTIONS, PROPERTY_DESCRIPTIONS};
 use santi_core::{material, soul, strand, stream};
@@ -224,6 +225,9 @@ struct ApiDoc;
 
 pub(super) fn document() -> utoipa::openapi::OpenApi {
     let mut document = ApiDoc::openapi();
+    if let Some(components) = document.components.as_mut() {
+        inference::snapshots(components);
+    }
     for (schema, description) in COMPONENT_DESCRIPTIONS {
         describe_component(&mut document, schema, description);
     }

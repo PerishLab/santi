@@ -7,6 +7,7 @@ async fn retirement() {
     let database = temp.path().join("santi.sqlite");
     let store = support::bootstrap(&database).await;
     let service = Service::open(
+        "fixture/model/execution",
         service::Config {
             database: database.display().to_string(),
             runtime: temp.path().join("runtime").display().to_string(),

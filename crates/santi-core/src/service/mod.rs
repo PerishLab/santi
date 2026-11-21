@@ -100,24 +100,6 @@ pub struct Envelope<'a> {
 }
 
 impl Service {
-    pub async fn open(config: Config, provider: Arc<dyn Provider>) -> Result<Self, String> {
-        Self::supervised(config, provider, Arc::new(jobs::Unavailable)).await
-    }
-
-    pub async fn supervised(
-        config: Config,
-        provider: Arc<dyn Provider>,
-        supervisor: Arc<dyn jobs::Supervisor>,
-    ) -> Result<Self, String> {
-        Self::provided(
-            config,
-            Arc::new(crate::provider::Fixed::new(provider)),
-            Declaration::default(),
-            supervisor,
-        )
-        .await
-    }
-
     pub async fn provided(
         config: Config,
         providers: Arc<dyn crate::provider::Resolver>,
