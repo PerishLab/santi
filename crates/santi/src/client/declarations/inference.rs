@@ -1,3 +1,5 @@
+use super::transfer;
+
 use anyhow::Result;
 
 use super::super::Http;
@@ -73,6 +75,13 @@ async fn sources(
     use anyhow::Context;
     let url = format!("{base}/api/v1/inference/sources");
     let (method, path) = match command {
+        Sources::Export => return transfer::export(http, &url).await,
+        Sources::Import(input) => {
+            return transfer::import(http, &url, input, defaults.operator.as_deref()).await;
+        }
+        Sources::Get { kind, id } => {
+            return http.get(&format!("{url}/{}/{id}", encode(&kind))).await;
+        }
         Sources::List => return http.get(&url).await,
         Sources::Explain {
             provider,
@@ -92,14 +101,7 @@ async fn sources(
         Sources::Update { file } => (reqwest::Method::PATCH, file),
         Sources::Delete { file } => (reqwest::Method::DELETE, file),
     };
-    let custody = defaults
-        .operator
-        .as_deref()
-        .context("configure the catalog operator token file in the client operator setting")?;
-    let token = std::fs::read_to_string(custody).context("read catalog operator token file")?;
-    let mut header = reqwest::header::HeaderValue::from_str(token.trim_end())
-        .context("invalid catalog operator token")?;
-    header.set_sensitive(true);
+    let header = operator(defaults.operator.as_deref())?;
     let payload: serde_json::Value =
         serde_json::from_slice(&std::fs::read(&path).context("read catalog JSON")?)
             .context("parse catalog JSON")?;
@@ -109,4 +111,15 @@ async fn sources(
         .header("x-santi-catalog-token", header)
         .json(&payload);
     http.send(request, format!("{method} {url}")).await
+}
+
+pub(super) fn operator(path: Option<&std::path::Path>) -> Result<reqwest::header::HeaderValue> {
+    use anyhow::Context;
+    let custody =
+        path.context("configure the catalog operator token file in the client operator setting")?;
+    let token = std::fs::read_to_string(custody).context("read catalog operator token file")?;
+    let mut header = reqwest::header::HeaderValue::from_str(token.trim_end())
+        .context("invalid catalog operator token")?;
+    header.set_sensitive(true);
+    Ok(header)
 }

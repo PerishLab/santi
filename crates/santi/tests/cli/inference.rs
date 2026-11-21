@@ -21,3 +21,6 @@ mod help;
 
 #[path = "inference/create.rs"]
 mod create;
+
+#[path = "inference/transfer.rs"]
+mod transfer;

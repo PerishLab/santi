@@ -165,6 +165,12 @@ fn pick(clear: bool, held: &Option<String>) -> Option<Option<String>> {
 pub enum Sources {
     #[command(about = "List resource records with their stable estate IDs")]
     List,
+    #[command(about = "Read one resource by kind and stable estate ID")]
+    Get { kind: String, id: i64 },
+    #[command(about = "Export the complete portable catalog as JSON on stdout (no estate IDs)")]
+    Export,
+    #[command(about = "Import a portable export, or legacy service TOML with --mapping")]
+    Import(Import),
     #[command(about = "Explain the candidates and current preference for a scenario")]
     Explain {
         provider: String,
@@ -179,4 +185,26 @@ pub enum Sources {
     Update { file: std::path::PathBuf },
     #[command(about = "Retire the exact record supplied in the JSON file")]
     Delete { file: std::path::PathBuf },
+}
+
+#[derive(Args)]
+pub struct Import {
+    pub file: std::path::PathBuf,
+    #[arg(
+        long,
+        help = "Operator TOML mapping (one [profiles.NAME] for each legacy provider)"
+    )]
+    pub mapping: Option<std::path::PathBuf>,
+    #[arg(
+        long = "dry-run",
+        required_unless_present = "apply",
+        conflicts_with = "apply",
+        help = "Check coverage and preview creates against the current catalog; never write"
+    )]
+    pub preview: bool,
+    #[arg(
+        long,
+        help = "Recheck coverage and create missing records; never replace or delete"
+    )]
+    pub apply: bool,
 }
