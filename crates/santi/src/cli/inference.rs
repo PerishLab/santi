@@ -4,6 +4,11 @@ use clap::{Args, Subcommand, ValueEnum};
 
 #[derive(Subcommand)]
 pub enum Inference {
+    #[command(
+        about = "Inspect or manage inference sources and scenario preferences",
+        subcommand
+    )]
+    Sources(Sources),
     #[command(about = "Manage the inference declaration of one soul", subcommand)]
     Soul(Scope),
     #[command(about = "Manage the inference declaration of one strand", subcommand)]
@@ -154,4 +159,24 @@ fn pick(clear: bool, held: &Option<String>) -> Option<Option<String>> {
     } else {
         held.clone().map(Some)
     }
+}
+
+#[derive(Subcommand)]
+pub enum Sources {
+    #[command(about = "List resource records with their stable estate IDs")]
+    List,
+    #[command(about = "Explain the candidates and current preference for a scenario")]
+    Explain {
+        provider: String,
+        family: String,
+        scenario: String,
+    },
+    #[command(
+        about = "Create a resource from a JSON definition; client operator setting selects the token file"
+    )]
+    Create { file: std::path::PathBuf },
+    #[command(about = "Apply JSON containing expected record and replacement definition")]
+    Update { file: std::path::PathBuf },
+    #[command(about = "Retire the exact record supplied in the JSON file")]
+    Delete { file: std::path::PathBuf },
 }

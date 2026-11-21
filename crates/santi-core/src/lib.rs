@@ -16,6 +16,7 @@ pub use assembly::timeline::{Preview as ProviderPreview, provider_input, provide
 pub use santi_error as error;
 pub use santi_error::*;
 pub use santi_estate::{InboxDraft, Store};
+pub use santi_model::catalog as sources;
 pub use santi_model::{
     Health, Timestamp, alarm, budget, compact, downstream, drive, effect, environ, event,
     inference, ingest, job, material, message, now, receipt, render, soul, stamped, strand, stream,

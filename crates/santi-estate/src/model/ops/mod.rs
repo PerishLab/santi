@@ -3,6 +3,7 @@ use super::ledger::{Soul, Strand, Turn};
 use keel::atom::{int, string};
 use keel::resource;
 
+pub(crate) mod catalog;
 pub(crate) mod error;
 
 #[resource]

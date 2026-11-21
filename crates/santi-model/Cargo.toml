@@ -13,3 +13,4 @@ sha2.workspace = true
 utoipa.workspace = true
 jiff.workspace = true
 uuid.workspace = true
+url = "2.5.8"

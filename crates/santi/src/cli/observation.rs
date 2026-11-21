@@ -103,6 +103,7 @@ fn name(command: &crate::cli::Command) -> &'static str {
             Webhook::Ensure { .. } => "webhook.ensure",
         },
         Command::Inference(inference) => match inference {
+            Inference::Sources(_) => "inference.sources",
             Inference::Soul(Scope::Get { .. }) => "inference.soul.get",
             Inference::Soul(Scope::Set(_)) => "inference.soul.set",
             Inference::Strand(Scope::Get { .. }) => "inference.strand.get",

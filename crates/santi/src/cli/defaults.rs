@@ -4,12 +4,26 @@ use anyhow::Result;
 use clap::{CommandFactory, FromArgMatches, parser::ValueSource};
 
 pub struct ClientDefaults {
+    pub operator: Option<std::path::PathBuf>,
     pub strand: Option<String>,
     pub soul: Option<String>,
     pub held: Declaration,
 }
 
 impl ClientDefaults {
+    pub fn new(
+        strand: Option<String>,
+        soul: Option<String>,
+        client: &crate::config::Client,
+    ) -> Self {
+        Self {
+            strand,
+            soul,
+            held: client.inference.clone(),
+            operator: client.operator.clone(),
+        }
+    }
+
     pub fn resolve_strand(&self, explicit: Option<String>) -> Result<String> {
         explicit
             .or_else(|| self.strand.clone())

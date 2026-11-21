@@ -266,6 +266,7 @@ async fn execute(cli: Cli, explicit: bool) -> Result<()> {
     }
     let stated = cli::declaration(&command);
     let client = config::client(ClientPartial {
+        operator: None,
         base_url: base_url.map(Some),
         api_key: api_key.map(Some),
         auth_token_url: auth_token_url.map(Some),
@@ -275,8 +276,7 @@ async fn execute(cli: Cli, explicit: bool) -> Result<()> {
         token_cache: None,
         inference: stated.partial(),
     })?;
-    let held = client.inference.clone();
-    let defaults = ClientDefaults { strand, soul, held };
+    let defaults = ClientDefaults::new(strand, soul, &client);
     let bearer = resolve_edge_bearer(Credentials {
         endpoint: client.auth_token_url.as_deref(),
         identity: client.auth_client_id.as_deref(),

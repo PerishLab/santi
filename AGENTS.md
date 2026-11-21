@@ -67,6 +67,17 @@ records the read contract.
 Live credentials belong in the ignored `santi.toml`; use `santi.example.toml`
 for tracked configuration changes.
 
+`santi inference sources` manages provider, family, access, alias, offering,
+scenario, candidate and preference records in the Santi estate. Use `list`
+and `explain PROVIDER FAMILY SCENARIO` to inspect the current choice. Create
+takes a JSON definition, update takes `expected` and `replacement`, and
+delete takes the last observed record. Conflicting revisions and referenced
+resources report the reason. HTTP mutations take the operator token from
+the client's `operator` file, checked against the service's `server.operator`
+file. Provision the same random token (at least 32 characters) in private
+files for the two operators. Access definitions carry only a `custody://`
+reference to a transport credential.
+
 The runtime selects history independently of provider reasoning continuity.
 Thinking summaries are inspection text; original protocol continuation state is
 recorded separately on the provider round. Chat profiles explicitly opt into

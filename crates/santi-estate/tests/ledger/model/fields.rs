@@ -1,6 +1,17 @@
 use super::{Class, Class::*};
 
 pub(super) const TEXT: &[(&str, &str, Class)] = &[
+    ("provider", "name", Own),
+    ("family", "name", Own),
+    ("scenario", "name", Own),
+    ("scenario", "criterion", Content),
+    ("access", "name", Own),
+    ("access", "protocol", Kind),
+    ("access", "endpoint", Provenance),
+    ("access", "credential", Provenance),
+    ("alias", "name", Own),
+    ("offering", "model", Content),
+    ("candidate", "evidence", Provenance),
     ("inboxreceipt:window", "record", Content),
     ("soul:revision", "tag", Own),
     ("soul:revision", "key", Own),

@@ -9,6 +9,7 @@ use santi_core::soul;
 
 #[derive(Debug)]
 pub struct Runtime {
+    pub operator: Option<PathBuf>,
     pub bind: String,
     pub port: u16,
     pub inference: Declaration,
@@ -75,6 +76,10 @@ static HELD: OnceLock<Runtime> = OnceLock::new();
 
 pub fn hold(runtime: Runtime) {
     let _ = HELD.set(runtime);
+}
+
+pub fn operator() -> Option<&'static std::path::Path> {
+    HELD.get()?.operator.as_deref()
 }
 
 pub fn held() -> &'static Runtime {

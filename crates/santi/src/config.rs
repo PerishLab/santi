@@ -9,6 +9,7 @@ use serde::Deserialize;
 #[derive(Debug, Default, Cascade)]
 #[plumb::config::prefix]
 pub struct Client {
+    pub operator: Option<PathBuf>,
     pub base_url: Option<String>,
     pub api_key: Option<String>,
     pub auth_token_url: Option<String>,

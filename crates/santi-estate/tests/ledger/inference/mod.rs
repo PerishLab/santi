@@ -2,6 +2,7 @@ use super::NOW;
 use santi_estate::{Store, StrandDraft};
 use santi_model::inference::Declaration;
 
+mod catalog;
 mod concurrent;
 mod fork;
 mod store;
