@@ -125,6 +125,7 @@ async fn isolates() {
             model: "unused".into(),
             reasoning_effort: None,
             source: Source {
+                route: None,
                 provider: Origin::Default,
                 model: Origin::Default,
                 reasoning_effort: None,

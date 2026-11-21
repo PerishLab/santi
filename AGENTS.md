@@ -78,6 +78,19 @@ file. Provision the same random token (at least 32 characters) in private
 files for the two operators. Access definitions carry only a `custody://`
 reference to a transport credential.
 
+An operator activates estate selection by configuring the `custody` table.
+Legacy `providers` remain authoritative during staging while `custody` is
+empty. Keep each complete transport profile in operator custody. Endpoint
+and protocol must match the access declaration. Migrated Chat and Gemini
+profiles can retain their old continuation identity. Profiles with request
+header templates also require a private policy seal, independent of the
+provider API key. Keep this seal with the transport configuration for recovery.
+
+A declaration may select `provider/family/scenario`. Santi resolves the
+preferred offering at turn admission and records the route and its historical
+names. Direct access, compatibility aliases and explicit models remain
+available. Reading an older turn reports the inference it actually captured.
+
 The runtime selects history independently of provider reasoning continuity.
 Thinking summaries are inspection text; original protocol continuation state is
 recorded separately on the provider round. Chat profiles explicitly opt into

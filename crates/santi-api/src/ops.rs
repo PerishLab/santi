@@ -183,7 +183,25 @@ impl Layout {
         let name = held.provider().to_string();
         let profile = Some(name.clone());
         let selected = held.providers.get(&name);
-        let provider = match held.resolved() {
+        let resolved = async {
+            use santi_core::{inference::Origin, provider::Resolver};
+            let rows = if self.database.exists() {
+                santi_core::Store::open(&self.database)
+                    .await?
+                    .sources()
+                    .await?
+            } else {
+                Vec::new()
+            };
+            let catalog = crate::provider::Catalog {
+                profiles: &held.providers,
+                custody: &held.custody,
+            };
+            let selected = catalog.selecting(&[(&held.inference, Origin::Service)], &rows)?;
+            catalog.configured(&selected)
+        }
+        .await;
+        let provider = match resolved {
             Ok(provider) => ProviderDoctorReport {
                 profile,
                 kind: Some(provider.kind().to_string()),

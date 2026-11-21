@@ -70,6 +70,10 @@ pub(super) fn router(service: Service) -> Router {
                 .delete(inference::changes::withdraw),
         )
         .route(
+            "/api/v1/inference/sources/{kind}/{id}",
+            get(inference::sources::read),
+        )
+        .route(
             "/api/v1/inference/choices/{provider}/{family}/{scenario}",
             get(inference::sources::explain),
         )

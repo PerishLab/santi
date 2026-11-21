@@ -86,6 +86,23 @@ pub(super) async fn delete(tx: &mut Tx<'_, Sqlite>, expected: Record) -> Result<
     verify(&rows, &expected)?;
     let kind = expected.definition.kind();
     let mut uses = validate::dependents(&rows, kind, expected.id);
+    if !matches!(
+        kind,
+        santi_model::catalog::Kind::Alias | santi_model::catalog::Kind::Preference
+    ) {
+        let edge = kind.unit().to_lowercase();
+        for row in tx
+            .ask(&form("Route").when(edge.as_str(), keel::Op::Eq, &expected.id.to_string()))
+            .await?
+            .rows()
+        {
+            uses.push(format!(
+                "Route/{} (turn {})",
+                row.key(),
+                row.int("turn").unwrap_or_default()
+            ));
+        }
+    }
     uses.extend(bindings(tx, &expected.definition).await?);
     if !uses.is_empty() {
         return Err(Error::Adapt(format!(
@@ -104,6 +121,15 @@ async fn bindings(tx: &mut Tx<'_, Sqlite>, definition: &Definition) -> Result<Ve
                 .ask(&form(unit).when("provider", keel::Op::Eq, name))
                 .await?;
             for row in declared.rows() {
+                if unit == "Inference"
+                    && let Some(turn) = row.int("turn")
+                    && tx
+                        .one(&form("Route").when("turn", keel::Op::Eq, &turn.to_string()))
+                        .await?
+                        .is_some()
+                {
+                    continue;
+                }
                 uses.push(format!("{unit}/{}", row.key()))
             }
         }

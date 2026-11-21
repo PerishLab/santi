@@ -83,6 +83,7 @@ fn effective(provider: &str, model: &str, effort: &str) -> Effective {
         model: model.to_string(),
         reasoning_effort: Some(effort.to_string()),
         source: Source {
+            route: None,
             provider: Origin::Service,
             model: Origin::Service,
             reasoning_effort: Some(Origin::Service),

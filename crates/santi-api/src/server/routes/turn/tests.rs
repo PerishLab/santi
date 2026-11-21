@@ -172,6 +172,7 @@ async fn turn_ops() {
         model: "test-model".to_string(),
         reasoning_effort: None,
         source: inference::Source {
+            route: None,
             provider: inference::Origin::Strand,
             model: inference::Origin::Strand,
             reasoning_effort: None,

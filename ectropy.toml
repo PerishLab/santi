@@ -47,6 +47,10 @@ include = ["crates/**/*.rs"]
 
 [vocabulary]
 term = [
+  { name = "scenario_name", description = "The frozen scenario display name at turn admission, alongside its Keel relation." },
+  { name = "family_name", description = "The frozen family display name at turn admission, alongside its Keel relation." },
+  { name = "access_name", description = "The frozen access display name at turn admission, alongside its Keel relation." },
+  { name = "provider_name", description = "The frozen provider display name at turn admission, alongside its Keel relation." },
   { name = "QueryRequest", description = "Public Santi Job query request atom shared by the HTTP boundary and clients." },
   { name = "QueryRows", description = "Public Santi bounded Job query row page atom." },
   { name = "QueryCount", description = "Public Santi independent Job query count atom." },

@@ -1,4 +1,5 @@
 mod fields;
+mod secrecy;
 use super::*;
 use fields::{capacity, optional, positive, required};
 
@@ -54,11 +55,13 @@ pub struct ChatCompletions {
     pub outgoing: std::collections::BTreeMap<String, String>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Profile {
     #[serde(rename = "openai_responses")]
     OpenAiResponses {
+        #[serde(default)]
+        seal: Option<String>,
         #[serde(default)]
         api_key: Option<String>,
         #[serde(default)]
@@ -85,6 +88,10 @@ pub enum Profile {
     #[serde(rename = "gemini_generate_content")]
     Gemini {
         #[serde(default)]
+        seal: Option<String>,
+        #[serde(default)]
+        identity: Option<String>,
+        #[serde(default)]
         api_key: Option<String>,
         #[serde(default)]
         model: Option<String>,
@@ -104,6 +111,10 @@ pub enum Profile {
         outgoing: std::collections::BTreeMap<String, String>,
     },
     ChatCompletions {
+        #[serde(default)]
+        seal: Option<String>,
+        #[serde(default)]
+        identity: Option<String>,
         #[serde(default)]
         api_key: Option<String>,
         #[serde(default)]
@@ -163,6 +174,7 @@ impl Profile {
     pub fn resolve(&self, provider: &str) -> Result<Resolved, String> {
         match self {
             Profile::OpenAiResponses {
+                seal: _,
                 api_key,
                 model,
                 base_url,
@@ -189,6 +201,8 @@ impl Profile {
                 outgoing: super::headers::requests(outgoing, provider)?,
             })),
             Profile::Gemini {
+                seal: _,
+                identity: _,
                 api_key,
                 model,
                 base_url,
@@ -211,6 +225,8 @@ impl Profile {
                 outgoing: super::headers::requests(outgoing, provider)?,
             })),
             Profile::ChatCompletions {
+                seal: _,
+                identity: _,
                 api_key,
                 model,
                 base_url,

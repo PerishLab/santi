@@ -84,6 +84,7 @@ pub(crate) fn fixed(provider: &str, model: &str) -> santi_core::inference::Effec
         model: model.to_string(),
         reasoning_effort: None,
         source: santi_core::inference::Source {
+            route: None,
             provider: santi_core::inference::Origin::Default,
             model: santi_core::inference::Origin::Default,
             reasoning_effort: None,

@@ -34,7 +34,7 @@ fn decode(kind: Kind, row: &Row) -> Result<Record, Error> {
     })
 }
 
-pub(super) async fn snapshot(tx: &mut Tx<'_, Sqlite>) -> Result<Vec<Record>, Error> {
+pub(in crate::store) async fn snapshot(tx: &mut Tx<'_, Sqlite>) -> Result<Vec<Record>, Error> {
     let mut all = Vec::new();
     for kind in Kind::ALL {
         let result = tx
@@ -48,6 +48,14 @@ pub(super) async fn snapshot(tx: &mut Tx<'_, Sqlite>) -> Result<Vec<Record>, Err
 }
 
 impl Store {
+    pub async fn source(&self, kind: Kind, id: i64) -> Result<Option<Record>, String> {
+        let row = read::one(&self.core, kind.unit(), "id", &id.to_string()).await?;
+        row.as_ref()
+            .map(|row| decode(kind, row))
+            .transpose()
+            .map_err(read::error)
+    }
+
     pub async fn sources(&self) -> Result<Vec<Record>, String> {
         self.core
             .batch(async |tx| snapshot(tx).await)

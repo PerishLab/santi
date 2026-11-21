@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
+pub mod explanation;
 pub mod selection;
 pub mod validate;
 
@@ -26,6 +27,16 @@ pub enum Protocol {
     OpenAiResponses,
     #[serde(rename = "gemini_generate_content")]
     Gemini,
+}
+
+impl Protocol {
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Gemini => "gemini_generate_content",
+            Self::OpenAiResponses => "openai_responses",
+            Self::ChatCompletions => "chat_completions",
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ToSchema)]

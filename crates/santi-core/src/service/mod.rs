@@ -250,7 +250,8 @@ impl Service {
             (&soul.inference, Origin::Soul),
             (&strand.inference, Origin::Strand),
         ];
-        self.providers.resolve(&layers)
+        self.providers
+            .selecting(&layers, &self.store.sources().await?)
     }
 
     pub(crate) async fn preview(&self, strand: &str) -> Result<Arc<dyn Provider>, String> {

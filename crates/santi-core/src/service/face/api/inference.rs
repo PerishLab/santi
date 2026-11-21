@@ -4,6 +4,14 @@ use crate::sources::{Amendment, Definition, Record};
 use santi_estate::Target;
 
 impl Service {
+    pub async fn source(
+        &self,
+        kind: crate::sources::Kind,
+        id: i64,
+    ) -> Result<Option<Record>, String> {
+        self.store.source(kind, id).await
+    }
+
     pub async fn sources(&self) -> Result<Vec<Record>, String> {
         self.store.sources().await
     }
@@ -35,6 +43,7 @@ impl Service {
 
     pub(crate) fn infer(
         &self,
+        rows: &[Record],
         target: Target,
         candidate: &Declaration,
         parent: Option<&Declaration>,
@@ -53,16 +62,17 @@ impl Service {
                 (candidate, Origin::Strand),
             ],
         };
-        self.providers.resolve(&layers)
+        self.providers.selecting(&layers, rows)
     }
 
     fn reading(
         &self,
+        rows: &[Record],
         target: Target,
         candidate: &Declaration,
         parent: Option<&Declaration>,
     ) -> Reading {
-        match self.infer(target, candidate, parent) {
+        match self.infer(rows, target, candidate, parent) {
             Ok(effective) => Reading {
                 declaration: candidate.clone(),
                 effective: Some(effective),
@@ -77,12 +87,18 @@ impl Service {
     }
 
     pub async fn inference(&self, target: Target, tag: &str) -> Result<Option<Reading>, String> {
+        let rows = self.store.sources().await?;
         match target {
             Target::Soul => {
                 let Some(soul) = self.store.soul(tag).await? else {
                     return Ok(None);
                 };
-                Ok(Some(self.reading(Target::Soul, &soul.inference, None)))
+                Ok(Some(self.reading(
+                    &rows,
+                    Target::Soul,
+                    &soul.inference,
+                    None,
+                )))
             }
             Target::Strand => {
                 let Some(strand) = self.store.strand(tag).await? else {
@@ -94,6 +110,7 @@ impl Service {
                     .await?
                     .ok_or_else(|| "soul not found".to_string())?;
                 Ok(Some(self.reading(
+                    &rows,
                     Target::Strand,
                     &strand.inference,
                     Some(&soul.inference),
@@ -108,6 +125,7 @@ impl Service {
         tag: &str,
         patch: &Patch,
     ) -> Result<Reading, String> {
+        let rows = self.store.sources().await?;
         let created = now();
         let (declaration, effective) = self
             .store
@@ -119,7 +137,7 @@ impl Service {
                     now: &created,
                 },
                 |target, candidate, parent| {
-                    self.infer(target, candidate, parent)
+                    self.infer(&rows, target, candidate, parent)
                         .map_err(|error| format!("inference rejected: {error}"))
                 },
             )
@@ -150,6 +168,7 @@ impl Service {
         if self.store.soul(soul).await?.is_none() {
             return Err("soul not found".to_string());
         }
+        let rows = self.store.sources().await?;
         let created = now();
         let (strand, _) = self
             .store
@@ -164,7 +183,7 @@ impl Service {
                     created: &created,
                 },
                 |target, candidate, parent| {
-                    self.infer(target, candidate, parent)
+                    self.infer(&rows, target, candidate, parent)
                         .map_err(|error| format!("inference rejected: {error}"))
                 },
             )

@@ -1,3 +1,4 @@
+mod route;
 use super::{Store, read};
 use keel::adapt::db::Sqlite;
 use keel::{Op, Tx, form};
@@ -12,8 +13,14 @@ impl Store {
         let Some(row) = read::one(&self.core, "Inference", "turn", &key).await? else {
             return Ok(None);
         };
-        let source = serde_json::from_str::<Source>(read::text(&row, "source")?)
+        let mut source = serde_json::from_str::<Source>(read::text(&row, "source")?)
             .map_err(|error| format!("invalid inference source: {error}"))?;
+        source.route = read::one(&self.core, "Route", "turn", &key)
+            .await?
+            .as_ref()
+            .map(route::decode)
+            .transpose()?
+            .map(Box::new);
         Ok(Some(Effective {
             provider: read::text(&row, "provider")?.to_string(),
             model: read::text(&row, "model")?.to_string(),
@@ -39,7 +46,13 @@ pub(in crate::store) async fn record(
             "turn {tag} inference already recorded"
         )));
     }
-    let source = serde_json::to_string(&effective.source)
+    let mut origins = effective.source.clone();
+    if let Some(route) = origins.route.take() {
+        let rows = crate::store::support::inference::snapshot(tx).await?;
+        route::verify(&rows, effective, &route).map_err(keel::adapt::Error::Adapt)?;
+        route::record(tx, &key, &route).await?;
+    }
+    let source = serde_json::to_string(&origins)
         .map_err(|error| keel::adapt::Error::Adapt(error.to_string()))?;
     let mut values = vec![
         ("provider", effective.provider.as_str()),

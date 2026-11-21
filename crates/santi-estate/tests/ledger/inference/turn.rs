@@ -13,6 +13,7 @@ pub(super) fn choice(provider: &str, model: &str, effort: Option<&str>) -> Effec
         model: model.to_string(),
         reasoning_effort: effort.map(str::to_string),
         source: Source {
+            route: None,
             provider: Origin::Strand,
             model: Origin::Strand,
             reasoning_effort: effort.map(|_| Origin::Strand),
@@ -206,55 +207,4 @@ async fn legacy() {
     );
 }
 
-#[tokio::test]
-async fn reopen() {
-    let (_temp, path, store) = start().await;
-    let old = choice("provider_a", "model_a", Some("low"));
-    let one = drain(&store, "turn_one", &old).await;
-    assert_eq!(one.turn.inference.as_ref(), Some(&old));
-    store
-        .complete_turn("turn_one", one.turn.from, LATER)
-        .await
-        .expect("complete");
-
-    let patch = Patch {
-        provider: Some(Some("provider_b".to_string())),
-        model: Some(Some("model_b".to_string())),
-        reasoning_effort: Some(Some("high".to_string())),
-    };
-    store
-        .declare(Target::Strand, STRAND, &patch, LATER)
-        .await
-        .expect("declare");
-    assert_eq!(
-        store
-            .turn("turn_one")
-            .await
-            .expect("turn")
-            .expect("present")
-            .inference
-            .as_ref(),
-        Some(&old)
-    );
-
-    accept(&store, "inbox_two", "next").await;
-    let next = choice("provider_b", "model_b", Some("high"));
-    let two = drain(&store, "turn_two", &next).await;
-    assert_eq!(two.turn.inference.as_ref(), Some(&next));
-    store
-        .complete_turn("turn_two", two.turn.from, LATER)
-        .await
-        .expect("complete second");
-
-    drop(store);
-    let store = Store::open(&path).await.expect("reopen");
-    for (tag, expected) in [("turn_one", Some(old)), ("turn_two", Some(next))] {
-        let turn = store.turn(tag).await.expect("turn").expect("present");
-        assert_eq!(turn.inference, expected, "restart snapshot {tag}");
-        assert_eq!(
-            store.inference(tag).await.expect("inference"),
-            expected,
-            "restart inference {tag}"
-        );
-    }
-}
+mod restart;
