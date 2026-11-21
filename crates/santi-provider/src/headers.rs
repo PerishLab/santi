@@ -26,7 +26,7 @@ impl Headers {
             HeaderValue::from_str(value)
                 .map_err(|_| format!("request_headers {name} contains an invalid header value"))?;
             let template = Template::new(value, &["meta.user_agent", "strand.id"])
-                .map_err(|error| format!("request_headers {name}: {error}"))?;
+                .map_err(|_| format!("request_headers {name}: invalid template"))?;
             headers.templates.push((name, template));
         }
         Ok(headers)
@@ -41,7 +41,7 @@ impl Headers {
         for (name, template) in &self.templates {
             let rendered = template
                 .render(&vars)
-                .map_err(|error| format!("request_headers {name}: {error}"))?;
+                .map_err(|_| format!("request_headers {name}: invalid template"))?;
             let mut value = HeaderValue::from_str(&rendered)
                 .map_err(|_| format!("request_headers {name} produced an invalid header value"))?;
             value.set_sensitive(true);

@@ -195,3 +195,21 @@ bytes = 120000
     assert_eq!(effective.reasoning_effort.as_deref(), Some("high"));
     assert_eq!(effective.source.reasoning_effort, Some(Origin::Service));
 }
+
+#[test]
+fn custody() {
+    let held = read(
+        r#"
+provider = "gateway/family/review"
+[custody.operator]
+kind = "chat_completions"
+base_url = "https://fixture.invalid/v1"
+model = "legacy-default"
+api_key = "fixture"
+bytes = 12000
+replay = "history"
+"#,
+    );
+    assert!(held.providers.is_empty());
+    assert_eq!(held.custody["operator"].kind(), "chat_completions");
+}

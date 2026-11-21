@@ -28,8 +28,13 @@ impl Service {
         let soul = tag("soul");
         let inference = (!request.inference.empty()).then_some(&request.inference);
         if let Some(inference) = inference {
-            self.infer(santi_estate::Target::Soul, inference, None)
-                .map_err(|error| format!("inference rejected: {error}"))?;
+            self.infer(
+                &self.store.sources().await?,
+                santi_estate::Target::Soul,
+                inference,
+                None,
+            )
+            .map_err(|error| format!("inference rejected: {error}"))?;
         }
         let memory = request.memory.as_deref().unwrap_or_default();
         super::publication::publish(&self.runtime(), &soul, memory.as_bytes())?;

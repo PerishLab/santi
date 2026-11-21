@@ -1,3 +1,4 @@
+use super::catalog::{Access, Candidate, Family, Offering, Provider, Scenario};
 use super::history::{ThinkingSpan, ToolResult};
 use super::job::ToolCall;
 use keel::atom::{int, string};
@@ -79,6 +80,46 @@ pub(crate) struct Inference {
     source: string,
     #[field(string)]
     created: string,
+    #[relation(Turn, one2one, root)]
+    turn: Turn,
+}
+
+#[resource(frozen)]
+pub(crate) struct Route {
+    #[relation(Provider, many2one)]
+    provider: Provider,
+    #[field(string)]
+    provider_name: string,
+    #[relation(Access, many2one)]
+    access: Access,
+    #[field(string)]
+    access_name: string,
+    #[relation(Family, many2one, opt)]
+    family: Family,
+    #[field(string, opt)]
+    family_name: string,
+    #[relation(Scenario, many2one, opt)]
+    scenario: Scenario,
+    #[field(string, opt)]
+    scenario_name: string,
+    #[relation(Offering, many2one, opt)]
+    offering: Offering,
+    #[relation(Candidate, many2one, opt)]
+    candidate: Candidate,
+    #[field(string)]
+    endpoint: string,
+    #[field(string)]
+    protocol: string,
+    #[field(string)]
+    custody: string,
+    #[field(bool)]
+    replay: bool,
+    #[field(string)]
+    identity: string,
+    #[field(string)]
+    policy: string,
+    #[field(string, opt)]
+    thinking: string,
     #[relation(Turn, one2one, root)]
     turn: Turn,
 }

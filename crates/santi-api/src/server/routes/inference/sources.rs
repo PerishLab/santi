@@ -1,9 +1,6 @@
 use super::*;
 use axum::http::HeaderMap;
-use santi_core::sources::{
-    Record,
-    selection::{Choice, Directory},
-};
+use santi_core::sources::{Kind, Record, explanation::Explanation, selection::Directory};
 use sha2::digest::CtOutput;
 use sha2::{Digest, Sha256};
 
@@ -32,14 +29,27 @@ pub(crate) async fn list(State(service): State<Service>) -> Result<Json<Vec<Reco
         .map_err(ApiError::from_service)
 }
 
-#[utoipa::path(get, path="/api/v1/inference/choices/{provider}/{family}/{scenario}", params(("provider"=String,Path),("family"=String,Path),("scenario"=String,Path)), responses((status=200,body=Choice),(status=404,body=Fault)))]
+#[utoipa::path(get, path="/api/v1/inference/choices/{provider}/{family}/{scenario}", params(("provider"=String,Path),("family"=String,Path),("scenario"=String,Path)), responses((status=200,body=Explanation),(status=404,body=Fault)))]
 pub(crate) async fn explain(
     State(service): State<Service>,
     Path((provider, family, scenario)): Path<(String, String, String)>,
-) -> Result<Json<Choice>, ApiError> {
+) -> Result<Json<Explanation>, ApiError> {
     let rows = service.sources().await.map_err(ApiError::from_service)?;
     Directory(&rows)
-        .explain(&provider, &family, &scenario)
+        .describe(&provider, &family, &scenario)
         .map(Json)
         .map_err(ApiError::not_found)
+}
+
+#[utoipa::path(get, path="/api/v1/inference/sources/{kind}/{id}", params(("kind"=Kind,Path),("id"=i64,Path)), responses((status=200,body=Record),(status=404,body=Fault)))]
+pub(crate) async fn read(
+    State(service): State<Service>,
+    Path((kind, id)): Path<(Kind, i64)>,
+) -> Result<Json<Record>, ApiError> {
+    service
+        .source(kind, id)
+        .await
+        .map_err(ApiError::from_service)?
+        .map(Json)
+        .ok_or_else(|| ApiError::not_found("inference source not found"))
 }

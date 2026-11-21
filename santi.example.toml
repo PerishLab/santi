@@ -111,3 +111,22 @@ maintenance_bytes = 750000
 # api_key = "env://TEAMOROUTER_API_KEY"
 # model = "gemini-4-neon"
 # bytes = 120000
+
+# Estate-managed inference: set the top-level provider (or a soul/strand
+# override) to an access, alias, or "provider/family/scenario". A scenario
+# requires a preferred candidate and always uses that offering's model.
+# The catalog contains only credential = "custody://router"; this separate
+# operator profile must match the access protocol and endpoint exactly.
+# [custody.router]
+# For a migrated Chat Completions or native Gemini profile, set identity to the original
+# provider name to retain its history replay identity, e.g. identity = "deepseek".
+# Model, endpoint, and protocol must still match the recorded continuation.
+# With request_headers, provide a dedicated random 32-byte hex HMAC key.
+# Keep it with custody across restarts; never reuse the API key or Keel sudo.
+# seal = "env://SANTI_ROUTER_POLICY_KEY"
+# kind = "chat_completions"
+# api_key = "env://ROUTER_API_KEY"
+# base_url = "https://router.example.invalid/v1"
+# model = "direct-selection-default"
+# bytes = 120000
+# replay = "history"

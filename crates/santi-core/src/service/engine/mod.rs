@@ -19,6 +19,13 @@ pub mod provider {
 
     pub trait Resolver: Send + Sync {
         fn resolve(&self, layers: &[(&Declaration, Origin)]) -> Result<Effective, String>;
+        fn selecting(
+            &self,
+            layers: &[(&Declaration, Origin)],
+            _: &[crate::sources::Record],
+        ) -> Result<Effective, String> {
+            self.resolve(layers)
+        }
         fn build(&self, effective: &Effective) -> Result<Arc<dyn Provider>, String>;
     }
 
@@ -35,6 +42,7 @@ pub mod provider {
                 model: metadata.model,
                 reasoning_effort: None,
                 source: Source {
+                    route: None,
                     provider: Origin::Default,
                     model: Origin::Default,
                     reasoning_effort: None,

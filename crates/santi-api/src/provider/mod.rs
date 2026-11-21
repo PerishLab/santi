@@ -6,24 +6,47 @@ use santi_provider::{Provider, chat::completions, openai};
 
 use crate::config::{ChatCompletions, OpenAiResponses, Profile, Providers, Resolved};
 
-pub struct Catalog {
-    pub profiles: &'static BTreeMap<String, Profile>,
+mod estate;
+
+pub struct Catalog<'a> {
+    pub custody: &'a BTreeMap<String, Profile>,
+    pub profiles: &'a BTreeMap<String, Profile>,
 }
 
-impl santi_core::provider::Resolver for Catalog {
+impl santi_core::provider::Resolver for Catalog<'_> {
     fn resolve(&self, layers: &[(&Declaration, Origin)]) -> Result<Effective, String> {
         Effective::resolve(layers, &Providers(self.profiles))
     }
 
+    fn selecting(
+        &self,
+        layers: &[(&Declaration, Origin)],
+        rows: &[santi_core::sources::Record],
+    ) -> Result<Effective, String> {
+        if self.custody.is_empty() {
+            return self.resolve(layers);
+        }
+        self.select(layers, rows)
+    }
+
     fn build(&self, effective: &Effective) -> Result<Arc<dyn Provider>, String> {
+        build(self.configured(effective)?)
+    }
+}
+
+impl Catalog<'_> {
+    pub(crate) fn configured(&self, effective: &Effective) -> Result<Resolved, String> {
+        if let Some(route) = &effective.source.route {
+            let resolved = self.bound(route)?;
+            return resolved.rebase(effective);
+        }
         let profile = self.profiles.get(&effective.provider).ok_or_else(|| {
             format!(
                 "provider {} is not defined in the config",
                 effective.provider
             )
         })?;
-        let resolved = profile.resolve(&effective.provider)?.rebase(effective)?;
-        build(resolved)
+        profile.resolve(&effective.provider)?.rebase(effective)
     }
 }
 
@@ -106,6 +129,7 @@ maintenance_bytes = 1500
     #[test]
     fn builds() {
         let resolver = Catalog {
+            custody: Box::leak(Box::default()),
             profiles: profiles(),
         };
         let declaration = Declaration {
@@ -133,6 +157,7 @@ maintenance_bytes = 1500
     #[test]
     fn rejects() {
         let resolver = Catalog {
+            custody: Box::leak(Box::default()),
             profiles: profiles(),
         };
         let declaration = Declaration {
@@ -217,7 +242,10 @@ x-session = "{{{{strand.id}}}}"
         );
         let profiles: BTreeMap<String, Profile> = toml::from_str(&raw).unwrap();
         let profiles = Box::leak(Box::new(profiles));
-        let resolver = Catalog { profiles };
+        let resolver = Catalog {
+            profiles,
+            custody: Box::leak(Box::default()),
+        };
         let declaration = Declaration {
             provider: Some("chat".into()),
             model: Some("declared".into()),

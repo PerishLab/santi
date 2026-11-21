@@ -1,5 +1,6 @@
 use super::super::*;
 mod catalog;
+pub(in crate::store) use catalog::snapshot;
 mod writer;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

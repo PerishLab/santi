@@ -109,6 +109,7 @@ fn runtime_under(root: &Path, budget: Option<usize>) -> Runtime {
             reasoning_effort: None,
         },
         providers: file.providers,
+        custody: Default::default(),
         environment: Default::default(),
         paths: paths_under(root),
         grace: Duration::from_secs(600),

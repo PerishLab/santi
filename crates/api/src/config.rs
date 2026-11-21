@@ -66,6 +66,7 @@ pub struct Config {
     pub materials: santi_core::material::Sources,
     pub environment: BTreeMap<String, String>,
     pub providers: BTreeMap<String, Profile>,
+    pub custody: BTreeMap<String, Profile>,
     pub souls: BTreeMap<String, soul::Identity>,
 }
 
@@ -86,6 +87,7 @@ impl Default for Config {
             materials: Default::default(),
             environment: BTreeMap::new(),
             providers: BTreeMap::new(),
+            custody: BTreeMap::new(),
             souls: BTreeMap::new(),
         }
     }
@@ -243,6 +245,7 @@ fn runtime(held: Config) -> Result<Runtime, String> {
             reasoning_effort: held.reasoning_effort,
         },
         providers: held.providers,
+        custody: held.custody,
         environment: held.environment,
         paths: Layout {
             database: held
