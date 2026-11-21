@@ -139,7 +139,7 @@ impl Reader<'_, '_> {
     }
 }
 
-pub(super) async fn terminal(
+pub(in crate::store) async fn terminal(
     tx: &mut Tx<'_, Sqlite>,
     turn: i64,
 ) -> Result<bool, keel::adapt::Error> {

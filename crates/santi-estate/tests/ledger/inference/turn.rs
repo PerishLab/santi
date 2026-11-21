@@ -208,3 +208,4 @@ async fn legacy() {
 }
 
 mod restart;
+mod retirement;
