@@ -9,7 +9,7 @@ pub const BASE: &str = "http://127.0.0.1:43307";
     about = "HTTP client for a running santi runtime",
     after_help = "Getting started: use `santi skill install` to install operating guidance for your agent; `santi skill --help` owns its management commands.
 
-Optional Locus observation: set [locus] enabled = true in config.toml below the existing santi data home. endpoint defaults to LOCUS_API or http://127.0.0.1:43308; buffer uses state/locus below that home. Missing configuration disables observation. Client authentication configuration remains separate."
+Optional Locus observation: set [locus] enabled = true in config.toml below the existing santi data home. For HTTPS set endpoint and key_file together; on Unix sender may name a trusted absolute locus executable. Retry state/locus.https/santi with locus deliver --buffer. Legacy HTTP defaults to http://127.0.0.1:43308 and uses state/locus. When local transport fields are absent LOCUS_API, LOCUS_API_KEY_FILE and LOCUS_SENDER supply them. Missing configuration disables observation. Client authentication configuration remains separate."
 )]
 pub struct Cli {
     #[arg(

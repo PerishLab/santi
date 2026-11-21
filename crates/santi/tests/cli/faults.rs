@@ -214,3 +214,24 @@ fn refused() {
     assert!(!text.contains("private-refusal"));
     assert!(!text.contains("private-capability"));
 }
+
+#[test]
+fn offline() {
+    let home = tempfile::tempdir().unwrap();
+    let key = home.path().join("writer");
+    std::fs::write(&key, "fixture\n").unwrap();
+    Recorder(home.path()).configure(&format!(
+        "[locus]\nenabled=true\nendpoint='https://127.0.0.1:0'\nkey_file={}\n",
+        serde_json::to_string(&key).unwrap()
+    ));
+    let output = run(home.path(), "200 OK", RESPONSE);
+    assert!(output.status.success());
+    assert!(output.stderr.is_empty());
+    let queue = home.path().join("state/locus.https/santi");
+    let binding: Value =
+        serde_json::from_slice(&std::fs::read(queue.join("delivery.json")).unwrap()).unwrap();
+    assert_eq!(binding["producer"], "santi");
+    assert_eq!(binding["format"], "sqlite-wal/v1");
+    assert!(queue.join("queue.db").is_file());
+    assert!(!home.path().join("state/locus").exists());
+}
