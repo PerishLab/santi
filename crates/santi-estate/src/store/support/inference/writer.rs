@@ -123,10 +123,11 @@ async fn bindings(tx: &mut Tx<'_, Sqlite>, definition: &Definition) -> Result<Ve
             for row in declared.rows() {
                 if unit == "Inference"
                     && let Some(turn) = row.int("turn")
-                    && tx
-                        .one(&form("Route").when("turn", keel::Op::Eq, &turn.to_string()))
-                        .await?
-                        .is_some()
+                    && (crate::store::turn::terminal(tx, turn).await?
+                        || tx
+                            .one(&form("Route").when("turn", keel::Op::Eq, &turn.to_string()))
+                            .await?
+                            .is_some())
                 {
                     continue;
                 }

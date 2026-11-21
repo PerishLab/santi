@@ -10,13 +10,17 @@ santi inference sources import catalog.json --dry-run
 For each `[providers.NAME]` in the service TOML, declare one entry in `map.toml`:
 
 ```toml
-[profiles.old_gateway]
+[profiles.legacy]
 provider = "gateway"
-access = "gateway-chat"
-custody = "gateway-operator"      # name only, not a credential
-aliases = ["old_gateway"]         # retain declarations using the old access name
-offerings = { "vendor/model-a" = "family-a", "vendor/model-b" = "family-b" }
+access = "chat"
+custody = "chat"      # name only, not a credential
+aliases = ["legacy"]         # retain declarations using the old access name
+offerings = { "vendor/model-a" = "alpha", "vendor/model-b" = "beta" }
 ```
+
+Give each local resource a single name. Access records already carry their supplier
+and protocol. Keep the wire model ID exactly as supplied. Once live declarations
+move, retire transitional aliases. Finished turns retain their admitted text.
 
 Use `aliases = []` if the access keeps the original name; `offerings = {}` is valid
 if there are no models to map. If a legacy profile default is private, use

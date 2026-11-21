@@ -10,6 +10,7 @@ mod terminal;
 pub use maintenance::{Attempt, Invocation, Maintenance, Settlement};
 
 pub use outbox::OutboxDraft;
+pub(in crate::store) use terminal::terminal;
 pub use terminal::{
     ClassifiedFailure, ClassifiedFailureDraft, Completion, CompletionDraft, Interruption,
     InterruptionDraft,
