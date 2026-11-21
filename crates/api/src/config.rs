@@ -117,12 +117,16 @@ impl Jobs {
 #[derive(Debug, Cascade)]
 #[cascade(section)]
 pub struct Server {
+    pub operator: Option<PathBuf>,
     pub grace: u64,
 }
 
 impl Default for Server {
     fn default() -> Self {
-        Server { grace: 30 }
+        Server {
+            grace: 30,
+            operator: None,
+        }
     }
 }
 
@@ -230,6 +234,7 @@ fn resolved(
 fn runtime(held: Config) -> Result<Runtime, String> {
     let home = home();
     Ok(Runtime {
+        operator: held.server.operator,
         bind: held.listen.address(),
         port: held.listen.port,
         inference: santi_core::inference::Declaration {

@@ -3,6 +3,7 @@ use utoipa::ToSchema;
 
 pub mod alarm;
 pub mod budget;
+pub mod catalog;
 mod codec;
 mod edge;
 pub mod environ;

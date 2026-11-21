@@ -1,4 +1,6 @@
 use super::super::*;
+mod catalog;
+mod writer;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Target {

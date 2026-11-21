@@ -44,6 +44,7 @@ fn routes() -> HashMap<String, Value> {
 
 async fn exercise(server: &server::Server, input: &str) -> String {
     let defaults = ClientDefaults {
+        operator: None,
         soul: Some("soul_one".into()),
         strand: Some("ss_one".into()),
         held: Default::default(),

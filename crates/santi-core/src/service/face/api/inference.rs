@@ -1,8 +1,38 @@
 use super::*;
 use crate::inference::{Declaration, Effective, Origin, Patch, Reading};
+use crate::sources::{Amendment, Definition, Record};
 use santi_estate::Target;
 
 impl Service {
+    pub async fn sources(&self) -> Result<Vec<Record>, String> {
+        self.store.sources().await
+    }
+
+    pub async fn define(&self, definition: Definition) -> Result<Record, String> {
+        self.store.register(definition).await
+    }
+
+    fn referenced(&self, record: &Record) -> bool {
+        matches!(&record.definition, Definition::Access { name, .. } | Definition::Alias { name, .. }
+            if self.declaration.provider.as_ref() == Some(name))
+    }
+
+    pub async fn amend(&self, edit: Amendment) -> Result<Record, String> {
+        if self.referenced(&edit.expected)
+            && edit.expected.definition.name() != edit.replacement.name()
+        {
+            return Err("source referenced by service declaration".into());
+        }
+        self.store.amend(edit.expected, edit.replacement).await
+    }
+
+    pub async fn withdraw(&self, record: Record) -> Result<(), String> {
+        if self.referenced(&record) {
+            return Err("source referenced by service declaration".into());
+        }
+        self.store.withdraw(record).await
+    }
+
     pub(crate) fn infer(
         &self,
         target: Target,

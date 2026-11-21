@@ -13,6 +13,7 @@ async fn starts() {
     let memory = temp.path().join("jarvis.md");
     std::fs::write(&memory, "You are Jarvis.").expect("write memory");
     let defaults = ClientDefaults {
+        operator: None,
         soul: None,
         strand: None,
         held: Default::default(),
@@ -77,6 +78,7 @@ async fn starts() {
 async fn refuses() {
     let server = spawn_server().await;
     let defaults = ClientDefaults {
+        operator: None,
         soul: Some("soul_jarvis".to_string()),
         strand: Some("ss_foreign".to_string()),
         held: Default::default(),
@@ -107,6 +109,7 @@ async fn refuses() {
 async fn owner() {
     let server = spawn_server().await;
     let defaults = ClientDefaults {
+        operator: None,
         soul: None,
         strand: Some("ss_ownerless".to_string()),
         held: Default::default(),

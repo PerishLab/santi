@@ -5,6 +5,7 @@ use santi::cli::{Cli, ClientDefaults, Command, StrandCommand, split_send_args};
 
 fn defaults(strand: Option<&str>, soul: Option<&str>) -> ClientDefaults {
     ClientDefaults {
+        operator: None,
         strand: strand.map(str::to_string),
         soul: soul.map(str::to_string),
         held: Default::default(),

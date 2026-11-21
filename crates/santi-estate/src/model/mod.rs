@@ -1,6 +1,7 @@
 use keel::Graph;
 
 mod alarm;
+use ops::catalog;
 mod edge;
 mod history;
 mod inbox;
@@ -64,5 +65,14 @@ pub(super) fn graph() -> Graph {
         .plug::<material::Local>()
         .plug::<material::Context>()
         .plug::<material::Usage>();
+    graph
+        .plug::<catalog::Provider>()
+        .plug::<catalog::Family>()
+        .plug::<catalog::Scenario>()
+        .plug::<catalog::Access>()
+        .plug::<catalog::Alias>()
+        .plug::<catalog::Offering>()
+        .plug::<catalog::Candidate>()
+        .plug::<catalog::Preference>();
     graph
 }

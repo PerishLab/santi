@@ -62,6 +62,17 @@ fn json(content_type: &str) -> bool {
 pub(super) fn router(service: Service) -> Router {
     let api = Router::new()
         .route("/api/v1/openapi.json", get(openapi))
+        .route(
+            "/api/v1/inference/sources",
+            get(inference::sources::list)
+                .post(inference::changes::register)
+                .patch(inference::changes::amend)
+                .delete(inference::changes::withdraw),
+        )
+        .route(
+            "/api/v1/inference/choices/{provider}/{family}/{scenario}",
+            get(inference::sources::explain),
+        )
         .route("/api/v1/materials", get(materials::catalog))
         .route(
             "/api/v1/souls/{soul}/materials/load",

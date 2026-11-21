@@ -1,17 +1,15 @@
 use santi_core::render;
 use santi_core::{Fault, Health, environ, job, soul::Soul, strand::Strand, webhook};
 use utoipa::{
-    Modify, OpenApi,
-    openapi::{
-        RefOr,
-        schema::Schema,
-        security::{Http, HttpAuthScheme, SecurityScheme},
-    },
+    OpenApi,
+    openapi::{RefOr, schema::Schema},
 };
 
 mod descriptions;
+mod security;
 use descriptions::{COMPONENT_DESCRIPTIONS, PROPERTY_DESCRIPTIONS};
 use santi_core::{material, soul, strand, stream};
+use security::SecurityAddon;
 
 #[derive(OpenApi)]
 #[openapi(
@@ -39,6 +37,12 @@ use santi_core::{material, soul, strand, stream};
         super::routes::get_soul,
         super::routes::inference::soul::read,
         super::routes::inference::soul::declare,
+        super::routes::inference::sources::list,
+        super::routes::inference::sources::explain,
+        super::routes::inference::changes::register,
+        super::routes::inference::changes::amend,
+        super::routes::inference::changes::withdraw,
+
         super::routes::running,
         super::routes::soul_environs,
         super::routes::set_soul_environ,
@@ -213,19 +217,6 @@ use santi_core::{material, soul, strand, stream};
     ))
 )]
 struct ApiDoc;
-
-struct SecurityAddon;
-
-impl Modify for SecurityAddon {
-    fn modify(&self, document: &mut utoipa::openapi::OpenApi) {
-        if let Some(components) = document.components.as_mut() {
-            components.add_security_scheme(
-                "downstream_bearer",
-                SecurityScheme::Http(Http::new(HttpAuthScheme::Bearer)),
-            );
-        }
-    }
-}
 
 pub(super) fn document() -> utoipa::openapi::OpenApi {
     let mut document = ApiDoc::openapi();

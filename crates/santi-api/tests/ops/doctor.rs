@@ -100,6 +100,7 @@ fn runtime_under(root: &Path, budget: Option<usize>) -> Runtime {
     ))
     .expect("parse providers");
     Runtime {
+        operator: None,
         bind: "127.0.0.1:0".to_string(),
         port: 0,
         inference: santi_core::inference::Declaration {

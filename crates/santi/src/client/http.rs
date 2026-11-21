@@ -74,7 +74,7 @@ pub(super) struct Http<'a> {
 }
 
 impl Http<'_> {
-    async fn send(&self, request: reqwest::RequestBuilder, label: String) -> Result<()> {
+    pub(super) async fn send(&self, request: reqwest::RequestBuilder, label: String) -> Result<()> {
         let response = request.timeout(TIMEOUT).send().await;
         let response = match response {
             Ok(response) => response,
