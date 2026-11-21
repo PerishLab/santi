@@ -16,5 +16,5 @@ async fn unresolved() {
     assert_eq!(status, StatusCode::OK);
     assert_eq!(reading["declaration"], serde_json::json!({}));
     assert!(reading.get("effective").is_none(), "{reading}");
-    assert!(reading["error"].as_str().unwrap().contains("provider"));
+    assert!(reading["error"].as_str().unwrap().contains("scenario"));
 }

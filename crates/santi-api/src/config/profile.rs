@@ -65,8 +65,6 @@ pub enum Profile {
         #[serde(default)]
         api_key: Option<String>,
         #[serde(default)]
-        model: Option<String>,
-        #[serde(default)]
         base_url: Option<String>,
         #[serde(default)]
         reasoning_effort: Option<String>,
@@ -94,8 +92,6 @@ pub enum Profile {
         #[serde(default)]
         api_key: Option<String>,
         #[serde(default)]
-        model: Option<String>,
-        #[serde(default)]
         base_url: Option<String>,
         #[serde(default)]
         reasoning_effort: Option<String>,
@@ -117,8 +113,6 @@ pub enum Profile {
         identity: Option<String>,
         #[serde(default)]
         api_key: Option<String>,
-        #[serde(default)]
-        model: Option<String>,
         #[serde(default)]
         base_url: Option<String>,
         #[serde(default)]
@@ -149,34 +143,11 @@ impl Profile {
         }
     }
 
-    pub fn model(&self, provider: &str) -> Option<String> {
-        let (Self::OpenAiResponses { model, .. }
-        | Self::Gemini { model, .. }
-        | Self::ChatCompletions { model, .. }) = self;
-        optional(model, provider, "model").ok().flatten()
-    }
-
-    pub fn effort(&self, provider: &str) -> Option<String> {
-        let (Self::OpenAiResponses {
-            reasoning_effort, ..
-        }
-        | Self::Gemini {
-            reasoning_effort, ..
-        }
-        | Self::ChatCompletions {
-            reasoning_effort, ..
-        }) = self;
-        optional(reasoning_effort, provider, "reasoning_effort")
-            .ok()
-            .flatten()
-    }
-
-    pub fn resolve(&self, provider: &str) -> Result<Resolved, String> {
+    pub fn resolve(&self, provider: &str, model: &str) -> Result<Resolved, String> {
         match self {
             Profile::OpenAiResponses {
                 seal: _,
                 api_key,
-                model,
                 base_url,
                 reasoning_effort,
                 summary,
@@ -188,7 +159,7 @@ impl Profile {
                 outgoing,
             } => Ok(Resolved::OpenAiResponses(OpenAiResponses {
                 api_key: required(api_key, provider, "api_key")?,
-                model: required(model, provider, "model")?,
+                model: model.to_owned(),
                 base_url: optional(base_url, provider, "base_url")?
                     .unwrap_or_else(|| "https://api.openai.com/v1".to_string()),
                 reasoning_effort: optional(reasoning_effort, provider, "reasoning_effort")?,
@@ -204,7 +175,6 @@ impl Profile {
                 seal: _,
                 identity: _,
                 api_key,
-                model,
                 base_url,
                 reasoning_effort,
                 max_tokens,
@@ -215,7 +185,7 @@ impl Profile {
             } => Ok(Resolved::Gemini(Gemini {
                 provider: provider.to_string(),
                 api_key: required(api_key, provider, "api_key")?,
-                model: required(model, provider, "model")?,
+                model: model.to_owned(),
                 base_url: required(base_url, provider, "base_url")?,
                 reasoning_effort: optional(reasoning_effort, provider, "reasoning_effort")?,
                 max_tokens: *max_tokens,
@@ -228,7 +198,6 @@ impl Profile {
                 seal: _,
                 identity: _,
                 api_key,
-                model,
                 base_url,
                 thinking,
                 replay,
@@ -241,7 +210,7 @@ impl Profile {
             } => Ok(Resolved::ChatCompletions(ChatCompletions {
                 provider: provider.to_string(),
                 api_key: required(api_key, provider, "api_key")?,
-                model: required(model, provider, "model")?,
+                model: model.to_owned(),
                 base_url: required(base_url, provider, "base_url")?,
                 thinking: optional(thinking, provider, "thinking")?,
                 replay: *replay,

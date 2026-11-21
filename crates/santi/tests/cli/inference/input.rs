@@ -7,7 +7,7 @@ async fn layers() {
     let home = support::home();
     support::file(
         home.path(),
-        "[inference]\nprovider = \"file-provider\"\nmodel = \"file-model\"\n",
+        "[inference]\nscenario = \"file/family/work\"\n",
     );
 
     let wire = support::serve("200 OK", READ).await;
@@ -21,44 +21,42 @@ async fn layers() {
     support::applied(&output);
     assert_eq!(
         support::json(&request),
-        json!({"provider": "file-provider", "model": "file-model"})
+        json!({"scenario": "file/family/work"})
     );
 
     let wire = support::serve("200 OK", READ).await;
     let (output, request) = support::call(
         wire,
         home.path(),
-        &[("SANTI_INFERENCE_MODEL", "env-model")],
+        &[("SANTI_INFERENCE_SCENARIO", "env/family/work")],
         &["inference", "soul", "set", "soul_one"],
     )
     .await;
     support::applied(&output);
     assert_eq!(
         support::json(&request),
-        json!({"provider": "file-provider", "model": "env-model"})
+        json!({"scenario": "env/family/work"})
     );
 
     let wire = support::serve("200 OK", READ).await;
     let (output, request) = support::call(
         wire,
         home.path(),
-        &[("SANTI_INFERENCE_MODEL", "env-model")],
+        &[("SANTI_INFERENCE_SCENARIO", "env/family/work")],
         &[
             "inference",
             "soul",
             "set",
             "soul_one",
-            "--provider",
-            "cli-provider",
-            "--model",
-            "cli-model",
+            "--scenario",
+            "cli/family/work",
         ],
     )
     .await;
     support::applied(&output);
     assert_eq!(
         support::json(&request),
-        json!({"provider": "cli-provider", "model": "cli-model"})
+        json!({"scenario": "cli/family/work"})
     );
 }
 
@@ -70,8 +68,7 @@ async fn environment() {
         wire,
         home.path(),
         &[
-            ("SANTI_INFERENCE_PROVIDER", "env-provider"),
-            ("SANTI_INFERENCE_MODEL", "env-model"),
+            ("SANTI_INFERENCE_SCENARIO", "env/family/work"),
             ("SANTI_INFERENCE_REASONING_EFFORT", "env-effort"),
         ],
         &["inference", "strand", "set", "ss_one"],
@@ -81,8 +78,7 @@ async fn environment() {
     assert_eq!(
         support::json(&request),
         json!({
-            "provider": "env-provider",
-            "model": "env-model",
+            "scenario": "env/family/work",
             "reasoning_effort": "env-effort"
         })
     );
@@ -93,19 +89,23 @@ async fn overrides() {
     let home = support::home();
     support::file(
         home.path(),
-        "[inference]\nprovider = \"file-provider\"\nmodel = \"file-model\"\n",
+        "[inference]\nscenario = \"file/family/work\"\n",
     );
     let wire = support::serve("200 OK", READ).await;
     let (output, request) = support::call(
         wire,
         home.path(),
         &[],
-        &["inference", "soul", "set", "soul_one", "--clear", "model"],
+        &[
+            "inference",
+            "soul",
+            "set",
+            "soul_one",
+            "--clear",
+            "scenario",
+        ],
     )
     .await;
     support::applied(&output);
-    assert_eq!(
-        support::json(&request),
-        json!({"provider": "file-provider", "model": null})
-    );
+    assert_eq!(support::json(&request), json!({"scenario": null}));
 }

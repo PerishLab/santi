@@ -25,10 +25,15 @@ fn text(value: &str) -> bool {
 
 impl Definition {
     pub fn validate(&self) -> Result<(), String> {
-        if self.name().is_some_and(|n| !name(n)) {
-            return Err(
-                "a source name requires letters, numbers, dots, hyphens or underscores".into(),
-            );
+        if let Some(value) = self.name() {
+            let valid = match self.kind() {
+                Kind::Provider | Kind::Family => santi::inference::word(value),
+                Kind::Scenario => santi::inference::scenario(value),
+                _ => name(value),
+            };
+            if !valid {
+                return Err(format!("invalid {} name", self.kind().unit()));
+            }
         }
         let valid = match self {
             Self::Access {

@@ -7,8 +7,7 @@ async fn next() {
         &f.store,
         &f.strand.id,
         Selection {
-            provider: "alpha",
-            model: "alpha-model",
+            scenario: "gateway/family/alpha",
             effort: "low",
         },
     )
@@ -22,8 +21,7 @@ async fn next() {
         &f.store,
         &f.strand.id,
         Selection {
-            provider: "missing",
-            model: "missing-model",
+            scenario: "gateway/family/missing",
             effort: "high",
         },
     )
@@ -42,8 +40,7 @@ async fn selection() {
         &f.store,
         &f.strand.id,
         Selection {
-            provider: "missing",
-            model: "missing-model",
+            scenario: "gateway/family/missing",
             effort: "high",
         },
     )

@@ -32,7 +32,7 @@ async fn seat() {
         &app,
         "POST",
         &format!("/api/v1/souls/{soul}/strands"),
-        Some(serde_json::json!({"inference": {"model": "seat-model"}})),
+        Some(serde_json::json!({"inference": {"scenario": "gateway/family/review"}})),
     )
     .await;
     assert_eq!(status, StatusCode::OK, "{declared}");
@@ -49,7 +49,7 @@ async fn seat() {
         assert_eq!(status, StatusCode::OK, "{reading}");
         assert_eq!(reading["declaration"], serde_json::json!({}));
         assert_eq!(reading["effective"]["model"], "service-model");
-        assert_eq!(reading["effective"]["source"]["model"], "service");
+        assert_eq!(reading["effective"]["source"]["model"], "offering");
     }
 
     let (status, reading) = call(
@@ -60,9 +60,9 @@ async fn seat() {
     )
     .await;
     assert_eq!(status, StatusCode::OK, "{reading}");
-    assert_eq!(reading["declaration"]["model"], "seat-model");
+    assert_eq!(reading["declaration"]["scenario"], "gateway/family/review");
     assert_eq!(reading["effective"]["model"], "seat-model");
-    assert_eq!(reading["effective"]["source"]["model"], "strand");
+    assert_eq!(reading["effective"]["source"]["model"], "offering");
 }
 
 #[tokio::test]
@@ -103,7 +103,7 @@ async fn fork() {
         &app,
         "POST",
         "/api/v1/strands",
-        Some(serde_json::json!({"inference": {"model": "parent-model"}})),
+        Some(serde_json::json!({"inference": {"scenario": "gateway/family/parent"}})),
     )
     .await;
     assert_eq!(status, StatusCode::OK, "{parent}");
@@ -127,9 +127,9 @@ async fn fork() {
         )
         .await;
         assert_eq!(status, StatusCode::OK, "{reading}");
-        assert_eq!(reading["declaration"]["model"], "parent-model");
+        assert_eq!(reading["declaration"]["scenario"], "gateway/family/parent");
         assert_eq!(reading["effective"]["model"], "parent-model");
-        assert_eq!(reading["effective"]["source"]["model"], "strand");
+        assert_eq!(reading["effective"]["source"]["model"], "offering");
     }
 
     let (status, child) = call(
@@ -151,7 +151,7 @@ async fn fork() {
     assert_eq!(status, StatusCode::OK, "{reading}");
     assert_eq!(reading["declaration"], serde_json::json!({}));
     assert_eq!(reading["effective"]["model"], "service-model");
-    assert_eq!(reading["effective"]["source"]["model"], "service");
+    assert_eq!(reading["effective"]["source"]["model"], "offering");
 }
 
 #[tokio::test]
@@ -162,18 +162,22 @@ async fn invalid() {
     let soul = created["strand"]["soul"].as_str().unwrap();
     let before = strands(&app).await;
 
+    let strand = created["strand"]["id"].as_str().unwrap();
     for body in [
         serde_json::json!({"inference": {"unknown": true}}),
-        serde_json::json!({"inference": {"model": ""}}),
+        serde_json::json!({"inference": {"model": "wire-model"}}),
+        serde_json::json!({"inference": {"provider": "operator"}}),
+        serde_json::json!({"inference": {"scenario": "operator"}}),
+        serde_json::json!({"inference": {"scenario": "gateway/family/a.b.c.d"}}),
+        serde_json::json!({"inference": {"scenario": "gateway/family/missing"}}),
     ] {
-        let (status, error) = call(
-            &app,
-            "POST",
-            &format!("/api/v1/souls/{soul}/strands"),
-            Some(body),
-        )
-        .await;
-        assert_eq!(status, StatusCode::BAD_REQUEST, "{error}");
+        for path in [
+            format!("/api/v1/souls/{soul}/strands"),
+            format!("/api/v1/strands/{strand}/fork"),
+        ] {
+            let (status, error) = call(&app, "POST", &path, Some(body.clone())).await;
+            assert_eq!(status, StatusCode::BAD_REQUEST, "{path} {error}");
+        }
     }
     let (status, error) = raw(
         &app,

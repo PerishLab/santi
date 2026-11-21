@@ -27,7 +27,7 @@ fn cli() {
     let hash = format!("{:x}", Sha256::digest(text.as_bytes()));
     assert_eq!(
         hash,
-        "51fe325225f94c3731985a0265fd578bfe2dbe3c429f98fd37b7832b21cce0a8"
+        "148628f94aabe64c2c4bc3e548ba4851b04146827a11c693f790a0820a80f1b7"
     );
 }
 

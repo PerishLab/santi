@@ -26,7 +26,6 @@ pub fn export_openapi_json() -> Result<String, String> {
 pub async fn serve() -> Result<(), String> {
     let held = crate::runtime::held();
     let resolver = std::sync::Arc::new(provider::Catalog {
-        profiles: &held.providers,
         custody: &held.custody,
     });
     let bind = held.bind.clone();
@@ -63,9 +62,6 @@ pub async fn serve() -> Result<(), String> {
     .retain(held.retention)?
     .alarmed(std::sync::Arc::new(crate::adaptor::cron::Cron::current()))
     .await;
-    if held.custody.is_empty() {
-        provider::build(held.resolved()?)?;
-    }
     let address: SocketAddr = bind
         .parse()
         .map_err(|_| "listen host/port did not form a valid socket address".to_string())?;

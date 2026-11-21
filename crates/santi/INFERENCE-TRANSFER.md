@@ -14,27 +14,37 @@ For each `[providers.NAME]` in the service TOML, declare one entry in `map.toml`
 provider = "gateway"
 access = "chat"
 custody = "chat"      # name only, not a credential
-aliases = ["legacy"]         # retain declarations using the old access name
 offerings = { "vendor/model-a" = "alpha", "vendor/model-b" = "beta" }
 ```
 
-Give each local resource a single name. Access records already carry their supplier
-and protocol. Keep the wire model ID exactly as supplied. Once live declarations
-move, retire transitional aliases. Finished turns retain their admitted text.
+Provider and family names each use one lowercase ASCII word. A scenario name
+contains one to three such words joined by dots. Keep the wire model ID exactly
+as supplied. A service, Soul or Strand declares a full path such as
+`gateway/alpha/recall.correction`; a missing preference fails selection.
+Completed turns retain the model and route admitted at the time.
 
-Use `aliases = []` if the access keeps the original name; `offerings = {}` is valid
-if there are no models to map. If a legacy profile default is private, use
-`default_in_custody = true` and omit it from `offerings`: the operator profile,
-not the catalog, supplies that default. Only explicitly approved public model strings
-become offerings. Profile defaults and service/soul model declarations are
-checked for coverage, not applied as defaults or used to infer families.
-Only the protocol and public endpoint are projected from a service profile.
-No environment references are resolved. Credentials, request/response headers,
-limits, defaults, and other execution options remain operator configuration.
-Keep the original Profile under `[custody.gateway-operator]` on the service;
-provision the same custody name with the matching protocol/endpoint separately
-on each destination. A binding present in the input is checked locally. No
-command installs or tests credentials, or contacts an inference provider.
+In client TOML, replace the old `[inference]` provider and model fields with
+`scenario = "gateway/alpha/recall.correction"`, or remove the override to
+inherit. For CLI writes, clear `SANTI_INFERENCE_PROVIDER` and
+`SANTI_INFERENCE_MODEL`; use `SANTI_INFERENCE_SCENARIO` for a client default.
+Use `inference strand set ID --clear scenario` to return a Strand to
+inheritance while retaining its independent reasoning effort.
+
+Legacy profile names identify the mapping source. The optional `aliases` list
+carries catalog metadata. Ordinary inference declarations select a scenario.
+An empty `offerings` map is valid for a transport with no exposed models.
+The legacy mapping option `default_in_custody = true` skips coverage of an
+unpublished model default during import. Register an offering for each wire
+model used by a scene. Its preferred candidate's offering supplies the model
+at admission. Service and Soul model declarations in legacy inputs are checked
+for coverage during import.
+
+The transfer projects the protocol, public endpoint and custody handle from
+the legacy profile and mapping. Provision the corresponding destination
+transport separately under `[custody.chat]` in this example. Keep its credentials,
+headers, limits, protocol and endpoint, and remove the legacy `model` field.
+The CLI checks local input bindings without resolving environment references or
+contacting the inference provider.
 
 The version-1 JSON archive carries native public fields with name references
 instead of estate IDs. Offering references are `[access, model]`; candidate
@@ -52,3 +62,37 @@ than replacing anything. A refused or uncertain write is not rolled back or
 automatically retried. Inspect a fresh dry-run, reconcile any manual changes,
 then apply again. Individual creates are native transactions, not a batch lock:
 coordinate concurrent renames, deletes and other edits with the operator.
+
+## Compare candidates
+
+Use an isolated service with its own estate, custody and operator token. Point
+the CLI at that instance throughout qualification. Query its local candidate
+IDs and criterion before setting the preference for the trial.
+
+```sh
+santi --base-url "$trial_url" inference sources explain gateway alpha recall.correction
+santi --base-url "$trial_url" inference sources list
+```
+
+With an existing preference, read that record from the trial catalog and use it
+as the expected value. Set `preference_id` and `candidate_id` from those reads.
+
+```sh
+santi --base-url "$trial_url" inference sources get preference "$preference_id" |
+  jq --argjson candidate "$candidate_id" '{expected: ., replacement: {kind: "preference", candidate: $candidate}}' > trial.json
+santi --base-url "$trial_url" inference sources update trial.json
+```
+
+For a first preference, create it in the trial catalog using
+`santi --base-url "$trial_url" inference sources create preference.json` with
+`{"kind":"preference","candidate":ID}`, substituting the numeric candidate ID.
+Use a fresh trial Strand with equivalent starting context and the same task
+for each candidate. Inspect the route of the turn identified by the receipt,
+compare the response against the criterion, and record the evidence with the
+candidate. Promotion uses the destination catalog's own IDs.
+
+```sh
+santi --base-url "$trial_url" inference strand set "$strand" --scenario gateway/alpha/recall.correction
+santi --base-url "$trial_url" inference strand get "$strand"
+santi --base-url "$trial_url" strand send --watch "$strand" "$trial_task"
+```

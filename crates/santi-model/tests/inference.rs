@@ -7,14 +7,14 @@ impl Map {
     fn two() -> Self {
         Self(BTreeMap::from([
             (
-                "alpha",
+                "gateway/alpha/work",
                 Defaults {
                     model: "alpha-default".into(),
                     reasoning_effort: Some("low".into()),
                 },
             ),
             (
-                "beta",
+                "gateway/beta/work",
                 Defaults {
                     model: "beta-default".into(),
                     reasoning_effort: Some("high".into()),
@@ -36,32 +36,27 @@ impl Directory for Map {
 #[test]
 fn cascade() {
     let lower = Declaration {
-        provider: Some("alpha".into()),
-        model: Some("low".into()),
+        scenario: Some("gateway/alpha/work".into()),
         reasoning_effort: None,
     };
     let high = Declaration {
-        provider: Some("beta".into()),
-        model: None,
+        scenario: Some("gateway/beta/work".into()),
         reasoning_effort: Some("medium".into()),
     };
     let merged = high.overlay(&lower);
-    assert_eq!(merged.provider.as_deref(), Some("beta"));
-    assert_eq!(merged.model.as_deref(), Some("low"));
+    assert_eq!(merged.scenario.as_deref(), Some("gateway/beta/work"));
     assert_eq!(merged.reasoning_effort.as_deref(), Some("medium"));
 }
 
 #[test]
 fn switch() {
     let service = Declaration {
-        provider: Some("alpha".into()),
-        model: None,
+        scenario: Some("gateway/alpha/work".into()),
         reasoning_effort: None,
     };
     let soul = Declaration::default();
     let strand = Declaration {
-        provider: Some("beta".into()),
-        model: None,
+        scenario: Some("gateway/beta/work".into()),
         reasoning_effort: None,
     };
     let effective = Effective::resolve(
@@ -73,7 +68,7 @@ fn switch() {
         &Map::two(),
     )
     .unwrap();
-    assert_eq!(effective.provider, "beta");
+    assert_eq!(effective.provider, "gateway/beta/work");
     assert_eq!(effective.model, "beta-default");
     assert_eq!(effective.reasoning_effort.as_deref(), Some("high"));
     assert_eq!(effective.source.provider, Origin::Strand);
@@ -82,48 +77,17 @@ fn switch() {
 }
 
 #[test]
-fn survives() {
-    let service = Declaration {
-        provider: Some("alpha".into()),
-        model: Some("service-model".into()),
-        reasoning_effort: None,
-    };
-    let soul = Declaration::default();
-    let strand = Declaration {
-        provider: Some("beta".into()),
-        model: None,
-        reasoning_effort: None,
-    };
-    let effective = Effective::resolve(
-        &[
-            (&service, Origin::Service),
-            (&soul, Origin::Soul),
-            (&strand, Origin::Strand),
-        ],
-        &Map::two(),
-    )
-    .unwrap();
-    assert_eq!(effective.provider, "beta");
-    assert_eq!(effective.model, "service-model");
-    assert_eq!(effective.source.model, Origin::Service);
-    assert_eq!(effective.reasoning_effort.as_deref(), Some("high"));
-}
-
-#[test]
 fn wins() {
     let service = Declaration {
-        provider: Some("alpha".into()),
-        model: Some("service-model".into()),
+        scenario: Some("gateway/alpha/work".into()),
         reasoning_effort: None,
     };
     let soul = Declaration {
-        provider: None,
-        model: None,
+        scenario: None,
         reasoning_effort: Some("medium".into()),
     };
     let strand = Declaration {
-        provider: None,
-        model: Some("strand-model".into()),
+        scenario: None,
         reasoning_effort: None,
     };
     let effective = Effective::resolve(
@@ -135,9 +99,9 @@ fn wins() {
         &Map::two(),
     )
     .unwrap();
-    assert_eq!(effective.model, "strand-model");
+    assert_eq!(effective.model, "alpha-default");
     assert_eq!(effective.reasoning_effort.as_deref(), Some("medium"));
-    assert_eq!(effective.source.model, Origin::Strand);
+    assert_eq!(effective.source.model, Origin::Default);
     assert_eq!(effective.source.reasoning_effort, Some(Origin::Soul));
     assert_eq!(effective.source.provider, Origin::Service);
 }
@@ -145,31 +109,90 @@ fn wins() {
 #[test]
 fn patch() {
     let base = Declaration {
-        provider: Some("alpha".into()),
-        model: Some("m".into()),
+        scenario: Some("gateway/alpha/work".into()),
         reasoning_effort: Some("low".into()),
     };
-    let patch: Patch =
-        serde_json::from_str(r#"{"model":null,"reasoning_effort":"high"}"#).expect("patch");
-    assert!(!patch.touches("provider"));
-    assert!(patch.touches("model"));
+    let patch: Patch = serde_json::from_str(r#"{"reasoning_effort":"high"}"#).expect("patch");
+    assert!(!patch.touches("scenario"));
+    assert!(patch.touches("reasoning_effort"));
     let applied = patch.apply(&base);
-    assert_eq!(applied.provider.as_deref(), Some("alpha"));
-    assert_eq!(applied.model, None);
+    assert_eq!(applied.scenario, base.scenario);
     assert_eq!(applied.reasoning_effort.as_deref(), Some("high"));
-    let cleared: Patch = serde_json::from_str(r#"{"provider":null}"#).expect("null");
-    assert_eq!(cleared.apply(&base).provider, None);
+    let cleared: Patch = serde_json::from_str(r#"{"scenario":null}"#).expect("null");
+    assert_eq!(cleared.apply(&base).scenario, None);
 }
 
 #[test]
-fn refuse() {
-    assert!(serde_json::from_str::<Declaration>(r#"{"model":"m","other":"x"}"#).is_err());
-    assert!(
-        Declaration {
-            model: Some("  ".into()),
+fn grammar() {
+    for value in [
+        "gateway/family/review",
+        "gateway/family/review.code",
+        "gateway/family/review.code.rust",
+    ] {
+        assert!(santi::inference::path(value), "{value}");
+    }
+    for value in [
+        "chat",
+        "model-name",
+        "/family/scene",
+        "ga.te/family/scene",
+        "g/f.x/scene",
+        "g/f/",
+        "g/f/a..b",
+        "g/f/a.b.c.d",
+        "g/f/aaa_",
+        "g/f/two-words",
+        "g/f/A",
+        "g/f/abc1",
+        "g/f/é",
+        "g/f/a/",
+        "g/f/a.",
+    ] {
+        let declaration = Declaration {
+            scenario: Some(value.into()),
             ..Default::default()
-        }
-        .validate()
-        .is_err()
-    );
+        };
+        assert!(declaration.validate().is_err(), "{value}");
+    }
+    for value in [
+        r#"{"model":"m"}"#,
+        r#"{"provider":"p"}"#,
+        r#"{"scenario":"g/f/a","model":"wire"}"#,
+    ] {
+        assert!(
+            serde_json::from_str::<Declaration>(value).is_err(),
+            "{value}"
+        );
+        assert!(serde_json::from_str::<Patch>(value).is_err(), "{value}");
+    }
+}
+
+#[test]
+fn vocabulary() {
+    use santi_model::catalog::Definition;
+    for value in [
+        "recall",
+        "recall.correction",
+        "recall.correction.later",
+        "re-call",
+        "Recall",
+        "a.b.c.d",
+    ] {
+        let name = value.to_owned();
+        let provider = Definition::Provider { name: name.clone() };
+        let family = Definition::Family { name: name.clone() };
+        let scenario = Definition::Scenario {
+            name,
+            criterion: "Revise a prior answer".into(),
+        };
+        assert_eq!(provider.validate().is_ok(), value == "recall");
+        assert_eq!(family.validate().is_ok(), value == "recall");
+        assert_eq!(scenario.validate().is_ok(), value.starts_with("recall"));
+    }
+    let offering = Definition::Offering {
+        access: 1,
+        family: 2,
+        model: "vendor/model-4.1".into(),
+    };
+    assert!(offering.validate().is_ok());
 }

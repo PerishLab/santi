@@ -27,18 +27,16 @@ impl Service {
     pub async fn awaken(&self, request: soul::Draft) -> Result<Soul, String> {
         let soul = tag("soul");
         let inference = (!request.inference.empty()).then_some(&request.inference);
-        if let Some(inference) = inference {
-            self.infer(
-                &self.store.sources().await?,
-                santi_estate::Target::Soul,
-                inference,
-                None,
-            )
-            .map_err(|error| format!("inference rejected: {error}"))?;
-        }
-        let memory = request.memory.as_deref().unwrap_or_default();
-        super::publication::publish(&self.runtime(), &soul, memory.as_bytes())?;
-        self.store.create_soul(&soul, &now(), inference).await
+        self.store
+            .awakening(&soul, &now(), inference, |rows| {
+                if let Some(inference) = inference {
+                    self.infer(rows, santi_estate::Target::Soul, inference, None)
+                        .map_err(|error| format!("inference rejected: {error}"))?;
+                }
+                let memory = request.memory.as_deref().unwrap_or_default();
+                super::publication::publish(&self.runtime(), &soul, memory.as_bytes())
+            })
+            .await
     }
 
     pub async fn turn(&self, turn: &str) -> Result<Option<turn::Turn>, String> {

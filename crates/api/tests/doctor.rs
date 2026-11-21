@@ -1,3 +1,5 @@
+#[path = "../../santi-api/tests/support/catalog.rs"]
+mod catalog;
 use std::path::Path;
 use std::process::{Command, Output};
 
@@ -18,11 +20,10 @@ fn config(root: &Path, name: &str) -> std::path::PathBuf {
     std::fs::write(
         &path,
         r#"
-provider = "probe"
-[providers.probe]
+scenario = "gateway/family/review"
+[custody.operator]
 kind = "openai_responses"
 api_key = "DOCTOR_SECRET"
-model = "gpt-6.1-sol"
 reasoning_effort = "medium"
 bytes = 500000
 "#,
@@ -68,8 +69,8 @@ fn precedence() {
     assert_eq!(report["config"]["path"], argument.to_str().unwrap());
     assert_eq!(report["config"]["source"], "argument");
     assert_eq!(report["target"], "local_process");
-    assert_eq!(report["provider"]["model"], "gpt-6.1-sol");
-    assert_eq!(report["provider"]["effort"], "medium");
+    assert_eq!(report["provider"]["scenario"], "gateway/family/review");
+    assert!(report["provider"]["model"].is_null());
 }
 
 #[test]
@@ -85,15 +86,27 @@ fn absent() {
     assert!(!temp.path().join("runtime").exists());
 }
 
-#[test]
-fn credentials() {
+#[tokio::test]
+async fn credentials() {
     let temp = tempfile::tempdir().unwrap();
     let path = config(temp.path(), "santi.toml");
     let text = std::fs::read_to_string(&path).unwrap();
     std::fs::write(&path, text.replace("DOCTOR_SECRET", "env://PROBE_KEY")).unwrap();
+    assert!(
+        command(temp.path())
+            .arg("bootstrap")
+            .output()
+            .unwrap()
+            .status
+            .success()
+    );
+    let store = santi_core::Store::open(temp.path().join("runtime/db"))
+        .await
+        .unwrap();
+    catalog::qualify(&store, &[("review", "gpt-6.1-sol")]).await;
     let report = decode(command(temp.path()).arg("doctor").output().unwrap());
+    assert_eq!(report["provider"]["scenario"], "gateway/family/review");
     assert_eq!(report["provider"]["model"], "gpt-6.1-sol");
-    assert_eq!(report["provider"]["effort"], "medium");
     assert_eq!(report["provider"]["ok"], false);
     assert!(
         report["provider"]["error"]
@@ -137,6 +150,7 @@ async fn lifecycle() {
         .seed(santi_core::GENESIS, &santi_core::now())
         .await
         .unwrap();
+    catalog::qualify(&store, &[("review", "gpt-6.1-sol")]).await;
     drop(store);
     let output = command(root).arg("doctor").output().unwrap();
     assert!(output.status.success());

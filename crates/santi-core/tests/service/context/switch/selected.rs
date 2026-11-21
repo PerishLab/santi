@@ -74,8 +74,7 @@ async fn pinned() {
 
     *resolver.current.lock().unwrap() = effective("b", "b-model", "high");
     let patch = Patch {
-        provider: Some(Some("b".into())),
-        model: Some(Some("b-model".into())),
+        scenario: Some(Some("gateway/family/b".into())),
         reasoning_effort: Some(Some("high".into())),
     };
     store

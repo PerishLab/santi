@@ -48,6 +48,12 @@ impl<'a> Directory<'a> {
     }
 
     pub fn explain(&self, provider: &str, family: &str, scenario: &str) -> Result<Choice, String> {
+        if !santi::inference::word(provider)
+            || !santi::inference::word(family)
+            || !santi::inference::scenario(scenario)
+        {
+            return Err("invalid provider/family/scenario path".into());
+        }
         let provider = self.named(Kind::Provider, provider)?;
         let family = self.named(Kind::Family, family)?;
         let scenario = self.named(Kind::Scenario, scenario)?;

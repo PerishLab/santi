@@ -72,7 +72,7 @@ async fn ignores() {
     let home = support::home();
     support::file(
         home.path(),
-        "[inference]\nprovider = \"file-provider\"\nmodel = \"file-model\"\n",
+        "[inference]\nscenario = \"file/family/work\"\n",
     );
     let wire = support::serve("200 OK", READ).await;
     let (output, request) = support::call(

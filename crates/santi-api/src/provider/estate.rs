@@ -23,7 +23,7 @@ fn named(dir: &selection::Directory<'_>, kind: Kind, id: i64) -> Result<Label, S
 }
 
 impl Catalog<'_> {
-    fn transport(&self, route: &Route) -> Result<(String, Resolved, String), String> {
+    fn transport(&self, route: &Route, model: &str) -> Result<(String, Resolved, String), String> {
         let profile = self
             .custody
             .get(&route.custody)
@@ -40,7 +40,7 @@ impl Catalog<'_> {
             _ => format!("estate/{}/access/{}", route.provider.id, route.access.id),
         };
         let key = profile.seal();
-        let profile = profile.resolve(&identity)?;
+        let profile = profile.resolve(&identity, model)?;
         let endpoint = match &profile {
             Resolved::ChatCompletions(p) => &p.base_url,
             Resolved::OpenAiResponses(p) => &p.base_url,
@@ -53,8 +53,8 @@ impl Catalog<'_> {
         Ok((identity, profile, stamp))
     }
 
-    pub(super) fn bound(&self, route: &Route) -> Result<Resolved, String> {
-        let (identity, profile, stamp) = self.transport(route)?;
+    pub(super) fn bound(&self, route: &Route, model: &str) -> Result<Resolved, String> {
+        let (identity, profile, stamp) = self.transport(route, model)?;
         if identity != route.identity || stamp != route.policy {
             return Err("admitted transport policy differs from operator custody".into());
         }
@@ -66,51 +66,38 @@ impl Catalog<'_> {
         layers: &[(&Declaration, Origin)],
         rows: &[Record],
     ) -> Result<Effective, String> {
+        let (route, model) = Self::offered(layers, rows)?;
+        self.admit(layers, route, model)
+    }
+
+    pub(crate) fn offered<'a>(
+        layers: &[(&Declaration, Origin)],
+        rows: &'a [Record],
+    ) -> Result<(Route, &'a str), String> {
+        for (declaration, _) in layers {
+            declaration.validate()?;
+        }
         let selector = layers
             .iter()
             .rev()
-            .find_map(|(d, _)| d.provider.as_deref())
-            .ok_or("inference resolution requires a provider")?;
-        let dir = selection::Directory(rows);
-        let mut family = None;
-        let mut scene = None;
-        let mut offering = None;
-        let mut candidate = None;
-        let mut offered = None;
-        let access = if selector.contains('/') {
-            let parts: Vec<_> = selector.split('/').collect();
-            let [p, f, s] = parts.as_slice() else {
-                return Err("expected provider/family/scenario".into());
-            };
-            let choice = dir.explain(p, f, s)?;
-            let id = choice
-                .preferred
-                .ok_or_else(|| format!("no preferred candidate for {selector}"))?;
-            let D::Candidate {
-                offering: offer, ..
-            } = dir.find(Kind::Candidate, id)?
-            else {
-                unreachable!()
-            };
-            let D::Offering { access, model, .. } = dir.find(Kind::Offering, *offer)? else {
-                unreachable!()
-            };
-            family = Some(named(&dir, Kind::Family, choice.family)?);
-            scene = Some(named(&dir, Kind::Scenario, choice.scenario)?);
-            offering = Some(*offer);
-            candidate = Some(id);
-            offered = Some(model);
-            *access
-        } else {
-            rows.iter()
-                .find_map(|row| match &row.definition {
-                    D::Access { name, .. } if name == selector => Some(row.id),
-                    D::Alias { name, access } if name == selector => Some(*access),
-                    _ => None,
-                })
-                .ok_or_else(|| format!("unknown access or alias {selector}"))?
+            .find_map(|(d, _)| d.scenario.as_deref())
+            .ok_or("inference resolution requires a scenario")?;
+        let parts: Vec<_> = selector.split('/').collect();
+        let [provider, family, scenario] = parts.as_slice() else {
+            return Err("expected provider/family/scenario".into());
         };
-        let definition = dir.find(Kind::Access, access)?;
+        let dir = selection::Directory(rows);
+        let choice = dir.explain(provider, family, scenario)?;
+        let candidate = choice
+            .preferred
+            .ok_or_else(|| format!("no preferred candidate for {selector}"))?;
+        let D::Candidate { offering, .. } = dir.find(Kind::Candidate, candidate)? else {
+            unreachable!()
+        };
+        let D::Offering { access, model, .. } = dir.find(Kind::Offering, *offering)? else {
+            unreachable!()
+        };
+        let definition = dir.find(Kind::Access, *access)?;
         definition.validate()?;
         let D::Access {
             provider,
@@ -122,13 +109,13 @@ impl Catalog<'_> {
         else {
             unreachable!()
         };
-        let mut route = Route {
+        let route = Route {
             provider: named(&dir, Kind::Provider, *provider)?,
-            access: named(&dir, Kind::Access, access)?,
-            family,
-            scenario: scene,
-            offering,
-            candidate,
+            access: named(&dir, Kind::Access, *access)?,
+            family: Some(named(&dir, Kind::Family, choice.family)?),
+            scenario: Some(named(&dir, Kind::Scenario, choice.scenario)?),
+            offering: Some(*offering),
+            candidate: Some(candidate),
             protocol: protocol.label().into(),
             endpoint: endpoint.clone(),
             custody: credential
@@ -140,7 +127,16 @@ impl Catalog<'_> {
             replay: false,
             thinking: None,
         };
-        let (identity, transport, stamp) = self.transport(&route)?;
+        Ok((route, model))
+    }
+
+    pub(crate) fn admit(
+        &self,
+        layers: &[(&Declaration, Origin)],
+        mut route: Route,
+        model: &str,
+    ) -> Result<Effective, String> {
+        let (identity, transport, stamp) = self.transport(&route, model)?;
         route.identity = identity;
         route.policy = stamp;
         if let Resolved::ChatCompletions(chat) = &transport {
@@ -148,30 +144,11 @@ impl Catalog<'_> {
             route.thinking.clone_from(&chat.thinking);
         }
         let mut effective = Effective::resolve(layers, &transport)?;
-        if let Some(model) = offered {
-            effective.model.clone_from(model);
-            effective.source.model = Origin::Offering;
-        }
-        if route.offering.is_none() {
-            for row in rows {
-                if let D::Offering {
-                    access: a,
-                    family,
-                    model,
-                } = &row.definition
-                    && *a == access
-                    && model == &effective.model
-                {
-                    route.offering = Some(row.id);
-                    route.family = Some(named(&dir, Kind::Family, *family)?);
-                    break;
-                }
-            }
-        }
+        effective.source.model = Origin::Offering;
         effective.source.route = Some(Box::new(route));
         Ok(effective)
     }
 }
 
 #[cfg(test)]
-mod tests;
+pub(super) mod tests;

@@ -16,22 +16,22 @@ async fn patches() {
     )
     .await;
     assert_eq!(status, StatusCode::OK);
-    assert_eq!(reading["effective"]["provider"], "test");
+    assert_eq!(reading["effective"]["provider"], "gateway/family/routine");
     assert_eq!(reading["effective"]["model"], "service-model");
     assert_eq!(reading["effective"]["source"]["provider"], "service");
-    assert_eq!(reading["effective"]["source"]["model"], "service");
+    assert_eq!(reading["effective"]["source"]["model"], "offering");
 
     let (status, reading) = call(
         &app,
         "PATCH",
         &format!("/api/v1/souls/{soul}/inference"),
-        Some(serde_json::json!({"model": "soul-model"})),
+        Some(serde_json::json!({"scenario": "gateway/family/review"})),
     )
     .await;
     assert_eq!(status, StatusCode::OK, "{reading}");
-    assert_eq!(reading["declaration"]["model"], "soul-model");
-    assert_eq!(reading["effective"]["model"], "soul-model");
-    assert_eq!(reading["effective"]["source"]["model"], "soul");
+    assert_eq!(reading["declaration"]["scenario"], "gateway/family/review");
+    assert_eq!(reading["effective"]["model"], "seat-model");
+    assert_eq!(reading["effective"]["source"]["model"], "offering");
 
     let (status, reading) = call(
         &app,
@@ -42,19 +42,21 @@ async fn patches() {
     .await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(reading["declaration"], serde_json::json!({}));
-    assert_eq!(reading["effective"]["model"], "soul-model");
-    assert_eq!(reading["effective"]["source"]["model"], "soul");
+    assert_eq!(reading["effective"]["model"], "seat-model");
+    assert_eq!(reading["effective"]["source"]["model"], "offering");
 
     let (status, reading) = call(
         &app,
         "PATCH",
         &format!("/api/v1/strands/{strand}/inference"),
-        Some(serde_json::json!({"provider": "alternate", "reasoning_effort": "high"})),
+        Some(
+            serde_json::json!({"scenario": "gateway/family/alternate", "reasoning_effort": "high"}),
+        ),
     )
     .await;
     assert_eq!(status, StatusCode::OK, "{reading}");
-    assert_eq!(reading["effective"]["provider"], "alternate");
-    assert_eq!(reading["effective"]["model"], "soul-model");
+    assert_eq!(reading["effective"]["provider"], "gateway/family/alternate");
+    assert_eq!(reading["effective"]["model"], "alternate-model");
     assert_eq!(reading["effective"]["source"]["provider"], "strand");
     assert_eq!(reading["effective"]["source"]["reasoning_effort"], "strand");
 
@@ -62,27 +64,28 @@ async fn patches() {
         &app,
         "PATCH",
         &format!("/api/v1/strands/{strand}/inference"),
-        Some(serde_json::json!({"provider": null})),
+        Some(serde_json::json!({"scenario": null})),
     )
     .await;
     assert_eq!(status, StatusCode::OK, "{reading}");
-    assert_eq!(reading["declaration"].get("provider"), None);
-    assert_eq!(reading["effective"]["source"]["provider"], "service");
-    assert_eq!(reading["effective"]["provider"], "test");
+    assert_eq!(reading["declaration"].get("scenario"), None);
+    assert_eq!(reading["effective"]["source"]["provider"], "soul");
+    assert_eq!(reading["effective"]["provider"], "gateway/family/review");
 
     for body in [
         serde_json::json!({"unknown": "x"}),
         serde_json::json!({"model": ""}),
         serde_json::json!({"provider": "missing"}),
+        serde_json::json!({"scenario": "operator"}),
+        serde_json::json!({"scenario": "gateway/family/missing"}),
     ] {
-        let (status, _) = call(
-            &app,
-            "PATCH",
-            &format!("/api/v1/strands/{strand}/inference"),
-            Some(body),
-        )
-        .await;
-        assert!(status.is_client_error(), "{status}");
+        for path in [
+            format!("/api/v1/souls/{soul}/inference"),
+            format!("/api/v1/strands/{strand}/inference"),
+        ] {
+            let (status, _) = call(&app, "PATCH", &path, Some(body.clone())).await;
+            assert!(status.is_client_error(), "{path} {status}");
+        }
     }
     let (_, reading) = call(
         &app,
@@ -99,13 +102,13 @@ async fn patches() {
         &app,
         "PATCH",
         &endpoint,
-        Some(serde_json::json!({"provider": "alternate"})),
+        Some(serde_json::json!({"scenario": "gateway/family/alternate"})),
     );
     let second = call(
         &app,
         "PATCH",
         &endpoint,
-        Some(serde_json::json!({"model": "concurrent-model"})),
+        Some(serde_json::json!({"reasoning_effort": "medium"})),
     );
     let ((first, _), (second, _)) = tokio::join!(first, second);
     assert_eq!(first, StatusCode::OK);
@@ -117,8 +120,11 @@ async fn patches() {
         None,
     )
     .await;
-    assert_eq!(reading["declaration"]["provider"], "alternate");
-    assert_eq!(reading["declaration"]["model"], "concurrent-model");
+    assert_eq!(
+        reading["declaration"]["scenario"],
+        "gateway/family/alternate"
+    );
+    assert_eq!(reading["declaration"]["reasoning_effort"], "medium");
 
     let (status, forked) = call(
         &app,
@@ -136,8 +142,11 @@ async fn patches() {
         None,
     )
     .await;
-    assert_eq!(reading["declaration"]["provider"], "alternate");
-    assert_eq!(reading["declaration"]["model"], "concurrent-model");
+    assert_eq!(
+        reading["declaration"]["scenario"],
+        "gateway/family/alternate"
+    );
+    assert_eq!(reading["declaration"]["reasoning_effort"], "medium");
 
     let (status, forked) = call(
         &app,
@@ -156,7 +165,7 @@ async fn patches() {
     )
     .await;
     assert_eq!(reading["declaration"], serde_json::json!({}));
-    assert_eq!(reading["effective"]["model"], "soul-model");
+    assert_eq!(reading["effective"]["model"], "seat-model");
 
     let (status, _) = call(&app, "GET", "/api/v1/strands/missing/inference", None).await;
     assert_eq!(status, StatusCode::NOT_FOUND);

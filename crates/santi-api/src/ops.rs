@@ -22,9 +22,9 @@ pub struct DoctorReport {
     pub ok: bool,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Default, Clone, Serialize)]
 pub struct ProviderDoctorReport {
-    pub profile: Option<String>,
+    pub scenario: Option<String>,
     pub kind: Option<String>,
     pub model: Option<String>,
     pub effort: Option<String>,
@@ -180,11 +180,14 @@ impl Layout {
     }
 
     pub async fn configured(&self, held: &Runtime) -> Result<DoctorReport, String> {
-        let name = held.provider().to_string();
-        let profile = Some(name.clone());
-        let selected = held.providers.get(&name);
+        let mut provider = ProviderDoctorReport {
+            scenario: held.inference.scenario.clone(),
+            effort: held.inference.reasoning_effort.clone(),
+            ..Default::default()
+        };
         let resolved = async {
-            use santi_core::{inference::Origin, provider::Resolver};
+            use crate::provider::Catalog;
+            use santi_core::inference::Origin;
             let rows = if self.database.exists() {
                 santi_core::Store::open(&self.database)
                     .await?
@@ -193,38 +196,27 @@ impl Layout {
             } else {
                 Vec::new()
             };
-            let catalog = crate::provider::Catalog {
-                profiles: &held.providers,
+            let catalog = Catalog {
                 custody: &held.custody,
             };
-            let selected = catalog.selecting(&[(&held.inference, Origin::Service)], &rows)?;
-            catalog.configured(&selected)
+            let layers = [(&held.inference, Origin::Service)];
+            let (route, model) = Catalog::offered(&layers, &rows)?;
+            provider.kind = Some(route.protocol.clone());
+            provider.model = Some(model.into());
+            let selection = catalog.admit(&layers, route, model)?;
+            catalog.configured(&selection)
         }
         .await;
-        let provider = match resolved {
-            Ok(provider) => ProviderDoctorReport {
-                profile,
-                kind: Some(provider.kind().to_string()),
-                model: Some(provider.model().to_string()),
-                effort: provider.effort().map(str::to_string),
-                bytes: Some(provider.bytes()),
-                maintenance: Some(provider.maintenance()),
-                source: Some("service_selection".to_string()),
-                ok: true,
-                error: None,
-            },
-            Err(error) => ProviderDoctorReport {
-                profile,
-                kind: selected.map(|profile| profile.kind().to_string()),
-                model: selected.and_then(|profile| profile.model(&name)),
-                effort: selected.and_then(|profile| profile.effort(&name)),
-                bytes: None,
-                maintenance: None,
-                source: None,
-                ok: false,
-                error: Some(error.to_string()),
-            },
-        };
+        match resolved {
+            Ok(config) => {
+                provider.effort = config.effort().map(str::to_owned);
+                provider.bytes = Some(config.bytes());
+                provider.maintenance = Some(config.maintenance());
+                provider.source = Some("service_selection".into());
+                provider.ok = true;
+            }
+            Err(error) => provider.error = Some(error),
+        }
         self.doctor_report(Some(provider)).await
     }
 

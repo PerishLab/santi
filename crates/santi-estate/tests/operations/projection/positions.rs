@@ -33,14 +33,14 @@ async fn boundaries() {
     for at in [0, 1, 6, 7] {
         let tag = format!("child_{at}");
         let (child, _) = store
-            .positioning(draft(&tag, at), |_, _, _| Ok(()))
+            .positioning(draft(&tag, at), |_, _, _, _| Ok(()))
             .await
             .expect("exact");
         assert_eq!(child.fork, Some(at));
         assert_eq!(child.next, at + 1);
     }
     let (head, _) = store
-        .branching(draft("head", 9), |_, _, _| Ok(()))
+        .branching(draft("head", 9), |_, _, _, _| Ok(()))
         .await
         .expect("head");
     assert_eq!(
@@ -84,7 +84,7 @@ impl History {
     async fn refused(&self, at: i64, earlier: &str, later: &str) {
         let error = self
             .0
-            .positioning(draft("refused", at), |_, _, _| Ok(()))
+            .positioning(draft("refused", at), |_, _, _, _| Ok(()))
             .await
             .expect_err("refused");
         assert!(

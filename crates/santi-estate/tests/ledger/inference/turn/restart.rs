@@ -79,6 +79,13 @@ async fn reopen() {
         })
         .await
         .unwrap();
+    let mut direct = old.clone();
+    direct.provider = "original".into();
+    let route = direct.source.route.as_mut().unwrap();
+    route.scenario = None;
+    route.candidate = None;
+    assert!(store.begin(draft("direct"), &direct).await.is_err());
+    assert!(store.turn("direct").await.unwrap().is_none());
     let one = drain(&store, "turn_one", &old).await;
     assert_eq!(one.turn.inference.as_ref(), Some(&old));
     store
@@ -97,8 +104,7 @@ async fn reopen() {
     store.amend(access, renamed).await.unwrap();
 
     let patch = Patch {
-        provider: Some(Some("provider_b".to_string())),
-        model: Some(Some("model_b".to_string())),
+        scenario: Some(Some("gateway/family/next".into())),
         reasoning_effort: Some(Some("high".to_string())),
     };
     store

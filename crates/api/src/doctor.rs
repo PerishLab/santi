@@ -63,7 +63,7 @@ impl Report {
             .as_ref()
             .is_some_and(|provider| !provider.ok)
         {
-            actions.push("Fix the selected provider configuration or supply its referenced variables to this process; a service's environment is not inherited by this command.");
+            actions.push("Check the scenario, its preferred candidate and custody, and supply any referenced variables to this process; a service's environment is not inherited by this command.");
         }
         if report.memory_present && !report.memory_readable {
             actions.push("Restore read access to memory_path for the intended runtime user.");

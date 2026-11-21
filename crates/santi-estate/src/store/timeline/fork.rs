@@ -22,7 +22,7 @@ impl Store {
         &self,
         draft: ForkDraft<'_>,
     ) -> Result<santi_model::strand::Strand, String> {
-        self.branching(draft, |_, _, _| Ok(()))
+        self.branching(draft, |_, _, _, _| Ok(()))
             .await
             .map(|(strand, _)| strand)
     }
@@ -34,6 +34,7 @@ impl Store {
             crate::Target,
             &santi_model::inference::Declaration,
             Option<&santi_model::inference::Declaration>,
+            &[santi_model::catalog::Record],
         ) -> Result<V, String>,
     ) -> Result<(santi_model::strand::Strand, Option<V>), String> {
         let tag = draft.tag.to_string();
@@ -60,6 +61,7 @@ impl Store {
             crate::Target,
             &santi_model::inference::Declaration,
             Option<&santi_model::inference::Declaration>,
+            &[santi_model::catalog::Record],
         ) -> Result<V, String>,
     ) -> Result<(santi_model::strand::Strand, Option<V>), String> {
         let tag = draft.tag.to_string();
@@ -80,7 +82,7 @@ impl Store {
     }
 
     pub async fn fork(&self, draft: ForkDraft<'_>) -> Result<santi_model::strand::Strand, String> {
-        self.forking(draft, |_, _, _| Ok(()))
+        self.forking(draft, |_, _, _, _| Ok(()))
             .await
             .map(|(strand, _)| strand)
     }
@@ -92,6 +94,7 @@ impl Store {
             crate::Target,
             &santi_model::inference::Declaration,
             Option<&santi_model::inference::Declaration>,
+            &[santi_model::catalog::Record],
         ) -> Result<V, String>,
     ) -> Result<(santi_model::strand::Strand, Option<V>), String> {
         if draft.at < 0 {
@@ -125,6 +128,7 @@ async fn creating<V>(
         crate::Target,
         &santi_model::inference::Declaration,
         Option<&santi_model::inference::Declaration>,
+        &[santi_model::catalog::Record],
     ) -> Result<V, String>,
 ) -> Result<Option<V>, keel::adapt::Error> {
     let parent = Writer(tx).need("Strand", draft.parent).await?;
@@ -137,32 +141,26 @@ async fn creating<V>(
     }
     let soul = int(&parent, "soul")?.to_string();
     let checked = if let Some(inference) = draft.inference {
-        inference.validate().map_err(keel::adapt::Error::Adapt)?;
+        inference
+            .validate()
+            .map_err(|error| keel::adapt::Error::Adapt(format!("inference rejected: {error}")))?;
         let row = tx
             .one(&form("Soul").when("id", Op::Eq, &soul))
             .await?
             .ok_or_else(|| keel::adapt::Error::Adapt(format!("Soul {soul} not found")))?;
         let lower = crate::store::support::inference::declaration(&row)
             .map_err(keel::adapt::Error::Adapt)?;
+        let rows = crate::store::support::inference::snapshot(tx).await?;
         Some(
-            validate(crate::Target::Strand, inference, Some(&lower))
+            validate(crate::Target::Strand, inference, Some(&lower), &rows)
                 .map_err(keel::adapt::Error::Adapt)?,
         )
     } else {
         None
     };
-    let (provider, model, effort) = match draft.inference {
-        Some(inference) => (
-            inference.provider.clone(),
-            inference.model.clone(),
-            inference.reasoning_effort.clone(),
-        ),
-        None => (
-            parent.text("provider").map(str::to_string),
-            parent.text("model").map(str::to_string),
-            parent.text("reasoning_effort").map(str::to_string),
-        ),
-    };
+    let inherited = crate::store::support::inference::declaration(&parent)
+        .map_err(keel::adapt::Error::Adapt)?;
+    let selected = draft.inference.unwrap_or(&inherited);
     let next = (draft.at + 1).to_string();
     let seen = int(&parent, "seen")?.min(draft.at).to_string();
     let fork = draft.at.to_string();
@@ -177,15 +175,7 @@ async fn creating<V>(
         ("soul", soul.as_str()),
         ("parent", parent_key.as_str()),
     ];
-    if let Some(provider) = provider.as_deref() {
-        fields.push(("provider", provider));
-    }
-    if let Some(model) = model.as_deref() {
-        fields.push(("model", model));
-    }
-    if let Some(effort) = effort.as_deref() {
-        fields.push(("reasoning_effort", effort));
-    }
+    crate::store::support::inference::fields(selected, &mut fields);
     let child = tx.put("Strand", &fields).await?;
     copy::entries(tx, parent.key(), child, draft.at).await?;
     copy::compacts(tx, parent.key(), child, draft.at).await?;

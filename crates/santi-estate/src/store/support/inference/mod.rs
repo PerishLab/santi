@@ -1,4 +1,5 @@
 use super::super::*;
+mod bindings;
 mod catalog;
 pub(in crate::store) use catalog::snapshot;
 mod writer;
@@ -27,6 +28,20 @@ pub struct Edit<'a> {
 }
 
 impl Store {
+    pub async fn declarations(&self) -> Result<(), String> {
+        self.core
+            .batch(async |tx| {
+                for unit in ["Soul", "Strand"] {
+                    for row in tx.ask(&keel::form(unit)).await?.rows() {
+                        declaration(row).map_err(keel::adapt::Error::Adapt)?;
+                    }
+                }
+                Ok(())
+            })
+            .await
+            .map_err(read::error)
+    }
+
     pub async fn declare(
         &self,
         target: Target,
@@ -41,7 +56,7 @@ impl Store {
                 patch,
                 now,
             },
-            |_, _, _| Ok(()),
+            |_, _, _, _| Ok(()),
         )
         .await
         .map(|(declaration, ())| declaration)
@@ -54,6 +69,7 @@ impl Store {
             Target,
             &santi_model::inference::Declaration,
             Option<&santi_model::inference::Declaration>,
+            &[santi_model::catalog::Record],
         ) -> Result<V, String>,
     ) -> Result<(santi_model::inference::Declaration, V), String> {
         let unit = edit.target.unit();
@@ -81,10 +97,15 @@ impl Store {
                     Some(declaration(&row).map_err(keel::adapt::Error::Adapt)?)
                 };
                 let next = edit.patch.apply(&current);
-                next.validate().map_err(keel::adapt::Error::Adapt)?;
-                let verified = validate(edit.target, &next, parent.as_ref())
+                next.validate().map_err(|error| {
+                    keel::adapt::Error::Adapt(format!("inference rejected: {error}"))
+                })?;
+                let rows = snapshot(tx).await?;
+                let verified = validate(edit.target, &next, parent.as_ref(), &rows)
                     .map_err(keel::adapt::Error::Adapt)?;
-                tx.set(unit, row.key(), &fields(&next, edit.now)).await?;
+                let mut values = vec![("updated", edit.now)];
+                fields(&next, &mut values);
+                tx.set(unit, row.key(), &values).await?;
                 let cleared = cleared(&next);
                 if !cleared.is_empty() {
                     tx.unset(unit, row.key(), &cleared).await?;
@@ -99,37 +120,38 @@ impl Store {
 pub(in crate::store) fn declaration(
     row: &keel::Row,
 ) -> Result<santi_model::inference::Declaration, String> {
-    Ok(santi_model::inference::Declaration {
-        provider: row.text("provider").map(str::to_string),
-        model: row.text("model").map(str::to_string),
-        reasoning_effort: row.text("reasoning_effort").map(str::to_string),
-    })
+    let tag = row.text("tag").unwrap_or_default();
+    if row.text("model").is_some() {
+        return Err(format!(
+            "inference declaration {tag} still has a legacy model override; migrate before upgrading"
+        ));
+    }
+    let value = santi_model::inference::Declaration {
+        scenario: row.text("provider").map(str::to_owned),
+        reasoning_effort: row.text("reasoning_effort").map(str::to_owned),
+    };
+    value
+        .validate()
+        .map_err(|e| format!("inference declaration {tag}: {e}"))?;
+    Ok(value)
 }
 
-fn fields<'a>(
+pub(in crate::store) fn fields<'a>(
     inference: &'a santi_model::inference::Declaration,
-    now: &'a str,
-) -> Vec<(&'a str, &'a str)> {
-    let mut fields = vec![("updated", now)];
-    if let Some(provider) = inference.provider.as_deref() {
-        fields.push(("provider", provider));
-    }
-    if let Some(model) = inference.model.as_deref() {
-        fields.push(("model", model));
+    values: &mut Vec<(&'a str, &'a str)>,
+) {
+    if let Some(scenario) = inference.scenario.as_deref() {
+        values.push(("provider", scenario));
     }
     if let Some(effort) = inference.reasoning_effort.as_deref() {
-        fields.push(("reasoning_effort", effort));
+        values.push(("reasoning_effort", effort));
     }
-    fields
 }
 
 fn cleared(inference: &santi_model::inference::Declaration) -> Vec<&'static str> {
     let mut fields = Vec::new();
-    if inference.provider.is_none() {
+    if inference.scenario.is_none() {
         fields.push("provider");
-    }
-    if inference.model.is_none() {
-        fields.push("model");
     }
     if inference.reasoning_effort.is_none() {
         fields.push("reasoning_effort");
@@ -152,7 +174,7 @@ impl Store {
         &self,
         draft: StrandDraft<'_>,
     ) -> Result<santi_model::strand::Strand, String> {
-        self.create(draft, |_, _, _| Ok(()))
+        self.create(draft, |_, _, _, _| Ok(()))
             .await
             .map(|(strand, _)| strand)
     }
@@ -164,6 +186,7 @@ impl Store {
             Target,
             &santi_model::inference::Declaration,
             Option<&santi_model::inference::Declaration>,
+            &[santi_model::catalog::Record],
         ) -> Result<V, String>,
     ) -> Result<(santi_model::strand::Strand, Option<V>), String> {
         let tag = draft.tag.to_string();
@@ -198,21 +221,16 @@ impl Store {
                 }
                 let mut checked = None;
                 if let Some(inference) = draft.inference {
-                    inference.validate().map_err(keel::adapt::Error::Adapt)?;
+                    inference.validate().map_err(|error| {
+                        keel::adapt::Error::Adapt(format!("inference rejected: {error}"))
+                    })?;
                     let lower = declaration(&soul).map_err(keel::adapt::Error::Adapt)?;
+                    let rows = snapshot(tx).await?;
                     checked = Some(
-                        validate(Target::Strand, inference, Some(&lower))
+                        validate(Target::Strand, inference, Some(&lower), &rows)
                             .map_err(keel::adapt::Error::Adapt)?,
                     );
-                    if let Some(provider) = inference.provider.as_deref() {
-                        fields.push(("provider", provider));
-                    }
-                    if let Some(model) = inference.model.as_deref() {
-                        fields.push(("model", model));
-                    }
-                    if let Some(effort) = inference.reasoning_effort.as_deref() {
-                        fields.push(("reasoning_effort", effort));
-                    }
+                    self::fields(inference, &mut fields);
                 }
                 tx.put("Strand", &fields).await?;
                 Ok(checked)

@@ -10,19 +10,17 @@ fn catalog() -> Catalog<'static> {
 [operator]
 kind = "gemini_generate_content"
 api_key = "fixture-only"
-model = "profile-default"
 base_url = "https://fixture.invalid/v1"
 bytes = 1000
 "#,
     )
     .unwrap();
     Catalog {
-        profiles: Box::leak(Box::default()),
         custody: Box::leak(Box::new(profiles)),
     }
 }
 
-fn graph() -> Vec<Record> {
+pub(in crate::provider) fn graph() -> Vec<Record> {
     let access = |name: &str| D::Access {
         name: name.into(),
         provider: 1,
@@ -83,12 +81,11 @@ fn continuity() {
     let resolver = catalog();
     let mut rows = graph();
     let service = Declaration {
-        provider: Some("legacy".into()),
-        model: Some("old-default".into()),
+        scenario: Some("gateway/family/review".into()),
         ..Default::default()
     };
     let soul = Declaration {
-        provider: Some("gateway/family/review".into()),
+        scenario: Some("gateway/family/review".into()),
         ..Default::default()
     };
     let strand = Declaration {
@@ -165,20 +162,23 @@ fn continuity() {
 fn explicit() {
     let resolver = catalog();
     let mut rows = graph();
-    let direct = Declaration {
-        provider: Some("legacy".into()),
-        model: Some("unlisted".into()),
+    for name in ["legacy", "direct"] {
+        let bare = Declaration {
+            scenario: Some(name.into()),
+            ..Default::default()
+        };
+        assert!(
+            resolver
+                .selecting(&[(&bare, Origin::Strand)], &rows)
+                .is_err()
+        );
+    }
+    let scene = Declaration {
+        scenario: Some("gateway/family/review".into()),
         ..Default::default()
     };
-    let resolve = |rows: &[Record]| resolver.selecting(&[(&direct, Origin::Strand)], rows);
+    let resolve = |rows: &[Record]| resolver.selecting(&[(&scene, Origin::Strand)], rows);
     let selected = resolve(&rows).unwrap();
-    let route = selected.source.route.as_ref().unwrap();
-    assert_eq!(route.access.id, 4);
-    assert!(route.offering.is_none() && route.family.is_none() && route.candidate.is_none());
-    assert_eq!(
-        resolver.build(&selected).unwrap().metadata().model,
-        "unlisted"
-    );
     let original = rows[3].clone();
     for change in ["endpoint", "protocol", "handle", "unknown"] {
         rows[3] = original.clone();

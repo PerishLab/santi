@@ -1,4 +1,4 @@
-use super::catalog::snapshot;
+use super::{bindings, catalog::snapshot};
 use keel::{
     Tx,
     adapt::{Error, db::Sqlite},
@@ -41,10 +41,12 @@ pub(super) async fn write(
     tx: &mut Tx<'_, Sqlite>,
     expected: Option<Record>,
     definition: Definition,
+    service: Option<&str>,
 ) -> Result<Record, Error> {
     definition.validate().map_err(Error::Adapt)?;
     let kind = definition.kind();
     let mut rows = snapshot(tx).await?;
+    let paths = bindings::paths(&rows)?;
     let fields = cells(&definition)?;
     let fields: Vec<_> = fields
         .iter()
@@ -61,7 +63,7 @@ pub(super) async fn write(
         if old.definition.name() != definition.name()
             || matches!(old.definition, Definition::Alias { .. })
         {
-            let uses = bindings(tx, &old.definition).await?;
+            let uses = bindings::legacy(tx, &old.definition).await?;
             if !uses.is_empty() {
                 return Err(Error::Adapt(format!(
                     "source referenced by {}",
@@ -78,11 +80,16 @@ pub(super) async fn write(
     let record = Record { id, definition };
     rows.push(record.clone());
     validate::graph(&rows).map_err(Error::Adapt)?;
+    bindings::protect(tx, &paths, &rows, service).await?;
     Ok(record)
 }
 
-pub(super) async fn delete(tx: &mut Tx<'_, Sqlite>, expected: Record) -> Result<(), Error> {
-    let rows = snapshot(tx).await?;
+pub(super) async fn delete(
+    tx: &mut Tx<'_, Sqlite>,
+    expected: Record,
+    service: Option<&str>,
+) -> Result<(), Error> {
+    let mut rows = snapshot(tx).await?;
     verify(&rows, &expected)?;
     let kind = expected.definition.kind();
     let mut uses = validate::dependents(&rows, kind, expected.id);
@@ -103,37 +110,15 @@ pub(super) async fn delete(tx: &mut Tx<'_, Sqlite>, expected: Record) -> Result<
             ));
         }
     }
-    uses.extend(bindings(tx, &expected.definition).await?);
+    uses.extend(bindings::legacy(tx, &expected.definition).await?);
     if !uses.is_empty() {
         return Err(Error::Adapt(format!(
             "source referenced by {}",
             uses.join(", ")
         )));
     }
+    let paths = bindings::paths(&rows)?;
+    rows.retain(|r| r.definition.kind() != kind || r.id != expected.id);
+    bindings::protect(tx, &paths, &rows, service).await?;
     tx.end(kind.unit(), expected.id).await
-}
-
-async fn bindings(tx: &mut Tx<'_, Sqlite>, definition: &Definition) -> Result<Vec<String>, Error> {
-    let mut uses = Vec::new();
-    if let Definition::Alias { name, .. } | Definition::Access { name, .. } = definition {
-        for unit in ["Soul", "Strand", "Inference"] {
-            let declared = tx
-                .ask(&form(unit).when("provider", keel::Op::Eq, name))
-                .await?;
-            for row in declared.rows() {
-                if unit == "Inference"
-                    && let Some(turn) = row.int("turn")
-                    && (crate::store::turn::terminal(tx, turn).await?
-                        || tx
-                            .one(&form("Route").when("turn", keel::Op::Eq, &turn.to_string()))
-                            .await?
-                            .is_some())
-                {
-                    continue;
-                }
-                uses.push(format!("{unit}/{}", row.key()))
-            }
-        }
-    }
-    Ok(uses)
 }

@@ -1,53 +1,13 @@
 use super::*;
-use async_trait::async_trait;
 use axum::body::Body;
 use axum::http::{Request, StatusCode};
-use santi_core::inference::{Declaration, Defaults, Directory, Effective, Origin};
-use santi_core::provider::Resolver;
+use santi_core::inference::Declaration;
 use santi_core::service::{self, JobLaunch, JobObservation, JobSupervisor};
-use santi_provider::{Metadata, Provider, Streaming};
 use std::sync::Arc;
 use tower::ServiceExt;
 
-struct Unused;
-#[async_trait]
-impl Provider for Unused {
-    fn metadata(&self) -> Metadata {
-        Metadata {
-            provider: Arc::from("test"),
-            model: "test".into(),
-            budget: None,
-        }
-    }
-    async fn stream(&self, _: santi_provider::Request) -> Result<Streaming, String> {
-        Err("no provider request expected".into())
-    }
-}
-
-struct Catalog;
-impl Directory for Catalog {
-    fn defaults(&self, provider: &str) -> Result<Defaults, String> {
-        match provider {
-            "test" => Ok(Defaults {
-                model: "default-test".into(),
-                reasoning_effort: None,
-            }),
-            "alternate" => Ok(Defaults {
-                model: "default-alternate".into(),
-                reasoning_effort: Some("low".into()),
-            }),
-            _ => Err(format!("unknown provider {provider}")),
-        }
-    }
-}
-impl Resolver for Catalog {
-    fn resolve(&self, layers: &[(&Declaration, Origin)]) -> Result<Effective, String> {
-        Effective::resolve(layers, self)
-    }
-    fn build(&self, _: &Effective) -> Result<Arc<dyn Provider>, String> {
-        Ok(Arc::new(Unused))
-    }
-}
+#[path = "../../../../tests/support/catalog.rs"]
+mod catalog;
 
 struct Idle;
 impl JobSupervisor for Idle {
@@ -68,12 +28,25 @@ impl JobSupervisor for Idle {
 async fn serve(declaration: Declaration) -> (tempfile::TempDir, axum::Router) {
     let root = tempfile::tempdir().unwrap();
     let database = root.path().join("db");
-    santi_core::Store::bootstrap(
+    let store = santi_core::Store::bootstrap(
         &database,
         "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
     )
     .await
     .unwrap();
+    catalog::qualify(
+        &store,
+        &[
+            ("routine", "service-model"),
+            ("review", "seat-model"),
+            ("parent", "parent-model"),
+            ("alternate", "alternate-model"),
+        ],
+    )
+    .await;
+    let custody =
+        toml::from_str("[operator]\nkind='openai_responses'\napi_key='fixture'\nbytes=1000")
+            .unwrap();
     let service = Service::provided(
         service::Config {
             database: database.display().to_string(),
@@ -83,7 +56,9 @@ async fn serve(declaration: Declaration) -> (tempfile::TempDir, axum::Router) {
             constitution: None,
             environment: Default::default(),
         },
-        Arc::new(Catalog),
+        Arc::new(crate::provider::Catalog {
+            custody: Box::leak(Box::new(custody)),
+        }),
         declaration,
         Arc::new(Idle),
     )
@@ -94,8 +69,7 @@ async fn serve(declaration: Declaration) -> (tempfile::TempDir, axum::Router) {
 
 async fn fixture() -> (tempfile::TempDir, axum::Router) {
     serve(Declaration {
-        provider: Some("test".into()),
-        model: Some("service-model".into()),
+        scenario: Some("gateway/family/routine".into()),
         reasoning_effort: None,
     })
     .await

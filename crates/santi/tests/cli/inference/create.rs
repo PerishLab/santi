@@ -37,8 +37,8 @@ async fn declared() {
             "create",
             "--soul",
             "soul_one",
-            "--model",
-            "m1",
+            "--scenario",
+            "edge/family/work",
             "--reasoning-effort",
             "high",
         ],
@@ -47,7 +47,7 @@ async fn declared() {
     support::applied(&output);
     assert_eq!(
         support::json(&request),
-        json!({"inference": {"model": "m1", "reasoning_effort": "high"}})
+        json!({"inference": {"scenario": "edge/family/work", "reasoning_effort": "high"}})
     );
 
     let wire = support::serve(
@@ -58,7 +58,7 @@ async fn declared() {
     let (output, request) = support::call(
         wire,
         home.path(),
-        &[("SANTI_INFERENCE_PROVIDER", "env-provider")],
+        &[("SANTI_INFERENCE_SCENARIO", "env/family/work")],
         &["strand", "create"],
     )
     .await;
@@ -66,7 +66,7 @@ async fn declared() {
     assert_eq!(support::line(&request), "POST /api/v1/strands HTTP/1.1");
     assert_eq!(
         support::json(&request),
-        json!({"inference": {"provider": "env-provider"}})
+        json!({"inference": {"scenario": "env/family/work"}})
     );
 }
 
@@ -111,7 +111,7 @@ async fn copied() {
         home.path(),
         &[
             ("SANTI_STRAND_ID", "ss_env"),
-            ("SANTI_INFERENCE_MODEL", "env-model"),
+            ("SANTI_INFERENCE_SCENARIO", "env/family/work"),
         ],
         &["strand", "fork"],
     )
@@ -123,7 +123,7 @@ async fn copied() {
     );
     assert_eq!(
         support::json(&request),
-        json!({"inference": {"model": "env-model"}})
+        json!({"inference": {"scenario": "env/family/work"}})
     );
 }
 
@@ -139,17 +139,15 @@ async fn forked() {
             "strand",
             "fork",
             "ss_parent",
-            "--provider",
-            "edge",
-            "--model",
-            "m1",
+            "--scenario",
+            "edge/family/work",
         ],
     )
     .await;
     support::applied(&output);
     assert_eq!(
         support::json(&request),
-        json!({"inference": {"provider": "edge", "model": "m1"}})
+        json!({"inference": {"scenario": "edge/family/work"}})
     );
 
     let wire = support::serve("200 OK", FORKED).await;
@@ -174,8 +172,8 @@ async fn positioned() {
             json!({"at": 12, "inference": {}}),
         ),
         (
-            vec!["--at", "12", "--model", "chosen"],
-            json!({"at": 12, "inference": {"model": "chosen"}}),
+            vec!["--at", "12", "--scenario", "edge/family/work"],
+            json!({"at": 12, "inference": {"scenario": "edge/family/work"}}),
         ),
     ] {
         let wire = support::serve("200 OK", FORKED).await;
@@ -196,7 +194,7 @@ async fn positioned() {
         home.path(),
         &[
             ("SANTI_STRAND_ID", "ss_env"),
-            ("SANTI_INFERENCE_MODEL", "held"),
+            ("SANTI_INFERENCE_SCENARIO", "held/family/work"),
         ],
         &["strand", "fork", "--at", "5"],
     )
@@ -208,6 +206,6 @@ async fn positioned() {
     );
     assert_eq!(
         support::json(&request),
-        json!({"at": 5, "inference": {"model": "held"}})
+        json!({"at": 5, "inference": {"scenario": "held/family/work"}})
     );
 }

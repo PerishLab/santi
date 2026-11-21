@@ -256,12 +256,24 @@ mod tests {
         );
         check(&["inference", "soul", "get"], "inference.soul.get");
         check(
-            &["inference", "soul", "set", "--model", "value"],
+            &[
+                "inference",
+                "soul",
+                "set",
+                "--scenario",
+                "gateway/family/work",
+            ],
             "inference.soul.set",
         );
         check(&["inference", "strand", "get"], "inference.strand.get");
         check(
-            &["inference", "strand", "set", "--model", "value"],
+            &[
+                "inference",
+                "strand",
+                "set",
+                "--scenario",
+                "gateway/family/work",
+            ],
             "inference.strand.set",
         );
     }

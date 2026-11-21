@@ -1,6 +1,7 @@
-use super::super::SUDO;
-use santi_estate::Store;
+use super::super::{NOW, SUDO};
+use santi_estate::{Store, Target};
 use santi_model::catalog::{Definition as D, Protocol, selection};
+use santi_model::inference::Patch;
 
 #[tokio::test]
 async fn choices() {
@@ -21,7 +22,7 @@ async fn choices() {
         .unwrap();
     let scene = s
         .register(D::Scenario {
-            name: "复核".into(),
+            name: "review".into(),
             criterion: "recall a tool result".into(),
         })
         .await
@@ -43,7 +44,7 @@ async fn choices() {
             .unwrap();
         let alias = s
             .register(D::Alias {
-                name: format!("legacy-{name}"),
+                name: format!("legacy{name}"),
                 access: access.id,
             })
             .await
@@ -76,7 +77,7 @@ async fn choices() {
     let initial = s.sources().await.unwrap();
     assert_eq!(
         selection::Directory(&initial)
-            .explain("teamorouter", "gemini", "复核")
+            .explain("teamorouter", "gemini", "review")
             .unwrap()
             .preferred,
         None
@@ -92,6 +93,38 @@ async fn choices() {
     );
     assert_eq!(usize::from(left.is_ok()) + usize::from(right.is_ok()), 1);
     let pref = left.or(right).unwrap();
+    let selector = "teamorouter/gemini/review";
+    assert!(
+        s.withdrawing(pref.clone(), Some(selector))
+            .await
+            .unwrap_err()
+            .contains("service declaration")
+    );
+    s.seed("consumer", NOW).await.unwrap();
+    s.declare(
+        Target::Soul,
+        "consumer",
+        &Patch {
+            scenario: Some(Some(selector.into())),
+            ..Default::default()
+        },
+        NOW,
+    )
+    .await
+    .unwrap();
+    let renamed = D::Family { name: "new".into() };
+    assert!(
+        s.amend(family.clone(), renamed.clone())
+            .await
+            .unwrap_err()
+            .contains("Soul/")
+    );
+    assert!(
+        s.withdraw(pref.clone())
+            .await
+            .unwrap_err()
+            .contains("Soul/")
+    );
     s.amend(
         pref,
         D::Preference {
@@ -100,9 +133,18 @@ async fn choices() {
     )
     .await
     .unwrap();
-    s.amend(family.clone(), D::Family { name: "new".into() })
-        .await
-        .unwrap();
+    s.declare(
+        Target::Soul,
+        "consumer",
+        &Patch {
+            scenario: Some(None),
+            ..Default::default()
+        },
+        NOW,
+    )
+    .await
+    .unwrap();
+    s.amend(family.clone(), renamed).await.unwrap();
     assert!(
         s.amend(
             family,
@@ -117,7 +159,7 @@ async fn choices() {
     drop(peer);
     let rows = Store::open(path).await.unwrap().sources().await.unwrap();
     let choice = selection::Directory(&rows)
-        .explain("teamorouter", "new", "复核")
+        .explain("teamorouter", "new", "review")
         .unwrap();
     assert_eq!(choice.preferred, Some(candidates[1]));
     assert_eq!(choice.candidates, candidates);
