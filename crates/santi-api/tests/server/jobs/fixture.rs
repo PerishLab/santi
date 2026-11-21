@@ -13,6 +13,7 @@ pub(super) async fn prepare(
     let database = temp.path().join("santi.sqlite");
     super::support::bootstrap(&database).await;
     let service = Service::supervised(
+        "fixture/model/execution",
         service::Config {
             database: database.display().to_string(),
             runtime: temp.path().join("runtime").display().to_string(),

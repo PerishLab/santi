@@ -5,8 +5,8 @@ use santi_model::receipt;
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn concurrent() {
     let (_temp, _path, store) = start().await;
-    let first = choice("provider_a", "model_a", Some("low"));
-    let second = choice("provider_b", "model_b", Some("high"));
+    let first = choice("fixture/family/a", "model_a", Some("low"));
+    let second = choice("fixture/family/b", "model_b", Some("high"));
     let barrier = std::sync::Arc::new(tokio::sync::Barrier::new(2));
     let mut tasks = Vec::new();
     for (tag, effective) in [("turn_a", first.clone()), ("turn_b", second.clone())] {

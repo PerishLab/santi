@@ -104,6 +104,7 @@ mod tests {
         .await
         .unwrap();
         let service = Service::open(
+            "fixture/model/execution",
             santi_core::service::Config {
                 database: root.path().join("db").display().to_string(),
                 runtime: root.path().join("runtime").display().to_string(),

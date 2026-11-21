@@ -18,6 +18,7 @@ async fn vertical() {
     bootstrap(&database).await;
     let supervisor = santi_api::jobs::Native::new(env!("CARGO_BIN_EXE_santi-api"));
     let service = Service::supervised(
+        "fixture/model/execution",
         service::Config {
             database: database.display().to_string(),
             runtime: temp.path().join("runtime").display().to_string(),

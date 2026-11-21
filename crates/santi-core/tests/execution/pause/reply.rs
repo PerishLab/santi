@@ -93,7 +93,7 @@ pub(super) async fn spoken(replies: usize, tail: Option<&'static str>) -> Spoken
         tail,
         requests: Mutex::new(Vec::new()),
     });
-    let service = service::Service::open(config.clone(), provider.clone())
+    let service = service::Service::open(crate::SCENARIO, config.clone(), provider.clone())
         .await
         .unwrap();
     let events = service.listen().await;

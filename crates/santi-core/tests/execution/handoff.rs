@@ -30,6 +30,7 @@ async fn verify(rounds: usize, calls: usize, output: usize, compacts: usize) {
         ..Default::default()
     });
     let service = Service::open(
+        crate::SCENARIO,
         service::Config {
             database: temp.path().join("santi.sqlite").display().to_string(),
             runtime: temp.path().join("runtime").display().to_string(),
@@ -176,6 +177,7 @@ async fn confines() {
         ..Default::default()
     });
     let service = Service::open(
+        crate::SCENARIO,
         service::Config {
             database: temp.path().join("santi.sqlite").display().to_string(),
             runtime: temp.path().join("runtime").display().to_string(),

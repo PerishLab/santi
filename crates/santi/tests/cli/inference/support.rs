@@ -123,7 +123,7 @@ pub fn file(home: &Path, text: &str) -> PathBuf {
     path
 }
 
-pub const READ: &str = r#"{"declaration":{"scenario":"edge/family/work"},"effective":{"provider":"edge/family/work","model":"m","source":{"provider":"strand","model":"offering"}},"source":{"provider":"strand","model":"offering"}}"#;
+pub const READ: &str = r#"{"declaration":{"scenario":"edge/family/work"},"effective":{"scenario":"edge/family/work","model":"m","source":{"scenario":"strand","model":"offering"}},"source":{"scenario":"strand","model":"offering"}}"#;
 
 pub async fn call(
     wire: Wire,

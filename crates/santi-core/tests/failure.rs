@@ -1,3 +1,5 @@
+const SCENARIO: &str = "fixture/model/execution";
+
 use async_trait::async_trait;
 use futures_util::stream;
 use santi_core::Category;

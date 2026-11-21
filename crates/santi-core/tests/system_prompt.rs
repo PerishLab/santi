@@ -167,6 +167,7 @@ impl PromptHarness {
         .await
         .expect("bootstrap");
         let service = Service::open(
+            "fixture/model/execution",
             service::Config {
                 database: temp.path().join("santi.sqlite").display().to_string(),
                 runtime: runtime.display().to_string(),

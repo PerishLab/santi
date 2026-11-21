@@ -26,9 +26,14 @@ pub(super) async fn reopen(
     provider: Arc<dyn Provider>,
     supervisor: Arc<dyn JobSupervisor>,
 ) -> (Service, Store) {
-    let service = Service::supervised(config(temp), provider, supervisor)
-        .await
-        .expect("reopen service");
+    let service = Service::supervised(
+        "fixture/model/execution",
+        config(temp),
+        provider,
+        supervisor,
+    )
+    .await
+    .expect("reopen service");
     let store = Store::open(config(temp).database)
         .await
         .expect("reopen estate");
@@ -41,9 +46,14 @@ pub(super) async fn boot(
     supervisor: Arc<dyn JobSupervisor>,
 ) -> (Service, Store, strand::Strand) {
     crate::support::bootstrap(&temp.path().join("santi.sqlite")).await;
-    let service = Service::supervised(config(temp), provider, supervisor)
-        .await
-        .expect("open service");
+    let service = Service::supervised(
+        "fixture/model/execution",
+        config(temp),
+        provider,
+        supervisor,
+    )
+    .await
+    .expect("open service");
     let store = Store::open(config(temp).database)
         .await
         .expect("open estate");

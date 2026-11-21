@@ -126,6 +126,7 @@ async fn continues() {
 
 async fn open(temp: &tempfile::TempDir, provider: Arc<Continuation>) -> Service {
     Service::open(
+        crate::SCENARIO,
         service::Config {
             database: temp.path().join("santi.sqlite").display().to_string(),
             runtime: temp.path().join("runtime").display().to_string(),

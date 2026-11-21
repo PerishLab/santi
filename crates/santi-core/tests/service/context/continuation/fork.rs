@@ -13,7 +13,7 @@ async fn active() {
         finish("settled"),
         finish("child"),
     ]));
-    let service = Service::open(config(&temp), provider.clone())
+    let service = Service::open(crate::SCENARIO, config(&temp), provider.clone())
         .await
         .unwrap();
     let parent = service.weave().await.unwrap().strand;

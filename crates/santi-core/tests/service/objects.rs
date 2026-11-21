@@ -264,6 +264,7 @@ async fn leftover() {
 
 async fn open(temp: &tempfile::TempDir) -> Service {
     Service::open(
+        crate::SCENARIO,
         service::Config {
             database: temp.path().join("santi.sqlite").display().to_string(),
             runtime: temp.path().join("runtime").display().to_string(),

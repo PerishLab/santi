@@ -12,7 +12,7 @@ async fn projection() {
         finish("third"),
         finish("child"),
     ]));
-    let service = Service::open(config(&temp), provider.clone())
+    let service = Service::open(crate::SCENARIO, config(&temp), provider.clone())
         .await
         .expect("service");
     let parent = service.weave().await.expect("parent").strand;
@@ -126,7 +126,7 @@ async fn refusal() {
     let temp = tempfile::tempdir().expect("temp");
     bootstrap(&temp).await;
     let provider = Arc::new(Script::new(vec![tools(), finish("settled")]));
-    let service = Service::open(config(&temp), provider.clone())
+    let service = Service::open(crate::SCENARIO, config(&temp), provider.clone())
         .await
         .expect("service");
     let parent = service.weave().await.expect("parent").strand;

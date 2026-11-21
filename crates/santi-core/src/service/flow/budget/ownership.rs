@@ -1,4 +1,4 @@
-use crate::inference::{Effective, Origin, Source};
+use crate::inference::{Effective, Origin, Selection, Source};
 use crate::service::Service;
 use std::sync::Arc;
 struct Unused;
@@ -37,6 +37,7 @@ async fn isolates() {
         .unwrap();
         drop(store);
         let service = Service::open(
+            "fixture/model/execution",
             crate::service::Config {
                 database: database.display().to_string(),
                 runtime: temp.path().join("runtime").display().to_string(),
@@ -121,12 +122,12 @@ async fn isolates() {
             .await
             .unwrap();
         let effective = Effective {
-            provider: "unused".into(),
+            selection: Selection::Scenario("fixture/model/execution".into()),
             model: "unused".into(),
             reasoning_effort: None,
             source: Source {
                 route: None,
-                provider: Origin::Default,
+                selection: Selection::Scenario(Origin::Service),
                 model: Origin::Default,
                 reasoning_effort: None,
             },

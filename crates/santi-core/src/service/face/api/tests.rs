@@ -40,7 +40,9 @@ async fn opened() -> (tempfile::TempDir, Service, String) {
         constitution: None,
         environment: Default::default(),
     };
-    let service = Service::open(config, Arc::new(Capped)).await.unwrap();
+    let service = Service::open("fixture/model/execution", config, Arc::new(Capped))
+        .await
+        .unwrap();
     let strand = service.weave().await.unwrap().strand.id;
     (temp, service, strand)
 }

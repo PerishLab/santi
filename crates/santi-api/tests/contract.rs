@@ -247,9 +247,51 @@ fn api() {
         assert!(fields.contains_key("scenario") && fields.contains_key("reasoning_effort"));
         assert_eq!(fields.len(), 2);
     }
+    let schemas = &document["components"]["schemas"];
+    let snapshots = &schemas["inference.Effective"]["oneOf"];
+    assert_eq!(snapshots.as_array().unwrap().len(), 2);
+    for (key, kind, source) in [
+        (
+            "scenario",
+            "inference.ScenarioSelection",
+            "inference.ScenarioSource",
+        ),
+        (
+            "provider",
+            "inference.ProviderSelection",
+            "inference.ProviderSource",
+        ),
+    ] {
+        let snapshot = &schemas[kind];
+        let branch = format!("#/components/schemas/{kind}");
+        assert!(
+            snapshots
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|s| s["$ref"] == branch)
+        );
+        assert_eq!(
+            snapshot["properties"]["source"]["$ref"],
+            format!("#/components/schemas/{source}")
+        );
+        for obj in [snapshot, &schemas[source]] {
+            assert!(obj["required"].as_array().unwrap().iter().any(|r| r == key));
+            assert_eq!(obj["additionalProperties"], false);
+            assert!(
+                !["provider", "scenario"]
+                    .iter()
+                    .all(|name| obj["properties"].get(*name).is_some())
+            );
+        }
+    }
+    assert_eq!(
+        schemas["inference.Reading"]["properties"]["effective"]["oneOf"][1]["$ref"],
+        "#/components/schemas/inference.ScenarioSelection"
+    );
     let hash = format!("{:x}", Sha256::digest(text.as_bytes()));
     assert_eq!(
         hash,
-        "208821643f6313aa2470daaae88f506af09435e8d05b66cf8202241a8e0b0792"
+        "68c98e67e003d92e2fa125d3b7a04c91f89bb2dc87156121edfd6b146b7cfb5d"
     );
 }

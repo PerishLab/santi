@@ -65,7 +65,7 @@ async fn boundary() {
         requests: requests.clone(),
         failed: false,
     };
-    let service = Service::open(config(&temp), Arc::new(provider))
+    let service = Service::open(crate::SCENARIO, config(&temp), Arc::new(provider))
         .await
         .unwrap()
         .catalogued(sources(&temp))
@@ -128,7 +128,7 @@ async fn prepared() {
         requests: Arc::default(),
         failed: true,
     };
-    let service = Service::open(config(&temp), Arc::new(provider))
+    let service = Service::open(crate::SCENARIO, config(&temp), Arc::new(provider))
         .await
         .unwrap()
         .catalogued(sources(&temp))

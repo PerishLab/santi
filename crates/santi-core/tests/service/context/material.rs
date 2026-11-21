@@ -27,11 +27,15 @@ impl Fixture {
         bootstrap(&temp).await;
         source(&temp, "first-marker");
         let provider = FakeProvider::default();
-        let service = Service::open(config(&temp), Arc::new(Observed(provider.clone())))
-            .await
-            .unwrap()
-            .catalogued(sources(&temp))
-            .unwrap();
+        let service = Service::open(
+            crate::SCENARIO,
+            config(&temp),
+            Arc::new(Observed(provider.clone())),
+        )
+        .await
+        .unwrap()
+        .catalogued(sources(&temp))
+        .unwrap();
         let strand = service.weave().await.unwrap().strand.id;
         Self {
             temp,
@@ -198,9 +202,13 @@ async fn refresh() {
             .is_err()
     );
     assert!(fixture.prompt().await.contains("new-marker"));
-    let restarted = Service::open(config(&fixture.temp), Arc::new(FakeProvider::default()))
-        .await
-        .unwrap();
+    let restarted = Service::open(
+        crate::SCENARIO,
+        config(&fixture.temp),
+        Arc::new(FakeProvider::default()),
+    )
+    .await
+    .unwrap();
     let rendered = restarted
         .render(
             &fixture.strand,

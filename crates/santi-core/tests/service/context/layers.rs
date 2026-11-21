@@ -145,7 +145,8 @@ impl Resolver for Layers {
     fn resolve(&self, layers: &[(&Declaration, Origin)]) -> Result<Effective, String> {
         let mut effective = Effective::resolve(layers, &Catalog)?;
         if self.switch.load(Ordering::SeqCst) && self.resolves.fetch_add(1, Ordering::SeqCst) > 0 {
-            effective.provider = "gateway/family/beta".into();
+            effective.selection =
+                santi_core::inference::Selection::Scenario("gateway/family/beta".into());
             effective.model = "beta-model".into();
             effective.reasoning_effort = Some("high".into());
         }
@@ -154,17 +155,17 @@ impl Resolver for Layers {
 
     fn build(&self, effective: &Effective) -> Result<Arc<dyn Provider>, String> {
         self.builds.fetch_add(1, Ordering::SeqCst);
-        if effective.provider == "gateway/family/missing" {
+        if effective.selection.value() == "gateway/family/missing" {
             return Err("provider missing is not defined".into());
         }
-        let (bytes, maintenance) = match effective.provider.as_str() {
+        let (bytes, maintenance) = match effective.selection.value().as_str() {
             "gateway/family/alpha" => (200_000, 300_000),
             "gateway/family/beta" => (400_000, 600_000),
             "gateway/family/gamma" => (600_000, 900_000),
             _ => (80_000, 120_000),
         };
         Ok(Arc::new(Recorder {
-            provider: effective.provider.clone(),
+            provider: effective.selection.value().clone(),
             model: effective.model.clone(),
             effort: effective.reasoning_effort.clone(),
             bytes,

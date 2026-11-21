@@ -172,6 +172,7 @@ async fn opened(temp: &tempfile::TempDir, rounds: Vec<Script>) -> Service {
         rounds: Arc::new(Mutex::new(rounds.into())),
     };
     Service::open(
+        crate::SCENARIO,
         service::Config {
             database: temp.path().join("santi.sqlite").display().to_string(),
             runtime: temp.path().join("runtime").display().to_string(),

@@ -15,7 +15,7 @@ async fn resumes() {
         environment: Default::default(),
     };
     let provider = Arc::new(FakeProvider::default());
-    let service = Service::open(config.clone(), provider.clone())
+    let service = Service::open(crate::SCENARIO, config.clone(), provider.clone())
         .await
         .expect("open service");
     let strand = service.weave().await.expect("create strand").strand;
@@ -41,7 +41,7 @@ async fn resumes() {
     assert_eq!(receipt.state, santi_core::receipt::State::Accepted);
     drop(service);
 
-    let service = Service::open(config, provider.clone())
+    let service = Service::open(crate::SCENARIO, config, provider.clone())
         .await
         .expect("reopen service");
     service.resume().await.expect("resume pending");

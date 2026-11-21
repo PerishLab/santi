@@ -73,9 +73,13 @@ async fn opened() -> Fixture {
         environment: Default::default(),
     };
     let provider = FakeProvider::default();
-    let service = service::Service::open(config.clone(), Arc::new(Bounded(provider.clone())))
-        .await
-        .unwrap();
+    let service = service::Service::open(
+        crate::SCENARIO,
+        config.clone(),
+        Arc::new(Bounded(provider.clone())),
+    )
+    .await
+    .unwrap();
     let strand = service.weave().await.unwrap().strand.id;
     let store = Store::open(&config.database).await.unwrap();
     Fixture {

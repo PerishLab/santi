@@ -136,6 +136,7 @@ async fn cascade() {
     bootstrap(&temp).await;
     let provider = Arc::new(ShellProvider::default());
     let service = Service::open(
+        crate::SCENARIO,
         service::Config {
             database: temp.path().join("santi.sqlite").display().to_string(),
             runtime: temp.path().join("runtime").display().to_string(),

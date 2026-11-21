@@ -7,6 +7,7 @@ async fn roundtrips() {
     let temp = tempfile::tempdir().expect("temp dir");
     super::support::bootstrap(&temp.path().join("santi.sqlite")).await;
     let service = Service::open(
+        "fixture/model/execution",
         service::Config {
             database: temp.path().join("santi.sqlite").display().to_string(),
             runtime: temp.path().join("runtime").display().to_string(),

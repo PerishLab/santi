@@ -115,7 +115,7 @@ pub struct Activity {
 #[schema(as = turn::Beat)]
 pub enum Beat {
     Started {
-        turn: Turn,
+        turn: Box<Turn>,
     },
     Active {
         activity: Activity,

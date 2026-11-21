@@ -48,9 +48,9 @@ impl Resolver for Switch {
     }
 
     fn build(&self, effective: &Effective) -> Result<Arc<dyn Provider>, String> {
-        match effective.provider.as_str() {
-            "a" => Ok(self.a.clone()),
-            "b" => Ok(self.b.clone()),
+        match effective.selection.value().as_str() {
+            "fixture/model/a" => Ok(self.a.clone()),
+            "fixture/model/b" => Ok(self.b.clone()),
             other => Err(format!("unknown provider {other}")),
         }
     }
@@ -79,12 +79,12 @@ impl JobSupervisor for Jobs {
 
 fn effective(provider: &str, model: &str, effort: &str) -> Effective {
     Effective {
-        provider: provider.to_string(),
+        selection: santi_core::inference::Selection::Scenario(format!("fixture/model/{provider}")),
         model: model.to_string(),
         reasoning_effort: Some(effort.to_string()),
         source: Source {
             route: None,
-            provider: Origin::Service,
+            selection: santi_core::inference::Selection::Scenario(Origin::Service),
             model: Origin::Service,
             reasoning_effort: Some(Origin::Service),
         },
@@ -194,7 +194,7 @@ async fn unbuildable() {
         Seed {
             tag: "turn_missing",
             text: "unknown provider",
-            effective: &fixed("gone", "gone-model"),
+            effective: &fixed("fixture/model/gone", "gone-model"),
         },
     )
     .await;
@@ -203,7 +203,10 @@ async fn unbuildable() {
         .audit(&strand.id)
         .await
         .expect_err("a running turn whose provider cannot be rebuilt must not borrow preview");
-    assert!(error.contains("unknown provider gone"), "{error}");
+    assert!(
+        error.contains("unknown provider fixture/model/gone"),
+        "{error}"
+    );
     assert!(store.compacts(&strand.id).await.unwrap().is_empty());
     let messages = store.messages(&strand.id).await.unwrap();
     assert!(

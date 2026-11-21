@@ -12,7 +12,7 @@ async fn exercise(capsule: bool) {
     bootstrap(&temp).await;
     let mut provider = Script::new(vec![finish("settled")]);
     provider.limit = Some(500_000);
-    let service = Service::open(config(&temp), Arc::new(provider))
+    let service = Service::open(crate::SCENARIO, config(&temp), Arc::new(provider))
         .await
         .unwrap();
     let strand = service.weave().await.unwrap().strand;

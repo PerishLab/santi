@@ -33,6 +33,7 @@ async fn bounds() {
         ..Default::default()
     });
     let service = Service::open(
+        crate::SCENARIO,
         service::Config {
             database: temp.path().join("santi.sqlite").display().to_string(),
             runtime: temp.path().join("runtime").display().to_string(),
@@ -101,6 +102,7 @@ async fn normalizes() {
         ..Default::default()
     });
     let service = Service::open(
+        crate::SCENARIO,
         service::Config {
             database: temp.path().join("santi.sqlite").display().to_string(),
             runtime: temp.path().join("runtime").display().to_string(),
@@ -170,6 +172,7 @@ async fn rounds() {
         ..Default::default()
     });
     let service = Service::open(
+        crate::SCENARIO,
         service::Config {
             database: temp.path().join("santi.sqlite").display().to_string(),
             runtime: temp.path().join("runtime").display().to_string(),
@@ -233,6 +236,7 @@ async fn stateless() {
         ..Default::default()
     });
     let service = Service::open(
+        crate::SCENARIO,
         service::Config {
             database: temp.path().join("santi.sqlite").display().to_string(),
             runtime: temp.path().join("runtime").display().to_string(),

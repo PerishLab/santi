@@ -74,7 +74,7 @@ async fn holds() {
         bytes: AtomicUsize::new(200_000),
         requests: Mutex::new(Vec::new()),
     });
-    let service = service::Service::open(config.clone(), provider.clone())
+    let service = service::Service::open(crate::SCENARIO, config.clone(), provider.clone())
         .await
         .unwrap()
         .bounded(santi_core::budget::Execution {
@@ -183,7 +183,7 @@ async fn holds() {
     service.close();
     drop(service);
     provider.bytes.store(1_000_000, Ordering::SeqCst);
-    let service = service::Service::open(config, provider.clone())
+    let service = service::Service::open(crate::SCENARIO, config, provider.clone())
         .await
         .unwrap();
     service.resume().await.unwrap();

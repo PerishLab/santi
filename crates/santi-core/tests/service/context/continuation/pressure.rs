@@ -13,7 +13,7 @@ async fn pressure() {
     let mut provider = Script::new(vec![events]);
     provider.limit = Some(40_000);
     let provider = Arc::new(provider);
-    let service = Service::open(config(&temp), provider.clone())
+    let service = Service::open(crate::SCENARIO, config(&temp), provider.clone())
         .await
         .unwrap();
     let strand = service.weave().await.unwrap().strand;

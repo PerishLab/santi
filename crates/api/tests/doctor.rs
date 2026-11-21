@@ -103,7 +103,12 @@ async fn credentials() {
     let store = santi_core::Store::open(temp.path().join("runtime/db"))
         .await
         .unwrap();
-    catalog::qualify(&store, &[("review", "gpt-6.1-sol")]).await;
+    catalog::qualify(
+        &store,
+        "https://api.openai.com/v1",
+        &[("review", "gpt-6.1-sol")],
+    )
+    .await;
     let report = decode(command(temp.path()).arg("doctor").output().unwrap());
     assert_eq!(report["provider"]["scenario"], "gateway/family/review");
     assert_eq!(report["provider"]["model"], "gpt-6.1-sol");
@@ -150,7 +155,12 @@ async fn lifecycle() {
         .seed(santi_core::GENESIS, &santi_core::now())
         .await
         .unwrap();
-    catalog::qualify(&store, &[("review", "gpt-6.1-sol")]).await;
+    catalog::qualify(
+        &store,
+        "https://api.openai.com/v1",
+        &[("review", "gpt-6.1-sol")],
+    )
+    .await;
     drop(store);
     let output = command(root).arg("doctor").output().unwrap();
     assert!(output.status.success());

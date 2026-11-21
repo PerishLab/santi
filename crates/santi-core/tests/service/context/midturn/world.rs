@@ -45,7 +45,7 @@ struct Script {
 impl Provider for Script {
     fn metadata(&self) -> Metadata {
         Metadata {
-            provider: Arc::from(self.effective.provider.as_str()),
+            provider: Arc::from(self.effective.selection.value().as_str()),
             model: self.effective.model.clone(),
             budget: Some(santi_provider::Cap {
                 bytes: 200_000,
@@ -60,7 +60,7 @@ impl Provider for Script {
             let mut requests = self.rounds.requests.lock().unwrap();
             let index = requests.len();
             requests.push((
-                self.effective.provider.clone(),
+                self.effective.selection.value().clone(),
                 self.effective.reasoning_effort.clone(),
                 request,
             ));

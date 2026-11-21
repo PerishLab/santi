@@ -184,7 +184,7 @@ impl Service {
                 self.publish(
                     &strand,
                     stream::Payload::Turn(crate::turn::Beat::Started {
-                        turn: started.turn.clone(),
+                        turn: Box::new(started.turn.clone()),
                     }),
                 );
                 self.dispatch(strand, turn, control);
