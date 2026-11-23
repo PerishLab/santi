@@ -64,7 +64,25 @@ impl Service {
             workspace::Root::Soul => self.soulhome(soul),
             workspace::Root::Strand => self.strandhome(strand),
         };
-        Ok(root.join(uri.path))
+        let path = root.join(uri.path);
+        self.retained(strand, soul, &path)?;
+        Ok(path)
+    }
+
+    fn retained(&self, strand: &str, soul: &str, cwd: &std::path::Path) -> Result<(), String> {
+        if cwd == self.journal(strand) || cwd == self.memoir(soul) {
+            return Err(format!(
+                "cwd {} is the reserved memory file, not a directory",
+                cwd.display()
+            ));
+        }
+        if cwd.exists() && !cwd.is_dir() {
+            return Err(format!(
+                "cwd {} exists and is not a directory",
+                cwd.display()
+            ));
+        }
+        Ok(())
     }
 
     pub(in crate::service) fn runtime(&self) -> PathBuf {
