@@ -37,6 +37,7 @@ pub(crate) struct Fixture {
 
 pub(crate) struct Layers {
     pub(crate) calls: Arc<Mutex<Vec<Call>>>,
+    arrived: Arc<watch::Sender<usize>>,
     pub(crate) gate: watch::Sender<bool>,
     pub(crate) switch: AtomicBool,
     pub(crate) builds: AtomicUsize,
@@ -66,6 +67,7 @@ impl Provider for Recorder {
             effort: self.effort.clone(),
             text: String::new(),
         });
+        self.arrived.send_modify(|count| *count += 1);
         Some(santi_core::budget::Estimate {
             estimator: "test".into(),
             items: 1,
@@ -93,6 +95,7 @@ impl Provider for Recorder {
             effort: self.effort.clone(),
             text,
         });
+        self.arrived.send_modify(|count| *count += 1);
         if self.block.load(Ordering::SeqCst) {
             let mut gate = self.gate.clone();
             let _ = gate.wait_for(|open| *open).await;
@@ -116,6 +119,7 @@ struct Recorder {
     bytes: usize,
     maintenance: usize,
     calls: Arc<Mutex<Vec<Call>>>,
+    arrived: Arc<watch::Sender<usize>>,
     gate: watch::Receiver<bool>,
     block: Arc<AtomicBool>,
 }
@@ -171,6 +175,7 @@ impl Resolver for Layers {
             bytes,
             maintenance,
             calls: self.calls.clone(),
+            arrived: self.arrived.clone(),
             gate: self.gate.subscribe(),
             block: self.block.clone(),
         }))
@@ -203,6 +208,7 @@ pub(crate) async fn open() -> Fixture {
     let (gate, _) = watch::channel(false);
     let layers = Arc::new(Layers {
         calls: Arc::new(Mutex::new(Vec::new())),
+        arrived: Arc::new(watch::Sender::new(0)),
         gate,
         switch: AtomicBool::new(false),
         builds: AtomicUsize::new(0),
@@ -258,18 +264,11 @@ pub(crate) async fn enqueue(store: &Store, strand: &str, text: &str) {
         .unwrap();
 }
 
-pub(crate) async fn until(store: &Store, strand: &str, status: santi_core::turn::Status) {
-    for _ in 0..200 {
-        if store.latest(strand).await.unwrap().map(|turn| turn.status) == Some(status.clone()) {
-            return;
-        }
-        sleep(Duration::from_millis(10)).await;
-    }
-    panic!("turn did not reach {status:?}");
-}
+pub(crate) use crate::support::until;
 
 pub(crate) async fn observed(layers: &Layers, kind: &str, text: &str) -> Call {
-    for _ in 0..200 {
+    let mut arrivals = layers.arrived.subscribe();
+    loop {
         if let Some(call) = layers
             .calls
             .lock()
@@ -280,10 +279,14 @@ pub(crate) async fn observed(layers: &Layers, kind: &str, text: &str) -> Call {
         {
             return call;
         }
-        sleep(Duration::from_millis(10)).await;
+        if tokio::time::timeout(WAIT, arrivals.changed())
+            .await
+            .is_err()
+        {
+            panic!(
+                "call {kind} containing {text:?} did not arrive within {WAIT:?}: {:?}",
+                layers.calls.lock().unwrap()
+            );
+        }
     }
-    panic!(
-        "call {kind} containing {text:?} did not arrive: {:?}",
-        layers.calls.lock().unwrap()
-    );
 }

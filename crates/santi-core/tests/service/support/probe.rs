@@ -18,47 +18,40 @@ impl<'a> Probe<'a> {
     }
 
     pub(crate) async fn settled(&self, strand: &str) -> santi_core::stream::Snapshot {
-        for _ in 0..50 {
-            let runtime = self.snapshot(strand).await;
-            if runtime
+        eventually(self.service, "a turn to complete", async || {
+            self.snapshot(strand)
+                .await
                 .turns
                 .iter()
                 .any(|turn| turn.status == santi_core::turn::Status::Completed)
-            {
-                return self.snapshot(strand).await;
-            }
-            sleep(Duration::from_millis(20)).await;
-        }
-        panic!("no turn completed");
+                .then_some(())
+        })
+        .await;
+        self.snapshot(strand).await
     }
 
     pub(crate) async fn completed(&self, strand: &str, turn: &str) -> santi_core::stream::Snapshot {
-        for _ in 0..50 {
-            let runtime = self.snapshot(strand).await;
-            if runtime
+        eventually(self.service, "the turn to complete", async || {
+            self.snapshot(strand)
+                .await
                 .turns
                 .iter()
                 .any(|held| held.id == turn && held.status == santi_core::turn::Status::Completed)
-            {
-                return self.snapshot(strand).await;
-            }
-            sleep(Duration::from_millis(20)).await;
-        }
-        panic!("turn did not complete");
+                .then_some(())
+        })
+        .await;
+        self.snapshot(strand).await
     }
 
     pub(crate) async fn failed(&self, strand: &str, turn: &str) -> santi_core::stream::Snapshot {
-        for _ in 0..50 {
+        eventually(self.service, "the turn to fail", async || {
             let runtime = self.snapshot(strand).await;
-            if runtime
+            runtime
                 .turns
                 .iter()
                 .any(|held| held.id == turn && held.status == santi_core::turn::Status::Failed)
-            {
-                return runtime;
-            }
-            sleep(Duration::from_millis(20)).await;
-        }
-        panic!("turn did not fail");
+                .then_some(runtime)
+        })
+        .await
     }
 }

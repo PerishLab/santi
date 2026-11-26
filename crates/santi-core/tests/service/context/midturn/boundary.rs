@@ -128,25 +128,19 @@ async fn boundary() {
     let after = store.inference(&turn).await.unwrap().unwrap();
     assert_eq!(before, after);
     rounds.release[1].notify_one();
-    super::super::layers::until(store, strand, santi_core::turn::Status::Completed).await;
+    super::super::layers::until(service, store, strand, santi_core::turn::Status::Completed).await;
     let next = send(service, strand, "next turn").await;
-    tokio::time::timeout(Duration::from_secs(10), async {
-        loop {
-            if service
-                .receipt(&next.receipt.inbox)
-                .await
-                .unwrap()
-                .unwrap()
-                .state
-                == santi_core::receipt::State::Completed
-            {
-                break;
-            }
-            sleep(Duration::from_millis(10)).await;
-        }
+    eventually(service, "the next turn's receipt to complete", async || {
+        (service
+            .receipt(&next.receipt.inbox)
+            .await
+            .unwrap()
+            .unwrap()
+            .state
+            == santi_core::receipt::State::Completed)
+            .then_some(())
     })
-    .await
-    .unwrap();
+    .await;
     let requests = rounds.requests.lock().unwrap();
     assert_eq!(requests[2].0, "gateway/family/beta");
     assert_eq!(requests[2].1.as_deref(), Some("high"));

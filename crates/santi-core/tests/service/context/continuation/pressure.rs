@@ -28,21 +28,19 @@ async fn pressure() {
         )
         .await
         .unwrap();
-    let runtime = tokio::time::timeout(Duration::from_secs(10), async {
-        loop {
+    let runtime = eventually(
+        &service,
+        "the reasoning budget to stop the turn",
+        async || {
             let runtime = service.snapshot(&strand.id).await.unwrap().unwrap();
-            if runtime
+            runtime
                 .turns
                 .iter()
                 .any(|turn| turn.status == santi_core::turn::Status::Failed)
-            {
-                break runtime;
-            }
-            sleep(Duration::from_millis(20)).await;
-        }
-    })
-    .await
-    .expect("reasoning budget must stop the turn");
+                .then_some(runtime)
+        },
+    )
+    .await;
     assert_eq!(
         provider.requests.lock().unwrap().len(),
         1,

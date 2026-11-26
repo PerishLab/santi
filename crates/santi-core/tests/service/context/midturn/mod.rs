@@ -20,7 +20,13 @@ async fn pin() {
     .await;
     enqueue(&f.store, &f.strand.id, "first").await;
     f.service.drive(&f.strand.id).await.unwrap();
-    until(&f.store, &f.strand.id, santi_core::turn::Status::Running).await;
+    until(
+        &f.service,
+        &f.store,
+        &f.strand.id,
+        santi_core::turn::Status::Running,
+    )
+    .await;
     observed(&f.layers, "stream", "first").await;
 
     let before = f.service.audit(&f.strand.id).await.unwrap().unwrap();
@@ -66,7 +72,13 @@ async fn pin() {
     assert_eq!(active.active[0].budget.as_ref().unwrap().bytes, 200_000);
 
     f.layers.gate.send(true).unwrap();
-    until(&f.store, &f.strand.id, santi_core::turn::Status::Completed).await;
+    until(
+        &f.service,
+        &f.store,
+        &f.strand.id,
+        santi_core::turn::Status::Completed,
+    )
+    .await;
     enqueue(&f.store, &f.strand.id, "second").await;
     f.service.drive(&f.strand.id).await.unwrap();
     let next = observed(&f.layers, "stream", "second").await;
@@ -95,11 +107,23 @@ async fn race() {
     f.layers.switch.store(true, Ordering::SeqCst);
     enqueue(&f.store, &f.strand.id, "first").await;
     f.service.drive(&f.strand.id).await.unwrap();
-    until(&f.store, &f.strand.id, santi_core::turn::Status::Running).await;
+    until(
+        &f.service,
+        &f.store,
+        &f.strand.id,
+        santi_core::turn::Status::Running,
+    )
+    .await;
     let first = observed(&f.layers, "stream", "first").await;
     assert_eq!(first.provider, "gateway/family/alpha");
     f.layers.gate.send(true).unwrap();
-    until(&f.store, &f.strand.id, santi_core::turn::Status::Completed).await;
+    until(
+        &f.service,
+        &f.store,
+        &f.strand.id,
+        santi_core::turn::Status::Completed,
+    )
+    .await;
     enqueue(&f.store, &f.strand.id, "second").await;
     f.service.drive(&f.strand.id).await.unwrap();
     let next = observed(&f.layers, "stream", "second").await;

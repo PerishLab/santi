@@ -57,17 +57,20 @@ async fn pinned() {
         .unwrap();
     service.drive(&strand.id).await.unwrap();
 
-    let mut running = false;
-    for _ in 0..100 {
-        if let Some(turn) = store.latest(&strand.id).await.unwrap()
-            && turn.status == santi_core::turn::Status::Running
-        {
-            running = true;
-            break;
-        }
-        sleep(Duration::from_millis(10)).await;
-    }
-    assert!(running, "the blocking provider did not enter Running");
+    eventually(
+        &service,
+        "the blocking provider to enter Running",
+        async || {
+            (store
+                .latest(&strand.id)
+                .await
+                .unwrap()
+                .map(|turn| turn.status)
+                == Some(santi_core::turn::Status::Running))
+            .then_some(())
+        },
+    )
+    .await;
     tokio::time::timeout(Duration::from_secs(10), entered.notified())
         .await
         .expect("Held provider stream entry timed out");
