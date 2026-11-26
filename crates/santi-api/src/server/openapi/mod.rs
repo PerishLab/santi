@@ -63,6 +63,7 @@ use security::Security;
         super::routes::inference::strand::read,
         super::routes::inference::strand::declare,
         super::routes::retire,
+        super::routes::retirement,
         super::routes::scoped,
         super::routes::assign,
         super::routes::unassign,
@@ -102,6 +103,7 @@ use security::Security;
     ),
     components(schemas(
         strand::Created,
+        strand::Retirement,
         santi_core::sources::Kind,
         santi_core::inference::Declaration,
         santi_core::inference::Patch,

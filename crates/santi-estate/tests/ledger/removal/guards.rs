@@ -159,7 +159,8 @@ async fn active() {
             .contains("unacknowledged job job_work")
     );
     store.ack("job_work", LATER).await.expect("ack");
-    let keys = store.retire("work").await.expect("idle");
+    let (ended, keys) = store.retire("work").await.expect("idle");
+    assert_eq!(ended.jobs, ["job_work"]);
     assert!(keys.contains(&"job_work".to_string()));
     assert!(keys.contains(&"stamp_work".to_string()));
     assert!(

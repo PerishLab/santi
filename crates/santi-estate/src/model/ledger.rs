@@ -10,6 +10,7 @@ pub(super) fn plug(graph: &mut Graph) {
     graph
         .add(soul())
         .add(strand())
+        .add(retirement())
         .add(turn())
         .add(completion())
         .add(failure())
@@ -52,6 +53,20 @@ fn strand() -> Spec {
         .field("updated", Atom::Text)
         .root("soul", Bond::Many2one, "Soul")
         .free("parent", Bond::Many2one, "Strand")
+        .seal()
+}
+
+fn retirement() -> Spec {
+    Spec::build("Retirement")
+        .sole("tag", Atom::Text)
+        .field("ended", Atom::Text)
+        .field("jobs", Atom::Text)
+        .field("messages", Atom::Int)
+        .rule("messages", Rule::new().min(0))
+        .field("turns", Atom::Int)
+        .rule("turns", Rule::new().min(0))
+        .root("soul", Bond::Many2one, "Soul")
+        .freeze()
         .seal()
 }
 

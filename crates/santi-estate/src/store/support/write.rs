@@ -1,5 +1,22 @@
-use keel::Tx;
 use keel::adapt::db::Sqlite;
+use keel::{Op, Tx, form};
+
+pub(in crate::store) async fn strand(
+    tx: &mut Tx<'_, Sqlite>,
+    tag: &str,
+    fields: &[(&str, &str)],
+) -> Result<i64, keel::adapt::Error> {
+    if tx
+        .one(&form("Retirement").when("tag", Op::Eq, tag))
+        .await?
+        .is_some()
+    {
+        return Err(keel::adapt::Error::Adapt(format!(
+            "strand {tag} has already retired"
+        )));
+    }
+    tx.put("Strand", fields).await
+}
 
 pub(in crate::store) struct Entry<'a> {
     pub strand: &'a keel::Row,

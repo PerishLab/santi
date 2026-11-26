@@ -51,6 +51,16 @@ pub struct Created {
     pub strand: Strand,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[schema(as = strand::Retirement)]
+pub struct Retirement {
+    pub id: String,
+    pub ended: Timestamp,
+    pub jobs: Vec<String>,
+    pub messages: usize,
+    pub turns: usize,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 #[schema(as = strand::Forked)]
 pub struct Forked {

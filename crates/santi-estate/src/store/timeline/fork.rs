@@ -173,7 +173,7 @@ async fn creating<V>(
         ("parent", origin.as_str()),
     ];
     crate::store::support::inference::fields(selected, &mut fields);
-    let child = tx.put("Strand", &fields).await?;
+    let child = crate::store::write::strand(tx, draft.tag, &fields).await?;
     copy::entries(tx, parent.key(), child, draft.at).await?;
     copy::compacts(tx, parent.key(), child, draft.at).await?;
     super::material::binding::inherit(tx, parent.key(), child, draft.created).await?;

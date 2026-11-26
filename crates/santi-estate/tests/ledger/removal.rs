@@ -3,7 +3,7 @@ use std::path::Path;
 
 use keel::adapt::db::Sqlite;
 use santi_error::Scope;
-use santi_estate::{Environ, Fork, Replay, Store};
+use santi_estate::{Environ, Fork, Replay, Store, Strand};
 use santi_model::{environ, message};
 
 use super::seed::{FIRST, LATER, SOUL, SUDO, failure, inbox, populate, seed};
@@ -44,12 +44,19 @@ async fn owned() {
     settled(&store, "kept").await;
     let before = live(&path).await;
 
-    store.retire("gone").await.expect("end strand");
+    let (ended, _) = store.retire("gone").await.expect("end strand");
+    assert_eq!(ended.id, "gone");
+    assert_eq!(ended.jobs, ["job_gone"]);
+    assert_eq!(ended.turns, 2);
 
     assert!(store.strand("gone").await.expect("strand").is_none());
     assert!(store.objects("gone").await.expect("objects").is_empty());
     assert_eq!(store.objects("kept").await.expect("objects").len(), 1);
     let after = live(&path).await;
+    assert_eq!(
+        ended.messages,
+        before["Message"].len() - after["Message"].len()
+    );
     dangling(&path).await;
     for (unit, keys) in &before {
         let kept = &after[unit];
@@ -76,6 +83,32 @@ async fn owned() {
             .expect("redelivery")
             .inserted
     );
+    drop(store);
+    let reopened = Store::open(&path).await.expect("reopen");
+    assert_eq!(
+        reopened.retirement("gone").await.expect("lookup"),
+        Some(ended)
+    );
+    assert!(
+        reopened
+            .retirement("absent")
+            .await
+            .expect("lookup")
+            .is_none()
+    );
+    let reused = reopened
+        .weave(Strand {
+            tag: "gone",
+            soul: SOUL,
+            label: None,
+            parent: None,
+            fork: None,
+            inference: None,
+            created: LATER,
+        })
+        .await
+        .expect_err("retired ID remains reserved");
+    assert!(reused.contains("already retired"));
 }
 
 #[tokio::test]
@@ -104,7 +137,10 @@ async fn forked() {
     assert!(store.strand("parent").await.expect("parent").is_some());
     assert_eq!(store.messages("child").await.expect("child").len(), shown);
 
-    store.retire("child").await.expect("end child");
+    assert!(store.retirement("parent").await.expect("lookup").is_none());
+    let (ended, _) = store.retire("child").await.expect("end child");
+    assert_eq!(ended.messages, 0);
+    assert_eq!(ended.turns, 0);
     settled(&store, "parent").await;
     store.retire("parent").await.expect("end parent");
     dangling(&path).await;

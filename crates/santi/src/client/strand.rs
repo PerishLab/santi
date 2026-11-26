@@ -20,6 +20,10 @@ pub(super) async fn run(
                 .await
         }
         Strand::End { id } => http.delete(&format!("{base}/api/v1/strands/{id}")).await,
+        Strand::Retirement { id } => {
+            http.get(&format!("{base}/api/v1/strands/{id}/retirement"))
+                .await
+        }
         Strand::List => http.get(&format!("{base}/api/v1/strands")).await,
         Strand::Get { id } => {
             let id = defaults.strand(id)?;

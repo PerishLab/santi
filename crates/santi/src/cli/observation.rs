@@ -54,6 +54,7 @@ fn name(command: &crate::cli::Command) -> &'static str {
             },
             Strand::Create(_) => "strand.create",
             Strand::End { .. } => "strand.end",
+            Strand::Retirement { .. } => "strand.retirement",
             Strand::List => "strand.list",
             Strand::Get { .. } => "strand.get",
             Strand::Messages { .. } => "strand.messages",

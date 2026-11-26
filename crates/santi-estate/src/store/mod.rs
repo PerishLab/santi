@@ -209,8 +209,9 @@ impl Store {
                         .map(str::to_string)
                         .ok_or_else(|| keel::adapt::Error::Adapt("strand tag missing".into()));
                 }
-                tx.put(
-                    "Strand",
+                write::strand(
+                    tx,
+                    &tag,
                     &[
                         ("tag", tag.as_str()),
                         ("label", label),

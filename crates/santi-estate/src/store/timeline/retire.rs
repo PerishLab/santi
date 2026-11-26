@@ -1,26 +1,108 @@
 use super::{Store, read};
 use keel::adapt::{Error, db::Sqlite};
 use keel::{Op, Rank, Row, Tx, form};
+use santi_model::strand::Retirement;
 use std::collections::BTreeSet;
 
 impl Store {
-    pub async fn retire(&self, tag: &str) -> Result<Vec<String>, String> {
+    pub async fn retire(&self, tag: &str) -> Result<(Retirement, Vec<String>), String> {
         self.core
             .batch(async |tx| {
-                let key = read::need(tx, "Strand", "tag", tag).await?;
-                let strand = key.to_string();
+                let row = tx
+                    .one(&form("Strand").when("tag", Op::Eq, tag))
+                    .await?
+                    .ok_or_else(|| Error::Missing(format!("Strand {tag}")))?;
+                let strand = row.key().to_string();
                 Gate(tx).forks(&strand, tag).await?;
                 Gate(tx).inputs(&strand).await?;
-                Gate(tx).turns(&strand).await?;
+                let turns = Gate(tx).turns(&strand).await?;
                 Gate(tx).acknowledgements(&strand).await?;
                 super::super::inbox::reply::retire(tx, &strand).await?;
                 let jobs = Gate(tx).jobs(&strand).await?;
-                tx.end("Strand", key).await?;
-                Ok(jobs)
+                let retirement = record(tx, &row, turns, &jobs).await?;
+                tx.end("Strand", row.key()).await?;
+                let files = jobs
+                    .rows()
+                    .iter()
+                    .flat_map(|row| [row.text("tag"), row.text("generation")])
+                    .flatten()
+                    .map(str::to_string)
+                    .collect();
+                Ok((retirement, files))
             })
             .await
             .map_err(read::error)
     }
+
+    pub async fn retirement(&self, tag: &str) -> Result<Option<Retirement>, String> {
+        read::one(&self.core, "Retirement", "tag", tag)
+            .await?
+            .map(|row| {
+                Ok(Retirement {
+                    id: read::text(&row, "tag")?.into(),
+                    ended: read::text(&row, "ended")?.into(),
+                    jobs: serde_json::from_str(read::text(&row, "jobs")?)
+                        .map_err(|error| error.to_string())?,
+                    messages: count(&row, "messages")?,
+                    turns: count(&row, "turns")?,
+                })
+            })
+            .transpose()
+    }
+}
+
+fn count(row: &Row, field: &str) -> Result<usize, String> {
+    read::int(row, field)?
+        .try_into()
+        .map_err(|error: std::num::TryFromIntError| error.to_string())
+}
+
+async fn record(
+    tx: &mut Tx<'_, Sqlite>,
+    strand: &Row,
+    turns: usize,
+    jobs: &keel::Pack,
+) -> Result<Retirement, Error> {
+    let messages = tx
+        .ask(
+            &form("Message")
+                .when("strand", Op::Eq, &strand.key().to_string())
+                .count(),
+        )
+        .await?
+        .count()
+        .ok_or_else(|| Error::Adapt("retirement message count missing".into()))?;
+    let retirement = Retirement {
+        id: read::text(strand, "tag").map_err(Error::Adapt)?.into(),
+        ended: santi_model::now(),
+        jobs: jobs
+            .rows()
+            .iter()
+            .map(|row| {
+                read::text(row, "tag")
+                    .map(str::to_string)
+                    .map_err(Error::Adapt)
+            })
+            .collect::<Result<_, _>>()?,
+        messages,
+        turns,
+    };
+    let jobs =
+        serde_json::to_string(&retirement.jobs).map_err(|error| Error::Adapt(error.to_string()))?;
+    let soul = read::int(strand, "soul").map_err(Error::Adapt)?;
+    tx.put(
+        "Retirement",
+        &[
+            ("tag", &retirement.id),
+            ("ended", &retirement.ended),
+            ("jobs", &jobs),
+            ("messages", &messages.to_string()),
+            ("turns", &turns.to_string()),
+            ("soul", &soul.to_string()),
+        ],
+    )
+    .await?;
+    Ok(retirement)
 }
 
 struct Gate<'a, 'tx>(&'a mut Tx<'tx, Sqlite>);
@@ -92,7 +174,7 @@ impl Gate<'_, '_> {
         Ok(())
     }
 
-    async fn turns(&mut self, strand: &str) -> Result<(), Error> {
+    async fn turns(&mut self, strand: &str) -> Result<usize, Error> {
         let turns = self
             .0
             .ask(&form("Turn").when("strand", Op::Eq, strand))
@@ -100,7 +182,7 @@ impl Gate<'_, '_> {
         for rows in turns.rows().chunks(128) {
             self.closed(rows).await?;
         }
-        Ok(())
+        Ok(turns.rows().len())
     }
 
     async fn closed(&mut self, turns: &[Row]) -> Result<(), Error> {
@@ -131,10 +213,14 @@ impl Gate<'_, '_> {
         Ok(())
     }
 
-    async fn jobs(&mut self, strand: &str) -> Result<Vec<String>, Error> {
+    async fn jobs(&mut self, strand: &str) -> Result<keel::Pack, Error> {
         let jobs = self
             .0
-            .ask(&form("Job").when("strand", Op::Eq, strand))
+            .ask(
+                &form("Job")
+                    .when("strand", Op::Eq, strand)
+                    .order("tag", Rank::Asc),
+            )
             .await?;
         for row in jobs.rows() {
             if !matches!(
@@ -147,13 +233,7 @@ impl Gate<'_, '_> {
                 return Err(blocked("unacknowledged job", row));
             }
         }
-        Ok(jobs
-            .rows()
-            .iter()
-            .flat_map(|row| [row.text("tag"), row.text("generation")])
-            .flatten()
-            .map(str::to_string)
-            .collect())
+        Ok(jobs)
     }
 }
 
