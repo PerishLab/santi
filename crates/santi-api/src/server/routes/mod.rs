@@ -126,6 +126,7 @@ pub(super) fn router(service: Service) -> Router {
             "/api/v1/strands/{strand}",
             strand().merge(routing::delete(retire)),
         )
+        .route("/api/v1/strands/{strand}/retirement", get(retirement))
         .route(
             "/api/v1/strands/{strand}/inference",
             inference::strand::read().merge(inference::strand::declare()),

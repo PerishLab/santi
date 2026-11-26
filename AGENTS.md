@@ -46,6 +46,11 @@ unacknowledged Jobs, unsettled effects and live forks block retirement in the
 same transaction that ends the strand. Files follow the commit with best-effort
 cleanup and startup sweep recovery; physical collection follows Keel retention.
 Issue [#251](https://github.com/PerishLab/santi/issues/251) records the contract.
+Retirement returns the Strand ID, time, ended Job IDs and counts of owned
+Messages and Turns. Keel retains the retirement evidence under the owning Soul
+in the same transaction that ends the Strand. Read it by exact ID with
+`santi strand retirement <id>` or `GET /api/v1/strands/{strand}/retirement`.
+Issue [#279](https://github.com/PerishLab/santi/issues/279) records this addition.
 
 `santi query` and the structured `santi job query` shortcut are bounded,
 read-only Job reads. Native Keel keeps `tag` as the public Job id and deliberately

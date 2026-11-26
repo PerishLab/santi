@@ -27,12 +27,25 @@ async fn retirement() {
         .expect_err("live fork");
     assert_eq!(refused.status(), StatusCode::CONFLICT);
     assert!(refused.message().contains(&child));
+    let Json(ended) = retire(State(service.clone()), Path(child.clone()))
+        .await
+        .map_err(|e| e.message().to_string())
+        .expect("end child");
+    assert_eq!(ended.id, child);
+    assert_eq!(ended.messages, 0);
+    assert_eq!(ended.turns, 0);
+    assert!(ended.jobs.is_empty());
     assert_eq!(
-        retire(State(service.clone()), Path(child.clone()))
+        service.retirement(&child).await.expect("lookup"),
+        Some(ended)
+    );
+    assert!(service.retirement(&strand).await.expect("lookup").is_none());
+    assert!(
+        service
+            .retirement("absent")
             .await
-            .map_err(|e| e.message().to_string())
-            .expect("end child"),
-        StatusCode::NO_CONTENT
+            .expect("lookup")
+            .is_none()
     );
     store
         .accept(
@@ -66,7 +79,9 @@ async fn retirement() {
     let document: serde_json::Value =
         serde_json::from_str(&santi_api::openapi().expect("openapi")).expect("json");
     let responses = &document["paths"]["/api/v1/strands/{strand}"]["delete"]["responses"];
-    for status in ["204", "404", "409", "500"] {
+    let path = &document["paths"]["/api/v1/strands/{strand}/retirement"];
+    assert!(path["get"]["responses"]["200"]["content"]["application/json"]["schema"].is_object());
+    for status in ["200", "404", "409", "500"] {
         assert!(responses.get(status).is_some(), "missing response {status}");
     }
 }

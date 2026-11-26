@@ -103,14 +103,14 @@ fn copied(src: &Path, dst: &Path) -> Result<(), String> {
 }
 
 impl Service {
-    pub async fn retire(&self, tag: &str) -> Result<(), String> {
+    pub async fn retire(&self, tag: &str) -> Result<strand::Retirement, String> {
         let strand = self
             .store
             .strand(tag)
             .await?
             .ok_or_else(|| "strand not found".to_string())?;
-        let jobs = self.store.retire(tag).await?;
         let bucket = object::Bucket::new(&strand.soul, tag)?;
+        let (retirement, jobs) = self.store.retire(tag).await?;
         let mut faults = Vec::new();
         if let Some(home) = self.strandhome(tag).parent() {
             faults.extend(remove(home).err());
@@ -125,7 +125,11 @@ impl Service {
                 faults.join("; ")
             );
         }
-        Ok(())
+        Ok(retirement)
+    }
+
+    pub async fn retirement(&self, tag: &str) -> Result<Option<strand::Retirement>, String> {
+        self.store.retirement(tag).await
     }
 
     pub(in crate::service) async fn tidy(&self) -> Result<(), String> {

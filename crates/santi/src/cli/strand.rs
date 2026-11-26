@@ -15,9 +15,11 @@ pub enum Strand {
     Create(Delta),
     #[command(
         about = "Retire one explicitly identified idle strand",
-        long_about = "DELETE /api/v1/strands/{id}. An explicit id is required. Pending input, unfinished turns or receipts, active or unacknowledged Jobs, unsettled effects and live forks block retirement. Estate commit precedes best-effort file cleanup; startup sweep recovers leftover bytes. Physical collection follows Keel retention. Repeating a completed request reports not found."
+        long_about = "DELETE /api/v1/strands/{id}. An explicit id is required. Pending input, unfinished turns or receipts, active or unacknowledged Jobs, unsettled effects and live forks block retirement. Estate commit precedes best-effort file cleanup; startup sweep recovers leftover bytes. Physical collection follows Keel retention. Returns JSON with the retired strand ID, Job IDs and owned Message and Turn counts. Use strand retirement <id> to recover the result."
     )]
     End { id: String },
+    #[command(about = "Read retained retirement evidence for an exact strand ID")]
+    Retirement { id: String },
     #[command(about = "GET /api/v1/strands")]
     List,
     #[command(about = "GET /api/v1/strands/{id} (id falls back to --strand/SANTI_STRAND_ID)")]

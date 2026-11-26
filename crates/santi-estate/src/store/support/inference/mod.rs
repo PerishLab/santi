@@ -229,7 +229,7 @@ impl Store {
                     );
                     self::fields(inference, &mut fields);
                 }
-                tx.put("Strand", &fields).await?;
+                crate::store::write::strand(tx, draft.tag, &fields).await?;
                 Ok(checked)
             })
             .await
