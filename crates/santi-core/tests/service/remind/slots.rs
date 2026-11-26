@@ -156,14 +156,11 @@ impl Fixture {
     }
 
     async fn reminded(&self, count: usize) -> Vec<String> {
-        for _ in 0..300 {
+        eventually(&self.service, "the compact reminders", async || {
             let reminders = self.reminders().await;
-            if reminders.len() >= count {
-                return reminders;
-            }
-            sleep(Duration::from_millis(20)).await;
-        }
-        panic!("expected {count} compact reminders");
+            (reminders.len() >= count).then_some(reminders)
+        })
+        .await
     }
 }
 

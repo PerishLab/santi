@@ -29,8 +29,20 @@ async fn strands() {
     let (a, b) = tokio::join!(f.service.drive(&f.strand.id), f.service.drive(&second.id));
     assert!(a.is_ok(), "{a:?}");
     assert!(b.is_ok(), "{b:?}");
-    until(&f.store, &f.strand.id, santi_core::turn::Status::Running).await;
-    until(&f.store, &second.id, santi_core::turn::Status::Running).await;
+    until(
+        &f.service,
+        &f.store,
+        &f.strand.id,
+        santi_core::turn::Status::Running,
+    )
+    .await;
+    until(
+        &f.service,
+        &f.store,
+        &second.id,
+        santi_core::turn::Status::Running,
+    )
+    .await;
 
     let alpha = observed(&f.layers, "stream", "alpha request").await;
     let beta = observed(&f.layers, "stream", "beta request").await;

@@ -4,37 +4,63 @@ use santi_core::service::Service;
 use santi_core::strand;
 pub(crate) use santi_core::{SOULSPACE, STRANDSPACE, soulward, strandward};
 
+use tokio::sync::broadcast::error::RecvError;
+
 mod probe;
 pub(crate) use probe::*;
+
+pub(crate) const WAIT: Duration = Duration::from_secs(10);
+
+pub(crate) async fn eventually<T>(
+    service: &Service,
+    what: &str,
+    mut probe: impl AsyncFnMut() -> Option<T>,
+) -> T {
+    let mut events = service.listen().await;
+    let wait = async {
+        loop {
+            if let Some(found) = probe().await {
+                return found;
+            }
+            if matches!(events.recv().await, Err(RecvError::Closed)) {
+                panic!("service stream closed while waiting for {what}")
+            }
+        }
+    };
+    tokio::time::timeout(WAIT, wait)
+        .await
+        .unwrap_or_else(|_| panic!("timed out after {WAIT:?} waiting for {what}"))
+}
 
 pub(crate) async fn accepted(
     service: &Service,
     response: &strand::Posted,
 ) -> santi_core::turn::Turn {
-    for _ in 0..100 {
-        let receipt = service
-            .receipt(&response.receipt.inbox)
-            .await
-            .expect("receipt")
-            .expect("accepted");
-        if let Some(turn) = receipt
-            .transitions
-            .iter()
-            .find_map(|transition| transition.turn.as_ref())
-        {
-            return service
-                .snapshot(&response.strand.id)
+    let turn = eventually(
+        service,
+        "accepted receipt to start processing",
+        async || {
+            let receipt = service
+                .receipt(&response.receipt.inbox)
                 .await
-                .expect("snapshot")
-                .expect("strand")
-                .turns
-                .into_iter()
-                .find(|held| &held.id == turn)
-                .expect("receipt turn");
-        }
-        sleep(Duration::from_millis(20)).await;
-    }
-    panic!("accepted receipt did not start processing");
+                .expect("receipt")
+                .expect("accepted");
+            receipt
+                .transitions
+                .iter()
+                .find_map(|transition| transition.turn.clone())
+        },
+    )
+    .await;
+    service
+        .snapshot(&response.strand.id)
+        .await
+        .expect("snapshot")
+        .expect("strand")
+        .turns
+        .into_iter()
+        .find(|held| held.id == turn)
+        .expect("receipt turn")
 }
 pub(crate) use santi_provider::{Event, Item, Metadata, Provider, Request, Streaming};
 pub(crate) use std::sync::{Arc, Mutex};
@@ -142,4 +168,21 @@ pub(crate) async fn pinned(
         santi_estate::Opening::Started(begun) => begun.turn,
         other => panic!("fixture turn did not start: {other:?}"),
     }
+}
+
+pub(crate) async fn until(
+    service: &Service,
+    store: &santi_core::Store,
+    strand: &str,
+    status: santi_core::turn::Status,
+) {
+    eventually(
+        service,
+        &format!("the turn to reach {status:?}"),
+        async || {
+            (store.latest(strand).await.unwrap().map(|turn| turn.status) == Some(status.clone()))
+                .then_some(())
+        },
+    )
+    .await;
 }

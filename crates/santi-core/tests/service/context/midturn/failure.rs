@@ -34,7 +34,13 @@ async fn failed(stop: bool) {
     } else {
         f.rounds.release[1].notify_one();
     }
-    super::super::layers::until(&f.store, &f.strand, santi_core::turn::Status::Failed).await;
+    super::super::layers::until(
+        &f.service,
+        &f.store,
+        &f.strand,
+        santi_core::turn::Status::Failed,
+    )
+    .await;
     let store = Store::open(&f.config.database).await.unwrap();
     let receipt = store.receipt(&extra.receipt.inbox).await.unwrap().unwrap();
     assert_eq!(receipt.state, santi_core::receipt::State::Failed);

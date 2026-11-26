@@ -48,24 +48,28 @@ pub(super) fn offers(request: &Request) -> bool {
 }
 
 pub(super) async fn maintained(service: &Service, strand: &str) -> String {
-    for _ in 0..500 {
-        let snapshot = service.snapshot(strand).await.unwrap().unwrap();
-        if let Some(call) = snapshot.calls.iter().find(|call| call.tool == "compact") {
-            return call.turn.clone();
-        }
-        if snapshot
-            .turns
-            .iter()
-            .any(|turn| turn.status == santi_core::turn::Status::Failed)
-        {
-            let codes = snapshot
-                .errors
+    eventually(
+        service,
+        "maintenance to record a compact call",
+        async || {
+            let snapshot = service.snapshot(strand).await.unwrap().unwrap();
+            if let Some(call) = snapshot.calls.iter().find(|call| call.tool == "compact") {
+                return Some(call.turn.clone());
+            }
+            if snapshot
+                .turns
                 .iter()
-                .map(|incident| incident.code.clone())
-                .collect::<Vec<_>>();
-            panic!("turn failed before a compact call: {codes:?}");
-        }
-        sleep(Duration::from_millis(20)).await;
-    }
-    panic!("maintenance did not record a compact call");
+                .any(|turn| turn.status == santi_core::turn::Status::Failed)
+            {
+                let codes = snapshot
+                    .errors
+                    .iter()
+                    .map(|incident| incident.code.clone())
+                    .collect::<Vec<_>>();
+                panic!("turn failed before a compact call: {codes:?}");
+            }
+            None
+        },
+    )
+    .await
 }

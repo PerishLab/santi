@@ -29,7 +29,13 @@ async fn oversized() {
         .find_map(|t| t.turn.clone())
         .unwrap();
     f.service.stop(&turn).await.unwrap();
-    super::super::layers::until(&f.store, &f.strand, santi_core::turn::Status::Failed).await;
+    super::super::layers::until(
+        &f.service,
+        &f.store,
+        &f.strand,
+        santi_core::turn::Status::Failed,
+    )
+    .await;
 }
 
 #[tokio::test]
@@ -74,5 +80,11 @@ async fn terminal() {
             .any(|e| e.action == "prepared" && e.payload["turn"] == turn)
     );
     f.rounds.release[1].notify_one();
-    super::super::layers::until(&f.store, &f.strand, santi_core::turn::Status::Completed).await;
+    super::super::layers::until(
+        &f.service,
+        &f.store,
+        &f.strand,
+        santi_core::turn::Status::Completed,
+    )
+    .await;
 }

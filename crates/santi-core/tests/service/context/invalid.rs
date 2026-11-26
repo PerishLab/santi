@@ -14,7 +14,13 @@ async fn next() {
     .await;
     enqueue(&f.store, &f.strand.id, "hold").await;
     f.service.drive(&f.strand.id).await.unwrap();
-    until(&f.store, &f.strand.id, santi_core::turn::Status::Running).await;
+    until(
+        &f.service,
+        &f.store,
+        &f.strand.id,
+        santi_core::turn::Status::Running,
+    )
+    .await;
     observed(&f.layers, "stream", "hold").await;
 
     declare(

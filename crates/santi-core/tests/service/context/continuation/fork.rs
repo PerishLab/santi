@@ -68,24 +68,19 @@ async fn rejected(service: &Service, strand: &str) {
         )
         .await
         .unwrap();
-    let failed = tokio::time::timeout(Duration::from_secs(10), async {
-        loop {
+    eventually(
+        service,
+        "the broken history to settle its receipt as failed",
+        async || {
             let status = service
                 .receipt(&posted.receipt.inbox)
                 .await
                 .unwrap()
                 .unwrap();
-            if status.state == santi_core::receipt::State::Failed {
-                break;
-            }
-            sleep(Duration::from_millis(10)).await;
-        }
-    })
+            (status.state == santi_core::receipt::State::Failed).then_some(())
+        },
+    )
     .await;
-    assert!(
-        failed.is_ok(),
-        "broken history must settle its receipt as failed"
-    );
     let snapshot = service.snapshot(strand).await.unwrap().unwrap();
     assert!(snapshot.errors.iter().any(|incident| {
         incident.code == "runtime.history.invalid"
