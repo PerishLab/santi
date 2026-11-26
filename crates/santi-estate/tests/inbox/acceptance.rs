@@ -1,5 +1,5 @@
 use super::*;
-use santi_estate::{DrainDraft, Opening};
+use santi_estate::{Drain, Opening};
 use std::{sync::Arc, time::Duration};
 use tokio::sync::Barrier;
 
@@ -13,7 +13,7 @@ async fn consumed() {
     for index in 0..20 {
         let strand = format!("strand_{index}");
         store
-            .create_strand(StrandDraft {
+            .weave(Strand {
                 tag: &strand,
                 soul: "soul_test",
                 label: None,
@@ -38,11 +38,11 @@ async fn consumed() {
         };
         barrier.wait().await;
         let accepted = store
-            .accept_inbox(
-                InboxDraft {
+            .accept(
+                Arrival {
                     tag: &inbox,
                     strand: &strand,
-                    kind: message::Kind::SantiSystem,
+                    kind: message::Kind::System,
                     content: &content,
                     source: Some(&source),
                     created: FIRST,
@@ -59,14 +59,14 @@ async fn consumed() {
         assert_eq!(accepted.strand, strand);
         assert_eq!(accepted.content.rendered(), content.rendered());
         assert_eq!(accepted.created, FIRST);
-        assert!(matches!(accepted.kind, message::Kind::SantiSystem));
+        assert!(matches!(accepted.kind, message::Kind::System));
         let held = accepted.source.expect("source");
         assert_eq!(held.kind, source.kind);
         assert_eq!(held.source, source.source);
         assert_eq!(held.metadata, source.metadata);
-        assert!(accepted.coalesce_key.is_none());
-        assert!(accepted.coalesce_revision.is_none());
-        assert!(accepted.coalesce_causes.is_empty());
+        assert!(accepted.key.is_none());
+        assert!(accepted.revision.is_none());
+        assert!(accepted.causes.is_empty());
         assert_eq!(begun.drained[0].text, content.rendered());
         assert!(store.inbox(&inbox).await.expect("consumed queue").is_none());
         assert_eq!(
@@ -81,8 +81,8 @@ async fn consumed() {
         let refused = format!("refused_{index}");
         assert!(
             store
-                .accept_inbox(
-                    InboxDraft {
+                .accept(
+                    Arrival {
                         tag: &refused,
                         strand: &strand,
                         kind: message::Kind::Text,
@@ -110,10 +110,10 @@ async fn consume(store: Store, strand: String, ready: Arc<Barrier>) -> santi_est
     ready.wait().await;
     loop {
         let opened = store
-            .drain_turn(DrainDraft {
+            .drain(Drain {
                 turn: &format!("turn_{strand}"),
                 strand: &strand,
-                trigger: turn::Trigger::StrandSend,
+                trigger: turn::Trigger::Send,
                 actor: "santi",
                 created: LATER,
             })

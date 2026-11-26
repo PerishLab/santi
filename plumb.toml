@@ -68,8 +68,8 @@ release = "Line 86 explicitly unlocks; descriptor drop handles unwind or async c
 verification = "coordinate asserts transition refusal under the external lease and no source database creation."
 [guard.lock.review.evidence]
 "crates/santi-estate/tests/operations/transition/locks.rs" = "a970368405f2a89226a4b08e381c88c5b5927669b451689d63f19b7eab3dd0d9"
-"crates/santi-estate/src/store/support/transition/quarantine.rs" = "2130460a6234480f629dd13be03cf81bf41f839d413eb82edba113f903c376a1"
-"crates/santi-estate/src/store/support/transition/mod.rs" = "d6c06a6729a902e389208f377f664d693388cff92e1a7f78a34d0e53663a52f8"
+"crates/santi-estate/src/store/support/transition/quarantine.rs" = "95db7bcc08e55b2d5970a4a8e41f2fad1730febb63201102016971eae3f1c294"
+"crates/santi-estate/src/store/support/transition/mod.rs" = "2c17d5a6848b3277526305fb69973ff5602acecabaa4252640cc1b1fc9245e8c"
 
 [[guard.lock.review]]
 reference = "4e360f86ceeded700fe6ac0b19bc34144b299e7e006b31e986a045bf4d34e507"
@@ -102,8 +102,8 @@ release = "Peer descriptor drop releases the probe on normal exit, panic unwind 
 verification = "coordinate requires native reacquisition after bootstrap and retained transition lock path."
 [guard.lock.review.evidence]
 "crates/santi-estate/tests/operations/transition/locks.rs" = "a970368405f2a89226a4b08e381c88c5b5927669b451689d63f19b7eab3dd0d9"
-"crates/santi-estate/src/store/support/transition/quarantine.rs" = "2130460a6234480f629dd13be03cf81bf41f839d413eb82edba113f903c376a1"
-"crates/santi-estate/src/store/support/transition/mod.rs" = "d6c06a6729a902e389208f377f664d693388cff92e1a7f78a34d0e53663a52f8"
+"crates/santi-estate/src/store/support/transition/quarantine.rs" = "95db7bcc08e55b2d5970a4a8e41f2fad1730febb63201102016971eae3f1c294"
+"crates/santi-estate/src/store/support/transition/mod.rs" = "2c17d5a6848b3277526305fb69973ff5602acecabaa4252640cc1b1fc9245e8c"
 
 [[guard.lock.review]]
 reference = "364cc551a818c4f8033d4a815c9d84e87e1a68d324173a3c9ae6b659fc307573"
@@ -147,8 +147,8 @@ release = "Explicit unlock precedes successful bootstrap; descriptor drop is the
 verification = "coordinate completes bootstrap after release and asserts the transition lock path is retained."
 [guard.lock.review.evidence]
 "crates/santi-estate/tests/operations/transition/locks.rs" = "a970368405f2a89226a4b08e381c88c5b5927669b451689d63f19b7eab3dd0d9"
-"crates/santi-estate/src/store/support/transition/quarantine.rs" = "2130460a6234480f629dd13be03cf81bf41f839d413eb82edba113f903c376a1"
-"crates/santi-estate/src/store/support/transition/mod.rs" = "d6c06a6729a902e389208f377f664d693388cff92e1a7f78a34d0e53663a52f8"
+"crates/santi-estate/src/store/support/transition/quarantine.rs" = "95db7bcc08e55b2d5970a4a8e41f2fad1730febb63201102016971eae3f1c294"
+"crates/santi-estate/src/store/support/transition/mod.rs" = "2c17d5a6848b3277526305fb69973ff5602acecabaa4252640cc1b1fc9245e8c"
 
 [[guard.lock.review]]
 reference = "33488b535db2cf9dd315418d2209dd40e9ff389c483b5aa8560c89ef9bd9fbb0"
@@ -170,8 +170,8 @@ release = "Line 86 explicitly unlocks; descriptor drop handles unwind or async c
 verification = "coordinate asserts transition refusal under the external lease and no source database creation."
 [guard.lock.review.evidence]
 "crates/santi-estate/tests/operations/transition/locks.rs" = "a970368405f2a89226a4b08e381c88c5b5927669b451689d63f19b7eab3dd0d9"
-"crates/santi-estate/src/store/support/transition/quarantine.rs" = "2130460a6234480f629dd13be03cf81bf41f839d413eb82edba113f903c376a1"
-"crates/santi-estate/src/store/support/transition/mod.rs" = "d6c06a6729a902e389208f377f664d693388cff92e1a7f78a34d0e53663a52f8"
+"crates/santi-estate/src/store/support/transition/quarantine.rs" = "95db7bcc08e55b2d5970a4a8e41f2fad1730febb63201102016971eae3f1c294"
+"crates/santi-estate/src/store/support/transition/mod.rs" = "2c17d5a6848b3277526305fb69973ff5602acecabaa4252640cc1b1fc9245e8c"
 
 [[guard.lock.review]]
 reference = "1012c617f1b77eceff3ed8f0700ad1bdbb37ce63ee7eed5f851d8273b4754e77"
@@ -204,8 +204,8 @@ release = "Peer descriptor drop releases the probe on normal exit, panic unwind 
 verification = "coordinate requires native reacquisition after bootstrap and retained transition lock path."
 [guard.lock.review.evidence]
 "crates/santi-estate/tests/operations/transition/locks.rs" = "a970368405f2a89226a4b08e381c88c5b5927669b451689d63f19b7eab3dd0d9"
-"crates/santi-estate/src/store/support/transition/quarantine.rs" = "2130460a6234480f629dd13be03cf81bf41f839d413eb82edba113f903c376a1"
-"crates/santi-estate/src/store/support/transition/mod.rs" = "d6c06a6729a902e389208f377f664d693388cff92e1a7f78a34d0e53663a52f8"
+"crates/santi-estate/src/store/support/transition/quarantine.rs" = "95db7bcc08e55b2d5970a4a8e41f2fad1730febb63201102016971eae3f1c294"
+"crates/santi-estate/src/store/support/transition/mod.rs" = "2c17d5a6848b3277526305fb69973ff5602acecabaa4252640cc1b1fc9245e8c"
 
 [[guard.lock.review]]
 reference = "df1e6742bf539eb1961336b088f17ce23046866bc469d7b3edee41122ddb0e9d"
@@ -249,5 +249,25 @@ release = "Explicit unlock precedes successful bootstrap; descriptor drop is the
 verification = "coordinate completes bootstrap after release and asserts the transition lock path is retained."
 [guard.lock.review.evidence]
 "crates/santi-estate/tests/operations/transition/locks.rs" = "a970368405f2a89226a4b08e381c88c5b5927669b451689d63f19b7eab3dd0d9"
-"crates/santi-estate/src/store/support/transition/quarantine.rs" = "2130460a6234480f629dd13be03cf81bf41f839d413eb82edba113f903c376a1"
-"crates/santi-estate/src/store/support/transition/mod.rs" = "d6c06a6729a902e389208f377f664d693388cff92e1a7f78a34d0e53663a52f8"
+"crates/santi-estate/src/store/support/transition/quarantine.rs" = "95db7bcc08e55b2d5970a4a8e41f2fad1730febb63201102016971eae3f1c294"
+"crates/santi-estate/src/store/support/transition/mod.rs" = "2c17d5a6848b3277526305fb69973ff5602acecabaa4252640cc1b1fc9245e8c"
+[ectropy]
+
+[[ectropy.grant]]
+paths = [
+  "crates/*/tests/**/*.rs",
+  "crates/api/src/config.rs",
+  "crates/santi-api/src/config/profile.rs",
+  "crates/santi-api/src/jobs/**/*.rs",
+  "crates/santi-core/src/environment.rs",
+  "crates/santi-core/src/service/tools/environ.rs",
+  "crates/santi/src/config.rs",
+]
+syntax = "environment"
+
+[[ectropy.grant]]
+paths = [
+  "crates/santi-api/tests/locks.rs",
+  "crates/santi-estate/tests/operations/transition/locks.rs",
+]
+syntax = "lock"

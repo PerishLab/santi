@@ -1,5 +1,5 @@
 use super::*;
-use santi_estate::{CallDraft, ReplyDraft, ThinkingDraft};
+use santi_estate::{Call, Reply, Thinking};
 
 #[tokio::test]
 async fn active() {
@@ -49,9 +49,7 @@ async fn exercise(dry: bool, capsule: bool) {
         store.compacts(&strand.id).await.unwrap().len(),
         usize::from(!dry)
     );
-    let retained = santi_core::provider_input(&store, &strand.id)
-        .await
-        .unwrap();
+    let retained = santi_core::assemble(&store, &strand.id).await.unwrap();
     assert!(originals(&retained).contains(&"active reasoning".into()));
     assert_eq!(
         originals(&retained).contains(&"original answer".into()),
@@ -121,7 +119,7 @@ pub(super) async fn opened(store: &santi_core::Store, strand: &str) {
     )
     .await;
     store
-        .create_thinking(ThinkingDraft {
+        .ponder(Thinking {
             tag: "thinking_active",
             turn: "turn_active",
             response: Some("active"),
@@ -145,7 +143,7 @@ pub(super) async fn opened(store: &santi_core::Store, strand: &str) {
 
 async fn called(store: &santi_core::Store, tag: &str) {
     store
-        .create_call(CallDraft {
+        .calling(Call {
             tag,
             turn: "turn_active",
             tool: "shell",
@@ -163,7 +161,7 @@ pub(super) async fn closed(store: &santi_core::Store, strand: &str) {
         ("reply_second", "call_second"),
     ] {
         store
-            .create_reply(ReplyDraft {
+            .replying(Reply {
                 tag,
                 call,
                 output: Some(&json!({"exit_code":0})),
@@ -175,7 +173,7 @@ pub(super) async fn closed(store: &santi_core::Store, strand: &str) {
     }
     let to = store.strand(strand).await.unwrap().unwrap().next - 1;
     store
-        .complete_turn("turn_active", to, &santi_core::now())
+        .complete("turn_active", to, &santi_core::now())
         .await
         .unwrap();
 }

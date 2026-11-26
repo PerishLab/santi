@@ -21,11 +21,11 @@ impl Service {
         let content = message::Content::text(partial);
         match self
             .store
-            .place(santi_estate::MessageDraft {
+            .place(santi_estate::Message {
                 tag: &crate::tag("msg"),
                 strand: &held.strand,
                 actor: message::Role::Soul,
-                actor_id: &actor,
+                sender: &actor,
                 kind: message::Kind::Text,
                 content: &content,
                 state: message::State::Aborted,

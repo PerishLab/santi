@@ -4,7 +4,7 @@ use keel::{Op, Rank, form};
 use santi_model::environ;
 
 #[derive(Clone, Copy)]
-pub struct EnvironDraft<'a> {
+pub struct Environ<'a> {
     pub scope: environ::Scope,
     pub owner: &'a str,
     pub name: &'a str,
@@ -19,7 +19,7 @@ struct Seat {
 }
 
 impl Store {
-    pub async fn set_environ(&self, draft: EnvironDraft<'_>) -> Result<environ::Variable, String> {
+    pub async fn export(&self, draft: Environ<'_>) -> Result<environ::Variable, String> {
         let seat = self.seat(draft.scope, draft.owner).await?;
         self.core
             .batch(async |tx| {
@@ -107,7 +107,7 @@ impl Store {
             .collect()
     }
 
-    pub async fn end_environ(
+    pub async fn unset(
         &self,
         scope: environ::Scope,
         owner: &str,

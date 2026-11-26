@@ -42,10 +42,9 @@ impl Listen {
 #[derive(Debug, Default, Cascade)]
 #[cascade(strict)]
 pub struct Config {
-    #[cascade(arg)]
     pub scenario: Option<String>,
-    #[cascade(arg)]
-    pub reasoning_effort: Option<String>,
+    #[cascade(name = "reasoning_effort")]
+    pub effort: Option<String>,
     #[cascade(section)]
     pub listen: Listen,
     #[cascade(section)]
@@ -71,23 +70,24 @@ pub struct Config {
 #[derive(Debug, Cascade)]
 #[cascade(section)]
 pub struct Jobs {
-    pub acknowledged_retention_seconds: u64,
+    #[cascade(name = "acknowledged_retention_seconds")]
+    pub retention: u64,
 }
 
 impl Default for Jobs {
     fn default() -> Self {
         Self {
-            acknowledged_retention_seconds: santi_api::RETENTION,
+            retention: santi_api::RETENTION,
         }
     }
 }
 
 impl Jobs {
     pub fn retention(&self) -> Result<Duration, String> {
-        if self.acknowledged_retention_seconds == 0 {
+        if self.retention == 0 {
             return Err("acknowledged job retention must be greater than zero".to_string());
         }
-        Ok(Duration::from_secs(self.acknowledged_retention_seconds))
+        Ok(Duration::from_secs(self.retention))
     }
 }
 
@@ -121,9 +121,12 @@ pub struct Paths {
 pub struct Capability {
     pub issuer: String,
     pub audience: String,
-    pub key_id: String,
-    pub private_key: String,
-    pub ttl_seconds: u64,
+    #[cascade(name = "key_id")]
+    pub kid: String,
+    #[cascade(name = "private_key")]
+    pub private: String,
+    #[cascade(name = "ttl_seconds")]
+    pub ttl: u64,
 }
 
 impl Default for Capability {
@@ -131,9 +134,9 @@ impl Default for Capability {
         Self {
             issuer: String::new(),
             audience: String::new(),
-            key_id: String::new(),
-            private_key: String::new(),
-            ttl_seconds: 120,
+            kid: String::new(),
+            private: String::new(),
+            ttl: 120,
         }
     }
 }
@@ -144,9 +147,9 @@ impl std::fmt::Debug for Capability {
             .debug_struct("Capability")
             .field("issuer", &self.issuer)
             .field("audience", &self.audience)
-            .field("key_id", &self.key_id)
+            .field("key_id", &self.kid)
             .field("private_key", &"[redacted]")
-            .field("ttl_seconds", &self.ttl_seconds)
+            .field("ttl_seconds", &self.ttl)
             .finish()
     }
 }
@@ -156,8 +159,8 @@ impl Capability {
         let configured = [
             self.issuer.as_str(),
             self.audience.as_str(),
-            self.key_id.as_str(),
-            self.private_key.as_str(),
+            self.kid.as_str(),
+            self.private.as_str(),
         ]
         .iter()
         .any(|value| !value.trim().is_empty());
@@ -168,10 +171,10 @@ impl Capability {
             &self.issuer,
             &self.audience,
             santi_core::capability::Key {
-                id: &self.key_id,
-                private: &self.private_key,
+                id: &self.kid,
+                private: &self.private,
             },
-            self.ttl_seconds,
+            self.ttl,
         )
         .map(Some)
     }
@@ -219,7 +222,7 @@ fn runtime(held: Config) -> Result<Runtime, String> {
     let home = home();
     let inference = santi_core::inference::Declaration {
         scenario: held.scenario,
-        reasoning_effort: held.reasoning_effort,
+        effort: held.effort,
     };
     inference.validate()?;
     Ok(Runtime {
@@ -260,7 +263,7 @@ fn runtime(held: Config) -> Result<Runtime, String> {
                     );
                 }
             },
-            secret: held.webhooks.feishu.encrypt_key,
+            secret: held.webhooks.feishu.secret,
             allow: held.webhooks.feishu.allow,
         },
         capability: held.capability.issuer()?,

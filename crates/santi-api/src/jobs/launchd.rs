@@ -6,10 +6,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use santi_core::{
-    job,
-    service::{JobLaunch, JobObservation, JobSupervisor, JobTerminal},
-};
+use santi_core::{job, service::jobs};
 
 use super::{
     DIRECTORY, GENERATION, STAMP, TIMEOUT, files, handoff,
@@ -43,14 +40,14 @@ impl Launchd {
         format!("{}/{sidecar}", self.domain)
     }
 
-    fn matching(&self, launch: &JobLaunch) -> Result<bool, String> {
+    fn matching(&self, launch: &jobs::Launch) -> Result<bool, String> {
         let Some(held) = inspect(&self.target(&launch.sidecar))? else {
             return Ok(false);
         };
         Ok(stamp(&held).is_some_and(|stamp| stamp == launch.stamp))
     }
 
-    fn plist(&self, launch: &JobLaunch) -> String {
+    fn plist(&self, launch: &jobs::Launch) -> String {
         format!(
             r#"<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -91,13 +88,13 @@ impl Launchd {
             stamp_key = STAMP,
             stamp = xml(&launch.stamp),
             timeout_key = TIMEOUT,
-            timeout = launch.job.timeout_seconds,
+            timeout = launch.job.timeout,
         )
     }
 }
 
-impl JobSupervisor for Launchd {
-    fn detach(&self, launch: &JobLaunch) -> Result<(), String> {
+impl jobs::Supervisor for Launchd {
+    fn detach(&self, launch: &jobs::Launch) -> Result<(), String> {
         let directory = Path::new(&launch.directory);
         files::directory(directory).prepare()?;
         let requested = Spec::from(launch);
@@ -129,7 +126,7 @@ impl JobSupervisor for Launchd {
         ))
     }
 
-    fn observe(&self, launch: &JobLaunch) -> Result<JobObservation, String> {
+    fn observe(&self, launch: &jobs::Launch) -> Result<jobs::Observation, String> {
         let directory = Path::new(&launch.directory);
         let state = files::directory(directory).state()?;
         if let Some(terminal) = files::directory(directory).terminal()? {
@@ -137,12 +134,12 @@ impl JobSupervisor for Launchd {
                 && launch.stamp.starts_with("stamp_")
                 && launch.job.state == job::State::Submitting
             {
-                return Ok(JobObservation::Aborted);
+                return Ok(jobs::Observation::Aborted);
             }
-            return Ok(JobObservation::Terminal(terminal));
+            return Ok(jobs::Observation::Terminal(terminal));
         }
         let Some(held) = inspect(&self.target(&launch.sidecar))? else {
-            return Ok(JobObservation::Missing);
+            return Ok(jobs::Observation::Missing);
         };
         if !stamp(&held).is_some_and(|stamp| stamp == launch.stamp) {
             return Err(format!(
@@ -156,34 +153,34 @@ impl JobSupervisor for Launchd {
                 .as_ref()
                 .is_some_and(|state| state.phase == Phase::Claimed)
             {
-                Ok(JobObservation::Claimed)
+                Ok(jobs::Observation::Claimed)
             } else {
-                Ok(JobObservation::Running)
+                Ok(jobs::Observation::Running)
             };
         }
         let exit = held
             .get("last exit code")
             .and_then(|value| value.parse::<i32>().ok());
         match exit {
-            Some(0) => Ok(JobObservation::Terminal(JobTerminal {
+            Some(0) => Ok(jobs::Observation::Terminal(jobs::Terminal {
                 state: job::State::Succeeded,
                 reason: None,
                 exit,
             })),
-            Some(code) => Ok(JobObservation::Terminal(JobTerminal {
+            Some(code) => Ok(jobs::Observation::Terminal(jobs::Terminal {
                 state: job::State::Failed,
                 reason: Some("supervisor_failed".to_string()),
                 exit: Some(code),
             })),
-            None => Ok(JobObservation::Claimed),
+            None => Ok(jobs::Observation::Claimed),
         }
     }
 
-    fn stop(&self, launch: &JobLaunch) -> Result<(), String> {
+    fn stop(&self, launch: &jobs::Launch) -> Result<(), String> {
         files::directory(Path::new(&launch.directory)).mark(files::CANCEL)
     }
 
-    fn acknowledge(&self, launch: &JobLaunch) -> Result<(), String> {
+    fn acknowledge(&self, launch: &jobs::Launch) -> Result<(), String> {
         bootout(&self.target(&launch.sidecar))
     }
 }

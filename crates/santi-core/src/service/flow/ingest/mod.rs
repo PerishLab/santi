@@ -9,13 +9,13 @@ pub(in crate::service) struct Ingest<'a> {
     pub(in crate::service) trigger: &'a str,
     pub(in crate::service) source: Option<ingest::Source>,
     pub(in crate::service) reply: Option<&'a crate::receipt::reply::Binding>,
-    pub(in crate::service) replay: Option<santi_estate::ReplayDraft<'a>>,
+    pub(in crate::service) replay: Option<santi_estate::Replay<'a>>,
 }
 
 pub(in crate::service) struct External<'a> {
     pub(in crate::service) input: crate::service::Envelope<'a>,
     pub(in crate::service) reply: Option<&'a crate::receipt::reply::Binding>,
-    pub(in crate::service) replay: Option<santi_estate::ReplayDraft<'a>>,
+    pub(in crate::service) replay: Option<santi_estate::Replay<'a>>,
 }
 
 struct Intake {
@@ -33,11 +33,11 @@ struct Drive<'a> {
 impl Service {
     pub(in crate::service) async fn notify(
         &self,
-        attention: santi_estate::AttentionDraft<'_>,
-        notice: santi_estate::NoticeDraft<'_>,
+        attention: santi_estate::Attention<'_>,
+        notice: santi_estate::Notice<'_>,
     ) -> Result<(), String> {
         let strand = notice.strand.to_string();
-        let offered = self.store.attend_job(attention, notice, 500).await?;
+        let offered = self.store.attend(attention, notice, 500).await?;
         self.dispatched().await;
         if offered.inserted
             && let Some(inbox) = offered.inbox
@@ -116,7 +116,7 @@ impl Service {
     async fn intake(&self, strand: &str, input: Ingest<'_>) -> Result<Intake, String> {
         let inbox = crate::tag("inbox");
         let created = crate::now();
-        let draft = santi_estate::InboxDraft {
+        let draft = santi_estate::Arrival {
             tag: &inbox,
             strand,
             kind: input.kind,
@@ -145,7 +145,7 @@ impl Service {
                 })
             }
             None => {
-                self.store.accept_inbox(draft, 500).await?;
+                self.store.accept(draft, 500).await?;
                 Ok(Intake {
                     outcome: ingest::Outcome::Accepted {
                         receipt: ingest::Receipt {

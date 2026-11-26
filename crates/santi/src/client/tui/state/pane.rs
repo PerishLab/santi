@@ -10,7 +10,7 @@ fn position() {
         "the bottom is the one position that needs no reporting"
     );
 
-    state.struck(Some(Stroke::PageUp));
+    state.struck(Some(Stroke::Ascend));
     state.viewport(100, 10);
     assert_eq!(
         state.position().as_deref(),
@@ -39,7 +39,7 @@ fn holds() {
     let mut state = fresh();
     state.viewport(20, 5);
     assert_eq!(state.scroll, 15);
-    state.struck(Some(Stroke::PageUp));
+    state.struck(Some(Stroke::Ascend));
     let held = state.scroll;
     state.absorb(Beat::Speech("new output".into()));
     state.viewport(21, 5);

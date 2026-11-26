@@ -14,7 +14,7 @@ async fn resumes() {
         constitution: None,
         environment: Default::default(),
     };
-    let provider = Arc::new(FakeProvider::default());
+    let provider = Arc::new(Fake::default());
     let service = Service::open(crate::SCENARIO, config.clone(), provider.clone())
         .await
         .expect("open service");
@@ -45,7 +45,7 @@ async fn resumes() {
         .await
         .expect("reopen service");
     service.resume().await.expect("resume pending");
-    let runtime = Probe::new(&service).any_completed(&strand.id).await;
+    let runtime = Probe::new(&service).settled(&strand.id).await;
     assert_eq!(runtime.turns.len(), 1);
     assert_eq!(runtime.calls.len(), 0);
     assert_eq!(runtime.effects.len(), 0);

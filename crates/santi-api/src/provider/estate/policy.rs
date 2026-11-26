@@ -10,11 +10,11 @@ pub(super) fn stamp(
     route: &Route,
 ) -> Result<String, String> {
     let (settings, templates) = match profile {
-        Resolved::ChatCompletions(p) => (
+        Resolved::Completions(p) => (
             json!([
                 p.bytes,
                 p.maintenance,
-                p.max_tokens,
+                p.tokens,
                 p.thinking,
                 p.replay == santi_provider::chat::completions::Replay::History,
                 p.headers
@@ -22,14 +22,14 @@ pub(super) fn stamp(
             &p.outgoing,
         ),
         Resolved::Gemini(p) => (
-            json!([p.bytes, p.maintenance, p.max_tokens, p.headers]),
+            json!([p.bytes, p.maintenance, p.tokens, p.headers]),
             &p.outgoing,
         ),
-        Resolved::OpenAiResponses(p) => (
+        Resolved::Responses(p) => (
             json!([
                 p.bytes,
                 p.maintenance,
-                p.max_output_tokens,
+                p.tokens,
                 p.attempts,
                 p.summary,
                 p.headers

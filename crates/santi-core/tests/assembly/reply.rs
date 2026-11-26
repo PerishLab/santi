@@ -1,5 +1,5 @@
 use super::*;
-use santi_estate::{Acceptance, DrainDraft, InboxDraft, ReplayDraft, WebhookDraft};
+use santi_estate::{Acceptance, Arrival, Drain, Replay, Webhook};
 use santi_model::receipt::reply::Binding;
 use serde_json::json;
 
@@ -14,7 +14,7 @@ async fn inputs() {
     .unwrap();
     store.seed("soul_test", FIRST).await.unwrap();
     store
-        .create_strand(StrandDraft {
+        .weave(Strand {
             tag: "strand_test",
             soul: "soul_test",
             label: None,
@@ -26,7 +26,7 @@ async fn inputs() {
         .await
         .unwrap();
     store
-        .subscribe(WebhookDraft {
+        .subscribe(Webhook {
             name: "test",
             adaptor: "test",
             soul: "soul_test",
@@ -39,7 +39,7 @@ async fn inputs() {
     for inbox in ["first", "second"] {
         store
             .windowed(
-                InboxDraft {
+                Arrival {
                     tag: inbox,
                     strand: "strand_test",
                     kind: message::Kind::Text,
@@ -48,7 +48,7 @@ async fn inputs() {
                     created: FIRST,
                 },
                 Acceptance {
-                    replay: ReplayDraft::Webhook {
+                    replay: Replay::Webhook {
                         subscription: "test",
                         delivery: inbox,
                         digest: inbox,
@@ -66,7 +66,7 @@ async fn inputs() {
     }
     assert!(store.receptions("strand_test").await.unwrap().is_empty());
     store
-        .drain_turn(DrainDraft {
+        .drain(Drain {
             turn: "turn_test",
             strand: "strand_test",
             trigger: turn::Trigger::System,
@@ -75,7 +75,7 @@ async fn inputs() {
         })
         .await
         .unwrap();
-    let input = provider_input(&store, "strand_test").await.unwrap();
+    let input = assemble(&store, "strand_test").await.unwrap();
     assert_eq!(input.len(), 2);
     for item in input {
         let Item::Message { content, .. } = item else {
@@ -109,9 +109,9 @@ async fn inputs() {
             inbox
         );
     }
-    store.complete_turn("turn_test", 2, LATER).await.unwrap();
+    store.complete("turn_test", 2, LATER).await.unwrap();
     store
-        .fork(ForkDraft {
+        .fork(Fork {
             tag: "strand_child",
             parent: "strand_test",
             at: 2,
@@ -121,7 +121,7 @@ async fn inputs() {
         .await
         .unwrap();
     assert!(store.receptions("strand_child").await.unwrap().is_empty());
-    for item in provider_input(&store, "strand_child").await.unwrap() {
+    for item in assemble(&store, "strand_child").await.unwrap() {
         if let Item::Message { content, .. } = item {
             assert!(!content.contains("[reply "));
         }

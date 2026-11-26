@@ -72,11 +72,11 @@ async fn conflict() {
         .unwrap()
         .unwrap();
     store
-        .place(santi_estate::MessageDraft {
+        .place(santi_estate::Message {
             tag: &batch.messages()[1].message.id,
             strand: "strand_test",
             actor: message::Role::System,
-            actor_id: "test",
+            sender: "test",
             kind: message::Kind::Text,
             content: &message::Content::text("collision"),
             state: message::State::Fixed,
@@ -110,7 +110,7 @@ async fn stopped() {
         .unwrap()
         .unwrap();
     store
-        .request_stop("turn_test", turn::Cause::Operator, LATER)
+        .halt("turn_test", turn::Cause::Operator, LATER)
         .await
         .unwrap()
         .unwrap();
@@ -146,7 +146,7 @@ async fn rollback() {
         .unwrap()
         .unwrap();
     store
-        .create_strand(StrandDraft {
+        .weave(Strand {
             tag: "foreign",
             soul: "soul_test",
             label: None,
@@ -158,11 +158,11 @@ async fn rollback() {
         .await
         .unwrap();
     store
-        .place(santi_estate::MessageDraft {
+        .place(santi_estate::Message {
             tag: &batch.messages()[1].message.id,
             strand: "foreign",
             actor: message::Role::System,
-            actor_id: "test",
+            sender: "test",
             kind: message::Kind::Text,
             content: &message::Content::text("collision"),
             state: message::State::Fixed,

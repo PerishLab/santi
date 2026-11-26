@@ -1,85 +1,84 @@
-use super::ledger::{Strand, Turn};
-use super::ops::error::StrandIncident;
-use keel::atom::{int, string};
-use keel::resource;
+use keel::Graph;
+use keel::atom::Kind as Atom;
+use keel::bond::Kind as Bond;
+use keel::spec::{Only, Rule, Spec};
 
-#[resource]
-pub(crate) struct StrandInbox {
-    #[field(string, unique)]
-    tag: string,
-    #[field(string, values = ["santi_system", "text"])]
-    kind: string,
-    #[field(string)]
-    content: string,
-    #[field(string, opt)]
-    source_type: string,
-    #[field(string, opt)]
-    source_ref: string,
-    #[field(string, opt)]
-    source_metadata: string,
-    #[field(string, unique = strand, opt)]
-    coalesce_key: string,
-    #[field(int, opt, min = 1)]
-    coalesce_revision: int,
-    #[field(string, opt)]
-    coalesce_causes: string,
-    #[field(string)]
-    created: string,
-    #[relation(Strand, many2one, root)]
-    strand: Strand,
+pub(super) fn plug(graph: &mut Graph) {
+    graph
+        .add(inbox())
+        .add(slot())
+        .add(receipt())
+        .add(transition());
 }
 
-#[resource]
-pub(crate) struct InboxSlot {
-    #[field(string, unique = strand)]
-    key: string,
-    #[field(int, min = 1)]
-    revision: int,
-    #[field(string)]
-    digest: string,
-    #[field(string)]
-    updated: string,
-    #[relation(Strand, many2one, root)]
-    strand: Strand,
-    #[relation(StrandInbox, one2one, opt)]
-    inbox: StrandInbox,
+fn inbox() -> Spec {
+    Spec::build("StrandInbox")
+        .sole("tag", Atom::Text)
+        .field("kind", Atom::Text)
+        .rule("kind", Rule::new().values(&["santi_system", "text"]))
+        .field("content", Atom::Text)
+        .optional("source_type", Atom::Text, Only::Free)
+        .optional("source_ref", Atom::Text, Only::Free)
+        .optional("source_metadata", Atom::Text, Only::Free)
+        .optional(
+            "coalesce_key",
+            Atom::Text,
+            Only::Per(vec!["strand".to_string()]),
+        )
+        .optional("coalesce_revision", Atom::Int, Only::Free)
+        .rule("coalesce_revision", Rule::new().min(1))
+        .optional("coalesce_causes", Atom::Text, Only::Free)
+        .field("created", Atom::Text)
+        .root("strand", Bond::Many2one, "Strand")
+        .seal()
 }
 
-#[resource]
-pub(crate) struct InboxReceipt {
-    #[field(string, unique)]
-    tag: string,
-    #[field(
-        string,
-        default = "accepted",
-        values = ["accepted", "completed", "driving", "failed", "recovered"]
-    )]
-    state: string,
-    #[field(string)]
-    accepted: string,
-    #[field(string)]
-    updated: string,
-    #[relation(Strand, many2one, root)]
-    strand: Strand,
+fn slot() -> Spec {
+    Spec::build("InboxSlot")
+        .per("key", Atom::Text, &["strand"])
+        .field("revision", Atom::Int)
+        .rule("revision", Rule::new().min(1))
+        .field("digest", Atom::Text)
+        .field("updated", Atom::Text)
+        .root("strand", Bond::Many2one, "Strand")
+        .free("inbox", Bond::One2one, "StrandInbox")
+        .seal()
 }
 
-#[resource(frozen)]
-pub(crate) struct ReceiptTransition {
-    #[field(string, unique)]
-    tag: string,
-    #[field(int, unique = receipt, min = 1)]
-    sequence: int,
-    #[field(
-        string,
-        values = ["accepted", "completed", "driving", "failed", "recovered"]
-    )]
-    state: string,
-    #[field(string)]
-    occurred: string,
-    #[relation(InboxReceipt, many2one, root)]
-    receipt: InboxReceipt,
-    #[relation(Turn, many2one, opt)]
-    turn: Turn,
-    #[relation(StrandIncident, many2one, opt)]
-    incident: StrandIncident,
+fn receipt() -> Spec {
+    Spec::build("InboxReceipt")
+        .sole("tag", Atom::Text)
+        .field("state", Atom::Text)
+        .rule(
+            "state",
+            Rule::new().default("accepted").values(&[
+                "accepted",
+                "completed",
+                "driving",
+                "failed",
+                "recovered",
+            ]),
+        )
+        .field("accepted", Atom::Text)
+        .field("updated", Atom::Text)
+        .root("strand", Bond::Many2one, "Strand")
+        .seal()
+}
+
+fn transition() -> Spec {
+    Spec::build("ReceiptTransition")
+        .sole("tag", Atom::Text)
+        .per("sequence", Atom::Int, &["receipt"])
+        .rule("sequence", Rule::new().min(1))
+        .field("state", Atom::Text)
+        .rule(
+            "state",
+            Rule::new().values(&["accepted", "completed", "driving", "failed", "recovered"]),
+        )
+        .field("occurred", Atom::Text)
+        .root("receipt", Bond::Many2one, "InboxReceipt")
+        .free("turn", Bond::Many2one, "Turn")
+        .free("incident", Bond::Many2one, "StrandIncident")
+        .freeze()
+        .seal()
 }

@@ -1,10 +1,10 @@
 use super::super::seed::{FIRST, LATER, SOUL, SUDO, inbox, seed};
-use santi_estate::{DrainDraft, Opening, Store, StrandDraft, TurnDraft};
+use santi_estate::{Drain, Opening, Store, Strand, Turn};
 use santi_model::{effect, job, message, receipt, turn};
 
 pub(super) async fn strand(store: &Store, tag: &str) {
     store
-        .create_strand(StrandDraft {
+        .weave(Strand {
             tag,
             soul: SOUL,
             label: None,
@@ -19,7 +19,7 @@ pub(super) async fn strand(store: &Store, tag: &str) {
 
 pub(super) async fn finish(store: &Store, tag: &str) {
     store
-        .finish_turn(santi_estate::CompletionDraft {
+        .finish(santi_estate::Finish {
             turn: tag,
             reply: None,
             provider: "test",
@@ -40,23 +40,20 @@ async fn pending() {
     seed(&store).await;
     strand(&store, "pending").await;
     store
-        .accept_inbox(
+        .accept(
             inbox("input", "pending", &message::Content::text("keep me")),
             10,
         )
         .await
         .expect("accept");
-    let refusal = store
-        .end_strand("pending")
-        .await
-        .expect_err("pending protects");
+    let refusal = store.retire("pending").await.expect_err("pending protects");
     assert!(refusal.contains("pending input input"), "{refusal}");
     assert!(store.strand("pending").await.expect("strand").is_some());
     let Opening::Started(started) = store
-        .drain_turn(DrainDraft {
+        .drain(Drain {
             turn: "drained",
             strand: "pending",
-            trigger: turn::Trigger::StrandSend,
+            trigger: turn::Trigger::Send,
             actor: "santi",
             created: LATER,
         })
@@ -66,10 +63,7 @@ async fn pending() {
         panic!("pending input survived");
     };
     assert_eq!(started.drained[0].text, "keep me");
-    let refusal = store
-        .end_strand("pending")
-        .await
-        .expect_err("driving protects");
+    let refusal = store.retire("pending").await.expect_err("driving protects");
     assert!(refusal.contains("unfinished receipt input"), "{refusal}");
     finish(&store, "drained").await;
     assert_eq!(
@@ -81,8 +75,8 @@ async fn pending() {
             .state,
         receipt::State::Completed
     );
-    store.end_strand("pending").await.expect("idle");
-    assert!(store.end_strand("pending").await.is_err());
+    store.retire("pending").await.expect("idle");
+    assert!(store.retire("pending").await.is_err());
 }
 
 #[tokio::test]
@@ -94,41 +88,41 @@ async fn active() {
     seed(&store).await;
     strand(&store, "work").await;
     store
-        .create_turn(TurnDraft {
+        .start(Turn {
             tag: "turn_work",
             strand: "work",
-            trigger: turn::Trigger::StrandSend,
+            trigger: turn::Trigger::Send,
             from: 0,
             created: FIRST,
         })
         .await
         .expect("turn");
-    let refusal = store.end_strand("work").await.expect_err("turn protects");
+    let refusal = store.retire("work").await.expect_err("turn protects");
     assert!(refusal.contains("running turn turn_work"), "{refusal}");
     super::super::job::job(&store, "work", "turn_work").await;
     finish(&store, "turn_work").await;
-    let refusal = store.end_strand("work").await.expect_err("effect protects");
+    let refusal = store.retire("work").await.expect_err("effect protects");
     assert!(
         refusal.contains("unsettled effect job_effect_work"),
         "{refusal}"
     );
     store
-        .dispatch_effect("job_effect_work", LATER)
+        .dispatching("job_effect_work", LATER)
         .await
         .expect("dispatch");
     store
-        .unknown_effect("job_effect_work", "result unavailable", LATER)
+        .suspect("job_effect_work", "result unavailable", LATER)
         .await
         .expect("unknown");
     assert!(
         store
-            .end_strand("work")
+            .retire("work")
             .await
             .expect_err("unknown protects")
             .contains("unsettled effect")
     );
     store
-        .settle_effect(
+        .settle(
             "job_effect_work",
             effect::Outcome::Applied,
             "operator verified",
@@ -143,34 +137,34 @@ async fn active() {
         job::State::Cancelling,
     ] {
         store
-            .transition_job("job_work", santi_estate::TransitionDraft::new(state, LATER))
+            .transit("job_work", santi_estate::Transition::new(state, LATER))
             .await
             .expect("state");
-        let refusal = store.end_strand("work").await.expect_err("job protects");
+        let refusal = store.retire("work").await.expect_err("job protects");
         assert!(refusal.contains("active job job_work"), "{refusal}");
-        assert!(store.job_record("job_work").await.expect("job").is_some());
+        assert!(store.tracked("job_work").await.expect("job").is_some());
     }
     store
-        .transition_job(
+        .transit(
             "job_work",
-            santi_estate::TransitionDraft::new(job::State::Succeeded, LATER),
+            santi_estate::Transition::new(job::State::Succeeded, LATER),
         )
         .await
         .expect("complete");
     assert!(
         store
-            .end_strand("work")
+            .retire("work")
             .await
             .expect_err("result protects")
             .contains("unacknowledged job job_work")
     );
-    store.acknowledge_job("job_work", LATER).await.expect("ack");
-    let keys = store.end_strand("work").await.expect("idle");
+    store.ack("job_work", LATER).await.expect("ack");
+    let keys = store.retire("work").await.expect("idle");
     assert!(keys.contains(&"job_work".to_string()));
     assert!(keys.contains(&"stamp_work".to_string()));
     assert!(
         store
-            .job_record("job_work")
+            .tracked("job_work")
             .await
             .expect("ended job")
             .is_none()

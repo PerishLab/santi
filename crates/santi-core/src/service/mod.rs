@@ -6,12 +6,8 @@ pub(crate) use engine::provider::Fixed;
 pub use engine::provider::Resolver;
 pub use face::Admission;
 mod flow;
-mod jobs;
-pub use jobs::{
-    Draft as JobDraft, Launch as JobLaunch, Observation as JobObservation, Read as JobRead,
-    Supervisor as JobSupervisor, Terminal as JobTerminal,
-};
 pub mod interrupt;
+pub mod jobs;
 mod text;
 mod tools;
 mod traces;
@@ -54,7 +50,7 @@ pub struct Service {
     inboxes: Arc<Mutex<HashMap<String, String>>>,
     budgets: Arc<Mutex<HashMap<String, budget::Execution>>>,
     limit: Option<budget::Execution>,
-    memory_bytes: usize,
+    memory: usize,
     identities: Arc<BTreeMap<String, crate::soul::Identity>>,
     settlements: Arc<Mutex<HashMap<String, Settlement>>>,
     pressure: radicula_lock::Gate,
@@ -114,13 +110,11 @@ impl Service {
         let traces = traces::Writer::start(store.clone());
         let sink = radicula_trace::Sink::from(traces);
         let context = radicula_context::Context::root().with(sink);
-        store
-            .recover_turns("santi.cold_start", &crate::now())
-            .await?;
+        store.recover("santi.cold_start", &crate::now()).await?;
         store.interrupted(&crate::now()).await?;
         store.interrupt().await?;
         let degraded = store
-            .active_incident_count(crate::drive::Error::Failed.descriptor().code)
+            .counts(crate::drive::Error::Failed.descriptor().code)
             .await?
             > 0;
         let domain = radicula_lock::Factory::memory();
@@ -147,7 +141,7 @@ impl Service {
             inboxes: Arc::new(Mutex::new(HashMap::new())),
             budgets: Arc::new(Mutex::new(HashMap::new())),
             limit: None,
-            memory_bytes: MEMORY,
+            memory: MEMORY,
             identities: Arc::new(BTreeMap::new()),
             settlements: Arc::new(Mutex::new(HashMap::new())),
             pressure,
@@ -183,7 +177,7 @@ impl Service {
         if bytes == 0 {
             return Err("shared memory bytes must be greater than zero".into());
         }
-        self.memory_bytes = bytes;
+        self.memory = bytes;
         Ok(self)
     }
 

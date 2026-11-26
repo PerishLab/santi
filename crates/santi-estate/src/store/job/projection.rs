@@ -1,4 +1,4 @@
-use super::{ExpiredJob, JobRecord, Store, read};
+use super::{Expired, Record, Store, read};
 use keel::{Op, Rank, form};
 use santi_model::job;
 
@@ -12,14 +12,14 @@ impl<'a> Projection<'a> {
         Self(store)
     }
 
-    pub async fn record(&self, tag: &str) -> Result<Option<JobRecord>, String> {
+    pub async fn record(&self, tag: &str) -> Result<Option<Record>, String> {
         let Some(row) = read::one(&self.0.core, "Job", "tag", tag).await? else {
             return Ok(None);
         };
         self.decode(&row).await.map(Some)
     }
 
-    pub async fn active(&self) -> Result<Vec<JobRecord>, String> {
+    pub async fn active(&self) -> Result<Vec<Record>, String> {
         let rows = self
             .0
             .core
@@ -31,10 +31,10 @@ impl<'a> Projection<'a> {
             )
             .await
             .map_err(read::error)?;
-        self.decode_all(rows.rows()).await
+        self.all(rows.rows()).await
     }
 
-    pub async fn jobs(&self, soul: &str) -> Result<Vec<JobRecord>, String> {
+    pub async fn jobs(&self, soul: &str) -> Result<Vec<Record>, String> {
         let rows = self
             .0
             .core
@@ -55,7 +55,7 @@ impl<'a> Projection<'a> {
         Ok(records)
     }
 
-    pub async fn unnotified(&self, limit: usize) -> Result<Vec<JobRecord>, String> {
+    pub async fn unnotified(&self, limit: usize) -> Result<Vec<Record>, String> {
         let rows = self
             .0
             .core
@@ -71,15 +71,15 @@ impl<'a> Projection<'a> {
             .await
             .map_err(read::error)?;
         let mut records = Vec::new();
-        for record in self.decode_all(rows.rows()).await? {
-            if record.terminal_notified.is_none() {
+        for record in self.all(rows.rows()).await? {
+            if record.notified.is_none() {
                 records.push(record);
             }
         }
         Ok(records)
     }
 
-    pub async fn expired(&self, cutoff: &str, limit: usize) -> Result<Vec<ExpiredJob>, String> {
+    pub async fn expired(&self, cutoff: &str, limit: usize) -> Result<Vec<Expired>, String> {
         let rows = self
             .0
             .core
@@ -98,7 +98,7 @@ impl<'a> Projection<'a> {
             .map(|row| {
                 let id = read::text(row, "tag")?.to_string();
                 let generation = read::text(row, "generation")?;
-                Ok(ExpiredJob {
+                Ok(Expired {
                     key: if generation.starts_with("stamp_") {
                         generation.to_string()
                     } else {
@@ -110,11 +110,11 @@ impl<'a> Projection<'a> {
             .collect()
     }
 
-    pub(super) async fn decode(&self, row: &keel::Row) -> Result<JobRecord, String> {
+    pub(super) async fn decode(&self, row: &keel::Row) -> Result<Record, String> {
         let strand = self.related("Strand", read::int(row, "strand")?).await?;
         let soul = read::related(&self.0.core, "Soul", read::int(&strand, "soul")?).await?;
-        let strand_tag = read::text(&strand, "tag")?.to_string();
-        Ok(JobRecord {
+        let tag = read::text(&strand, "tag")?.to_string();
+        Ok(Record {
             environment: row
                 .text("environment")
                 .map(serde_json::from_str)
@@ -124,7 +124,7 @@ impl<'a> Projection<'a> {
                 id: read::text(row, "tag")?.to_string(),
                 origin: job::Origin {
                     soul,
-                    strand: strand_tag,
+                    strand: tag,
                     turn: read::related(&self.0.core, "Turn", read::int(row, "turn")?).await?,
                     call: read::related(&self.0.core, "ToolCall", read::int(row, "call")?).await?,
                     effect: read::related(&self.0.core, "StrandEffect", read::int(row, "effect")?)
@@ -133,12 +133,12 @@ impl<'a> Projection<'a> {
                 description: read::text(row, "description")?.to_string(),
                 command: read::text(row, "command")?.to_string(),
                 cwd: row.text("cwd").map(str::to_string),
-                timeout_seconds: unsigned(row, "timeout_seconds")?,
-                output_limit_bytes: unsigned(row, "output_limit_bytes")?,
-                remind: optional_unsigned(row, "remind_every_seconds")?,
+                timeout: unsigned(row, "timeout_seconds")?,
+                limit: unsigned(row, "output_limit_bytes")?,
+                remind: optional(row, "remind_every_seconds")?,
                 state: state(read::text(row, "state")?)?,
                 reason: row.text("reason").map(str::to_string),
-                exit_code: row
+                exit: row
                     .int("exit_code")
                     .map(i32::try_from)
                     .transpose()
@@ -154,17 +154,17 @@ impl<'a> Projection<'a> {
             },
             generation: read::text(row, "generation")?.to_string(),
             supervisor: read::text(row, "supervisor_ref")?.to_string(),
-            started_millis: row.int("started_millis"),
-            attention_revision: unsigned(row, "attention_revision")?,
-            runtime_warned: row.text("runtime_warned").is_some(),
-            output_warned: row.text("output_warned").is_some(),
-            reminder_tick: unsigned(row, "reminder_tick")?,
-            notify_on_terminal: row.flag("notify_on_terminal").unwrap_or(false),
-            terminal_notified: row.text("terminal_notified").map(str::to_string),
+            started: row.int("started_millis"),
+            attention: unsigned(row, "attention_revision")?,
+            runtime: row.text("runtime_warned").is_some(),
+            output: row.text("output_warned").is_some(),
+            tick: unsigned(row, "reminder_tick")?,
+            notify: row.flag("notify_on_terminal").unwrap_or(false),
+            notified: row.text("terminal_notified").map(str::to_string),
         })
     }
 
-    async fn decode_all(&self, rows: &[keel::Row]) -> Result<Vec<JobRecord>, String> {
+    async fn all(&self, rows: &[keel::Row]) -> Result<Vec<Record>, String> {
         let mut records = Vec::with_capacity(rows.len());
         for row in rows {
             records.push(self.decode(row).await?);
@@ -183,7 +183,7 @@ fn unsigned(row: &keel::Row, field: &str) -> Result<u64, String> {
     u64::try_from(read::int(row, field)?).map_err(|error| error.to_string())
 }
 
-fn optional_unsigned(row: &keel::Row, field: &str) -> Result<Option<u64>, String> {
+fn optional(row: &keel::Row, field: &str) -> Result<Option<u64>, String> {
     row.int(field)
         .map(u64::try_from)
         .transpose()
@@ -198,7 +198,7 @@ fn state(value: &str) -> Result<job::State, String> {
         "cancelling" => Ok(job::State::Cancelling),
         "succeeded" => Ok(job::State::Succeeded),
         "failed" => Ok(job::State::Failed),
-        "timed_out" => Ok(job::State::TimedOut),
+        "timed_out" => Ok(job::State::Timeout),
         "cancelled" => Ok(job::State::Cancelled),
         "unknown" => Ok(job::State::Unknown),
         value => Err(format!("unknown job state {value}")),

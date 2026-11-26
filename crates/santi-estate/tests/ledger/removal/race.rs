@@ -1,6 +1,6 @@
 use super::super::seed::{FIRST, SOUL, SUDO, inbox, seed};
 use super::guards::strand;
-use santi_estate::{Store, TurnDraft};
+use santi_estate::{Store, Turn};
 use santi_model::{message, turn};
 use std::sync::Arc;
 use tokio::sync::Barrier;
@@ -23,7 +23,7 @@ async fn admission() {
             ready.wait().await;
             if index % 2 == 0 {
                 aside
-                    .accept_inbox(
+                    .accept(
                         inbox(
                             &format!("input_{index}"),
                             &target,
@@ -35,10 +35,10 @@ async fn admission() {
                     .map(|_| ())
             } else {
                 aside
-                    .create_turn(TurnDraft {
+                    .start(Turn {
                         tag: &format!("turn_{index}"),
                         strand: &target,
-                        trigger: turn::Trigger::StrandSend,
+                        trigger: turn::Trigger::Send,
                         from: 0,
                         created: FIRST,
                     })
@@ -47,7 +47,7 @@ async fn admission() {
             }
         });
         barrier.wait().await;
-        let ended = store.end_strand(&tag).await;
+        let ended = store.retire(&tag).await;
         let admitted = writer.await.expect("writer");
         assert!(!(ended.is_ok() && admitted.is_ok()), "both accepted: {tag}");
         assert!(
@@ -85,10 +85,10 @@ async fn admission() {
 async fn settled(store: &Store, tag: &str) {
     let turn = format!("turn_{tag}");
     store
-        .create_turn(TurnDraft {
+        .start(Turn {
             tag: &turn,
             strand: tag,
-            trigger: turn::Trigger::StrandSend,
+            trigger: turn::Trigger::Send,
             from: 0,
             created: FIRST,
         })
@@ -96,23 +96,17 @@ async fn settled(store: &Store, tag: &str) {
         .expect("turn");
     super::super::job::job(store, tag, &turn).await;
     super::guards::finish(store, &turn).await;
+    store.reconcile(&turn, FIRST).await.expect("reconcile");
     store
-        .reconcile_effects(&turn, FIRST)
-        .await
-        .expect("reconcile");
-    store
-        .transition_job(
+        .transit(
             &format!("job_{tag}"),
-            santi_estate::TransitionDraft::new(santi_model::job::State::Succeeded, FIRST),
+            santi_estate::Transition::new(santi_model::job::State::Succeeded, FIRST),
         )
         .await
         .expect("complete");
+    store.ack(&format!("job_{tag}"), FIRST).await.expect("ack");
     store
-        .acknowledge_job(&format!("job_{tag}"), FIRST)
-        .await
-        .expect("ack");
-    store
-        .create_capability(santi_estate::CapabilityDraft {
+        .grant(santi_estate::Capability {
             digest: tag,
             expires: 1000,
             soul: SOUL,
@@ -132,21 +126,21 @@ async fn submit(
     supervisor: &str,
 ) -> Result<santi_estate::Prepared, String> {
     store
-        .prepare_job(
+        .submit(
             strand,
-            santi_estate::JobDraft {
+            santi_estate::Job {
                 environment: None,
                 tag: &format!("late_{strand}"),
                 description: "late job",
                 command: "true",
                 cwd: None,
-                timeout_seconds: 30,
-                output_limit_bytes: 1024,
-                remind_every_seconds: None,
-                notify_on_terminal: false,
-                request_sha256: "late_digest",
+                timeout: 30,
+                limit: 1024,
+                remind: None,
+                notify: false,
+                digest: "late_digest",
                 generation: &format!("generation_{strand}"),
-                supervisor_ref: supervisor,
+                supervisor,
                 created: FIRST,
             },
             500,
@@ -175,7 +169,7 @@ async fn submission() {
             submit(&aside, &target, &supervisor).await
         });
         barrier.wait().await;
-        let ended = store.end_strand(&tag).await;
+        let ended = store.retire(&tag).await;
         let submitted = writer.await.expect("writer");
         assert!(
             !(ended.is_ok() && submitted.is_ok()),
@@ -189,14 +183,14 @@ async fn submission() {
             assert!(store.strand(&tag).await.expect("strand").is_some());
             assert!(
                 store
-                    .job_record(&format!("late_{tag}"))
+                    .tracked(&format!("late_{tag}"))
                     .await
                     .expect("job")
                     .is_some()
             );
             assert!(
                 store
-                    .end_strand(&tag)
+                    .retire(&tag)
                     .await
                     .expect_err("active job protects")
                     .contains("active job")
@@ -221,14 +215,14 @@ async fn qualification() {
     assert!(taken.contains("supervisor_ref taken"), "{taken}");
     assert!(
         store
-            .job_record(&format!("late_{tag}"))
+            .tracked(&format!("late_{tag}"))
             .await
             .expect("job")
             .is_none(),
         "rejected contender left a job"
     );
     let original = store
-        .job_record(&format!("job_{tag}"))
+        .tracked(&format!("job_{tag}"))
         .await
         .expect("job")
         .expect("settled job");
@@ -244,7 +238,7 @@ async fn qualification() {
     assert_eq!(record.job.id, format!("late_{tag}"));
     assert_eq!(
         store
-            .job_record(&format!("job_{tag}"))
+            .tracked(&format!("job_{tag}"))
             .await
             .expect("job")
             .expect("settled job")
@@ -254,7 +248,7 @@ async fn qualification() {
     );
     assert!(
         store
-            .end_strand(tag)
+            .retire(tag)
             .await
             .expect_err("active job protects")
             .contains("active job")
@@ -262,7 +256,7 @@ async fn qualification() {
     assert!(store.strand(tag).await.expect("strand").is_some());
     assert!(
         store
-            .job_record(&format!("late_{tag}"))
+            .tracked(&format!("late_{tag}"))
             .await
             .expect("protected job")
             .is_some()

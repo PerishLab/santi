@@ -1,5 +1,5 @@
 use santi_error::{Draft, Scope, Source};
-use santi_estate::{EffectDraft, InboxDraft, Store, StrandDraft, TurnDraft};
+use santi_estate::{Arrival, Effect, Store, Strand, Turn};
 use santi_model::{message, receipt, turn};
 
 pub(super) const FIRST: &str = "2026-07-28T00:00:00.000Z";
@@ -13,9 +13,9 @@ pub(super) async fn bootstrap(path: impl AsRef<std::path::Path>) -> Store {
     .expect("bootstrap")
 }
 
-pub(super) async fn create_strand(store: &Store, tag: &str, label: Option<&str>) {
+pub(super) async fn strand(store: &Store, tag: &str, label: Option<&str>) {
     store
-        .create_strand(StrandDraft {
+        .weave(Strand {
             tag,
             soul: "soul_test",
             label,
@@ -35,8 +35,8 @@ pub(super) async fn driven(store: &Store, suffix: &str) {
     let effect = format!("effect_{suffix}");
     let content = message::Content::text("drive");
     store
-        .accept_inbox(
-            InboxDraft {
+        .accept(
+            Arrival {
                 tag: &inbox,
                 strand: &strand,
                 kind: message::Kind::Text,
@@ -48,9 +48,9 @@ pub(super) async fn driven(store: &Store, suffix: &str) {
         )
         .await
         .expect("inbox");
-    create_turn(store, &turn, &strand).await;
+    self::turn(store, &turn, &strand).await;
     store
-        .advance_receipt(santi_estate::ReceiptDraft {
+        .advance(santi_estate::Receipt {
             inbox: &inbox,
             state: receipt::State::Driving,
             turn: Some(&turn),
@@ -60,7 +60,7 @@ pub(super) async fn driven(store: &Store, suffix: &str) {
         .await
         .expect("receipt");
     store
-        .prepare_effect(EffectDraft {
+        .stage(Effect {
             tag: &effect,
             turn: &turn,
             call: None,
@@ -72,9 +72,9 @@ pub(super) async fn driven(store: &Store, suffix: &str) {
         .expect("effect");
 }
 
-pub(super) async fn create_turn(store: &Store, tag: &str, strand: &str) {
+pub(super) async fn turn(store: &Store, tag: &str, strand: &str) {
     store
-        .create_turn(TurnDraft {
+        .start(Turn {
             tag,
             strand,
             trigger: turn::Trigger::System,

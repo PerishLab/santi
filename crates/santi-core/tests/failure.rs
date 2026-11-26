@@ -9,8 +9,8 @@ use santi_provider::{Event, Item, Metadata, Provider, Request, Streaming};
 use std::sync::{Arc, Mutex};
 use tokio::time::{Duration, sleep};
 
-#[path = "failure/finish_turn.rs"]
-mod finish_turn;
+#[path = "failure/finish.rs"]
+mod finish;
 #[path = "failure/more.rs"]
 mod more;
 #[path = "failure/recovery.rs"]
@@ -18,7 +18,7 @@ mod recovery;
 #[path = "failure/round.rs"]
 mod round;
 
-fn as_text(item: &Item) -> Option<(&str, &str)> {
+fn textual(item: &Item) -> Option<(&str, &str)> {
     match item {
         Item::Message { role, content } => Some((role.as_str(), content.as_str())),
         _ => None,
@@ -26,16 +26,16 @@ fn as_text(item: &Item) -> Option<(&str, &str)> {
 }
 
 #[derive(Clone, Default)]
-struct FailureProvider {
+struct Faulty {
     requests: Arc<Mutex<Vec<Request>>>,
-    fail_with: Option<String>,
-    fail_for_requests: Option<usize>,
-    stream_error_after_text: Option<String>,
-    response_failure: Option<String>,
+    failing: Option<String>,
+    limit: Option<usize>,
+    midstream: Option<String>,
+    response: Option<String>,
 }
 
 #[async_trait]
-impl Provider for FailureProvider {
+impl Provider for Faulty {
     fn metadata(&self) -> Metadata {
         Metadata {
             provider: Arc::from("fake-provider"),
@@ -50,20 +50,20 @@ impl Provider for FailureProvider {
             requests.push(request);
             requests.len()
         };
-        if let Some(error) = &self.fail_with
+        if let Some(error) = &self.failing
             && self
-                .fail_for_requests
+                .limit
                 .is_none_or(|failure_count| attempt <= failure_count)
         {
             return Err(error.clone());
         }
-        if let Some(error) = &self.stream_error_after_text {
+        if let Some(error) = &self.midstream {
             return Ok(Box::pin(stream::iter(vec![
                 Ok(Event::Text("partial runtime output".to_string())),
                 Err(error.clone()),
             ])));
         }
-        if let Some(error) = &self.response_failure {
+        if let Some(error) = &self.response {
             return Ok(Box::pin(stream::iter(vec![Ok(Event::Failed(
                 error.clone(),
             ))])));
@@ -81,26 +81,26 @@ impl Provider for FailureProvider {
 #[tokio::test]
 async fn aggregates() {
     let temp = tempfile::tempdir().expect("temp dir");
-    let raw_error = "openai responses request failed: 401 Unauthorized secret detail".to_string();
-    let provider = Arc::new(FailureProvider {
-        fail_with: Some(raw_error.clone()),
-        ..FailureProvider::default()
+    let raw = "openai responses request failed: 401 Unauthorized secret detail".to_string();
+    let provider = Arc::new(Faulty {
+        failing: Some(raw.clone()),
+        ..Faulty::default()
     });
-    let service = open_service(&temp, provider.clone()).await;
+    let service = open(&temp, provider.clone()).await;
     let mut events = service.listen().await;
     let strand = service.weave().await.expect("create strand").strand;
-    let first = send_text(&service, &strand.id, "trigger failure").await;
-    let turn_id = turn(&service, &first).await.id;
-    let incident = turn_id.clone();
+    let first = send(&service, &strand.id, "trigger failure").await;
+    let identifier = turn(&service, &first).await.id;
+    let incident = identifier.clone();
 
-    let runtime = wait_for_turn(&service, &strand.id, &incident, turn::Status::Failed).await;
-    let failed_turn = runtime
+    let runtime = awaiting(&service, &strand.id, &incident, turn::Status::Failed).await;
+    let failed = runtime
         .turns
         .iter()
         .find(|candidate| candidate.id == incident)
         .expect("failed turn");
-    assert_eq!(failed_turn.error.as_deref(), Some(raw_error.as_str()));
-    assert_no_failure_projection(&runtime);
+    assert_eq!(failed.error.as_deref(), Some(raw.as_str()));
+    unprojected(&runtime);
 
     assert_eq!(runtime.errors.len(), 1);
     let identity = runtime.errors[0].id.clone();
@@ -112,30 +112,30 @@ async fn aggregates() {
     assert_eq!(incident.revision, 1);
     assert_eq!(incident.first.source.component, "santi-provider");
     assert_eq!(incident.first.source.operation, "turn.request");
-    assert_eq!(incident.first.context["turn"], turn_id);
+    assert_eq!(incident.first.context["turn"], identifier);
     assert_eq!(incident.first.context["provider"], "fake-provider");
     assert_eq!(incident.first.context["model"], "fake-model");
     assert_eq!(incident.first.context["stage"], "request");
     assert_eq!(incident.first.context["round"], 1);
     assert!(!incident.exposure.model);
 
-    let failed_event = std::iter::from_fn(|| events.try_recv().ok())
+    let event = std::iter::from_fn(|| events.try_recv().ok())
         .find_map(|event| match event.payload {
             santi_core::stream::Payload::Turn(santi_core::turn::Beat::Failed {
                 turn: held,
                 error,
-            }) if held == turn_id => Some(error),
+            }) if held == identifier => Some(error),
             _ => None,
         })
         .expect("turn_failed event");
-    assert_eq!(failed_event.code, "provider.turn.failed");
-    assert_eq!(failed_event.incident.as_deref(), Some(incident.id.as_str()));
-    assert_eq!(failed_event.source.operation, "turn.request");
+    assert_eq!(event.code, "provider.turn.failed");
+    assert_eq!(event.incident.as_deref(), Some(incident.id.as_str()));
+    assert_eq!(event.source.operation, "turn.request");
 
-    let retry = send_text(&service, &strand.id, "continue after failure").await;
+    let retry = send(&service, &strand.id, "continue after failure").await;
 
     let runtime = wait(&service, &strand.id, &retry, turn::Status::Failed).await;
-    assert_no_failure_projection(&runtime);
+    unprojected(&runtime);
     assert_eq!(runtime.errors.len(), 1);
     assert_eq!(runtime.errors[0].id, identity);
     assert_eq!(runtime.errors[0].occurrences, 2);
@@ -147,25 +147,25 @@ async fn aggregates() {
     let requests = provider.requests.lock().unwrap();
     assert_eq!(requests.len(), 2);
     assert!(requests[1].input.iter().all(|item| {
-        as_text(item).is_none_or(|(_, content)| {
+        textual(item).is_none_or(|(_, content)| {
             !content.contains("kind: turn_failed") && !content.contains("secret detail")
         })
     }));
 }
 
-fn assert_no_failure_projection(runtime: &santi_core::stream::Snapshot) {
+fn unprojected(runtime: &santi_core::stream::Snapshot) {
     assert!(
         runtime
             .messages
             .iter()
-            .all(|message| message.message.kind != message::Kind::SantiSystem),
+            .all(|message| message.message.kind != message::Kind::System),
         "provider failure must not append a model-visible system message"
     );
 }
 
 #[path = "failure/receipt.rs"]
 mod receipt;
-use receipt::{open_service, send_text, turn, wait_for_turn};
+use receipt::{awaiting, open, send, turn};
 
 async fn wait(
     service: &Service,
@@ -174,14 +174,10 @@ async fn wait(
     status: turn::Status,
 ) -> santi_core::stream::Snapshot {
     let turn = turn(service, posted).await;
-    wait_for_turn(service, strand, &turn.id, status).await
+    awaiting(service, strand, &turn.id, status).await
 }
 
-async fn wait_for_aborted_output(
-    service: &Service,
-    strand: &str,
-    turn: &str,
-) -> santi_core::stream::Snapshot {
+async fn aborted(service: &Service, strand: &str, turn: &str) -> santi_core::stream::Snapshot {
     for _ in 0..100 {
         let runtime = service
             .snapshot(strand)
@@ -192,11 +188,11 @@ async fn wait_for_aborted_output(
             .turns
             .iter()
             .any(|held| held.id == turn && held.status == turn::Status::Failed);
-        let partial_recorded = runtime.messages.iter().any(|message| {
+        let partial = runtime.messages.iter().any(|message| {
             message.message.role == message::Role::Soul
                 && message.message.state == message::State::Aborted
         });
-        if failed && partial_recorded {
+        if failed && partial {
             return runtime;
         }
         sleep(Duration::from_millis(20)).await;

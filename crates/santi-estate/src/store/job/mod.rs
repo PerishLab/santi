@@ -8,13 +8,10 @@ mod query;
 mod types;
 mod write;
 
-pub use types::{
-    AttentionDraft, CapabilityDraft, Environment, ExpiredJob, JobDraft, JobRecord, Prepared,
-    TransitionDraft,
-};
+pub use types::{Attention, Capability, Environment, Expired, Job, Prepared, Record, Transition};
 
 impl Store {
-    pub async fn create_capability(&self, draft: CapabilityDraft<'_>) -> Result<(), String> {
+    pub async fn grant(&self, draft: Capability<'_>) -> Result<(), String> {
         self.core
             .batch(async |tx| write::capability(tx, draft).await)
             .await
@@ -41,13 +38,13 @@ impl Store {
         ))
     }
 
-    pub async fn expire_capabilities(&self, now_millis: i64) -> Result<usize, String> {
+    pub async fn sweep(&self, now: i64) -> Result<usize, String> {
         self.core
             .batch(async |tx| {
                 let rows = tx
                     .ask(
                         &form("JobCapability")
-                            .when("expires", Op::Lt, &now_millis.to_string())
+                            .when("expires", Op::Lt, &now.to_string())
                             .missing("consumed"),
                     )
                     .await?;
@@ -60,15 +57,10 @@ impl Store {
             .map_err(read::error)
     }
 
-    pub async fn prepare_job(
-        &self,
-        capability_sha256: &str,
-        draft: JobDraft<'_>,
-        now_millis: i64,
-    ) -> Result<Prepared, String> {
+    pub async fn submit(&self, digest: &str, draft: Job<'_>, now: i64) -> Result<Prepared, String> {
         let (created, tag) = self
             .core
-            .batch(async |tx| write::prepare(tx, capability_sha256, draft, now_millis).await)
+            .batch(async |tx| write::prepare(tx, digest, draft, now).await)
             .await
             .map_err(read::error)?;
         let record = projection::Projection::new(self)
@@ -82,32 +74,28 @@ impl Store {
         }
     }
 
-    pub async fn accept_job(&self, tag: &str, occurred: &str) -> Result<JobRecord, String> {
+    pub async fn claim(&self, tag: &str, occurred: &str) -> Result<Record, String> {
         self.core
             .batch(async |tx| write::accept(tx, tag, occurred).await)
             .await
             .map_err(read::error)?;
-        self.need_job(tag).await
+        need(self, tag).await
     }
 
-    pub async fn transition_job(
-        &self,
-        tag: &str,
-        draft: TransitionDraft<'_>,
-    ) -> Result<JobRecord, String> {
+    pub async fn transit(&self, tag: &str, draft: Transition<'_>) -> Result<Record, String> {
         self.core
             .batch(async |tx| write::Writer::new(tx).transition(tag, draft).await)
             .await
             .map_err(read::error)?;
-        self.need_job(tag).await
+        need(self, tag).await
     }
 
-    pub async fn acknowledge_job(&self, tag: &str, occurred: &str) -> Result<JobRecord, String> {
+    pub async fn ack(&self, tag: &str, occurred: &str) -> Result<Record, String> {
         self.core
             .batch(async |tx| write::Writer::new(tx).acknowledge(tag, occurred).await)
             .await
             .map_err(read::error)?;
-        self.need_job(tag).await
+        need(self, tag).await
     }
 
     pub async fn job(&self, soul: &str, tag: &str) -> Result<Option<job::Job>, String> {
@@ -118,7 +106,7 @@ impl Store {
             .map(|record| record.job))
     }
 
-    pub async fn job_record(&self, tag: &str) -> Result<Option<JobRecord>, String> {
+    pub async fn tracked(&self, tag: &str) -> Result<Option<Record>, String> {
         projection::Projection::new(self).record(tag).await
     }
 
@@ -131,25 +119,21 @@ impl Store {
             .collect())
     }
 
-    pub async fn active_jobs(&self) -> Result<Vec<JobRecord>, String> {
+    pub async fn live(&self) -> Result<Vec<Record>, String> {
         projection::Projection::new(self).active().await
     }
 
-    pub async fn unnotified(&self, limit: usize) -> Result<Vec<JobRecord>, String> {
+    pub async fn unnotified(&self, limit: usize) -> Result<Vec<Record>, String> {
         projection::Projection::new(self).unnotified(limit).await
     }
 
-    pub async fn expired_jobs(
-        &self,
-        cutoff: &str,
-        limit: usize,
-    ) -> Result<Vec<ExpiredJob>, String> {
+    pub async fn stale(&self, cutoff: &str, limit: usize) -> Result<Vec<Expired>, String> {
         projection::Projection::new(self)
             .expired(cutoff, limit)
             .await
     }
 
-    pub async fn retained_job(&self, key: &str) -> Result<bool, String> {
+    pub async fn retained(&self, key: &str) -> Result<bool, String> {
         if read::one(&self.core, "Job", "tag", key).await?.is_some() {
             return Ok(true);
         }
@@ -158,7 +142,7 @@ impl Store {
             .is_some())
     }
 
-    pub async fn purge_job(&self, tag: &str, cutoff: &str) -> Result<bool, String> {
+    pub async fn purge(&self, tag: &str, cutoff: &str) -> Result<bool, String> {
         self.core
             .batch(async |tx| {
                 let Some(job) = tx.one(&form("Job").when("tag", Op::Eq, tag)).await? else {
@@ -183,13 +167,13 @@ impl Store {
             .await
             .map_err(read::error)
     }
+}
 
-    async fn need_job(&self, tag: &str) -> Result<JobRecord, String> {
-        projection::Projection::new(self)
-            .record(tag)
-            .await?
-            .ok_or_else(|| "job not found".to_string())
-    }
+async fn need(store: &Store, tag: &str) -> Result<Record, String> {
+    projection::Projection::new(store)
+        .record(tag)
+        .await?
+        .ok_or_else(|| "job not found".to_string())
 }
 
 fn terminal(state: Option<&str>) -> bool {

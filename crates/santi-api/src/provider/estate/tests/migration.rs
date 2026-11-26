@@ -26,7 +26,7 @@ fn migration() {
     let D::Access { protocol, .. } = &mut rows[3].definition else {
         unreachable!()
     };
-    *protocol = Protocol::ChatCompletions;
+    *protocol = Protocol::Chat;
     let direct = Declaration {
         scenario: Some("gateway/family/review".into()),
         ..Default::default()
@@ -161,7 +161,7 @@ async fn wire() {
     else {
         unreachable!()
     };
-    *protocol = Protocol::ChatCompletions;
+    *protocol = Protocol::Chat;
     *endpoint = url;
     let catalog = imported(&config);
     let direct = Declaration {

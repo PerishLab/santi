@@ -177,10 +177,7 @@ async fn once(world: &World) -> santi_core::stream::Snapshot {
         .await
         .expect("send strand");
     Probe::new(&world.service)
-        .completed_turn(
-            &world.strand,
-            &accepted_turn(&world.service, &response).await.id,
-        )
+        .completed(&world.strand, &accepted(&world.service, &response).await.id)
         .await
 }
 

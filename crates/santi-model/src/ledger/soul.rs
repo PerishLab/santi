@@ -61,7 +61,7 @@ impl santi_error::Ruled for Error {
                 category: Category::Exhausted,
                 severity: Severity::Error,
                 retry: Retry::Changed,
-                exposure: Exposure::OPERATOR_ONLY,
+                exposure: Exposure::OPERATOR,
             },
         }
     }

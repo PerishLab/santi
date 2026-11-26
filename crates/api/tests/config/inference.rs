@@ -26,8 +26,8 @@ x-session = "{{{{strand.id}}}}"
             .resolve("fixture", "wire-model")
             .unwrap();
         let (headers, outgoing) = match profile {
-            santi_api::config::Resolved::ChatCompletions(p) => (p.headers, p.outgoing),
-            santi_api::config::Resolved::OpenAiResponses(p) => (p.headers, p.outgoing),
+            santi_api::config::Resolved::Completions(p) => (p.headers, p.outgoing),
+            santi_api::config::Resolved::Responses(p) => (p.headers, p.outgoing),
             santi_api::config::Resolved::Gemini(p) => (p.headers, p.outgoing),
         };
         assert_eq!(headers, ["x-request-id"]);

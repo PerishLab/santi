@@ -1,10 +1,10 @@
 use super::*;
-use crate::store::{Accepted, InboxDraft, inbox};
+use crate::store::{Accepted, Arrival, inbox};
 use keel::{Tx, adapt::db::Sqlite};
 use santi_model::{ingest, message};
 
 impl Store {
-    pub async fn accept_alarm(
+    pub async fn fire(
         &self,
         tag: &str,
         occurrence: &alarm::Occurrence,
@@ -56,8 +56,8 @@ async fn insert(
     let content =
         message::Content::text(row.text("text").ok_or_else(|| fail("alarm text missing"))?);
     let source = ingest::Source::new("alarm")
-        .with_ref(tag.to_string())
-        .with_metadata(serde_json::json!({
+        .reference(tag.to_string())
+        .metadata(serde_json::json!({
             "endpoint": "cron",
             "generation": occurrence.generation,
             "invoked_minute": occurrence.minute,
@@ -65,10 +65,10 @@ async fn insert(
     let encoded = serde_json::to_string(&content).map_err(|error| fail(&error.to_string()))?;
     let metadata =
         serde_json::to_string(&source.metadata).map_err(|error| fail(&error.to_string()))?;
-    let inbox_tag = santi_model::tag("inbox");
+    let inbox = santi_model::tag("inbox");
     let now = santi_model::now();
-    let draft = InboxDraft {
-        tag: &inbox_tag,
+    let draft = Arrival {
+        tag: &inbox,
         strand,
         kind: message::Kind::Text,
         content: &content,
@@ -85,7 +85,7 @@ async fn insert(
         },
     )
     .await?;
-    let receipt = crate::store::read::need(tx, "InboxReceipt", "tag", &inbox_tag).await?;
+    let receipt = crate::store::read::need(tx, "InboxReceipt", "tag", &inbox).await?;
     tx.put(
         "AlarmDelivery",
         &[
@@ -96,7 +96,7 @@ async fn insert(
         ],
     )
     .await?;
-    Ok(accepted(strand, inbox_tag, true))
+    Ok(accepted(strand, inbox, true))
 }
 
 fn accepted(strand: &str, inbox: String, inserted: bool) -> Accepted {

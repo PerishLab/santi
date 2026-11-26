@@ -1,20 +1,17 @@
-use santi::watch::{json_field, next_sse_frame, parse_sse_frame, render_watch_event, snippet};
+use santi::watch::{field, next, parse, render, snippet};
 
 #[test]
 fn renders() {
+    assert_eq!(render("open", r#"{"payload":{"type":"open"}}"#), None);
     assert_eq!(
-        render_watch_event("open", r#"{"payload":{"type":"open"}}"#),
-        None
-    );
-    assert_eq!(
-        render_watch_event(
+        render(
             "message",
             r#"{"payload":{"type":"message","beat":"delta","text":"chunk"}}"#,
         ),
         None
     );
     assert_eq!(
-        render_watch_event(
+        render(
             "turn",
             r#"{"payload":{"type":"turn","beat":"started","turn":{"id":"turn_1","trigger":"strand_send"}}}"#,
         )
@@ -22,7 +19,7 @@ fn renders() {
         Some("turn started turn_1 (strand_send)")
     );
     assert_eq!(
-        render_watch_event(
+        render(
             "turn",
             r#"{"payload":{"type":"turn","beat":"active","activity":{"turn":"turn_1","state":"running_tool"}}}"#,
         )
@@ -30,7 +27,7 @@ fn renders() {
         Some("turn turn_1: running_tool")
     );
     assert_eq!(
-        render_watch_event(
+        render(
             "message",
             r#"{"payload":{"type":"message","beat":"completed","turn":"turn_1","message":{"text":"hello\nworld"}}}"#,
         )
@@ -38,7 +35,7 @@ fn renders() {
         Some("assistant completed turn_1: hello world")
     );
     assert_eq!(
-        render_watch_event(
+        render(
             "tool",
             r#"{"payload":{"type":"tool","beat":"replied","result":{"call":"call_1","error":null}}}"#,
         )
@@ -46,7 +43,7 @@ fn renders() {
         Some("tool result call_1: ok")
     );
     assert_eq!(
-        render_watch_event(
+        render(
             "turn",
             r#"{"payload":{"type":"turn","beat":"failed","turn":"turn_1","error":{"code":"provider.turn.failed","message":"provider request failed","incident":"inc_1"}}}"#,
         )
@@ -56,7 +53,7 @@ fn renders() {
         )
     );
     assert_eq!(
-        render_watch_event(
+        render(
             "transition",
             r#"{"payload":{"type":"transition","transition":{"kind":"opened","held":{"id":"inc_1","code":"provider.turn.failed","context":{"detail":"secret"}}}}}"#,
         )
@@ -76,23 +73,23 @@ fn snippets() {
 fn parses() {
     let frame =
         "id: e1\nevent: turn\ndata: {\"payload\":{\"beat\":\"completed\",\"turn\":\"t1\"}}\n";
-    let (event, data) = parse_sse_frame(frame).expect("frame");
+    let (event, data) = parse(frame).expect("frame");
     assert_eq!(event, "turn");
     assert_eq!(
         data,
         "{\"payload\":{\"beat\":\"completed\",\"turn\":\"t1\"}}"
     );
-    assert!(parse_sse_frame(": keep-alive\n").is_none());
+    assert!(parse(": keep-alive\n").is_none());
 }
 
 #[test]
 fn reads() {
     let data = "{\"payload\":{\"turn\":{\"id\":\"t9\"}}}";
     assert_eq!(
-        json_field(data, &["payload", "turn", "id"]).as_deref(),
+        field(data, &["payload", "turn", "id"]).as_deref(),
         Some("t9")
     );
-    assert_eq!(json_field(data, &["payload", "missing"]), None);
+    assert_eq!(field(data, &["payload", "missing"]), None);
 }
 
 #[tokio::test]
@@ -105,21 +102,13 @@ async fn chunks() {
     ];
     let mut stream = stream::iter(chunks);
     let mut buffer = Vec::new();
-    let (event, data) = next_sse_frame(&mut stream, &mut buffer)
-        .await
-        .unwrap()
-        .unwrap();
+    let (event, data) = next(&mut stream, &mut buffer).await.unwrap().unwrap();
     assert_eq!(event, "turn");
     assert_eq!(
-        json_field(&data, &["payload", "turn", "id"]).as_deref(),
+        field(&data, &["payload", "turn", "id"]).as_deref(),
         Some("t1")
     );
-    assert!(
-        next_sse_frame(&mut stream, &mut buffer)
-            .await
-            .unwrap()
-            .is_none()
-    );
+    assert!(next(&mut stream, &mut buffer).await.unwrap().is_none());
 }
 
 #[tokio::test]
@@ -136,14 +125,11 @@ async fn unicode() {
         vec![Ok(frame[..split].to_vec()), Ok(frame[split..].to_vec())];
     let mut stream = stream::iter(chunks);
     let mut buffer = Vec::new();
-    let (_, data) = next_sse_frame(&mut stream, &mut buffer)
+    let (_, data) = next(&mut stream, &mut buffer)
         .await
         .expect("split UTF-8 frame")
         .expect("message frame");
-    assert_eq!(
-        json_field(&data, &["payload", "text"]).as_deref(),
-        Some("雪")
-    );
+    assert_eq!(field(&data, &["payload", "text"]).as_deref(), Some("雪"));
 }
 
 #[tokio::test]
@@ -152,19 +138,19 @@ async fn invalid() {
 
     let chunks: Vec<reqwest::Result<Vec<u8>>> =
         vec![Ok(b"event: message\ndata: \xff\n\n".to_vec())];
-    let error = next_sse_frame(&mut stream::iter(chunks), &mut Vec::new())
+    let error = next(&mut stream::iter(chunks), &mut Vec::new())
         .await
         .expect_err("invalid UTF-8 must fail");
     assert!(error.to_string().contains("UTF-8"));
 
     let chunks: Vec<reqwest::Result<Vec<u8>>> = vec![Ok(b"event: turn\ndata: {}".to_vec())];
-    let error = next_sse_frame(&mut stream::iter(chunks), &mut Vec::new())
+    let error = next(&mut stream::iter(chunks), &mut Vec::new())
         .await
         .expect_err("incomplete frame must fail");
     assert!(error.to_string().contains("incomplete SSE frame"));
 
     let chunks: Vec<reqwest::Result<Vec<u8>>> = vec![Ok(b"not-an-sse-field\n\n".to_vec())];
-    let error = next_sse_frame(&mut stream::iter(chunks), &mut Vec::new())
+    let error = next(&mut stream::iter(chunks), &mut Vec::new())
         .await
         .expect_err("invalid frame must fail");
     assert!(error.to_string().contains("invalid SSE frame"));

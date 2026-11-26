@@ -32,7 +32,7 @@ pub(super) struct Seat {
 impl Store {
     pub async fn raise(&self, draft: santi_error::Draft, now: &str) -> Result<Fault, String> {
         self.core
-            .batch(async |tx| raise_in(tx, draft, now).await)
+            .batch(async |tx| raise(tx, draft, now).await)
             .await
             .map_err(read::error)
     }
@@ -46,7 +46,7 @@ impl Store {
     ) -> Result<bool, String> {
         self.core
             .batch(async |tx| {
-                resolve_in(
+                resolve(
                     tx,
                     Resolution {
                         key,
@@ -82,7 +82,7 @@ impl Store {
         Ok(self.history(scope, limit, None).await?.unwrap_or_default())
     }
 
-    pub async fn active_incident_count(&self, code: &str) -> Result<usize, String> {
+    pub async fn counts(&self, code: &str) -> Result<usize, String> {
         let mut count = 0;
         for unit in UNITS {
             count += self
@@ -96,7 +96,7 @@ impl Store {
         Ok(count)
     }
 
-    pub async fn pending_errors(&self, limit: usize) -> Result<Vec<Transition>, String> {
+    pub async fn unsent(&self, limit: usize) -> Result<Vec<Transition>, String> {
         let mut payloads = Vec::new();
         for unit in UNITS {
             let opened = self
@@ -131,7 +131,7 @@ impl Store {
         Ok(transitions)
     }
 
-    pub async fn deliver_error(&self, transition: &str, delivered: &str) -> Result<(), String> {
+    pub async fn deliver(&self, transition: &str, delivered: &str) -> Result<(), String> {
         self.core
             .batch(async |tx| {
                 for (unit, event, mark) in EVENTS {
@@ -151,7 +151,7 @@ impl Store {
     }
 }
 
-pub(in crate::store) async fn raise_in(
+pub(in crate::store) async fn raise(
     tx: &mut Tx<'_, Sqlite>,
     draft: santi_error::Draft,
     now: &str,
@@ -176,7 +176,7 @@ pub(in crate::store) async fn raise_in(
     Ok(mutation.error)
 }
 
-pub(in crate::store) async fn resolve_in(
+pub(in crate::store) async fn resolve(
     tx: &mut Tx<'_, Sqlite>,
     resolution: Resolution<'_>,
 ) -> Result<bool, keel::adapt::Error> {
@@ -198,7 +198,7 @@ pub(in crate::store) async fn resolve_in(
     Ok(true)
 }
 
-pub(in crate::store) async fn incident_key(
+pub(in crate::store) async fn key(
     tx: &mut Tx<'_, Sqlite>,
     tag: &str,
 ) -> Result<i64, keel::adapt::Error> {

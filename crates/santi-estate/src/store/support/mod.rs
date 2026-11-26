@@ -1,5 +1,5 @@
 mod wake;
-pub use wake::{WakeLease, WakeOfferDraft};
+pub use wake::{Lease, Wake};
 mod bootstrap;
 pub(super) mod entry;
 mod environ;
@@ -13,8 +13,8 @@ use keel::adapt::db::Sqlite;
 use std::path::Path;
 
 pub use bootstrap::{Bootstrap, Status};
-pub use environ::EnvironDraft;
-pub use trace::TraceDraft;
+pub use environ::Environ;
+pub use trace::Trace;
 
 pub(super) async fn wire(path: &Path) -> Result<Sqlite, String> {
     if let Some(parent) = path.parent()

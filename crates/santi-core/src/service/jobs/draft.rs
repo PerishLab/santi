@@ -57,7 +57,7 @@ pub(super) fn normalize(draft: Draft) -> Result<Normalized, String> {
         .remind
         .map(|value| bounded("job reminder interval", value, TIMECAP))
         .transpose()?;
-    let notify = draft.notify_on_terminal.then_some(true);
+    let notify = draft.notify.then_some(true);
     let mut normalized = Normalized {
         description,
         command,

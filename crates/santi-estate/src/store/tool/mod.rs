@@ -2,7 +2,7 @@ use super::{Store, read, write};
 use keel::{Op, Rank, form};
 use santi_model::tool;
 
-pub struct CallDraft<'a> {
+pub struct Call<'a> {
     pub tag: &'a str,
     pub turn: &'a str,
     pub tool: &'a str,
@@ -11,7 +11,7 @@ pub struct CallDraft<'a> {
 }
 
 #[derive(Clone, Copy)]
-pub struct ReplyDraft<'a> {
+pub struct Reply<'a> {
     pub tag: &'a str,
     pub call: &'a str,
     pub output: Option<&'a serde_json::Value>,
@@ -29,12 +29,12 @@ mod history;
 pub use tally::{Spent, Tally};
 
 impl Store {
-    pub async fn create_call(&self, draft: CallDraft<'_>) -> Result<tool::Call, String> {
+    pub async fn calling(&self, draft: Call<'_>) -> Result<tool::Call, String> {
         let tag = draft.tag.to_string();
         let arguments =
             serde_json::to_string(draft.arguments).map_err(|error| error.to_string())?;
         self.core
-            .batch(async |tx| put_call(tx, draft, &arguments).await)
+            .batch(async |tx| call(tx, draft, &arguments).await)
             .await
             .map_err(read::error)?;
         self.call(&tag)
@@ -46,7 +46,7 @@ impl Store {
         let Some(row) = read::one(&self.core, "ToolCall", "tag", tag).await? else {
             return Ok(None);
         };
-        self.decode_call(&row).await.map(Some)
+        decode::call(self, &row).await.map(Some)
     }
 
     pub async fn called(&self, turn: &str) -> Result<Vec<tool::Call>, String> {
@@ -65,19 +65,19 @@ impl Store {
             .map_err(read::error)?;
         let mut calls = Vec::with_capacity(rows.rows().len());
         for row in rows.rows() {
-            calls.push(self.decode_call(row).await?);
+            calls.push(decode::call(self, row).await?);
         }
         Ok(calls)
     }
 
-    pub async fn create_reply(&self, draft: ReplyDraft<'_>) -> Result<tool::Reply, String> {
+    pub async fn replying(&self, draft: Reply<'_>) -> Result<tool::Reply, String> {
         let output = draft
             .output
             .map(serde_json::to_string)
             .transpose()
             .map_err(|error| error.to_string())?;
         self.core
-            .batch(async |tx| put_reply(tx, draft, output.as_deref()).await)
+            .batch(async |tx| reply(tx, draft, output.as_deref()).await)
             .await
             .map_err(read::error)?;
         self.reply(draft.tag)
@@ -89,7 +89,7 @@ impl Store {
         let Some(row) = read::one(&self.core, "ToolResult", "tag", tag).await? else {
             return Ok(None);
         };
-        self.decode_reply(&row).await.map(Some)
+        decode::reply(self, &row).await.map(Some)
     }
 
     pub async fn replied(&self, turn: &str) -> Result<Vec<tool::Reply>, String> {
@@ -110,7 +110,7 @@ impl Store {
                 .await
                 .map_err(read::error)?;
             for row in rows.rows() {
-                replies.push(self.decode_reply(row).await?);
+                replies.push(decode::reply(self, row).await?);
             }
         }
         replies.sort_by(|left, right| {
@@ -122,9 +122,9 @@ impl Store {
     }
 }
 
-pub(in crate::store) async fn put_call(
+pub(in crate::store) async fn call(
     tx: &mut keel::Tx<'_, keel::adapt::db::Sqlite>,
-    draft: CallDraft<'_>,
+    draft: Call<'_>,
     arguments: &str,
 ) -> Result<(), keel::adapt::Error> {
     let turn = tx
@@ -158,9 +158,9 @@ pub(in crate::store) async fn put_call(
     Ok(())
 }
 
-pub(in crate::store) async fn put_reply(
+pub(in crate::store) async fn reply(
     tx: &mut keel::Tx<'_, keel::adapt::db::Sqlite>,
-    draft: ReplyDraft<'_>,
+    draft: Reply<'_>,
     output: Option<&str>,
 ) -> Result<(), keel::adapt::Error> {
     if output.is_some() == draft.error.is_some() {

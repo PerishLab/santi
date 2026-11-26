@@ -7,7 +7,7 @@ use tokio::sync::broadcast;
 impl Service {
     pub async fn resume(&self) -> Result<(), String> {
         self.dispatched().await;
-        let pending = self.store.pending_strands().await?;
+        let pending = self.store.waiting().await?;
         for strand in pending {
             let outcome = self
                 .poke(&strand, "strand_send", None, "cold_start_resume")
@@ -31,7 +31,7 @@ impl Service {
     pub async fn strained(&self) -> usize {
         match self
             .store
-            .active_incident_count(crate::drive::Error::Failed.descriptor().code)
+            .counts(crate::drive::Error::Failed.descriptor().code)
             .await
         {
             Ok(count) => count,
@@ -50,7 +50,7 @@ impl Service {
     pub(in crate::service) async fn refreshed(&self) {
         match self
             .store
-            .active_incident_count(crate::drive::Error::Failed.descriptor().code)
+            .counts(crate::drive::Error::Failed.descriptor().code)
             .await
         {
             Ok(count) => self.degraded.store(count > 0, Ordering::SeqCst),

@@ -3,11 +3,11 @@ use std::sync::{Arc, Mutex};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 
-pub(super) struct CountingHttpServer {
-    pub(super) base_url: String,
+pub(super) struct Server {
+    pub(super) base: String,
     pub(super) requests: Arc<Mutex<Vec<(String, String, String)>>>,
 }
-pub(super) async fn spawn_server() -> CountingHttpServer {
+pub(super) async fn spawn() -> Server {
     let listener = TcpListener::bind("127.0.0.1:0")
         .await
         .expect("bind fake server");
@@ -20,18 +20,15 @@ pub(super) async fn spawn_server() -> CountingHttpServer {
                 break;
             };
             let requests = recorded.clone();
-            tokio::spawn(async move { handle_request(stream, requests).await });
+            tokio::spawn(async move { handle(stream, requests).await });
         }
     });
-    CountingHttpServer {
-        base_url: format!("http://{addr}"),
+    Server {
+        base: format!("http://{addr}"),
         requests,
     }
 }
-async fn handle_request(
-    mut stream: TcpStream,
-    requests: Arc<Mutex<Vec<(String, String, String)>>>,
-) {
+async fn handle(mut stream: TcpStream, requests: Arc<Mutex<Vec<(String, String, String)>>>) {
     let Some((method, path, body)) = read(&mut stream).await else {
         return;
     };
@@ -73,7 +70,7 @@ async fn handle_request(
             } else {
                 "200 OK"
             };
-            write_response(
+            respond(
                 &mut stream,
                 status,
                 "application/json",
@@ -96,7 +93,7 @@ async fn handle_request(
             .await;
         }
         ("GET", "/api/v1/strands/ss_jarvis/events") => {
-            write_response(
+            respond(
                 &mut stream,
                 "200 OK",
                 "text/event-stream",
@@ -125,7 +122,7 @@ async fn handle_request(
             )
             .await;
         }
-        _ => write_response(&mut stream, "404 Not Found", "text/plain", "not found").await,
+        _ => respond(&mut stream, "404 Not Found", "text/plain", "not found").await,
     }
 }
 async fn read(stream: &mut TcpStream) -> Option<(String, String, String)> {
@@ -161,7 +158,7 @@ async fn read(stream: &mut TcpStream) -> Option<(String, String, String)> {
         String::from_utf8_lossy(&buffer[boundary..]).to_string(),
     ))
 }
-async fn write_response(stream: &mut TcpStream, status: &str, content_type: &str, body: &str) {
+async fn respond(stream: &mut TcpStream, status: &str, content_type: &str, body: &str) {
     let response = format!(
         "HTTP/1.1 {status}\r\ncontent-type: {content_type}\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{body}",
         body.len()
@@ -172,5 +169,5 @@ async fn write_response(stream: &mut TcpStream, status: &str, content_type: &str
         .expect("write fake response");
 }
 async fn json(stream: &mut TcpStream, body: &str) {
-    write_response(stream, "200 OK", "application/json", body).await;
+    respond(stream, "200 OK", "application/json", body).await;
 }

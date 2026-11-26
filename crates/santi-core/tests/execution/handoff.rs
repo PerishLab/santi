@@ -23,7 +23,7 @@ async fn batches() {
 async fn verify(rounds: usize, calls: usize, output: usize, compacts: usize) {
     let temp = tempfile::tempdir().expect("temp");
     bootstrap(&temp).await;
-    let provider = Arc::new(BudgetedProvider {
+    let provider = Arc::new(Budgeted {
         rounds: 10,
         maintenance: true,
         compacts,
@@ -51,9 +51,9 @@ async fn verify(rounds: usize, calls: usize, output: usize, compacts: usize) {
         output,
         shell: output.min(1000),
         lines: 256,
-        feedback_after_calls: None,
-        feedback_command: None,
-        feedback_cwd: None,
+        after: None,
+        command: None,
+        cwd: None,
     })
     .unwrap();
     let strand = service.weave().await.unwrap().strand;
@@ -171,7 +171,7 @@ async fn confines() {
     let temp = tempfile::tempdir().unwrap();
     bootstrap(&temp).await;
     let marker = temp.path().join("feedback-effect");
-    let provider = Arc::new(BudgetedProvider {
+    let provider = Arc::new(Budgeted {
         rounds: usize::MAX,
         second: Some("feedback".into()),
         ..Default::default()
@@ -198,9 +198,9 @@ async fn confines() {
         output: 10000,
         shell: 1000,
         lines: 256,
-        feedback_after_calls: Some(1),
-        feedback_command: Some(format!("touch '{}'", marker.display())),
-        feedback_cwd: None,
+        after: Some(1),
+        command: Some(format!("touch '{}'", marker.display())),
+        cwd: None,
     })
     .unwrap();
     let strand = service.weave().await.unwrap().strand;
@@ -216,7 +216,7 @@ async fn confines() {
         .await
         .unwrap();
     let runtime = Probe::new(&service)
-        .failed_turn(&strand.id, &accepted_turn(&service, &posted).await.id)
+        .failed(&strand.id, &accepted(&service, &posted).await.id)
         .await;
     assert!(!marker.exists());
     assert_eq!(runtime.effects.len(), 1);

@@ -35,11 +35,11 @@ impl State {
                 self.right();
                 Step::Stay
             }
-            Stroke::WordLeft => {
+            Stroke::Prev => {
                 self.leftward();
                 Step::Stay
             }
-            Stroke::WordRight => {
+            Stroke::Next => {
                 self.rightward();
                 Step::Stay
             }
@@ -59,19 +59,19 @@ impl State {
                 self.down();
                 Step::Stay
             }
-            Stroke::ScrollUp => {
+            Stroke::Rise => {
                 self.higher(WHEEL);
                 Step::Stay
             }
-            Stroke::ScrollDown => {
+            Stroke::Fall => {
                 self.lower(WHEEL);
                 Step::Stay
             }
-            Stroke::PageUp => {
+            Stroke::Ascend => {
                 self.higher(self.viewport.div_ceil(2));
                 Step::Stay
             }
-            Stroke::PageDown => {
+            Stroke::Descend => {
                 self.lower(self.viewport.div_ceil(2));
                 Step::Stay
             }

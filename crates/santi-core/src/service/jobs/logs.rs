@@ -18,7 +18,7 @@ impl Service {
     pub async fn logs(&self, request: Read<'_>) -> Result<Option<job::Log>, String> {
         let Some(record) = self
             .store
-            .job_record(request.id)
+            .tracked(request.id)
             .await?
             .filter(|record| record.job.origin.soul == request.soul)
         else {

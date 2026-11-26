@@ -42,7 +42,7 @@ impl Store {
                     .int("next")
                     .ok_or_else(|| keel::adapt::Error::Adapt("strand next missing".into()))?;
                 let mut messages = Vec::new();
-                for item in pending.iter().filter(|item| item.coalesce_key.is_none()) {
+                for item in pending.iter().filter(|item| item.slot.is_none()) {
                     messages.push(future(
                         (strand, next + messages.len() as i64),
                         &item.kind,
@@ -52,7 +52,7 @@ impl Store {
                 }
                 let notices: Vec<_> = pending
                     .iter()
-                    .filter(|item| item.coalesce_key.is_some())
+                    .filter(|item| item.slot.is_some())
                     .cloned()
                     .collect();
                 if !notices.is_empty() {
@@ -93,10 +93,10 @@ impl Store {
                 if intake.pending.iter().any(|item| !current.contains(item)) {
                     return Ok(false);
                 }
-                let draft = DrainDraft {
+                let draft = Drain {
                     turn: &intake.turn,
                     strand: &intake.strand,
-                    trigger: santi_model::turn::Trigger::StrandSend,
+                    trigger: santi_model::turn::Trigger::Send,
                     actor: "inbox",
                     created: &intake.created,
                 };
@@ -107,7 +107,7 @@ impl Store {
                         .map_err(|e| keel::adapt::Error::Adapt(e.to_string()))?;
                     let kind = match message.message.kind {
                         message::Kind::Text => "text",
-                        message::Kind::SantiSystem => "santi_system",
+                        message::Kind::System => "santi_system",
                     };
                     written.push(
                         writer
@@ -125,7 +125,7 @@ impl Store {
                 }
                 let mut regular = 0;
                 for pending in &intake.pending {
-                    let index = if pending.coalesce_key.is_some() {
+                    let index = if pending.slot.is_some() {
                         written.len() - 1
                     } else {
                         let index = regular;
@@ -223,7 +223,7 @@ fn future(
             actor: "inbox".into(),
             kind: match kind {
                 "text" => message::Kind::Text,
-                "santi_system" => message::Kind::SantiSystem,
+                "santi_system" => message::Kind::System,
                 _ => return Err(keel::adapt::Error::Adapt("invalid inbox kind".into())),
             },
             content,

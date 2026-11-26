@@ -26,7 +26,7 @@ impl Store {
                 .selection
                 .with(read::text(&row, "provider")?.to_owned()),
             model: read::text(&row, "model")?.to_string(),
-            reasoning_effort: row.text("reasoning_effort").map(str::to_string),
+            effort: row.text("reasoning_effort").map(str::to_string),
             source,
         }))
     }
@@ -71,7 +71,7 @@ pub(in crate::store) async fn record(
         ("created", created),
         ("turn", key.as_str()),
     ];
-    if let Some(effort) = effective.reasoning_effort.as_deref() {
+    if let Some(effort) = effective.effort.as_deref() {
         values.push(("reasoning_effort", effort));
     }
     tx.put("Inference", &values).await?;

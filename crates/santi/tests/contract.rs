@@ -49,11 +49,11 @@ fn template() {
     let held: santi::config::ClientPartial = radicula_config::load(&path).expect("client config");
     let client = radicula_config::Cascade::merge(santi::config::Client::default(), held);
     assert_eq!(
-        client.base_url.as_deref(),
+        client.endpoint.as_deref(),
         Some("https://santi.example.invalid")
     );
-    assert_eq!(client.auth_username.as_deref(), Some("santi-window-cli"));
-    assert!(client.api_key.is_none());
+    assert_eq!(client.username.as_deref(), Some("santi-window-cli"));
+    assert!(client.key.is_none());
 }
 
 #[test]
@@ -68,9 +68,9 @@ fn environment() {
     let held = <santi::config::Client as radicula_config::Cascade>::lookup("SANTI", &get)
         .expect("client environment");
     let client = radicula_config::Cascade::merge(santi::config::Client::default(), held);
-    assert_eq!(client.base_url.as_deref(), Some("http://base.example"));
+    assert_eq!(client.endpoint.as_deref(), Some("http://base.example"));
     assert_eq!(
-        client.token_cache.as_deref(),
+        client.cache.as_deref(),
         Some(std::path::Path::new("/tmp/santi-cache.json"))
     );
 }

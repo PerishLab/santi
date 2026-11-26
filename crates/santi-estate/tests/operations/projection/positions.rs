@@ -1,5 +1,5 @@
-use super::{FIRST, ForkDraft, LATER, MessageDraft, Store, StrandDraft, TurnDraft, message, turn};
-use santi_estate::{CallDraft, ReplyDraft, ThinkingDraft};
+use super::{FIRST, Fork, LATER, Message, Store, Strand, Turn, message, turn};
+use santi_estate::{Call, Reply, Thinking};
 use serde_json::json;
 
 #[tokio::test]
@@ -16,7 +16,7 @@ async fn boundaries() {
     history.refused(8, "1", "none").await;
     history.replied("reply_two", "call_two").await;
     store
-        .complete_turn("turn_one", 6, LATER)
+        .complete("turn_one", 6, LATER)
         .await
         .expect("complete");
     history.input("input_two").await;
@@ -50,8 +50,8 @@ async fn boundaries() {
     );
 }
 
-fn draft(tag: &str, at: i64) -> ForkDraft<'_> {
-    ForkDraft {
+fn draft(tag: &str, at: i64) -> Fork<'_> {
+    Fork {
         tag,
         parent: "parent",
         at,
@@ -64,7 +64,7 @@ async fn ready(temp: &tempfile::TempDir) -> Store {
     let store = super::super::support::bootstrap(&temp.path().join("estate.sqlite")).await;
     store.seed("soul", FIRST).await.expect("seed");
     store
-        .create_strand(StrandDraft {
+        .weave(Strand {
             tag: "parent",
             soul: "soul",
             label: None,
@@ -100,11 +100,11 @@ impl History {
 
     async fn input(&self, tag: &str) {
         self.0
-            .place(MessageDraft {
+            .place(Message {
                 tag,
                 strand: "parent",
                 actor: message::Role::System,
-                actor_id: "santi",
+                sender: "santi",
                 kind: message::Kind::Text,
                 content: &message::Content::text("input"),
                 state: message::State::Fixed,
@@ -117,17 +117,17 @@ impl History {
 
     async fn opened(&self, tag: &str, from: i64) {
         self.0
-            .create_turn(TurnDraft {
+            .start(Turn {
                 tag,
                 strand: "parent",
-                trigger: turn::Trigger::StrandSend,
+                trigger: turn::Trigger::Send,
                 from,
                 created: FIRST,
             })
             .await
             .expect("turn");
         self.0
-            .create_thinking(ThinkingDraft {
+            .ponder(Thinking {
                 tag: &format!("thinking_{tag}"),
                 turn: tag,
                 response: None,
@@ -139,7 +139,7 @@ impl History {
 
     async fn called(&self, tag: &str, turn: &str) {
         self.0
-            .create_call(CallDraft {
+            .calling(Call {
                 tag,
                 turn,
                 tool: "shell",
@@ -152,10 +152,10 @@ impl History {
 
     async fn replied(&self, tag: &str, call: &str) {
         self.0
-            .create_reply(ReplyDraft {
+            .replying(Reply {
                 tag,
                 call,
-                output: Some(&json!({"exit_code":0})),
+                output: Some(&json!({"exit":0})),
                 error: None,
                 created: FIRST,
             })

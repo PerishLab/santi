@@ -7,7 +7,8 @@ use crate::Timestamp;
 #[serde(rename_all = "snake_case")]
 #[schema(as = render::Kind)]
 pub enum Kind {
-    SystemPrompt,
+    #[serde(rename = "system_prompt")]
+    Prompt,
     Skill,
 }
 
@@ -22,7 +23,8 @@ pub struct Request {
 pub struct View {
     pub strand: String,
     pub kind: Kind,
-    pub content_type: String,
+    #[serde(rename = "content_type")]
+    pub mime: String,
     pub text: String,
     pub updated: Timestamp,
 }

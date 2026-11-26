@@ -1,16 +1,16 @@
 use super::*;
 
 pub struct Acceptance<'a> {
-    pub replay: ReplayDraft<'a>,
+    pub replay: Replay<'a>,
     pub gate: usize,
     pub binding: Option<&'a santi_model::receipt::reply::Binding>,
 }
 
 impl Store {
-    pub async fn accept_replay(
+    pub async fn replay(
         &self,
-        draft: InboxDraft<'_>,
-        replay: ReplayDraft<'_>,
+        draft: Arrival<'_>,
+        replay: Replay<'_>,
         gate: usize,
     ) -> Result<Accepted, String> {
         self.windowed(
@@ -26,7 +26,7 @@ impl Store {
 
     pub async fn windowed(
         &self,
-        draft: InboxDraft<'_>,
+        draft: Arrival<'_>,
         acceptance: Acceptance<'_>,
     ) -> Result<Accepted, String> {
         let Acceptance {
@@ -50,7 +50,7 @@ impl Store {
                     identity,
                     value,
                     digest,
-                } = replay_shape(tx, replay).await?;
+                } = shape(tx, replay).await?;
                 if let Some(row) = tx
                     .one(
                         &form(unit)

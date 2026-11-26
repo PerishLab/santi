@@ -10,13 +10,20 @@ use serde::Deserialize;
 #[plumb::config::prefix]
 pub struct Client {
     pub operator: Option<PathBuf>,
-    pub base_url: Option<String>,
-    pub api_key: Option<String>,
-    pub auth_token_url: Option<String>,
-    pub auth_client_id: Option<String>,
-    pub auth_username: Option<String>,
-    pub auth_password: Option<String>,
-    pub token_cache: Option<PathBuf>,
+    #[cascade(name = "base_url")]
+    pub endpoint: Option<String>,
+    #[cascade(name = "api_key")]
+    pub key: Option<String>,
+    #[cascade(name = "auth_token_url")]
+    pub token: Option<String>,
+    #[cascade(name = "auth_client_id")]
+    pub client: Option<String>,
+    #[cascade(name = "auth_username")]
+    pub username: Option<String>,
+    #[cascade(name = "auth_password")]
+    pub password: Option<String>,
+    #[cascade(name = "token_cache")]
+    pub cache: Option<PathBuf>,
     #[cascade(section)]
     pub inference: Declaration,
 }

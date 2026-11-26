@@ -7,17 +7,17 @@ impl Resolved {
         }
         let mut next = self.clone();
         match &mut next {
-            Self::OpenAiResponses(config) => {
+            Self::Responses(config) => {
                 config.model = effective.model.clone();
-                config.reasoning_effort = effective.reasoning_effort.clone();
+                config.effort = effective.effort.clone();
             }
             Self::Gemini(config) => {
                 config.model = effective.model.clone();
-                config.reasoning_effort = effective.reasoning_effort.clone();
+                config.effort = effective.effort.clone();
             }
-            Self::ChatCompletions(config) => {
+            Self::Completions(config) => {
                 config.model = effective.model.clone();
-                config.reasoning_effort = effective.reasoning_effort.clone();
+                config.effort = effective.effort.clone();
             }
         }
         Ok(next)
@@ -25,41 +25,41 @@ impl Resolved {
 
     pub fn effort(&self) -> Option<&str> {
         match self {
-            Self::OpenAiResponses(config) => config.reasoning_effort.as_deref(),
-            Self::Gemini(config) => config.reasoning_effort.as_deref(),
-            Self::ChatCompletions(config) => config.reasoning_effort.as_deref(),
+            Self::Responses(config) => config.effort.as_deref(),
+            Self::Gemini(config) => config.effort.as_deref(),
+            Self::Completions(config) => config.effort.as_deref(),
         }
     }
 
     pub fn kind(&self) -> &'static str {
         match self {
-            Self::OpenAiResponses(_) => "openai_responses",
+            Self::Responses(_) => "openai_responses",
             Self::Gemini(_) => "gemini_generate_content",
-            Self::ChatCompletions(_) => "chat_completions",
+            Self::Completions(_) => "chat_completions",
         }
     }
 
     pub fn model(&self) -> &str {
         match self {
-            Self::OpenAiResponses(config) => &config.model,
+            Self::Responses(config) => &config.model,
             Self::Gemini(config) => &config.model,
-            Self::ChatCompletions(config) => &config.model,
+            Self::Completions(config) => &config.model,
         }
     }
 
     pub fn maintenance(&self) -> usize {
         match self {
-            Self::OpenAiResponses(config) => config.maintenance,
+            Self::Responses(config) => config.maintenance,
             Self::Gemini(config) => config.maintenance,
-            Self::ChatCompletions(config) => config.maintenance,
+            Self::Completions(config) => config.maintenance,
         }
     }
 
     pub fn bytes(&self) -> usize {
         match self {
-            Self::OpenAiResponses(config) => config.bytes,
+            Self::Responses(config) => config.bytes,
             Self::Gemini(config) => config.bytes,
-            Self::ChatCompletions(config) => config.bytes,
+            Self::Completions(config) => config.bytes,
         }
     }
 }

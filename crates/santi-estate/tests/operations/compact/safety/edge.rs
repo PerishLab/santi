@@ -154,7 +154,7 @@ async fn relations() {
 
 async fn archaic(store: &Store) {
     store
-        .create_thinking(ThinkingDraft {
+        .ponder(Thinking {
             tag: "s0",
             turn: "turn_test",
             response: None,
@@ -191,7 +191,7 @@ async fn hull() {
         .fixed("m4", message::Role::Soul, "soul_test", "latest")
         .await;
     store
-        .create_compact(CompactDraft {
+        .condense(Compact {
             tag: "compact_a",
             strand: "strand_test",
             first: "m0",

@@ -1,5 +1,5 @@
 use super::{NOW, SUDO};
-use santi_estate::{Bind, Store, StrandDraft, Unbind};
+use santi_estate::{Bind, Store, Strand, Unbind};
 use santi_model::{environ::Scope, material};
 
 mod layers;
@@ -19,7 +19,7 @@ impl Fixture {
         store.seed("soul", NOW).await.unwrap();
         for tag in ["first", "second"] {
             store
-                .create_strand(StrandDraft {
+                .weave(Strand {
                     tag,
                     soul: "soul",
                     label: None,

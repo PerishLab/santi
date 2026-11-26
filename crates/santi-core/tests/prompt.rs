@@ -8,10 +8,10 @@ use santi_core::{SOULSPACE, STRANDSPACE, soulward, strandward};
 use santi_provider::{Metadata, Provider, Streaming};
 
 #[derive(Clone)]
-struct FakeProvider;
+struct Fake;
 
 #[async_trait]
-impl Provider for FakeProvider {
+impl Provider for Fake {
     fn metadata(&self) -> Metadata {
         Metadata {
             provider: Arc::from("fake-provider"),
@@ -27,11 +27,11 @@ impl Provider for FakeProvider {
 
 #[tokio::test]
 async fn renders() {
-    let harness = PromptHarness::open().await;
-    harness.write_soul("---\nplain: value\n---\n# Soul");
-    harness.write_strand("# Strand");
+    let harness = Harness::open().await;
+    harness.soul("---\nplain: value\n---\n# Soul");
+    harness.strand("# Strand");
 
-    let text = harness.system_prompt().await.text;
+    let text = harness.prompt().await.text;
 
     assert!(text.contains("[santi]"));
     assert!(text.contains("santi keeps souls and runs their strands."));
@@ -59,10 +59,10 @@ async fn renders() {
 
 #[tokio::test]
 async fn leaves() {
-    let harness = PromptHarness::open().await;
-    harness.write_soul("---\nplain: value\n---\n# Soul");
+    let harness = Harness::open().await;
+    harness.soul("---\nplain: value\n---\n# Soul");
 
-    let text = harness.system_prompt().await.text;
+    let text = harness.prompt().await.text;
 
     assert!(text.contains("content:\n---\nplain: value\n---\n# Soul"));
     assert!(!text.contains("hint:"));
@@ -70,10 +70,10 @@ async fn leaves() {
 
 #[tokio::test]
 async fn overrides() {
-    let harness = PromptHarness::open().await;
-    harness.write_constitution("my own physics, hot-edited");
+    let harness = Harness::open().await;
+    harness.constitution("my own physics, hot-edited");
 
-    let text = harness.system_prompt().await.text;
+    let text = harness.prompt().await.text;
 
     assert!(text.contains("[santi]\nmy own physics, hot-edited"));
     assert!(!text.contains("santi keeps souls and runs their strands."));
@@ -81,9 +81,9 @@ async fn overrides() {
 
 #[tokio::test]
 async fn fallback() {
-    let harness = PromptHarness::open().await;
+    let harness = Harness::open().await;
 
-    let text = harness.system_prompt().await.text;
+    let text = harness.prompt().await.text;
 
     assert!(text.contains("You are a soul — a cyber-individual."));
     assert!(!text.to_lowercase().contains("secretary"));
@@ -91,11 +91,11 @@ async fn fallback() {
 
 #[tokio::test]
 async fn projects() {
-    let harness = PromptHarness::open().await;
+    let harness = Harness::open().await;
     let memory = format!("# Memory\n{}\nSOURCE_TAIL", "界".repeat(90_000));
-    harness.write_soul(&memory);
+    harness.soul(&memory);
 
-    let text = harness.system_prompt().await.text;
+    let text = harness.prompt().await.text;
 
     assert!(text.contains("kind: soul_memory_projection"));
     assert!(text.contains("allowance_bytes: 32768"));
@@ -110,7 +110,7 @@ async fn projects() {
 
 #[tokio::test]
 async fn excludes() {
-    let harness = PromptHarness::open().await;
+    let harness = Harness::open().await;
     let first = harness
         .service
         .evented(santi_core::GENESIS, "stim:operator", "hello".to_string())
@@ -137,26 +137,26 @@ async fn excludes() {
     else {
         panic!("second ingest rejected");
     };
-    let first_text = harness.system_prompt_for(&first_receipt.strand).await.text;
-    let second_text = harness.system_prompt_for(&second_receipt.strand).await.text;
-    assert!(!first_text.contains("stim:operator"));
-    assert!(!second_text.contains("github:ops:issue:PerishCode/santi#1"));
+    let alpha = harness.render(&first_receipt.strand).await.text;
+    let beta = harness.render(&second_receipt.strand).await.text;
+    assert!(!alpha.contains("stim:operator"));
+    assert!(!beta.contains("github:ops:issue:PerishCode/santi#1"));
 }
 
-#[path = "system_prompt/skill.rs"]
+#[path = "prompt/skill.rs"]
 mod skill;
 
-#[path = "system_prompt/identity.rs"]
+#[path = "prompt/identity.rs"]
 mod identity;
 
-struct PromptHarness {
+struct Harness {
     _temp: tempfile::TempDir,
     service: Service,
     strand: String,
     runtime: std::path::PathBuf,
 }
 
-impl PromptHarness {
+impl Harness {
     async fn open() -> Self {
         let temp = tempfile::tempdir().expect("temp dir");
         let runtime = temp.path().join("runtime");
@@ -176,7 +176,7 @@ impl PromptHarness {
                 constitution: None,
                 environment: Default::default(),
             },
-            Arc::new(FakeProvider),
+            Arc::new(Fake),
         )
         .await
         .expect("open service");
@@ -189,7 +189,7 @@ impl PromptHarness {
         }
     }
 
-    fn write_soul(&self, text: &str) {
+    fn soul(&self, text: &str) {
         let path = self
             .runtime
             .join("souls")
@@ -199,7 +199,7 @@ impl PromptHarness {
         fs::write(path.join("MEMORY.md"), text).expect("write soul");
     }
 
-    fn write_strand(&self, text: &str) {
+    fn strand(&self, text: &str) {
         let path = self
             .runtime
             .join("strands")
@@ -209,21 +209,21 @@ impl PromptHarness {
         fs::write(path.join("MEMORY.md"), text).expect("write strand");
     }
 
-    fn write_constitution(&self, text: &str) {
+    fn constitution(&self, text: &str) {
         fs::create_dir_all(&self.runtime).expect("create runtime dir");
         fs::write(self.runtime.join("constitution.md"), text).expect("write constitution");
     }
 
-    async fn system_prompt(&self) -> render::View {
-        self.system_prompt_for(&self.strand).await
+    async fn prompt(&self) -> render::View {
+        self.render(&self.strand).await
     }
 
-    async fn system_prompt_for(&self, strand: &str) -> render::View {
+    async fn render(&self, strand: &str) -> render::View {
         self.service
             .render(
                 strand,
                 render::Request {
-                    kind: render::Kind::SystemPrompt,
+                    kind: render::Kind::Prompt,
                 },
             )
             .await

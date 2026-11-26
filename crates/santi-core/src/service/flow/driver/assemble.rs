@@ -13,7 +13,7 @@ impl Service {
         turn: &str,
         pending: &[crate::message::Placed],
     ) -> Result<Vec<Item>, String> {
-        let mut input = crate::provider_input(&self.store, strand).await?;
+        let mut input = crate::assemble(&self.store, strand).await?;
         input.extend(
             pending
                 .iter()

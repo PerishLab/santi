@@ -6,13 +6,13 @@ use tokio::time::sleep;
 #[tokio::test]
 async fn coldstart() {
     let temp = tempfile::tempdir().expect("temp dir");
-    let supervisor = Arc::new(FakeSupervisor {
+    let supervisor = Arc::new(Fake {
         launches: Mutex::new(0),
     });
     let (service, strand, store) = fixture::prepare(&temp, supervisor.clone()).await;
     let now = santi_core::now();
     let origin = store
-        .complete_turn("turn_http", 1, &now)
+        .complete("turn_http", 1, &now)
         .await
         .expect("finish origin turn");
     assert_eq!(origin.status, santi_core::turn::Status::Completed);
@@ -26,9 +26,9 @@ async fn coldstart() {
     })
     .await;
     assert_eq!(store.inboxes(&strand.id).await.expect("pending").len(), 1);
-    let record = store.job_record(&job).await.expect("record").expect("job");
-    assert!(record.notify_on_terminal);
-    assert!(record.terminal_notified.is_some());
+    let record = store.tracked(&job).await.expect("record").expect("job");
+    assert!(record.notify);
+    assert!(record.notified.is_some());
     assert!(store.unnotified(10).await.expect("unnotified").is_empty());
 
     drop(store);
@@ -90,7 +90,7 @@ async fn coldstart() {
         store.inboxes(&strand.id).await.expect("drained").is_empty(),
         "durable terminal notice remained pending"
     );
-    let job = store.job_record(&job).await.expect("record").expect("job");
+    let job = store.tracked(&job).await.expect("record").expect("job");
     assert_eq!(job.job.state, job::State::Succeeded);
     assert_eq!(job.job.id, "job_terminal");
     assert_eq!(*supervisor.launches.lock().unwrap(), 0);

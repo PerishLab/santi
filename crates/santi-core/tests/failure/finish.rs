@@ -220,5 +220,5 @@ async fn run(rounds: Vec<Script>, gate: Option<Arc<Notify>>) -> Observation {
     }
 }
 
-#[path = "finish_turn/more.rs"]
+#[path = "finish/more.rs"]
 mod more;

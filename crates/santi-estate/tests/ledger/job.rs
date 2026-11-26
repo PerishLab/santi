@@ -1,11 +1,11 @@
-use santi_estate::{CallDraft, CapabilityDraft, EffectDraft, JobDraft, Prepared, Store};
+use santi_estate::{Call, Capability, Effect, Job, Prepared, Store};
 
 use super::seed::{FIRST, SOUL};
 
 pub(super) async fn job(store: &Store, strand: &str, turn: &str) {
     let id = |name: &str| format!("{name}_{strand}");
     let call = store
-        .create_call(CallDraft {
+        .calling(Call {
             tag: &id("job_call"),
             turn,
             tool: "job",
@@ -15,7 +15,7 @@ pub(super) async fn job(store: &Store, strand: &str, turn: &str) {
         .await
         .expect("job call");
     let effect = store
-        .prepare_effect(EffectDraft {
+        .stage(Effect {
             tag: &id("job_effect"),
             turn,
             call: Some(&call.id),
@@ -27,7 +27,7 @@ pub(super) async fn job(store: &Store, strand: &str, turn: &str) {
         .expect("job effect");
     let digest = id("capability");
     store
-        .create_capability(CapabilityDraft {
+        .grant(Capability {
             digest: &digest,
             expires: 1_000,
             soul: SOUL,
@@ -40,21 +40,21 @@ pub(super) async fn job(store: &Store, strand: &str, turn: &str) {
         .await
         .expect("capability");
     let Prepared::New(_) = store
-        .prepare_job(
+        .submit(
             &digest,
-            JobDraft {
+            Job {
                 environment: None,
                 tag: &id("job"),
                 description: "test job",
                 command: "true",
                 cwd: None,
-                timeout_seconds: 30,
-                output_limit_bytes: 1024,
-                remind_every_seconds: None,
-                notify_on_terminal: false,
-                request_sha256: "request_digest",
+                timeout: 30,
+                limit: 1024,
+                remind: None,
+                notify: false,
+                digest: "request_digest",
                 generation: &id("stamp"),
-                supervisor_ref: &id("supervisor"),
+                supervisor: &id("supervisor"),
                 created: FIRST,
             },
             500,

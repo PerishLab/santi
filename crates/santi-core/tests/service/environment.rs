@@ -5,7 +5,7 @@ use santi_provider::Call;
 use serde_json::json;
 
 #[derive(Clone, Default)]
-struct ShellProvider {
+struct Shell {
     requests: Arc<Mutex<Vec<Request>>>,
 }
 
@@ -18,7 +18,7 @@ fn declaration(scope: &str, name: &str, value: &str) -> environment::Declaration
 }
 
 #[test]
-fn cascade_and_references() {
+fn resolution() {
     let held = environment::resolve(
         [
             declaration("global", "A", "global"),
@@ -84,7 +84,7 @@ fn allowlist() {
 }
 
 #[async_trait]
-impl Provider for ShellProvider {
+impl Provider for Shell {
     fn metadata(&self) -> Metadata {
         Metadata {
             provider: Arc::from("shell-provider"),
@@ -134,7 +134,7 @@ impl Provider for ShellProvider {
 async fn cascade() {
     let temp = tempfile::tempdir().expect("temp dir");
     bootstrap(&temp).await;
-    let provider = Arc::new(ShellProvider::default());
+    let provider = Arc::new(Shell::default());
     let service = Service::open(
         crate::SCENARIO,
         service::Config {
@@ -168,7 +168,7 @@ async fn cascade() {
         .expect("test issuer"),
     ));
     service
-        .set_environ(
+        .export(
             environ::Scope::Soul,
             santi_core::GENESIS,
             environ::Draft {
@@ -179,7 +179,7 @@ async fn cascade() {
         .await
         .expect("set soul override");
     service
-        .set_environ(
+        .export(
             environ::Scope::Soul,
             santi_core::GENESIS,
             environ::Draft {
@@ -192,7 +192,7 @@ async fn cascade() {
 
     let strand = service.weave().await.expect("create strand").strand;
     service
-        .set_environ(
+        .export(
             environ::Scope::Strand,
             &strand.id,
             environ::Draft {
@@ -203,7 +203,7 @@ async fn cascade() {
         .await
         .expect("set strand override");
     service
-        .set_environ(
+        .export(
             environ::Scope::Strand,
             &strand.id,
             environ::Draft {
@@ -226,7 +226,7 @@ async fn cascade() {
         .await
         .expect("send strand");
     let runtime = Probe::new(&service)
-        .completed_turn(&strand.id, &accepted_turn(&service, &response).await.id)
+        .completed(&strand.id, &accepted(&service, &response).await.id)
         .await;
     assert_eq!(
         runtime.results[0].output.as_ref().unwrap()["cwd"],
@@ -252,7 +252,7 @@ async fn cascade() {
         .expect("strand");
     for _ in 0..50 {
         if detail.messages.iter().any(|placed| {
-            placed.message.kind == message::Kind::SantiSystem
+            placed.message.kind == message::Kind::System
                 && placed.text.contains("environment_unresolved")
         }) {
             return;

@@ -7,7 +7,7 @@ use axum::{
 use santi_core::Fault;
 use santi_core::service::Service;
 
-use crate::ApiError;
+use crate::Problem;
 
 #[utoipa::path(
     get,
@@ -27,24 +27,21 @@ use crate::ApiError;
 pub(crate) async fn fetch(
     State(service): State<Service>,
     Path((soul, strand, key)): Path<(String, String, String)>,
-) -> Result<Response, ApiError> {
+) -> Result<Response, Problem> {
     let payload = service
         .fetch(&soul, &strand, &key)
         .await
-        .map_err(ApiError::from_service)?
-        .ok_or_else(|| ApiError::not_found("object not found"))?;
+        .map_err(Problem::service)?
+        .ok_or_else(|| Problem::missing("object not found"))?;
     Response::builder()
         .status(StatusCode::OK)
-        .header(
-            header::CONTENT_TYPE,
-            content_type_for_key(&payload.meta.uri.key),
-        )
+        .header(header::CONTENT_TYPE, media(&payload.meta.uri.key))
         .header(header::CONTENT_LENGTH, payload.meta.len.to_string())
         .body(Body::from(payload.bytes))
-        .map_err(|error| ApiError::internal(error.to_string()))
+        .map_err(|error| Problem::internal(error.to_string()))
 }
 
-fn content_type_for_key(key: &str) -> &'static str {
+fn media(key: &str) -> &'static str {
     match key.rsplit('.').next().unwrap_or_default() {
         "css" => "text/css; charset=utf-8",
         "gif" => "image/gif",

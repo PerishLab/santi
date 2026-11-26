@@ -19,11 +19,11 @@ struct Timeline<'a> {
     strand: &'a str,
 }
 
-pub async fn provider_input(store: &Store, strand: &str) -> Result<Vec<Item>, String> {
+pub async fn assemble(store: &Store, strand: &str) -> Result<Vec<Item>, String> {
     Timeline { store, strand }.assemble(None).await
 }
 
-pub async fn provider_preview(
+pub async fn preview(
     store: &Store,
     strand: &str,
     preview: Preview<'_>,
@@ -99,8 +99,8 @@ impl Timeline<'_> {
                     None => Item::Boundary,
                 }))
             }
-            strand::Target::ToolCall => self.call(&entry.target, calls).await,
-            strand::Target::ToolResult => self.reply(&entry.target, calls).await,
+            strand::Target::Call => self.call(&entry.target, calls).await,
+            strand::Target::Result => self.reply(&entry.target, calls).await,
             strand::Target::Compact => Err("compact cannot be a strand occurrence".to_string()),
         }
     }
@@ -189,7 +189,7 @@ pub(crate) fn projected(placed: &message::Placed) -> Option<Item> {
     let role = match (&placed.message.role, &placed.message.kind) {
         (message::Role::Soul, _) => "assistant",
         (message::Role::System, message::Kind::Text) => "user",
-        (message::Role::System, message::Kind::SantiSystem) => "system",
+        (message::Role::System, message::Kind::System) => "system",
     };
     let rendered = placed.message.content.rendered();
     let content = match placed.message.role {

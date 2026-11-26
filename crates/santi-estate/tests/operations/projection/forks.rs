@@ -1,14 +1,14 @@
 use super::support::*;
-use santi_estate::{ForkDraft, StrandDraft};
+use santi_estate::{Fork, Strand};
 use serde_json::to_value;
 
 #[tokio::test]
 async fn visibility() {
     let seat = Seat::new().await;
     seat.pair(0).await;
-    seat.store.complete_turn("turn_test", 2, NOW).await.unwrap();
+    seat.store.complete("turn_test", 2, NOW).await.unwrap();
     seat.store
-        .fork(ForkDraft {
+        .fork(Fork {
             tag: "strand_child",
             parent: "strand_test",
             at: 2,
@@ -28,7 +28,7 @@ async fn visibility() {
         replies
     );
     seat.store
-        .create_strand(StrandDraft {
+        .weave(Strand {
             tag: "strand_other",
             soul: "soul_test",
             label: None,
@@ -43,12 +43,12 @@ async fn visibility() {
     assert!(seat.store.results("strand_other").await.unwrap().is_empty());
     assert!(
         seat.store
-            .end_strand("strand_test")
+            .retire("strand_test")
             .await
             .unwrap_err()
             .contains("strand_child")
     );
-    seat.store.end_strand("strand_child").await.unwrap();
+    seat.store.retire("strand_child").await.unwrap();
     assert_eq!(
         to_value(seat.store.calls("strand_test").await.unwrap()).unwrap(),
         calls
@@ -57,7 +57,7 @@ async fn visibility() {
         to_value(seat.store.results("strand_test").await.unwrap()).unwrap(),
         replies
     );
-    seat.store.end_strand("strand_test").await.unwrap();
+    seat.store.retire("strand_test").await.unwrap();
     assert_eq!(
         seat.store.calls("strand_test").await.unwrap_err(),
         "strand not found"

@@ -5,11 +5,11 @@ pub(crate) mod soul;
 pub(crate) mod sources;
 pub(crate) mod strand;
 
-pub(super) fn reject(error: String) -> ApiError {
+pub(super) fn reject(error: String) -> Problem {
     if error.contains("inference rejected:") {
-        ApiError::bad_request(error)
+        Problem::invalid(error)
     } else {
-        ApiError::from_service(error)
+        Problem::service(error)
     }
 }
 

@@ -128,7 +128,7 @@ pub(in crate::store) fn declaration(
     }
     let value = santi_model::inference::Declaration {
         scenario: row.text("provider").map(str::to_owned),
-        reasoning_effort: row.text("reasoning_effort").map(str::to_owned),
+        effort: row.text("reasoning_effort").map(str::to_owned),
     };
     value
         .validate()
@@ -143,7 +143,7 @@ pub(in crate::store) fn fields<'a>(
     if let Some(scenario) = inference.scenario.as_deref() {
         values.push(("provider", scenario));
     }
-    if let Some(effort) = inference.reasoning_effort.as_deref() {
+    if let Some(effort) = inference.effort.as_deref() {
         values.push(("reasoning_effort", effort));
     }
 }
@@ -153,13 +153,13 @@ fn cleared(inference: &santi_model::inference::Declaration) -> Vec<&'static str>
     if inference.scenario.is_none() {
         fields.push("provider");
     }
-    if inference.reasoning_effort.is_none() {
+    if inference.effort.is_none() {
         fields.push("reasoning_effort");
     }
     fields
 }
 
-pub struct StrandDraft<'a> {
+pub struct Strand<'a> {
     pub tag: &'a str,
     pub soul: &'a str,
     pub label: Option<&'a str>,
@@ -170,10 +170,7 @@ pub struct StrandDraft<'a> {
 }
 
 impl Store {
-    pub async fn create_strand(
-        &self,
-        draft: StrandDraft<'_>,
-    ) -> Result<santi_model::strand::Strand, String> {
+    pub async fn weave(&self, draft: Strand<'_>) -> Result<santi_model::strand::Strand, String> {
         self.create(draft, |_, _, _, _| Ok(()))
             .await
             .map(|(strand, _)| strand)
@@ -181,7 +178,7 @@ impl Store {
 
     pub async fn create<V>(
         &self,
-        draft: StrandDraft<'_>,
+        draft: Strand<'_>,
         validate: impl Fn(
             Target,
             &santi_model::inference::Declaration,
@@ -201,19 +198,19 @@ impl Store {
                     Some(parent) => Some(read::need(tx, "Strand", "tag", parent).await?),
                     None => None,
                 };
-                let soul_key = soul.key().to_string();
-                let parent_key = parent.map(|key| key.to_string());
+                let owner = soul.key().to_string();
+                let ancestor = parent.map(|key| key.to_string());
                 let fork = draft.fork.map(|at| at.to_string());
                 let mut fields = vec![
                     ("tag", draft.tag),
                     ("created", draft.created),
                     ("updated", draft.created),
-                    ("soul", soul_key.as_str()),
+                    ("soul", owner.as_str()),
                 ];
                 if let Some(label) = draft.label {
                     fields.push(("label", label));
                 }
-                if let Some(parent) = parent_key.as_deref() {
+                if let Some(parent) = ancestor.as_deref() {
                     fields.push(("parent", parent));
                 }
                 if let Some(fork) = fork.as_deref() {

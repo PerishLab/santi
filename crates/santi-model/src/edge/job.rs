@@ -13,7 +13,8 @@ pub enum State {
     Cancelling,
     Succeeded,
     Failed,
-    TimedOut,
+    #[serde(rename = "timed_out")]
+    Timeout,
     Cancelled,
     Unknown,
 }
@@ -22,7 +23,7 @@ impl State {
     pub fn terminal(&self) -> bool {
         matches!(
             self,
-            Self::Succeeded | Self::Failed | Self::TimedOut | Self::Cancelled | Self::Unknown
+            Self::Succeeded | Self::Failed | Self::Timeout | Self::Cancelled | Self::Unknown
         )
     }
 }
@@ -50,13 +51,16 @@ pub struct Job {
     pub description: String,
     pub command: String,
     pub cwd: Option<String>,
-    pub timeout_seconds: u64,
-    pub output_limit_bytes: u64,
+    #[serde(rename = "timeout_seconds")]
+    pub timeout: u64,
+    #[serde(rename = "output_limit_bytes")]
+    pub limit: u64,
     #[serde(rename = "remind_every_seconds")]
     pub remind: Option<u64>,
     pub state: State,
     pub reason: Option<String>,
-    pub exit_code: Option<i32>,
+    #[serde(rename = "exit_code")]
+    pub exit: Option<i32>,
     pub created: Timestamp,
     pub updated: Timestamp,
     pub accepted: Option<Timestamp>,
@@ -97,13 +101,13 @@ pub struct Log {
 #[derive(Debug, Clone, Deserialize, ToSchema)]
 #[serde(deny_unknown_fields)]
 #[schema(as = job::QueryRequest)]
-pub struct QueryRequest {
+pub struct Request {
     #[serde(default)]
     pub q: Option<String>,
     #[serde(default)]
     pub strand: Option<String>,
-    #[serde(default)]
-    pub all_strands: bool,
+    #[serde(default, rename = "all_strands")]
+    pub all: bool,
     #[serde(default)]
     pub state: Vec<String>,
     #[serde(default)]
@@ -116,29 +120,29 @@ pub struct QueryRequest {
 #[serde(untagged)]
 #[schema(as = job::Query)]
 pub enum Query {
-    Rows(QueryRows),
-    Count(QueryCount),
+    Rows(Rows),
+    Count(Count),
 }
 
 #[derive(Debug, Clone, Serialize, ToSchema)]
 #[schema(as = job::QueryRows)]
-pub struct QueryRows {
+pub struct Rows {
     pub rows: Vec<Job>,
 }
 
 #[derive(Debug, Clone, Serialize, ToSchema)]
 #[schema(as = job::QueryCount)]
-pub struct QueryCount {
+pub struct Count {
     pub count: usize,
 }
 
 #[derive(Debug, Clone)]
-pub enum QueryError {
+pub enum Fault {
     Invalid(String),
     Failed(String),
 }
 
-impl QueryError {
+impl Fault {
     pub fn message(&self) -> &str {
         match self {
             Self::Invalid(message) | Self::Failed(message) => message,

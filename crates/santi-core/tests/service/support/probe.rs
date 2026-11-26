@@ -17,7 +17,7 @@ impl<'a> Probe<'a> {
             .expect("strand runtime")
     }
 
-    pub(crate) async fn any_completed(&self, strand: &str) -> santi_core::stream::Snapshot {
+    pub(crate) async fn settled(&self, strand: &str) -> santi_core::stream::Snapshot {
         for _ in 0..50 {
             let runtime = self.snapshot(strand).await;
             if runtime
@@ -32,11 +32,7 @@ impl<'a> Probe<'a> {
         panic!("no turn completed");
     }
 
-    pub(crate) async fn completed_turn(
-        &self,
-        strand: &str,
-        turn: &str,
-    ) -> santi_core::stream::Snapshot {
+    pub(crate) async fn completed(&self, strand: &str, turn: &str) -> santi_core::stream::Snapshot {
         for _ in 0..50 {
             let runtime = self.snapshot(strand).await;
             if runtime
@@ -51,11 +47,7 @@ impl<'a> Probe<'a> {
         panic!("turn did not complete");
     }
 
-    pub(crate) async fn failed_turn(
-        &self,
-        strand: &str,
-        turn: &str,
-    ) -> santi_core::stream::Snapshot {
+    pub(crate) async fn failed(&self, strand: &str, turn: &str) -> santi_core::stream::Snapshot {
         for _ in 0..50 {
             let runtime = self.snapshot(strand).await;
             if runtime

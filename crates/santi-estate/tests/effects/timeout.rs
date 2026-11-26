@@ -1,5 +1,5 @@
 use super::*;
-use santi_estate::ReplyDraft;
+use santi_estate::Reply;
 
 #[tokio::test]
 async fn uncertain() {
@@ -9,7 +9,7 @@ async fn uncertain() {
         .unwrap();
     store.seed("soul_test", FIRST).await.unwrap();
     store
-        .create_strand(StrandDraft {
+        .weave(Strand {
             tag: "strand_test",
             soul: "soul_test",
             label: None,
@@ -21,10 +21,10 @@ async fn uncertain() {
         .await
         .unwrap();
     store
-        .create_turn(TurnDraft {
+        .start(Turn {
             tag: "turn_test",
             strand: "strand_test",
-            trigger: turn::Trigger::StrandSend,
+            trigger: turn::Trigger::Send,
             from: 0,
             created: FIRST,
         })
@@ -32,7 +32,7 @@ async fn uncertain() {
         .unwrap();
     for call in ["call_test", "call_other"] {
         store
-            .create_call(CallDraft {
+            .calling(Call {
                 tag: call,
                 turn: "turn_test",
                 tool: "shell",
@@ -43,7 +43,7 @@ async fn uncertain() {
             .unwrap();
     }
     store
-        .prepare_effect(EffectDraft {
+        .stage(Effect {
             tag: "effect_test",
             turn: "turn_test",
             call: Some("call_test"),
@@ -54,7 +54,7 @@ async fn uncertain() {
         .await
         .unwrap();
     let output = serde_json::json!({"timed_out":true,"stdout":"partial"});
-    let draft = ReplyDraft {
+    let draft = Reply {
         tag: "result_test",
         call: "call_test",
         output: Some(&output),
@@ -63,12 +63,12 @@ async fn uncertain() {
     };
     assert!(store.uncertain("effect_test", draft).await.is_err());
     assert!(store.reply("result_test").await.unwrap().is_none());
-    store.dispatch_effect("effect_test", LATER).await.unwrap();
+    store.dispatching("effect_test", LATER).await.unwrap();
     assert!(
         store
             .uncertain(
                 "effect_test",
-                ReplyDraft {
+                Reply {
                     call: "call_other",
                     ..draft
                 }

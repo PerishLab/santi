@@ -19,12 +19,12 @@ pub async fn send(
     State(service): State<Service>,
     Path(strand): Path<String>,
     Json(request): Json<strand::Post>,
-) -> Result<Json<strand::Posted>, ApiError> {
+) -> Result<Json<strand::Posted>, Problem> {
     service
         .send(&strand, request)
         .await
         .map(Json)
-        .map_err(ApiError::from_santi)
+        .map_err(Problem::santi)
 }
 
 #[utoipa::path(
@@ -42,12 +42,12 @@ pub async fn send(
 pub async fn drive(
     State(service): State<Service>,
     Path(strand): Path<String>,
-) -> Result<Json<drive::Response>, ApiError> {
+) -> Result<Json<drive::Response>, Problem> {
     service
         .drive(&strand)
         .await
         .map(Json)
-        .map_err(|error| ApiError::from_santi(*error))
+        .map_err(|error| Problem::santi(*error))
 }
 
 #[utoipa::path(
@@ -118,17 +118,17 @@ pub(super) fn page() -> MethodRouter<Service> {
     routing::get(
         |State(service): State<Service>,
          Path(compact): Path<String>,
-         Query(params): Query<CompactQueryParams>| async move {
-            Drive(service).page(compact, params).await
-        },
+         Query(params): Query<Paging>| async move { Drive(service).page(compact, params).await },
     )
 }
 
 #[derive(serde::Deserialize)]
-pub(super) struct CompactQueryParams {
+pub(super) struct Paging {
     keyword: Option<String>,
-    page_index: Option<i64>,
-    page_size: Option<i64>,
+    #[serde(rename = "page_index")]
+    index: Option<i64>,
+    #[serde(rename = "page_size")]
+    size: Option<i64>,
 }
 
 #[utoipa::path(
@@ -152,17 +152,18 @@ pub(super) fn snapshot() -> MethodRouter<Service> {
 #[utoipa::path(
     get,
     path = "/api/v1/strands/{strand}/execution-tail",
+    operation_id = "execution_tail",
     params(("strand" = String, Path)),
     responses(
-        (status = 200, body = stream::ExecutionTail),
+        (status = 200, body = stream::Tail),
         (status = 404, body = Fault),
         (status = 500, body = Fault)
     )
 )]
-pub(super) fn execution_tail() -> MethodRouter<Service> {
+pub(super) fn tail() -> MethodRouter<Service> {
     routing::get(
         |State(service): State<Service>, Path(strand): Path<String>| async move {
-            Drive(service).execution_tail(strand).await
+            Drive(service).tail(strand).await
         },
     )
 }
@@ -196,7 +197,7 @@ impl Drive {
         &self,
         strand: String,
         request: strand::Fork,
-    ) -> Result<Json<strand::Forked>, ApiError> {
+    ) -> Result<Json<strand::Forked>, Problem> {
         self.0
             .branching(&strand, request.at, request.inference.as_ref())
             .await
@@ -208,66 +209,60 @@ impl Drive {
         &self,
         strand: String,
         request: compact::Exec,
-    ) -> Result<Json<compact::Report>, ApiError> {
+    ) -> Result<Json<compact::Report>, Problem> {
         self.0
             .exec(&strand, request)
             .await
             .map(Json)
-            .map_err(ApiError::from_service)
+            .map_err(Problem::service)
     }
 
-    async fn page(
-        &self,
-        compact: String,
-        params: CompactQueryParams,
-    ) -> Result<Json<compact::Page>, ApiError> {
+    async fn page(&self, compact: String, params: Paging) -> Result<Json<compact::Page>, Problem> {
         self.0
             .page(
                 &compact,
                 params.keyword.as_deref(),
-                params.page_index.unwrap_or(0),
-                params.page_size.unwrap_or(50),
+                params.index.unwrap_or(0),
+                params.size.unwrap_or(50),
             )
             .await
-            .map_err(ApiError::from_service)?
+            .map_err(Problem::service)?
             .map(Json)
-            .ok_or_else(|| ApiError::not_found("compact not found"))
+            .ok_or_else(|| Problem::missing("compact not found"))
     }
 
-    async fn snapshot(&self, strand: String) -> Result<Json<stream::Snapshot>, ApiError> {
+    async fn snapshot(&self, strand: String) -> Result<Json<stream::Snapshot>, Problem> {
         self.0
             .snapshot(&strand)
             .await
-            .map_err(ApiError::from_service)?
+            .map_err(Problem::service)?
             .map(Json)
-            .ok_or_else(|| ApiError::not_found("strand not found"))
+            .ok_or_else(|| Problem::missing("strand not found"))
     }
 
-    async fn execution_tail(
-        &self,
-        strand: String,
-    ) -> Result<Json<stream::ExecutionTail>, ApiError> {
+    async fn tail(&self, strand: String) -> Result<Json<stream::Tail>, Problem> {
         self.0
-            .execution_tail(&strand)
+            .tail(&strand)
             .await
-            .map_err(ApiError::from_service)?
+            .map_err(Problem::service)?
             .map(Json)
-            .ok_or_else(|| ApiError::not_found("strand not found"))
+            .ok_or_else(|| Problem::missing("strand not found"))
     }
 
-    async fn audit(&self, strand: String) -> Result<Json<budget::Snapshot>, ApiError> {
+    async fn audit(&self, strand: String) -> Result<Json<budget::Snapshot>, Problem> {
         self.0
             .audit(&strand)
             .await
-            .map_err(ApiError::from_service)?
+            .map_err(Problem::service)?
             .map(Json)
-            .ok_or_else(|| ApiError::not_found("strand not found"))
+            .ok_or_else(|| Problem::missing("strand not found"))
     }
 }
 
 #[utoipa::path(
     delete,
     path = "/api/v1/strands/{strand}",
+    operation_id = "end_strand",
     params(("strand" = String, Path)),
     summary = "Retire one idle strand. Pending input, unfinished turns or receipts, active or unacknowledged Jobs, unsettled effects and live forks prevent retirement. Estate commit precedes best-effort file cleanup; startup sweep recovers leftover bytes. Physical collection follows Keel retention.",
     responses(
@@ -277,13 +272,10 @@ impl Drive {
         (status = 500, body = Fault)
     )
 )]
-pub async fn end_strand(
+pub async fn retire(
     State(service): State<Service>,
     Path(strand): Path<String>,
-) -> Result<StatusCode, ApiError> {
-    service
-        .end_strand(&strand)
-        .await
-        .map_err(ApiError::from_service)?;
+) -> Result<StatusCode, Problem> {
+    service.retire(&strand).await.map_err(Problem::service)?;
     Ok(StatusCode::NO_CONTENT)
 }

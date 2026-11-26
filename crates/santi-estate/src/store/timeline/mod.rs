@@ -9,18 +9,18 @@ pub mod object;
 mod projection;
 mod retire;
 mod round;
-mod thinking;
+pub(in crate::store) mod thinking;
 
-pub use compact::{CompactDraft, Limits};
-pub use fork::ForkDraft;
+pub use compact::{Compact, Limits};
+pub use fork::Fork;
 pub use material::{Bind, Capture, Unbind};
-pub use thinking::ThinkingDraft;
+pub use thinking::Thinking;
 
-pub struct MessageDraft<'a> {
+pub struct Message<'a> {
     pub tag: &'a str,
     pub strand: &'a str,
     pub actor: message::Role,
-    pub actor_id: &'a str,
+    pub sender: &'a str,
     pub kind: message::Kind,
     pub content: &'a message::Content,
     pub state: message::State,
@@ -29,7 +29,7 @@ pub struct MessageDraft<'a> {
 }
 
 impl Store {
-    pub async fn place(&self, draft: MessageDraft<'_>) -> Result<message::Placed, String> {
+    pub async fn place(&self, draft: Message<'_>) -> Result<message::Placed, String> {
         let content = serde_json::to_string(draft.content).map_err(|error| error.to_string())?;
         let tag = draft.tag.to_string();
         self.core
@@ -38,21 +38,21 @@ impl Store {
                     .one(&form("Strand").when("tag", Op::Eq, draft.strand))
                     .await?
                     .ok_or_else(|| keel::adapt::Error::Missing(draft.strand.to_string()))?;
-                let strand_key = strand.key().to_string();
+                let key = strand.key().to_string();
                 let message = tx
                     .put(
                         "Message",
                         &[
                             ("tag", draft.tag),
                             ("actor_type", role(&draft.actor)),
-                            ("actor", draft.actor_id),
+                            ("actor", draft.sender),
                             ("kind", kind(&draft.kind)),
                             ("content", &content),
                             ("state", state(&draft.state)),
                             ("request", if draft.request { "true" } else { "false" }),
                             ("created", draft.created),
                             ("updated", draft.created),
-                            ("strand", strand_key.as_str()),
+                            ("strand", key.as_str()),
                         ],
                     )
                     .await?;
@@ -127,10 +127,10 @@ impl Store {
             serde_json::from_str(read::text(row, "content")?).map_err(|error| error.to_string())?;
         let message = message::Message {
             id: read::text(row, "tag")?.to_string(),
-            role: decode_role(read::text(row, "actor_type")?)?,
+            role: parse::role(read::text(row, "actor_type")?)?,
             actor: read::text(row, "actor")?.to_string(),
-            kind: decode_kind(read::text(row, "kind")?)?,
-            state: decode_state(read::text(row, "state")?)?,
+            kind: parse::kind(read::text(row, "kind")?)?,
+            state: parse::state(read::text(row, "state")?)?,
             version: read::int(row, "version")?,
             deleted: row.text("deleted").map(str::to_string),
             created: read::text(row, "created")?.to_string(),
@@ -162,7 +162,7 @@ fn role(role: &message::Role) -> &'static str {
 fn kind(kind: &message::Kind) -> &'static str {
     match kind {
         message::Kind::Text => "text",
-        message::Kind::SantiSystem => "santi_system",
+        message::Kind::System => "santi_system",
     }
 }
 
@@ -174,28 +174,32 @@ fn state(state: &message::State) -> &'static str {
     }
 }
 
-fn decode_role(value: &str) -> Result<message::Role, String> {
-    match value {
-        "soul" => Ok(message::Role::Soul),
-        "system" => Ok(message::Role::System),
-        value => Err(format!("unknown message role {value}")),
-    }
-}
+pub(super) mod parse {
+    use santi_model::message;
 
-fn decode_kind(value: &str) -> Result<message::Kind, String> {
-    match value {
-        "text" => Ok(message::Kind::Text),
-        "santi_system" => Ok(message::Kind::SantiSystem),
-        value => Err(format!("unknown message kind {value}")),
+    pub(super) fn role(value: &str) -> Result<message::Role, String> {
+        match value {
+            "soul" => Ok(message::Role::Soul),
+            "system" => Ok(message::Role::System),
+            value => Err(format!("unknown message role {value}")),
+        }
     }
-}
 
-fn decode_state(value: &str) -> Result<message::State, String> {
-    match value {
-        "pending" => Ok(message::State::Pending),
-        "fixed" => Ok(message::State::Fixed),
-        "aborted" => Ok(message::State::Aborted),
-        value => Err(format!("unknown message state {value}")),
+    pub(super) fn kind(value: &str) -> Result<message::Kind, String> {
+        match value {
+            "text" => Ok(message::Kind::Text),
+            "santi_system" => Ok(message::Kind::System),
+            value => Err(format!("unknown message kind {value}")),
+        }
+    }
+
+    pub(super) fn state(value: &str) -> Result<message::State, String> {
+        match value {
+            "pending" => Ok(message::State::Pending),
+            "fixed" => Ok(message::State::Fixed),
+            "aborted" => Ok(message::State::Aborted),
+            value => Err(format!("unknown message state {value}")),
+        }
     }
 }
 
@@ -206,8 +210,8 @@ pub(super) mod target {
         match value {
             "message" => Ok(strand::Target::Message),
             "thinking" => Ok(strand::Target::Thinking),
-            "tool_call" => Ok(strand::Target::ToolCall),
-            "tool_result" => Ok(strand::Target::ToolResult),
+            "tool_call" => Ok(strand::Target::Call),
+            "tool_result" => Ok(strand::Target::Result),
             value => Err(format!("unknown strand target {value}")),
         }
     }

@@ -43,8 +43,8 @@ pub(super) async fn read(store: &Store, query: Query<'_>) -> Result<Option<compa
         first: compact.first,
         last: compact.last,
         total,
-        page_index: query.index,
-        page_size: query.size,
+        index: query.index,
+        size: query.size,
         entries: entries.into_iter().skip(skip).take(take).collect(),
     }))
 }

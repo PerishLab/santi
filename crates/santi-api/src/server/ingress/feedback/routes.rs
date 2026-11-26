@@ -1,5 +1,5 @@
 use super::{Service, render};
-use crate::server::ApiError;
+use crate::server::Problem;
 use axum::{
     Json,
     extract::{Path, State},
@@ -15,13 +15,13 @@ use santi_core::{
 pub(in crate::server) async fn inspect(
     State(service): State<Service>,
     Path(inbox): Path<String>,
-) -> Result<Json<Status>, ApiError> {
+) -> Result<Json<Status>, Problem> {
     service
         .reply(&inbox)
         .await
-        .map_err(ApiError::from_service)?
+        .map_err(Problem::service)?
         .map(Json)
-        .ok_or_else(|| ApiError::not_found("reply window not found"))
+        .ok_or_else(|| Problem::missing("reply window not found"))
 }
 
 #[utoipa::path(post, path = "/api/v1/receipts/{inbox}/reply", params(("inbox" = String, Path)), request_body = Request,
@@ -31,24 +31,22 @@ pub(in crate::server) async fn reply(
     State(service): State<Service>,
     Path(inbox): Path<String>,
     Json(request): Json<Request>,
-) -> Result<Json<Status>, ApiError> {
+) -> Result<Json<Status>, Problem> {
     if request.text.is_empty() || request.text.len() > 20_000 || request.text.contains('\0') {
-        return Err(ApiError::bad_request(
+        return Err(Problem::invalid(
             "reply text must contain 1..20000 bytes and no NUL",
         ));
     }
     let body = render::document(&request.text, false);
     let bytes = serde_json::to_vec(&serde_json::json!({"zh_cn":&body}))
-        .map_err(|e| ApiError::bad_request(e.to_string()))?;
+        .map_err(|e| Problem::invalid(e.to_string()))?;
     if bytes.len() > 30_000 {
-        return Err(ApiError::bad_request(
-            "encoded Feishu post exceeds 30000 bytes",
-        ));
+        return Err(Problem::invalid("encoded Feishu post exceeds 30000 bytes"));
     }
     service
         .claim(&request, &inbox, &body)
         .await
-        .map_err(ApiError::from_service)?;
+        .map_err(Problem::service)?;
     inspect(State(service), Path(inbox)).await
 }
 
@@ -59,10 +57,10 @@ pub(in crate::server) async fn resolve(
     State(service): State<Service>,
     Path(inbox): Path<String>,
     Json(resolution): Json<Resolution>,
-) -> Result<Json<Status>, ApiError> {
+) -> Result<Json<Status>, Problem> {
     service
         .resolution(&inbox, &resolution)
         .await
-        .map_err(ApiError::from_service)?;
+        .map_err(Problem::service)?;
     inspect(State(service), Path(inbox)).await
 }

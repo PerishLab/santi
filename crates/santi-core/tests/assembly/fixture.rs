@@ -19,7 +19,7 @@ impl Frame {
         .unwrap();
         store.seed("soul_test", FIRST).await.unwrap();
         store
-            .create_strand(StrandDraft {
+            .weave(Strand {
                 tag: "strand_test",
                 soul: "soul_test",
                 label: None,
@@ -38,7 +38,7 @@ impl Frame {
         )
         .await;
         store
-            .create_turn(TurnDraft {
+            .start(Turn {
                 tag: "turn_test",
                 strand: "strand_test",
                 trigger: turn::Trigger::System,
@@ -54,7 +54,7 @@ impl Frame {
         for index in 0usize..140 {
             let tag = format!("thinking_{index}");
             store
-                .create_thinking(ThinkingDraft {
+                .ponder(Thinking {
                     tag: &tag,
                     turn: "turn_test",
                     response: None,
@@ -83,7 +83,7 @@ impl Frame {
                 .await
                 .unwrap();
             store
-                .complete_thinking(&tag, thinking::Reason::Called, LATER)
+                .conclude(&tag, thinking::Reason::Called, LATER)
                 .await
                 .unwrap();
             expected.push(if index.is_multiple_of(2) {
@@ -107,7 +107,7 @@ impl Frame {
         .await;
         expected.push(json!({"kind":"message","role":"assistant","content":"final 工具🙂"}));
         let end = store.strand("strand_test").await.unwrap().unwrap().next - 1;
-        store.complete_turn("turn_test", end, LATER).await.unwrap();
+        store.complete("turn_test", end, LATER).await.unwrap();
         Self {
             temp,
             store,
@@ -119,11 +119,11 @@ impl Frame {
 
 async fn place(store: &Store, tag: &str, actor: message::Role, text: &str) {
     store
-        .place(MessageDraft {
+        .place(Message {
             tag,
             strand: "strand_test",
             actor,
-            actor_id: "synthetic",
+            sender: "synthetic",
             kind: message::Kind::Text,
             content: &message::Content::text(text),
             state: message::State::Fixed,
@@ -138,7 +138,7 @@ async fn pair(store: &Store, expected: &mut Vec<Value>, index: usize) {
     let call = format!("call_{:04}", 1000 - index);
     let arguments = json!({"index":index});
     store
-        .create_call(CallDraft {
+        .calling(Call {
             tag: &call,
             turn: "turn_test",
             tool: "shell",
@@ -153,7 +153,7 @@ async fn pair(store: &Store, expected: &mut Vec<Value>, index: usize) {
         .then_some(json!({"sequence":index,"text":"工具🙂"}));
     let error = (!index.is_multiple_of(2)).then_some("synthetic failure");
     store
-        .create_reply(ReplyDraft {
+        .replying(Reply {
             tag: &format!("reply_{index}"),
             call: &call,
             output: output.as_ref(),

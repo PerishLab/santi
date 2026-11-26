@@ -1,12 +1,12 @@
 use super::{Store, complete, read};
 use crate::store::error;
-use crate::store::turn::{OutboxDraft, outbox};
+use crate::store::turn::{Outbox, outbox};
 use keel::adapt::db::Sqlite;
 use keel::{Op, Row, Tx, form};
 use santi_error::Ruled;
 use santi_model::{event, turn};
 
-pub struct CompletionDraft<'a> {
+pub struct Finish<'a> {
     pub turn: &'a str,
     pub reply: Option<&'a str>,
     pub provider: &'a str,
@@ -23,7 +23,7 @@ pub struct Completion {
 struct Writer<'a, 'tx>(&'a mut Tx<'tx, Sqlite>);
 
 impl Store {
-    pub async fn finish_turn(&self, draft: CompletionDraft<'_>) -> Result<Completion, String> {
+    pub async fn finish(&self, draft: Finish<'_>) -> Result<Completion, String> {
         let tag = draft.turn.to_string();
         let event = self
             .core
@@ -40,14 +40,14 @@ impl Store {
 
 pub(super) async fn finish(
     tx: &mut Tx<'_, Sqlite>,
-    draft: CompletionDraft<'_>,
+    draft: Finish<'_>,
 ) -> Result<Option<event::Event>, keel::adapt::Error> {
     let turn = tx
         .one(&form("Turn").when("tag", Op::Eq, draft.turn))
         .await?
         .ok_or_else(|| keel::adapt::Error::Missing(draft.turn.into()))?;
     let strand = Writer(tx).relation(&turn, "strand", "turn strand").await?;
-    let strand_tag = text(&strand, "tag")?;
+    let owner = text(&strand, "tag")?;
     let reply = match draft.reply {
         Some(tag) => Some(reply(tx, &strand, tag).await?),
         None => None,
@@ -67,16 +67,16 @@ pub(super) async fn finish(
         .int("next")
         .ok_or_else(|| keel::adapt::Error::Adapt("strand next missing".into()))?
         - 1;
-    update_strand(tx, &strand, reply.as_ref(), &draft).await?;
+    update(tx, &strand, reply.as_ref(), &draft).await?;
     complete(tx, draft.turn, to, draft.occurred).await?;
-    Writer(tx).resolve_success(strand_tag, &draft).await?;
+    Writer(tx).resolve(owner, &draft).await?;
     let event = event(&turn, &strand, reply.as_ref(), draft.occurred)?;
     if let Some(event) = event.as_ref() {
         let payload = serde_json::to_string(event)
             .map_err(|error| keel::adapt::Error::Adapt(error.to_string()))?;
         outbox::queue(
             tx,
-            OutboxDraft {
+            Outbox {
                 stream: "turns",
                 event,
             },
@@ -126,11 +126,11 @@ async fn reply(
     })
 }
 
-async fn update_strand(
+async fn update(
     tx: &mut Tx<'_, Sqlite>,
     strand: &Row,
     reply: Option<&Reply>,
-    draft: &CompletionDraft<'_>,
+    draft: &Finish<'_>,
 ) -> Result<(), keel::adapt::Error> {
     let state = draft
         .response
@@ -159,13 +159,13 @@ async fn update_strand(
 }
 
 impl Writer<'_, '_> {
-    async fn resolve_success(
+    async fn resolve(
         &mut self,
         strand: &str,
-        draft: &CompletionDraft<'_>,
+        draft: &Finish<'_>,
     ) -> Result<(), keel::adapt::Error> {
         let provider = turn::Error::Provider.descriptor();
-        error::resolve_in(
+        error::resolve(
             self.0,
             error::Resolution {
                 key: &provider.key("strand", strand),
@@ -182,7 +182,7 @@ impl Writer<'_, '_> {
         .await?;
         for kind in [turn::Error::Runtime, turn::Error::History] {
             let descriptor = kind.descriptor();
-            error::resolve_in(
+            error::resolve(
                 self.0,
                 error::Resolution {
                     key: &descriptor.key("strand", strand),
@@ -198,7 +198,7 @@ impl Writer<'_, '_> {
             .await?;
         }
         let execution = santi_model::budget::Error::Execution.descriptor();
-        error::resolve_in(
+        error::resolve(
             self.0,
             error::Resolution {
                 key: &execution.key("strand", strand),

@@ -2,7 +2,7 @@ use super::*;
 
 async fn strand(store: &Store, id: &str) {
     store
-        .create_strand(StrandDraft {
+        .weave(Strand {
             tag: id,
             soul: "soul_default",
             label: None,
@@ -73,7 +73,7 @@ async fn pages() {
         .map(|incident| incident.id)
         .collect::<Vec<_>>();
     let mut newer = draft(&scope, "new arrival");
-    newer.descriptor = catalog::NOT_FOUND;
+    newer.descriptor = catalog::MISSING;
     newer.key = newer.descriptor.key("strand", "history");
     let arrival = store
         .raise(newer, REOPENED)
@@ -203,7 +203,7 @@ async fn inspection() {
         .incident
         .expect("id");
     assert_ne!(first, reopened);
-    let pending = store.pending_errors(20).await.expect("pending");
+    let pending = store.unsent(20).await.expect("pending");
     let history = store
         .inspect(&first)
         .await
@@ -220,25 +220,15 @@ async fn inspection() {
     assert_eq!(history.transitions[1].held.occurrences, 3);
     assert_eq!(history.incident.scope, scope);
     assert_eq!(
-        store
-            .pending_errors(20)
-            .await
-            .expect("read does not ack")
-            .len(),
+        store.unsent(20).await.expect("read does not ack").len(),
         pending.len()
     );
     for event in &pending {
-        store.deliver_error(&event.id, REOPENED).await.expect("ack");
+        store.deliver(&event.id, REOPENED).await.expect("ack");
     }
     drop(store);
     let store = Store::open(&path).await.expect("restart");
-    assert!(
-        store
-            .pending_errors(20)
-            .await
-            .expect("delivered")
-            .is_empty()
-    );
+    assert!(store.unsent(20).await.expect("delivered").is_empty());
     let history = store
         .inspect(&first)
         .await
@@ -268,7 +258,7 @@ async fn inspection() {
         "soul"
     );
     assert!(store.inspect("missing").await.expect("missing").is_none());
-    store.end_strand("history").await.expect("retire");
+    store.retire("history").await.expect("retire");
     for id in [&first, &reopened] {
         assert!(store.inspect(id).await.expect("retired").is_none());
     }

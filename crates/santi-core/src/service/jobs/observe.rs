@@ -1,7 +1,7 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use super::*;
-use santi_estate::JobRecord;
+use santi_estate::Record;
 
 #[derive(PartialEq, Eq)]
 struct Status<'a> {
@@ -12,7 +12,7 @@ struct Status<'a> {
 }
 
 impl Service {
-    pub(super) async fn refresh(&self, record: JobRecord) -> Result<JobRecord, String> {
+    pub(super) async fn refresh(&self, record: Record) -> Result<Record, String> {
         if record.job.acknowledged.is_some() {
             return Ok(record);
         }
@@ -30,7 +30,7 @@ impl Service {
             Observation::Claimed | Observation::Running | Observation::Terminal(_)
         );
         let record = if claimed && record.job.state == job::State::Submitting {
-            self.store.accept_job(&record.job.id, &crate::now()).await?
+            self.store.claim(&record.job.id, &crate::now()).await?
         } else {
             record
         };
@@ -60,11 +60,11 @@ impl Service {
         let Some((state, reason, exit)) = transition else {
             return Ok(record);
         };
-        let incomplete = state == job::State::Running && record.started_millis.is_none();
+        let incomplete = state == job::State::Running && record.started.is_none();
         let current = Status {
             state: &record.job.state,
             reason: record.job.reason.as_deref(),
-            exit: record.job.exit_code,
+            exit: record.job.exit,
             complete: !incomplete,
         };
         let desired = Status {
@@ -77,14 +77,14 @@ impl Service {
             return Ok(record);
         }
         self.store
-            .transition_job(
+            .transit(
                 &record.job.id,
-                santi_estate::TransitionDraft {
+                santi_estate::Transition {
                     base: Some(&record.job.state),
                     reason: reason.as_deref(),
-                    exit_code: exit,
-                    started_millis: incomplete.then(epoch).transpose()?,
-                    ..santi_estate::TransitionDraft::new(state, &crate::now())
+                    exit,
+                    started: incomplete.then(epoch).transpose()?,
+                    ..santi_estate::Transition::new(state, &crate::now())
                 },
             )
             .await

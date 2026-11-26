@@ -20,7 +20,8 @@ pub(super) enum State {
 pub(super) struct Manifest {
     pub(super) schema: String,
     pub(super) state: State,
-    pub(super) legacy_version: i64,
+    #[serde(rename = "legacy_version")]
+    pub(super) version: i64,
     pub(super) source: String,
     pub(super) created: String,
     pub(super) files: Vec<String>,
@@ -31,7 +32,7 @@ impl Manifest {
         Self {
             schema: SCHEMA.to_string(),
             state: State::Moving,
-            legacy_version: super::signature::VERSION,
+            version: super::signature::VERSION,
             source,
             created: santi_model::now(),
             files,
@@ -65,7 +66,7 @@ impl Manifest {
     }
 
     fn validate(&self) -> Result<(), String> {
-        if self.schema != SCHEMA || self.legacy_version != super::signature::VERSION {
+        if self.schema != SCHEMA || self.version != super::signature::VERSION {
             return Err("unknown legacy quarantine manifest".to_string());
         }
         if self.files.is_empty()

@@ -17,7 +17,7 @@ impl Service {
             .await?
             .ok_or_else(|| "strand not found".to_string())?;
         match request.kind {
-            render::Kind::SystemPrompt => {
+            render::Kind::Prompt => {
                 let mut rendered = self.prompt(&strand).await?;
                 rendered.text = self.composition(&strand.id).await?.text;
                 Ok(self.cached(rendered))
@@ -25,7 +25,7 @@ impl Service {
             render::Kind::Skill => Ok(self.cached(render::View {
                 strand: strand.id,
                 kind: render::Kind::Skill,
-                content_type: "text/markdown; charset=utf-8".into(),
+                mime: "text/markdown; charset=utf-8".into(),
                 text: crate::assembly::skill::TEXT.into(),
                 updated: now(),
             })),
@@ -46,8 +46,8 @@ impl Service {
         })?;
         Ok(render::View {
             strand: id.to_string(),
-            kind: render::Kind::SystemPrompt,
-            content_type: PLAIN.to_string(),
+            kind: render::Kind::Prompt,
+            mime: PLAIN.to_string(),
             text,
             updated: now(),
         })
@@ -58,7 +58,7 @@ impl Service {
         let mut cache = self.renders.lock().unwrap();
         if let Some(existing) = cache.get(&key)
             && existing.text == view.text
-            && existing.content_type == view.content_type
+            && existing.mime == view.mime
         {
             return existing.clone();
         }

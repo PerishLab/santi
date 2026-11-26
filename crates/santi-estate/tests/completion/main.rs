@@ -1,7 +1,5 @@
 use santi_error::{Ruled, Scope};
-use santi_estate::{
-    ClassifiedFailureDraft, CompletionDraft, InterruptionDraft, MessageDraft, Store,
-};
+use santi_estate::{Abort, Fault, Finish, Message, Store};
 use santi_model::{budget, effect, message, receipt, turn};
 
 mod handoff;
@@ -18,7 +16,7 @@ async fn ceremonies() {
     let path = temp.path().join("estate.sqlite");
     let store = bootstrap(&path).await;
     store.seed("soul_test", FIRST).await.expect("seed");
-    create_strand(&store, "strand_complete", Some("worker/thread")).await;
+    support::strand(&store, "strand_complete", Some("worker/thread")).await;
     driven(&store, "complete").await;
 
     let scope = Scope::new("strand", "strand_complete");
@@ -34,11 +32,11 @@ async fn ceremonies() {
     }
     let content = message::Content::text("finished work");
     let reply = store
-        .place(MessageDraft {
+        .place(Message {
             tag: "message_reply",
             strand: "strand_complete",
             actor: message::Role::Soul,
-            actor_id: "soul_test",
+            sender: "soul_test",
             kind: message::Kind::Text,
             content: &content,
             state: message::State::Fixed,
@@ -48,7 +46,7 @@ async fn ceremonies() {
         .await
         .expect("reply");
     let completed = store
-        .finish_turn(CompletionDraft {
+        .finish(Finish {
             turn: "turn_complete",
             reply: Some(&reply.message.id),
             provider: "test-provider",
@@ -103,26 +101,26 @@ async fn ceremonies() {
     assert_eq!(batch.events.len(), 1);
     assert_eq!(batch.events[0].id, event.id);
 
-    create_strand(&store, "strand_foreign", None).await;
-    let foreign_content = message::Content::text("foreign");
+    support::strand(&store, "strand_foreign", None).await;
+    let foreign = message::Content::text("foreign");
     store
-        .place(MessageDraft {
+        .place(Message {
             tag: "message_foreign",
             strand: "strand_foreign",
             actor: message::Role::Soul,
-            actor_id: "soul_test",
+            sender: "soul_test",
             kind: message::Kind::Text,
-            content: &foreign_content,
+            content: &foreign,
             state: message::State::Fixed,
             request: false,
             created: LATER,
         })
         .await
         .expect("foreign");
-    create_turn(&store, "turn_cross", "strand_complete").await;
+    support::turn(&store, "turn_cross", "strand_complete").await;
     assert!(
         store
-            .finish_turn(CompletionDraft {
+            .finish(Finish {
                 turn: "turn_cross",
                 reply: Some("message_foreign"),
                 provider: "test-provider",
@@ -143,18 +141,18 @@ async fn ceremonies() {
         turn::Status::Running
     );
     store
-        .fail_turn("turn_cross", "test cleanup", LATER)
+        .fail("turn_cross", "test cleanup", LATER)
         .await
         .expect("cleanup");
 
-    create_turn(&store, "turn_stopped", "strand_complete").await;
+    support::turn(&store, "turn_stopped", "strand_complete").await;
     store
-        .request_stop("turn_stopped", turn::Cause::Operator, FIRST)
+        .halt("turn_stopped", turn::Cause::Operator, FIRST)
         .await
         .expect("stop");
     assert!(
         store
-            .finish_turn(CompletionDraft {
+            .finish(Finish {
                 turn: "turn_stopped",
                 reply: None,
                 provider: "test-provider",
@@ -175,7 +173,7 @@ async fn ceremonies() {
             .is_some()
     );
     store
-        .interrupt_turn(InterruptionDraft {
+        .abort(Abort {
             turn: "turn_stopped",
             cause: turn::Cause::Shutdown,
             actor: "santi",
@@ -184,16 +182,16 @@ async fn ceremonies() {
         .await
         .expect("interrupt");
 
-    create_strand(&store, "strand_failed", None).await;
+    support::strand(&store, "strand_failed", None).await;
     driven(&store, "failed").await;
     store
-        .dispatch_effect("effect_failed", FIRST)
+        .dispatching("effect_failed", FIRST)
         .await
         .expect("dispatch");
     let scope = Scope::new("strand", "strand_failed");
     assert!(
         store
-            .fail_classified(ClassifiedFailureDraft {
+            .classify(Fault {
                 turn: "turn_failed",
                 detail: "wrongly scoped",
                 incident: incident(
@@ -216,7 +214,7 @@ async fn ceremonies() {
         turn::Status::Running
     );
     let failed = store
-        .fail_classified(ClassifiedFailureDraft {
+        .classify(Fault {
             turn: "turn_failed",
             detail: "provider unavailable",
             incident: incident(

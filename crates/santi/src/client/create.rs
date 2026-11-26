@@ -1,7 +1,7 @@
 use anyhow::Result;
 
 use super::TIMEOUT;
-use super::http::{Http, urlencoding_encode};
+use super::http::{Http, encode};
 
 #[derive(Clone, Copy)]
 pub(super) enum Creation<'a> {
@@ -93,7 +93,7 @@ impl Creation<'_> {
 }
 
 impl Http<'_> {
-    pub(super) async fn create_strand(
+    pub(super) async fn strand(
         &self,
         base: &str,
         soul: Option<&str>,
@@ -132,7 +132,7 @@ impl Http<'_> {
 
 fn route(base: &str, soul: Option<&str>) -> String {
     match soul {
-        Some(soul) => format!("{base}/api/v1/souls/{}/strands", urlencoding_encode(soul)),
+        Some(soul) => format!("{base}/api/v1/souls/{}/strands", encode(soul)),
         None => format!("{base}/api/v1/strands"),
     }
 }

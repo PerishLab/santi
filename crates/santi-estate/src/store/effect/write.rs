@@ -1,5 +1,5 @@
-use super::{EffectDraft, RedemptionDraft};
-use crate::store::tool::{ReplyDraft, put_reply};
+use super::{Effect, Redemption};
+use crate::store::tool::{self, Reply};
 use keel::adapt::db::Sqlite;
 use keel::{Op, Tx, form};
 use santi_model::effect;
@@ -20,7 +20,7 @@ impl<'a, 'tx> Writer<'a, 'tx> {
     pub async fn uncertain(
         &mut self,
         tag: &str,
-        draft: ReplyDraft<'_>,
+        draft: Reply<'_>,
         output: Option<&str>,
     ) -> Result<(), keel::adapt::Error> {
         let row = self.relation("StrandEffect", tag).await?;
@@ -30,7 +30,7 @@ impl<'a, 'tx> Writer<'a, 'tx> {
                 "effect belongs to another tool call".into(),
             ));
         }
-        put_reply(self.tx, draft, output).await?;
+        tool::reply(self.tx, draft, output).await?;
         let key = self
             .shift(Shift {
                 tag,
@@ -51,7 +51,7 @@ impl<'a, 'tx> Writer<'a, 'tx> {
 
     pub async fn prepare(
         &mut self,
-        draft: EffectDraft<'_>,
+        draft: Effect<'_>,
         metadata: Option<&str>,
     ) -> Result<(), keel::adapt::Error> {
         let turn = self.relation("Turn", draft.turn).await?;
@@ -86,13 +86,10 @@ impl<'a, 'tx> Writer<'a, 'tx> {
         if !draft.expected.contains(&current) {
             return Err(keel::adapt::Error::Adapt(format!(
                 "effect state {current} cannot transition to {}",
-                state_text(&draft.state)
+                encode(&draft.state)
             )));
         }
-        let mut fields = vec![
-            ("state", state_text(&draft.state)),
-            ("updated", draft.occurred),
-        ];
+        let mut fields = vec![("state", encode(&draft.state)), ("updated", draft.occurred)];
         match draft.state {
             effect::State::Dispatching => fields.push(("dispatched", draft.occurred)),
             effect::State::Settled(_) => fields.push(("settled", draft.occurred)),
@@ -108,7 +105,7 @@ impl<'a, 'tx> Writer<'a, 'tx> {
     pub async fn redeem(
         &mut self,
         tag: &str,
-        draft: RedemptionDraft<'_>,
+        draft: Redemption<'_>,
         output: Option<&str>,
     ) -> Result<(), keel::adapt::Error> {
         let row = self
@@ -124,7 +121,7 @@ impl<'a, 'tx> Writer<'a, 'tx> {
         }
         let expected = match &draft.outcome {
             effect::Outcome::Applied => &["dispatching"][..],
-            effect::Outcome::NotApplied => &["prepared", "dispatching"][..],
+            effect::Outcome::Unapplied => &["prepared", "dispatching"][..],
         };
         let state = effect::State::Settled(draft.outcome.clone());
         let current = row
@@ -133,12 +130,12 @@ impl<'a, 'tx> Writer<'a, 'tx> {
         if !expected.contains(&current) {
             return Err(keel::adapt::Error::Adapt(format!(
                 "effect state {current} cannot transition to {}",
-                state_text(&state)
+                encode(&state)
             )));
         }
-        put_reply(
+        tool::reply(
             self.tx,
-            ReplyDraft {
+            Reply {
                 tag: draft.result,
                 call: draft.call,
                 output: draft.output,
@@ -192,23 +189,23 @@ impl<'a, 'tx> Writer<'a, 'tx> {
     }
 }
 
-pub(super) fn state_text(state: &effect::State) -> &'static str {
+pub(super) fn encode(state: &effect::State) -> &'static str {
     match state {
         effect::State::Prepared => "prepared",
         effect::State::Dispatching => "dispatching",
         effect::State::Unknown => "unknown",
         effect::State::Settled(effect::Outcome::Applied) => "settled_applied",
-        effect::State::Settled(effect::Outcome::NotApplied) => "settled_not_applied",
+        effect::State::Settled(effect::Outcome::Unapplied) => "settled_not_applied",
     }
 }
 
-pub(super) fn decode_state(value: &str) -> Result<effect::State, String> {
+pub(super) fn decode(value: &str) -> Result<effect::State, String> {
     match value {
         "prepared" => Ok(effect::State::Prepared),
         "dispatching" => Ok(effect::State::Dispatching),
         "unknown" => Ok(effect::State::Unknown),
         "settled_applied" => Ok(effect::State::Settled(effect::Outcome::Applied)),
-        "settled_not_applied" => Ok(effect::State::Settled(effect::Outcome::NotApplied)),
+        "settled_not_applied" => Ok(effect::State::Settled(effect::Outcome::Unapplied)),
         value => Err(format!("unknown effect state {value}")),
     }
 }

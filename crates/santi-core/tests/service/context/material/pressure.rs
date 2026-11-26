@@ -7,7 +7,7 @@ struct Limited {
 #[async_trait]
 impl Provider for Limited {
     fn metadata(&self) -> Metadata {
-        let mut metadata = FakeProvider::default().metadata();
+        let mut metadata = Fake::default().metadata();
         metadata.budget = Some(santi_provider::Cap {
             bytes: if self.small.load(Ordering::SeqCst) {
                 100
@@ -20,7 +20,7 @@ impl Provider for Limited {
         metadata
     }
     async fn stream(&self, request: Request) -> Result<Streaming, String> {
-        FakeProvider::default().stream(request).await
+        Fake::default().stream(request).await
     }
 }
 
@@ -84,7 +84,7 @@ struct Maintenance {
 #[async_trait]
 impl Provider for Maintenance {
     fn metadata(&self) -> Metadata {
-        FakeProvider::default().metadata()
+        Fake::default().metadata()
     }
     async fn stream(&self, request: Request) -> Result<Streaming, String> {
         let round = {
@@ -110,7 +110,7 @@ impl Provider for Maintenance {
             ],
             _ => {
                 let request = self.requests.lock().unwrap().last().unwrap().clone();
-                return FakeProvider::default().stream(request).await;
+                return Fake::default().stream(request).await;
             }
         };
         let mut events = vec![Ok(Event::Started {
@@ -160,20 +160,20 @@ async fn maintenance() {
         output: 100_000,
         shell: 10_000,
         lines: 100,
-        feedback_after_calls: None,
-        feedback_command: None,
-        feedback_cwd: None,
+        after: None,
+        command: None,
+        cwd: None,
     })
     .unwrap();
     let strand = service.weave().await.unwrap().strand.id;
     let store = santi_core::Store::open(&cfg.database).await.unwrap();
     for text in ["earlier observation", "later observation"] {
         store
-            .place(santi_estate::MessageDraft {
+            .place(santi_estate::Message {
                 tag: &santi_core::tag("msg"),
                 strand: &strand,
                 actor: santi_core::message::Role::System,
-                actor_id: "santi",
+                sender: "santi",
                 kind: santi_core::message::Kind::Text,
                 content: &santi_core::message::Content::text(text),
                 state: santi_core::message::State::Fixed,
@@ -198,8 +198,8 @@ async fn maintenance() {
         )
         .await
         .unwrap();
-    let turn = accepted_turn(&service, &posted).await;
-    let runtime = Probe::new(&service).completed_turn(&strand, &turn.id).await;
+    let turn = accepted(&service, &posted).await;
+    let runtime = Probe::new(&service).completed(&strand, &turn.id).await;
     let calls = runtime
         .calls
         .iter()

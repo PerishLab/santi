@@ -1,5 +1,5 @@
 use clap::Parser;
-use santi::cli::{Cli, Command, StrandCommand};
+use santi::cli::{Cli, Command, Strand};
 
 #[test]
 fn errors() {
@@ -15,21 +15,18 @@ fn errors() {
     ])
     .unwrap();
     let Command::Errors {
-        scope_kind,
-        scope_id,
-        limit,
-        ..
+        kind, id, limit, ..
     } = parsed.command
     else {
         panic!("expected global errors command");
     };
-    assert_eq!(scope_kind, "runtime");
-    assert_eq!(scope_id, "default");
+    assert_eq!(kind, "runtime");
+    assert_eq!(id, "default");
     assert_eq!(limit, 12);
 
     let parsed =
         Cli::try_parse_from(["santi", "strand", "errors", "ss_1", "--limit", "12"]).unwrap();
-    let Command::Strand(StrandCommand::Errors { id, limit, .. }) = parsed.command else {
+    let Command::Strand(Strand::Errors { id, limit, .. }) = parsed.command else {
         panic!("expected strand errors command");
     };
     assert_eq!(id.as_deref(), Some("ss_1"));
@@ -58,7 +55,7 @@ fn cursors() {
         "santi", "strand", "errors", "target", "--before", "inc_last",
     ])
     .expect("cursor");
-    let Command::Strand(StrandCommand::Errors { before, .. }) = parsed.command else {
+    let Command::Strand(Strand::Errors { before, .. }) = parsed.command else {
         panic!("errors");
     };
     assert_eq!(before.as_deref(), Some("inc_last"));

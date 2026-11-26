@@ -1,4 +1,4 @@
-use super::super::DrainDraft;
+use super::super::Drain;
 use super::codec::Pending;
 use keel::Row;
 
@@ -25,5 +25,5 @@ pub(super) struct Message<'a, 'draft> {
     pub strand: &'a Row,
     pub kind: &'a str,
     pub content: &'a str,
-    pub draft: &'a DrainDraft<'draft>,
+    pub draft: &'a Drain<'draft>,
 }

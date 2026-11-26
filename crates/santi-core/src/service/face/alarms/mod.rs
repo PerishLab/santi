@@ -64,7 +64,7 @@ impl Lifecycle {
 impl Service {
     pub async fn alarmed(mut self, endpoint: Arc<dyn Endpoint>) -> Self {
         self.alarms = Arc::new(Lifecycle::new(endpoint));
-        self.reconcile_alarms().await;
+        self.resync().await;
         self
     }
 
@@ -83,34 +83,34 @@ impl Service {
         })
     }
 
-    pub async fn set_alarm(&self, draft: alarm::Draft) -> Result<alarm::View, String> {
+    pub async fn arm(&self, draft: alarm::Draft) -> Result<alarm::View, String> {
         expression::validate(&draft)?;
         self.alarms.endpoint.validate(&draft)?;
         let mut state = self.alarms.state.lock().await;
-        let alarm = self.store.set_alarm(&draft).await?;
-        self.apply_alarms(&mut state).await;
+        let alarm = self.store.arm(&draft).await?;
+        self.sync(&mut state).await;
         Ok(alarm::View {
             alarms: vec![alarm],
             projection: state.projection.clone(),
         })
     }
 
-    pub async fn end_alarm(&self, tag: &str, soul: &str) -> Result<alarm::View, String> {
+    pub async fn disarm(&self, tag: &str, soul: &str) -> Result<alarm::View, String> {
         let mut state = self.alarms.state.lock().await;
-        self.store.end_alarm(tag, soul).await?;
-        self.apply_alarms(&mut state).await;
+        self.store.disarm(tag, soul).await?;
+        self.sync(&mut state).await;
         Ok(alarm::View {
             alarms: Vec::new(),
             projection: state.projection.clone(),
         })
     }
 
-    pub async fn fire_alarm(
+    pub async fn fire(
         &self,
         tag: &str,
         occurrence: alarm::Occurrence,
     ) -> Result<crate::ingest::Receipt, String> {
-        let accepted = self.store.accept_alarm(tag, &occurrence).await?;
+        let accepted = self.store.fire(tag, &occurrence).await?;
         if accepted.inserted {
             self.inboxes.lock().unwrap().insert(
                 accepted.receipt.strand.clone(),

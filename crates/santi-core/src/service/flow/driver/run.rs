@@ -221,11 +221,11 @@ impl Service {
                 last = Some(attempt!(
                     Operation::Persistence(Persistence::Assistant),
                     self.store
-                        .place(santi_estate::MessageDraft {
+                        .place(santi_estate::Message {
                             tag: &crate::tag("msg"),
                             strand,
                             actor: crate::message::Role::Soul,
-                            actor_id: &actor,
+                            sender: &actor,
                             kind: crate::message::Kind::Text,
                             content: &crate::message::Content::text(&speech),
                             state: crate::message::State::Fixed,

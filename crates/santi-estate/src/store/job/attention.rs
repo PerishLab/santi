@@ -1,11 +1,11 @@
-use super::{AttentionDraft, Store, read, write};
-use crate::store::inbox::{NoticeDraft, Offer, offer};
+use super::{Attention, Store, read, write};
+use crate::store::inbox::{Notice, Offer, offer};
 
 impl Store {
-    pub async fn attend_job(
+    pub async fn attend(
         &self,
-        attention: AttentionDraft<'_>,
-        notice: NoticeDraft<'_>,
+        attention: Attention<'_>,
+        notice: Notice<'_>,
         gate: usize,
     ) -> Result<Offer, String> {
         let next = attention
@@ -45,7 +45,7 @@ impl Store {
 async fn update(
     tx: &mut keel::Tx<'_, keel::adapt::db::Sqlite>,
     job: &keel::Row,
-    attention: AttentionDraft<'_>,
+    attention: Attention<'_>,
     revision: i64,
 ) -> Result<(), keel::adapt::Error> {
     let tick = i64::try_from(attention.tick)

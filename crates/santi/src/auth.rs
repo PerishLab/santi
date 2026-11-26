@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use anyhow::{Context, Result};
 
-const REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
+const TIMEOUT: Duration = Duration::from_secs(30);
 
 pub(crate) struct Credentials<'a> {
     pub(crate) endpoint: Option<&'a str>,
@@ -13,7 +13,7 @@ pub(crate) struct Credentials<'a> {
     pub(crate) cache: Option<&'a std::path::Path>,
 }
 
-pub(crate) async fn resolve_edge_bearer(credentials: Credentials<'_>) -> Result<Option<String>> {
+pub(crate) async fn resolve(credentials: Credentials<'_>) -> Result<Option<String>> {
     fn present(value: Option<&str>) -> Option<&str> {
         value.filter(|value| !value.is_empty())
     }
@@ -26,19 +26,19 @@ pub(crate) async fn resolve_edge_bearer(credentials: Credentials<'_>) -> Result<
         let path = credentials
             .cache
             .map(std::path::Path::to_path_buf)
-            .unwrap_or_else(|| edge_token_cache_path(url, cid, user));
+            .unwrap_or_else(|| location(url, cid, user));
         let edge = Edge {
             url,
             identity: cid,
             username: user,
             password: pw,
         };
-        return Ok(Some(edge_jwt_cached(&path, edge).await?));
+        return Ok(Some(cached(&path, edge).await?));
     }
     Ok(present(credentials.key).map(str::to_string))
 }
 
-fn now_secs() -> u64 {
+fn now() -> u64 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_secs())
@@ -52,8 +52,8 @@ struct Edge<'a> {
     password: &'a str,
 }
 
-async fn edge_jwt_cached(path: &std::path::Path, edge: Edge<'_>) -> Result<String> {
-    let now = now_secs();
+async fn cached(path: &std::path::Path, edge: Edge<'_>) -> Result<String> {
+    let now = now();
     if let Ok(bytes) = std::fs::read(path)
         && let Ok(v) = serde_json::from_slice::<serde_json::Value>(&bytes)
         && let Some(token) = v.get("access_token").and_then(|t| t.as_str())
@@ -61,24 +61,23 @@ async fn edge_jwt_cached(path: &std::path::Path, edge: Edge<'_>) -> Result<Strin
     {
         return Ok(token.to_string());
     }
-    let (access_token, expires_in) =
-        fetch_edge_jwt(edge.url, edge.identity, edge.username, edge.password).await?;
-    let v = serde_json::json!({ "access_token": access_token, "expires_at": now + expires_in });
-    let _ = write_token_cache(path, &v);
-    Ok(access_token)
+    let (token, ttl) = fetch(edge.url, edge.identity, edge.username, edge.password).await?;
+    let v = serde_json::json!({ "access_token": token, "expires_at": now + ttl });
+    let _ = save(path, &v);
+    Ok(token)
 }
 
-async fn fetch_edge_jwt(
+async fn fetch(
     token_url: &str,
     client_id: &str,
     username: &str,
     password: &str,
 ) -> Result<(String, u64)> {
     let client = reqwest::Client::builder()
-        .timeout(REQUEST_TIMEOUT)
+        .timeout(TIMEOUT)
         .build()
         .context("build token client")?;
-    let body = form_urlencode(&[
+    let body = encode(&[
         ("grant_type", "client_credentials"),
         ("client_id", client_id),
         ("username", username),
@@ -121,7 +120,7 @@ async fn fetch_edge_jwt(
             anyhow::Error::new(error)
         })
         .context("parse token response")?;
-    let access_token = value
+    let token = value
         .get("access_token")
         .and_then(|t| t.as_str())
         .map(str::to_string)
@@ -130,14 +129,14 @@ async fn fetch_edge_jwt(
             None
         })
         .context("token response missing access_token")?;
-    let expires_in = value
+    let ttl = value
         .get("expires_in")
         .and_then(|t| t.as_u64())
         .unwrap_or(3600);
-    Ok((access_token, expires_in))
+    Ok((token, ttl))
 }
 
-fn edge_token_cache_path(token_url: &str, client_id: &str, username: &str) -> std::path::PathBuf {
+fn location(token_url: &str, client_id: &str, username: &str) -> std::path::PathBuf {
     use std::hash::{Hash, Hasher};
     let mut hasher = std::collections::hash_map::DefaultHasher::new();
     token_url.hash(&mut hasher);
@@ -162,7 +161,7 @@ fn enc(input: &str) -> String {
     out
 }
 
-pub fn form_urlencode(pairs: &[(&str, &str)]) -> String {
+pub fn encode(pairs: &[(&str, &str)]) -> String {
     pairs
         .iter()
         .map(|(k, v)| format!("{}={}", enc(k), enc(v)))
@@ -170,7 +169,7 @@ pub fn form_urlencode(pairs: &[(&str, &str)]) -> String {
         .join("&")
 }
 
-fn write_token_cache(path: &std::path::Path, value: &serde_json::Value) -> Result<()> {
+fn save(path: &std::path::Path, value: &serde_json::Value) -> Result<()> {
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent)?;
     }
@@ -185,11 +184,11 @@ fn write_token_cache(path: &std::path::Path, value: &serde_json::Value) -> Resul
 
 #[cfg(test)]
 mod tests {
-    use super::{Credentials, resolve_edge_bearer};
+    use super::{Credentials, resolve};
 
     #[tokio::test]
     async fn sentinels() {
-        let bearer = resolve_edge_bearer(Credentials {
+        let bearer = resolve(Credentials {
             endpoint: Some(""),
             identity: Some(""),
             username: Some(""),

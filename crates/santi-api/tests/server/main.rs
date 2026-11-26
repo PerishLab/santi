@@ -7,21 +7,18 @@ use axum::{
     http::StatusCode,
 };
 use futures_util::stream;
-use santi_api::{
-    ApiError, ResolveEffectRequest, effect_status_handler, resolve_effect_handler,
-    send_strand_handler,
-};
+use santi_api::{Problem, Resolution, effect, send, settle};
 use santi_core::service::{self, Service};
 use santi_core::{Ruled, budget, drive, effect, engine, message};
-use santi_estate::{CallDraft, DrainDraft, EffectDraft, InboxDraft, Opening, StrandDraft};
+use santi_estate::{Arrival, Call, Drain, Effect, Opening, Strand};
 use santi_provider::{Cap, Event, Metadata, Provider, Request, Streaming};
 
-struct BudgetedProvider;
+struct Budgeted;
 
-struct DriverProvider;
+struct Driver;
 
 #[async_trait]
-impl Provider for BudgetedProvider {
+impl Provider for Budgeted {
     fn metadata(&self) -> Metadata {
         Metadata {
             provider: Arc::from("budgeted-provider"),
@@ -42,7 +39,7 @@ impl Provider for BudgetedProvider {
 }
 
 #[async_trait]
-impl Provider for DriverProvider {
+impl Provider for Driver {
     fn metadata(&self) -> Metadata {
         Metadata {
             provider: Arc::from("driver-provider"),
@@ -81,7 +78,7 @@ mod openapi {
 
     #[test]
     fn lists() {
-        let document = santi_api::export_openapi_json().expect("export openapi");
+        let document = santi_api::openapi().expect("export openapi");
         assert!(document.contains("/api/v1/errors/{scope_kind}/{scope_id}"));
         assert!(document.contains("/api/v1/errors/events"));
         assert!(document.contains("/api/v1/strands/{strand}/drive"));
@@ -138,7 +135,7 @@ mod effects {
             .await
             .expect("seed");
         let strand = store
-            .create_strand(StrandDraft {
+            .weave(Strand {
                 tag: "ss_effect",
                 soul: santi_core::GENESIS,
                 label: None,
@@ -151,8 +148,8 @@ mod effects {
             .expect("create strand");
         let inbox = "inbox_effect";
         store
-            .accept_inbox(
-                InboxDraft {
+            .accept(
+                Arrival {
                     tag: inbox,
                     strand: &strand.id,
                     kind: message::Kind::Text,
@@ -165,10 +162,10 @@ mod effects {
             .await
             .expect("enqueue");
         let Opening::Started(started) = store
-            .drain_turn(DrainDraft {
+            .drain(Drain {
                 turn: "turn_effect",
                 strand: &strand.id,
-                trigger: santi_core::turn::Trigger::StrandSend,
+                trigger: santi_core::turn::Trigger::Send,
                 actor: santi_core::SYSTEM,
                 created: &santi_core::now(),
             })
@@ -178,15 +175,15 @@ mod effects {
             panic!("turn did not start");
         };
         let (_, effect) = store
-            .prepare_invocation(
-                CallDraft {
+            .invoke(
+                Call {
                     tag: "call_api_effect",
                     turn: &started.turn.id,
                     tool: "shell",
                     arguments: &serde_json::json!({"command": "printf api"}),
                     created: &santi_core::now(),
                 },
-                Some(EffectDraft {
+                Some(Effect {
                     tag: "effect_api",
                     turn: &started.turn.id,
                     call: Some("call_api_effect"),
@@ -199,7 +196,7 @@ mod effects {
             .expect("append effect");
         let effect = effect.expect("effect").id;
         store
-            .dispatch_effect(&effect, &santi_core::now())
+            .dispatching(&effect, &santi_core::now())
             .await
             .expect("open dispatch window");
         drop(store);
@@ -214,12 +211,12 @@ mod effects {
                 constitution: None,
                 environment: Default::default(),
             },
-            Arc::new(DriverProvider),
+            Arc::new(Driver),
         )
         .await
         .expect("restart service");
 
-        let queried = effect_status_handler(State(service.clone()), Path(effect.clone())).await;
+        let queried = santi_api::effect(State(service.clone()), Path(effect.clone())).await;
         let Json(queried) = match queried {
             Ok(queried) => queried,
             Err(error) => panic!(
@@ -231,10 +228,10 @@ mod effects {
         assert_eq!(queried.effect.state, effect::State::Unknown);
         assert_eq!(queried.receipts, vec![inbox.to_string()]);
 
-        let error = resolve_effect_handler(
+        let error = settle(
             State(service.clone()),
             Path(effect.clone()),
-            Json(ResolveEffectRequest {
+            Json(Resolution {
                 outcome: effect::Outcome::Applied,
                 evidence: "   ".to_string(),
             }),
@@ -243,10 +240,10 @@ mod effects {
         .expect_err("blank evidence must be rejected");
         assert_eq!(error.status(), StatusCode::BAD_REQUEST);
 
-        let resolved = resolve_effect_handler(
+        let resolved = settle(
             State(service),
             Path(effect),
-            Json(ResolveEffectRequest {
+            Json(Resolution {
                 outcome: effect::Outcome::Applied,
                 evidence: "operator found the target marker".to_string(),
             }),
@@ -279,5 +276,5 @@ mod retire;
 mod history;
 
 fn status(message: &str) -> StatusCode {
-    ApiError::from_service(message.to_string()).status()
+    Problem::service(message.to_string()).status()
 }

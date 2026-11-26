@@ -19,9 +19,9 @@ pub mod watch;
 #[cfg(feature = "client")]
 use anyhow::Result;
 #[cfg(feature = "client")]
-use auth::{Credentials, resolve_edge_bearer};
+use auth::{Credentials, resolve};
 #[cfg(feature = "client")]
-use cli::{BASE, Cli, ClientDefaults, Command};
+use cli::{BASE, Cli, Command, Defaults};
 #[cfg(feature = "client")]
 use config::ClientPartial;
 #[cfg(feature = "client")]
@@ -39,12 +39,12 @@ pub async fn run() -> Result<()> {
 #[locus::trace(with = plumb::observation::view())]
 async fn execute(cli: Cli, explicit: bool) -> Result<()> {
     let Cli {
-        base_url,
-        api_key,
-        auth_token_url,
-        auth_client_id,
-        auth_username,
-        auth_password,
+        endpoint,
+        key,
+        token,
+        client: identity,
+        username,
+        password,
         strand,
         soul,
         command,
@@ -56,29 +56,29 @@ async fn execute(cli: Cli, explicit: bool) -> Result<()> {
     let stated = cli::declaration(&command)?;
     let client = config::client(ClientPartial {
         operator: None,
-        base_url: base_url.map(Some),
-        api_key: api_key.map(Some),
-        auth_token_url: auth_token_url.map(Some),
-        auth_client_id: auth_client_id.map(Some),
-        auth_username: auth_username.map(Some),
-        auth_password: auth_password.map(Some),
-        token_cache: None,
+        endpoint: endpoint.map(Some),
+        key: key.map(Some),
+        token: token.map(Some),
+        client: identity.map(Some),
+        username: username.map(Some),
+        password: password.map(Some),
+        cache: None,
         inference: stated.partial(),
     })?;
-    let defaults = ClientDefaults::new(strand, soul, &client);
-    let bearer = resolve_edge_bearer(Credentials {
-        endpoint: client.auth_token_url.as_deref(),
-        identity: client.auth_client_id.as_deref(),
-        username: client.auth_username.as_deref(),
-        password: client.auth_password.as_deref(),
-        key: client.api_key.as_deref(),
-        cache: client.token_cache.as_deref(),
+    let defaults = Defaults::new(strand, soul, &client);
+    let bearer = resolve(Credentials {
+        endpoint: client.token.as_deref(),
+        identity: client.client.as_deref(),
+        username: client.username.as_deref(),
+        password: client.password.as_deref(),
+        key: client.key.as_deref(),
+        cache: client.cache.as_deref(),
     })
     .await?;
-    let base = client.base_url.unwrap_or_else(|| BASE.to_owned());
+    let base = client.endpoint.unwrap_or_else(|| BASE.to_owned());
     client::run(
         client::Run {
-            base_url: &base,
+            base: &base,
             bearer: bearer.as_deref(),
             defaults: &defaults,
             explicit,

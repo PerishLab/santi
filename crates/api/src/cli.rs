@@ -1,6 +1,24 @@
-use clap::{Parser, Subcommand};
+use clap::{Args, Parser, Subcommand};
 
-use crate::config::ConfigArgs;
+use crate::config::ConfigPartial;
+
+#[derive(Args, Clone, Debug)]
+pub struct Overrides {
+    #[arg(long = "scenario")]
+    pub scenario: Option<String>,
+    #[arg(long = "reasoning-effort", value_name = "REASONING_EFFORT")]
+    pub effort: Option<String>,
+}
+
+impl Overrides {
+    pub fn partial(self) -> ConfigPartial {
+        ConfigPartial {
+            scenario: self.scenario.map(Some),
+            effort: self.effort.map(Some),
+            ..Default::default()
+        }
+    }
+}
 
 #[derive(Parser)]
 #[command(
@@ -14,7 +32,7 @@ pub struct Cli {
     #[arg(long, global = true, env = "SANTI_STRAND_ID")]
     pub strand: Option<String>,
     #[command(flatten)]
-    pub over: ConfigArgs,
+    pub over: Overrides,
     #[command(subcommand)]
     pub command: Option<Command>,
 }
@@ -32,16 +50,16 @@ pub enum Command {
     Doctor {
         #[arg(
             long,
-            conflicts_with = "storage_only",
+            conflicts_with = "storage",
             help = "Inspect Linux detached-job prerequisites as the intended runtime user; checks global shell PATH and the persistent user manager without starting jobs"
         )]
         jobs: bool,
         #[arg(
             help = "Internal storage-only check used by deployment and recovery",
-            long,
+            long = "storage-only",
             hide = true
         )]
-        storage_only: bool,
+        storage: bool,
     },
     #[command(about = "Read durable tool activity from the local Keel estate")]
     Audit {
@@ -56,7 +74,7 @@ pub enum Command {
     },
     #[command(about = "Operate directly on local runtime state")]
     #[command(subcommand)]
-    Inbox(InboxCommand),
+    Inbox(Inbox),
     #[command(about = "Inspect configured runtime capability authority")]
     #[command(subcommand)]
     Capability(Capability),
@@ -78,7 +96,7 @@ pub enum Job {
 }
 
 #[derive(Subcommand)]
-pub enum InboxCommand {
+pub enum Inbox {
     #[command(
         about = "Enqueue one `santi_system` record into a strand's durable inbox without a running server"
     )]

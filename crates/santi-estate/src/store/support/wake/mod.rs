@@ -5,12 +5,12 @@ use keel::{Op, Rank, form};
 mod support;
 mod types;
 use support::*;
-pub use types::{WakeLease, WakeOfferDraft};
+pub use types::{Lease, Wake};
 
 const ROUNDS: i64 = 3;
 
 impl Store {
-    pub async fn wake(&self, soul: &str) -> Result<Option<WakeLease>, String> {
+    pub async fn wake(&self, soul: &str) -> Result<Option<Lease>, String> {
         let Some(soul) = read::one(&self.core, "Soul", "tag", soul).await? else {
             return Ok(None);
         };
@@ -21,7 +21,7 @@ impl Store {
         decode(&self.core, &row).await.map(Some)
     }
 
-    pub async fn scheduled_wakes(&self) -> Result<Vec<WakeLease>, String> {
+    pub async fn wakes(&self) -> Result<Vec<Lease>, String> {
         let rows = self
             .core
             .ask(
@@ -39,14 +39,14 @@ impl Store {
         Ok(leases)
     }
 
-    pub async fn enable_wake(
+    pub async fn enable(
         &self,
         soul: &str,
-        cadence_millis: i64,
-        first_millis: i64,
+        cadence: i64,
+        first: i64,
         occurred: &str,
-    ) -> Result<WakeLease, String> {
-        if cadence_millis < 1 || first_millis < 1 {
+    ) -> Result<Lease, String> {
+        if cadence < 1 || first < 1 {
             return Err("wake lease timing must be positive".to_string());
         }
         self.core
@@ -72,8 +72,8 @@ impl Store {
                     ("generation", generation.to_string()),
                     ("state", "active".to_string()),
                     ("remaining", ROUNDS.to_string()),
-                    ("cadence_millis", cadence_millis.to_string()),
-                    ("next_millis", first_millis.to_string()),
+                    ("cadence_millis", cadence.to_string()),
+                    ("next_millis", first.to_string()),
                     ("updated", occurred.to_string()),
                 ];
                 let borrowed = fields
@@ -96,11 +96,7 @@ impl Store {
         self.need(soul).await
     }
 
-    pub async fn disable_wake(
-        &self,
-        soul: &str,
-        occurred: &str,
-    ) -> Result<Option<WakeLease>, String> {
+    pub async fn disable(&self, soul: &str, occurred: &str) -> Result<Option<Lease>, String> {
         self.core
             .batch(async |tx| {
                 let soul = read::need(tx, "Soul", "tag", soul).await?;
@@ -134,13 +130,13 @@ impl Store {
         self.wake(soul).await
     }
 
-    pub async fn renew_wake(
+    pub async fn renew(
         &self,
         soul: &str,
         generation: u64,
-        first_millis: i64,
+        first: i64,
         occurred: &str,
-    ) -> Result<WakeLease, String> {
+    ) -> Result<Lease, String> {
         self.core
             .batch(async |tx| {
                 let row = lease(tx, soul).await?;
@@ -153,7 +149,7 @@ impl Store {
                     ("remaining", "3"),
                     ("updated", occurred),
                 ];
-                let next = first_millis.to_string();
+                let next = first.to_string();
                 if row.text("state") != Some("active") || row.int("next_millis").is_none() {
                     fields.push(("next_millis", next.as_str()));
                 }
@@ -165,12 +161,12 @@ impl Store {
         self.need(soul).await
     }
 
-    pub async fn silence_wake(
+    pub async fn silence(
         &self,
         soul: &str,
         generation: u64,
         occurred: &str,
-    ) -> Result<WakeLease, String> {
+    ) -> Result<Lease, String> {
         self.core
             .batch(async |tx| {
                 let row = lease(tx, soul).await?;
@@ -207,14 +203,11 @@ impl Store {
         self.need(soul).await
     }
 
-    pub async fn offer_wake(
-        &self,
-        draft: WakeOfferDraft<'_>,
-    ) -> Result<Option<crate::store::Offer>, String> {
-        if draft.notice.revision != draft.due_millis {
+    pub async fn offer(&self, draft: Wake<'_>) -> Result<Option<crate::store::Offer>, String> {
+        if draft.notice.revision != draft.due {
             return Err("wake notice revision must equal its scheduled time".to_string());
         }
-        if draft.due_millis > draft.now_millis {
+        if draft.due > draft.now {
             return Err("wake notice cannot be offered before its scheduled time".to_string());
         }
         self.core
@@ -222,7 +215,7 @@ impl Store {
                 let row = lease(tx, draft.soul).await?;
                 if row.text("state") != Some("active")
                     || unsigned(&row, "generation")? != draft.generation
-                    || row.int("next_millis") != Some(draft.due_millis)
+                    || row.int("next_millis") != Some(draft.due)
                 {
                     return Ok(None);
                 }
@@ -234,7 +227,7 @@ impl Store {
                 }
                 let offer = offer(tx, draft.notice, draft.gate).await?;
                 let remaining = remaining - 1;
-                let last = draft.now_millis.to_string();
+                let last = draft.now.to_string();
                 let rounds = remaining.to_string();
                 if remaining == 0 {
                     tx.set(
@@ -254,7 +247,7 @@ impl Store {
                         .int("cadence_millis")
                         .ok_or_else(|| adapt("wake lease cadence missing"))?;
                     let following = draft
-                        .now_millis
+                        .now
                         .checked_add(cadence)
                         .ok_or_else(|| adapt("wake lease next time is out of range"))?
                         .to_string();
@@ -276,7 +269,7 @@ impl Store {
             .map_err(read::error)
     }
 
-    async fn need(&self, soul: &str) -> Result<WakeLease, String> {
+    async fn need(&self, soul: &str) -> Result<Lease, String> {
         self.wake(soul)
             .await?
             .ok_or_else(|| "wake lease not found".to_string())

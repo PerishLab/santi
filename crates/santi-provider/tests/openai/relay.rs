@@ -6,7 +6,7 @@ use std::{
 };
 
 use futures_util::StreamExt;
-use santi_provider::openai::{Config, OpenAI};
+use santi_provider::openai::{Config, Openai};
 use santi_provider::{Event, Item, Provider, Request};
 
 use crate::support::body;
@@ -38,7 +38,7 @@ pub(crate) async fn collected(url: String, attempts: Option<u32>) -> Vec<Event> 
 }
 
 async fn collect(url: String, attempts: Option<u32>) -> Vec<Event> {
-    let provider = OpenAI::new(Config {
+    let provider = Openai::new(Config {
         outgoing: Default::default(),
         key: "test-key".to_string(),
         model: "gpt-test".to_string(),

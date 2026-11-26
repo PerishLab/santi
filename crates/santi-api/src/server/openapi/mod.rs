@@ -8,14 +8,14 @@ use utoipa::{
 mod descriptions;
 mod inference;
 mod security;
-use descriptions::{COMPONENT_DESCRIPTIONS, PROPERTY_DESCRIPTIONS};
+use descriptions::{COMPONENTS, PROPERTIES};
 use santi_core::{material, soul, strand, stream};
-use security::SecurityAddon;
+use security::Security;
 
 #[derive(OpenApi)]
 #[openapi(
     info(version = "v1"),
-    modifiers(&SecurityAddon),
+    modifiers(&Security),
     paths(
         super::routes::health,
         super::routes::materials::catalog,
@@ -35,7 +35,7 @@ use security::SecurityAddon;
         super::routes::strands,
         super::routes::awaken,
         super::routes::souls,
-        super::routes::get_soul,
+        super::routes::soul,
         super::routes::inference::soul::read,
         super::routes::inference::soul::declare,
         super::routes::inference::sources::list,
@@ -46,9 +46,9 @@ use security::SecurityAddon;
         super::routes::inference::changes::withdraw,
 
         super::routes::running,
-        super::routes::soul_environs,
-        super::routes::set_soul_environ,
-        super::routes::end_soul_environ,
+        super::routes::owned,
+        super::routes::declare,
+        super::routes::revoke,
         super::routes::subscribe,
         super::routes::webhooks,
         super::jobs::create,
@@ -58,15 +58,15 @@ use security::SecurityAddon;
         super::jobs::cancel,
         super::jobs::logs,
         super::jobs::acknowledge,
-        super::ingress::ingest_webhook,
-        super::routes::get_strand,
+        super::ingress::receive,
+        super::routes::strand,
         super::routes::inference::strand::read,
         super::routes::inference::strand::declare,
-        super::routes::end_strand,
-        super::routes::strand_environs,
-        super::routes::set_strand_environ,
-        super::routes::end_strand_environ,
-        super::routes::list_messages,
+        super::routes::retire,
+        super::routes::scoped,
+        super::routes::assign,
+        super::routes::unassign,
+        super::routes::messages,
         super::routes::render,
         super::routes::send,
         super::routes::drive,
@@ -89,10 +89,10 @@ use security::SecurityAddon;
         super::routes::active::activity::snapshot,
         super::routes::active::activity::events,
         super::sse::transitions,
-        super::sse::turn_event_stream,
+        super::sse::turns,
         super::routes::snapshot,
-        super::routes::execution_tail,
-        super::routes::turn_events,
+        super::routes::tail,
+        super::routes::events,
         super::routes::show,
         super::routes::stop,
         super::routes::enroll,
@@ -131,13 +131,13 @@ use security::SecurityAddon;
         environ::Draft,
         webhook::Draft,
         webhook::Subscription,
-        super::jobs::CreateJobRequest,
-        santi_core::job::QueryRequest,
+        super::jobs::Creation,
+        santi_core::job::Request,
         job::Accepted,
         job::Job,
         job::Query,
-        job::QueryRows,
-        job::QueryCount,
+        job::Rows,
+        job::Count,
         job::Origin,
         job::State,
         job::Stream,
@@ -162,13 +162,13 @@ use security::SecurityAddon;
         santi_core::effect::Outcome,
         santi_core::trace::Record,
         santi_core::trace::Tag,
-        super::effects::ResolveEffectRequest,
+        super::effects::Resolution,
         strand::Detail,
         render::View,
         stream::Snapshot,
-        stream::ExecutionOrder,
-        stream::ExecutionRecord,
-        stream::ExecutionTail,
+        stream::Order,
+        stream::Record,
+        stream::Tail,
         Soul,
         santi_core::service::interrupt::Projection,
         santi_core::service::interrupt::Entry,
@@ -221,57 +221,48 @@ use security::SecurityAddon;
         santi_core::turn::Stop
     ))
 )]
-struct ApiDoc;
+struct Document;
 
 pub(super) fn document() -> utoipa::openapi::OpenApi {
-    let mut document = ApiDoc::openapi();
+    let mut document = Document::openapi();
     if let Some(components) = document.components.as_mut() {
         inference::snapshots(components);
     }
-    for (schema, description) in COMPONENT_DESCRIPTIONS {
-        describe_component(&mut document, schema, description);
+    for (schema, description) in COMPONENTS {
+        component(&mut document, schema, description);
     }
-    for (schema, property, description) in PROPERTY_DESCRIPTIONS {
-        describe_property(&mut document, schema, property, description);
+    for (schema, name, description) in PROPERTIES {
+        property(&mut document, schema, name, description);
     }
     document
 }
 
-fn describe_component(
-    document: &mut utoipa::openapi::OpenApi,
-    schema_name: &str,
-    description: &str,
-) {
+fn component(document: &mut utoipa::openapi::OpenApi, name: &str, description: &str) {
     let Some(schema) = document
         .components
         .as_mut()
-        .and_then(|components| components.schemas.get_mut(schema_name))
+        .and_then(|components| components.schemas.get_mut(name))
     else {
         return;
     };
-    set_description(schema, description);
+    describe(schema, description);
 }
 
-fn describe_property(
-    document: &mut utoipa::openapi::OpenApi,
-    schema_name: &str,
-    property_name: &str,
-    description: &str,
-) {
+fn property(document: &mut utoipa::openapi::OpenApi, schema: &str, name: &str, description: &str) {
     let Some(RefOr::T(Schema::Object(schema))) = document
         .components
         .as_mut()
-        .and_then(|components| components.schemas.get_mut(schema_name))
+        .and_then(|components| components.schemas.get_mut(schema))
     else {
         return;
     };
-    let Some(property) = schema.properties.get_mut(property_name) else {
+    let Some(property) = schema.properties.get_mut(name) else {
         return;
     };
-    set_description(property, description);
+    describe(property, description);
 }
 
-fn set_description(schema: &mut RefOr<Schema>, description: &str) {
+fn describe(schema: &mut RefOr<Schema>, description: &str) {
     match schema {
         RefOr::Ref(reference) => reference.description = description.into(),
         RefOr::T(Schema::Object(object)) => object.description = Some(description.into()),
@@ -282,7 +273,7 @@ fn set_description(schema: &mut RefOr<Schema>, description: &str) {
                 .iter_mut()
                 .find(|item| matches!(item, RefOr::Ref(_)))
             {
-                set_description(item, description);
+                describe(item, description);
             }
         }
         RefOr::T(Schema::AllOf(all_of)) => all_of.description = Some(description.into()),

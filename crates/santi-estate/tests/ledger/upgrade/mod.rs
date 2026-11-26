@@ -238,11 +238,11 @@ async fn inference() {
         .expect("declare");
     assert_eq!(declared.scenario.as_deref(), Some("gateway/family/next"));
     store
-        .place(santi_estate::MessageDraft {
+        .place(santi_estate::Message {
             tag: "msg_new",
             strand: "ss_old",
             actor: santi_model::message::Role::System,
-            actor_id: "santi",
+            sender: "santi",
             kind: santi_model::message::Kind::Text,
             content: &santi_model::message::Content::text("after"),
             state: santi_model::message::State::Fixed,

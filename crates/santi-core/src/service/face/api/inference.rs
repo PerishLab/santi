@@ -166,7 +166,7 @@ impl Service {
         let (strand, _) = self
             .store
             .create(
-                santi_estate::StrandDraft {
+                santi_estate::Strand {
                     tag: &tag("ss"),
                     soul,
                     label: None,

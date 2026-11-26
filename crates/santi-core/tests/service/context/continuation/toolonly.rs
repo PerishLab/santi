@@ -28,7 +28,7 @@ async fn active() {
         .clone();
     let last = entries
         .iter()
-        .rfind(|entry| entry.kind == strand::Target::ToolResult)
+        .rfind(|entry| entry.kind == strand::Target::Result)
         .unwrap()
         .target
         .clone();
@@ -60,9 +60,7 @@ async fn active() {
         (first.as_str(), last.as_str())
     );
     assert!(report.after.is_some());
-    let input = santi_core::provider_input(&store, &strand.id)
-        .await
-        .unwrap();
+    let input = santi_core::assemble(&store, &strand.id).await.unwrap();
     assert!(!originals(&input).contains(&"original 工具🙂".into()));
     assert!(originals(&input).contains(&"active reasoning".into()));
     assert!(
@@ -110,7 +108,7 @@ async fn active() {
         }
     }
     let child = service.fork(&strand.id).await.unwrap().strand;
-    let inherited = santi_core::provider_input(&store, &child.id).await.unwrap();
+    let inherited = santi_core::assemble(&store, &child.id).await.unwrap();
     assert!(!originals(&inherited).contains(&"original 工具🙂".into()));
     assert!(inherited.iter().any(|item| matches!(item, Item::Message {content,..} if content.contains("the earlier tools completed"))));
 }

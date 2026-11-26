@@ -35,43 +35,41 @@ fn nested() {
 }
 
 #[test]
-fn execution_record_clips_utf8_and_wire_bytes() {
+fn clipping() {
     let content = format!("{}{}", "é".repeat(2_000), "\\\"\n".repeat(2_000));
-    let record = stream::ExecutionRecord::project(
+    let record = stream::Record::project(
         1,
         "2026-08-05T00:00:00.000Z".to_string(),
         strand::Target::Message,
         &content,
     )
     .expect("project");
-    assert!(record.detail_truncated);
-    assert!(record.detail.len() <= stream::EXECUTION_TAIL_DETAIL_LIMIT_BYTES);
+    assert!(record.truncated);
+    assert!(record.detail.len() <= stream::DETAIL);
     assert!(std::str::from_utf8(record.detail.as_bytes()).is_ok());
     assert_eq!(
-        record.detail_bytes,
+        record.bytes,
         serde_json::to_string(&content).unwrap().len() as u64
     );
 }
 
 #[test]
-fn execution_tail_success_body_has_a_hard_ceiling() {
+fn ceiling() {
     let content = "\\\"\n".repeat(4_000);
-    let records = (0..stream::EXECUTION_TAIL_RECORD_LIMIT)
+    let records = (0..stream::RECORDS)
         .map(|index| {
-            stream::ExecutionRecord::project(
+            stream::Record::project(
                 i64::try_from(index).unwrap(),
                 "2026-08-05T00:00:00.000Z".to_string(),
-                strand::Target::ToolResult,
+                strand::Target::Result,
                 &content,
             )
             .unwrap()
         })
         .collect();
-    let tail = stream::ExecutionTail::newest(records, true);
-    tail.ensure_response_bound().expect("bounded response");
-    assert!(
-        serde_json::to_vec(&tail).unwrap().len() <= stream::EXECUTION_TAIL_RESPONSE_LIMIT_BYTES
-    );
+    let tail = stream::Tail::newest(records, true);
+    tail.bounded().expect("bounded response");
+    assert!(serde_json::to_vec(&tail).unwrap().len() <= stream::RESPONSE);
 }
 
 #[test]
@@ -93,7 +91,7 @@ fn rendering() {
     let view = render::View {
         strand: "s1".into(),
         kind: render::Kind::Skill,
-        content_type: "text/markdown; charset=utf-8".into(),
+        mime: "text/markdown; charset=utf-8".into(),
         text: "guide".into(),
         updated: "now".into(),
     };

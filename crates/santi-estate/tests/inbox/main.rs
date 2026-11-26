@@ -1,4 +1,4 @@
-use santi_estate::{InboxDraft, NoticeDraft, Store, StrandDraft, TurnDraft};
+use santi_estate::{Arrival, Notice, Store, Strand, Turn};
 use santi_model::{ingest, message, receipt, turn};
 
 const SUDO: &str = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
@@ -12,7 +12,7 @@ async fn admission() {
     let store = Store::bootstrap(&path, SUDO).await.expect("open");
     store.seed("soul_test", FIRST).await.expect("seed");
     let strand = store
-        .create_strand(StrandDraft {
+        .weave(Strand {
             tag: "strand_test",
             soul: "soul_test",
             label: None,
@@ -26,8 +26,8 @@ async fn admission() {
 
     let text = message::Content::text("hello");
     let inbox = store
-        .accept_inbox(
-            InboxDraft {
+        .accept(
+            Arrival {
                 tag: "inbox_text",
                 strand: &strand.id,
                 kind: message::Kind::Text,
@@ -48,20 +48,20 @@ async fn admission() {
     assert_eq!(status.state, receipt::State::Accepted);
     assert_eq!(status.transitions.len(), 1);
 
-    let first_source = ingest::Source::new("job")
-        .with_ref("job_test")
-        .with_metadata(serde_json::json!({"phase": 1}));
+    let initial = ingest::Source::new("job")
+        .reference("job_test")
+        .metadata(serde_json::json!({"phase": 1}));
     let causes = vec!["slow".to_string()];
     let offered = store
-        .offer_notice(
-            NoticeDraft {
+        .notice(
+            Notice {
                 tag: "inbox_notice",
                 strand: &strand.id,
                 key: "attention",
                 revision: 1,
                 digest: "digest_1",
                 content: &message::Content::text("notice one"),
-                source: &first_source,
+                source: &initial,
                 causes: &causes,
                 created: FIRST,
             },
@@ -72,15 +72,15 @@ async fn admission() {
     assert!(offered.inserted);
     assert_eq!(offered.inbox.as_deref(), Some("inbox_notice"));
     let repeated = store
-        .offer_notice(
-            NoticeDraft {
+        .notice(
+            Notice {
                 tag: "inbox_ignored",
                 strand: &strand.id,
                 key: "attention",
                 revision: 1,
                 digest: "digest_1",
                 content: &message::Content::text("ignored"),
-                source: &first_source,
+                source: &initial,
                 causes: &[],
                 created: LATER,
             },
@@ -92,15 +92,15 @@ async fn admission() {
     assert!(!repeated.inserted);
     assert!(
         store
-            .offer_notice(
-                NoticeDraft {
+            .notice(
+                Notice {
                     tag: "inbox_conflict",
                     strand: &strand.id,
                     key: "attention",
                     revision: 1,
                     digest: "digest_conflict",
                     content: &message::Content::text("conflict"),
-                    source: &first_source,
+                    source: &initial,
                     causes: &[],
                     created: LATER,
                 },
@@ -110,19 +110,19 @@ async fn admission() {
             .is_err()
     );
 
-    let later_source = ingest::Source::new("job");
-    let later_causes = vec!["large".to_string(), "slow".to_string()];
+    let later = ingest::Source::new("job");
+    let updated = vec!["large".to_string(), "slow".to_string()];
     let advanced = store
-        .offer_notice(
-            NoticeDraft {
+        .notice(
+            Notice {
                 tag: "inbox_still_ignored",
                 strand: &strand.id,
                 key: "attention",
                 revision: 2,
                 digest: "digest_2",
                 content: &message::Content::text("notice two"),
-                source: &later_source,
-                causes: &later_causes,
+                source: &later,
+                causes: &updated,
                 created: LATER,
             },
             2,
@@ -136,13 +136,13 @@ async fn admission() {
         .expect("notice")
         .expect("pending");
     assert_eq!(notice.content.rendered(), "notice two");
-    assert_eq!(notice.coalesce_revision, Some(2));
-    assert_eq!(notice.coalesce_causes, vec!["large", "slow"]);
+    assert_eq!(notice.revision, Some(2));
+    assert_eq!(notice.causes, vec!["large", "slow"]);
     assert_eq!(notice.source.expect("source").source, None);
     assert!(
         store
-            .accept_inbox(
-                InboxDraft {
+            .accept(
+                Arrival {
                     tag: "inbox_overflow",
                     strand: &strand.id,
                     kind: message::Kind::Text,
@@ -157,7 +157,7 @@ async fn admission() {
     );
 
     let turn = store
-        .create_turn(TurnDraft {
+        .start(Turn {
             tag: "turn_test",
             strand: &strand.id,
             trigger: turn::Trigger::System,
@@ -167,7 +167,7 @@ async fn admission() {
         .await
         .expect("turn");
     let receipt = store
-        .advance_receipt(santi_estate::ReceiptDraft {
+        .advance(santi_estate::Receipt {
             inbox: "inbox_notice",
             state: receipt::State::Driving,
             turn: Some(&turn.id),

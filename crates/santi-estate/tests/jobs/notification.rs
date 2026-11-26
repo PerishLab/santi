@@ -10,10 +10,10 @@ struct Probe<'a> {
 }
 
 impl Probe<'_> {
-    async fn seed(&self, suffix: &str, notify: bool, created: &str) -> santi_estate::JobRecord {
+    async fn seed(&self, suffix: &str, notify: bool, created: &str) -> santi_estate::Record {
         let capability = format!("capability_{suffix}");
         self.store
-            .create_capability(CapabilityDraft {
+            .grant(Capability {
                 digest: &capability,
                 expires: 10_000,
                 soul: "soul_test",
@@ -31,21 +31,21 @@ impl Probe<'_> {
         let supervisor = format!("santi-{suffix}.service");
         let Prepared::New(record) = self
             .store
-            .prepare_job(
+            .submit(
                 &capability,
-                JobDraft {
+                Job {
                     environment: None,
                     tag: &tag,
                     description: "notify probe",
                     command: "true",
                     cwd: None,
-                    timeout_seconds: 30,
-                    output_limit_bytes: 1024,
-                    remind_every_seconds: None,
-                    notify_on_terminal: notify,
-                    request_sha256: &digest,
+                    timeout: 30,
+                    limit: 1024,
+                    remind: None,
+                    notify,
+                    digest: &digest,
                     generation: &stamp,
-                    supervisor_ref: &supervisor,
+                    supervisor: &supervisor,
                     created,
                 },
                 100,
@@ -55,18 +55,18 @@ impl Probe<'_> {
         else {
             panic!("new job");
         };
-        assert_eq!(record.notify_on_terminal, notify, "prepared notify flag");
-        self.store.accept_job(&tag, created).await.expect("accept")
+        assert_eq!(record.notify, notify, "prepared notify flag");
+        self.store.claim(&tag, created).await.expect("accept")
     }
 
-    async fn terminal(&self, tag: &str, at: &str) -> santi_estate::JobRecord {
+    async fn terminal(&self, tag: &str, at: &str) -> santi_estate::Record {
         self.store
-            .transition_job(
+            .transit(
                 tag,
-                TransitionDraft {
+                Transition {
                     reason: Some("completed"),
-                    exit_code: Some(0),
-                    ..TransitionDraft::new(job::State::Succeeded, at)
+                    exit: Some(0),
+                    ..Transition::new(job::State::Succeeded, at)
                 },
             )
             .await
@@ -75,12 +75,12 @@ impl Probe<'_> {
 
     async fn notify(&self, tag: &str, at: &str, gate: usize) -> Result<(), String> {
         let causes = vec!["terminal".to_string()];
-        let source = ingest::Source::new("job").with_ref(tag);
+        let source = ingest::Source::new("job").reference(tag);
         let content = message::Content::text("terminal fact");
         let inbox = format!("inbox_{tag}");
         self.store
-            .attend_job(
-                AttentionDraft {
+            .attend(
+                Attention {
                     job: tag,
                     base: 0,
                     at,
@@ -91,7 +91,7 @@ impl Probe<'_> {
                     next: None,
                     terminal: true,
                 },
-                NoticeDraft {
+                Notice {
                     tag: &inbox,
                     strand: self.strand,
                     key: &format!("job/{tag}/stamp"),
@@ -117,7 +117,7 @@ async fn atomic() {
         .expect("open");
     store.seed("soul_test", OLD).await.expect("seed");
     let strand = store
-        .create_strand(StrandDraft {
+        .weave(Strand {
             tag: "strand_test",
             soul: "soul_test",
             label: None,
@@ -130,7 +130,7 @@ async fn atomic() {
         .expect("strand")
         .id;
     store
-        .create_turn(TurnDraft {
+        .start(Turn {
             tag: "turn_test",
             strand: &strand,
             trigger: turn::Trigger::System,
@@ -140,7 +140,7 @@ async fn atomic() {
         .await
         .expect("turn");
     store
-        .create_call(CallDraft {
+        .calling(Call {
             tag: "call_test",
             turn: "turn_test",
             tool: "shell",
@@ -150,7 +150,7 @@ async fn atomic() {
         .await
         .expect("call");
     store
-        .prepare_effect(EffectDraft {
+        .stage(Effect {
             tag: "effect_test",
             turn: "turn_test",
             call: Some("call_test"),
@@ -174,7 +174,7 @@ async fn atomic() {
             .expect("old notification");
     }
     let pending = probe.seed("pending", true, MID).await;
-    assert!(pending.notify_on_terminal);
+    assert!(pending.notify);
     probe.terminal("job_pending", MID).await;
     assert_eq!(
         store
@@ -192,28 +192,28 @@ async fn atomic() {
         .await
         .expect_err("capacity must fail");
     let held = store
-        .job_record("job_pending")
+        .tracked("job_pending")
         .await
         .expect("record")
         .expect("job");
     assert_eq!(held.job.state, job::State::Succeeded);
-    assert!(held.terminal_notified.is_none());
+    assert!(held.notified.is_none());
     assert_eq!(store.unnotified(1).await.expect("still pending").len(), 1);
 
     probe.notify("job_pending", NEW, 10).await.expect("repair");
     assert!(store.unnotified(1).await.expect("notified").is_empty());
     assert!(
         store
-            .job_record("job_pending")
+            .tracked("job_pending")
             .await
             .expect("record")
             .expect("job")
-            .terminal_notified
+            .notified
             .is_some()
     );
 
     let quiet = probe.seed("quiet", false, NEW).await;
-    assert!(!quiet.notify_on_terminal);
+    assert!(!quiet.notify);
     probe.terminal("job_quiet", NEW).await;
     assert!(
         !store
@@ -223,5 +223,5 @@ async fn atomic() {
             .iter()
             .any(|record| record.job.id == "job_quiet")
     );
-    assert_eq!(pending.attention_revision, 0);
+    assert_eq!(pending.attention, 0);
 }

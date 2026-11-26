@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
-use super::{Emit, Kind, Presentation, Shown, json_field, owner, render_watch_event};
-use crate::cli::WatchFormat;
+use super::{Emit, Kind, Presentation, Shown, field, owner, render};
+use crate::cli::Format;
 
 impl Kind {
     fn of(event: &str, beat: &str, data: &str) -> Self {
@@ -9,9 +9,9 @@ impl Kind {
             ("thinking", _) => Self::Thinking,
             ("tool", _) => Self::Tool,
             ("turn", "failed")
-                if json_field(data, &["payload", "error", "code"]).as_deref()
+                if field(data, &["payload", "error", "code"]).as_deref()
                     == Some("runtime.turn.interrupted")
-                    && json_field(data, &["payload", "error", "context", "cause"]).as_deref()
+                    && field(data, &["payload", "error", "context", "cause"]).as_deref()
                         == Some("operator") =>
             {
                 Self::Interrupted
@@ -49,9 +49,9 @@ impl Display {
             self.finish(output);
         }
         match self.presentation {
-            Presentation::Watch(WatchFormat::Raw) => {
+            Presentation::Watch(Format::Raw) => {
                 if event != "open" {
-                    let beat = json_field(data, &["payload", "beat"]).unwrap_or_default();
+                    let beat = field(data, &["payload", "beat"]).unwrap_or_default();
                     let turn = owner(data);
                     output.event(Shown {
                         kind: Kind::of(event, &beat, data),
@@ -60,12 +60,12 @@ impl Display {
                     });
                 }
             }
-            Presentation::Watch(WatchFormat::Filtered) => self.filtered(output, event, data),
+            Presentation::Watch(Format::Filtered) => self.filtered(output, event, data),
             Presentation::Tui => self.tui(output, event, data),
         }
     }
     fn filtered(&mut self, output: &mut impl Emit, event: &str, data: &str) {
-        let beat = json_field(data, &["payload", "beat"]);
+        let beat = field(data, &["payload", "beat"]);
         if event == "gap"
             || event == "turn"
                 && matches!(beat.as_deref(), Some("started" | "completed" | "failed"))
@@ -73,8 +73,8 @@ impl Display {
             self.activity = None;
         }
         if event == "turn" && beat.as_deref() == Some("active") {
-            let activity = json_field(data, &["payload", "activity", "turn"])
-                .zip(json_field(data, &["payload", "activity", "state"]))
+            let activity = field(data, &["payload", "activity", "turn"])
+                .zip(field(data, &["payload", "activity", "state"]))
                 .filter(|(turn, state)| {
                     !turn.is_empty()
                         && matches!(
@@ -91,9 +91,9 @@ impl Display {
         line(output, event, data);
     }
     fn tui(&mut self, output: &mut impl Emit, event: &str, data: &str) {
-        let beat = json_field(data, &["payload", "beat"]);
+        let beat = field(data, &["payload", "beat"]);
         if event == "message" && beat.as_deref() == Some("delta") {
-            let Some(text) = json_field(data, &["payload", "text"]) else {
+            let Some(text) = field(data, &["payload", "text"]) else {
                 return;
             };
             let text = speech(&text);
@@ -106,7 +106,7 @@ impl Display {
             }
             output.speech(&text);
             self.newline = text.ends_with('\n');
-            if let Some(turn) = json_field(data, &["payload", "turn"]) {
+            if let Some(turn) = field(data, &["payload", "turn"]) {
                 self.spoken.entry(turn).or_default().push_str(&text);
             }
             return;
@@ -115,8 +115,8 @@ impl Display {
         let completed = event == "message" && beat.as_deref() == Some("completed");
         let duplicate = completed
             && !self.gap
-            && json_field(data, &["payload", "turn"]).is_some_and(|turn| {
-                json_field(data, &["payload", "message", "text"])
+            && field(data, &["payload", "turn"]).is_some_and(|turn| {
+                field(data, &["payload", "message", "text"])
                     .map(|text| speech(&text))
                     .is_some_and(|text| self.spoken.get(&turn) == Some(&text))
             });
@@ -125,7 +125,7 @@ impl Display {
         }
         if event == "turn"
             && matches!(beat.as_deref(), Some("completed") | Some("failed"))
-            && let Some(turn) = json_field(data, &["payload", "turn"])
+            && let Some(turn) = field(data, &["payload", "turn"])
         {
             self.spoken.remove(&turn);
         }
@@ -140,8 +140,8 @@ impl Display {
 }
 
 fn line(output: &mut impl Emit, event: &str, data: &str) {
-    if let Some(line) = render_watch_event(event, data) {
-        let beat = json_field(data, &["payload", "beat"]).unwrap_or_default();
+    if let Some(line) = render(event, data) {
+        let beat = field(data, &["payload", "beat"]).unwrap_or_default();
         let turn = owner(data);
         output.event(Shown {
             kind: Kind::of(event, &beat, data),

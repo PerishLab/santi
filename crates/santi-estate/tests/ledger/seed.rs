@@ -1,8 +1,7 @@
 use santi_error::{Draft, Scope, Source, catalog};
 use santi_estate::{
-    CallDraft, CompactDraft, CompletionDraft, DownstreamDraft, EffectDraft, EnvironDraft,
-    InboxDraft, MessageDraft, OutboxDraft, RedemptionDraft, ReplayDraft, Store, StrandDraft,
-    ThinkingDraft, TurnDraft, WebhookDraft,
+    Arrival, Call, Compact, Downstream, Effect, Environ, Finish, Message, Outbox, Redemption,
+    Replay, Store, Strand, Thinking, Turn, Webhook,
 };
 use santi_model::alarm::{self, Occurrence};
 use santi_model::{effect, environ, event, message, turn};
@@ -15,7 +14,7 @@ pub(super) const SOUL: &str = "soul_test";
 pub(super) async fn seed(store: &Store) {
     store.seed(SOUL, FIRST).await.expect("seed");
     store
-        .subscribe(WebhookDraft {
+        .subscribe(Webhook {
             name: "github",
             adaptor: "github",
             soul: SOUL,
@@ -26,7 +25,7 @@ pub(super) async fn seed(store: &Store) {
         .await
         .expect("subscribe");
     store
-        .enroll(DownstreamDraft {
+        .enroll(Downstream {
             tag: "worker",
             prefix: "worker/",
             digest: "credential_digest",
@@ -38,7 +37,7 @@ pub(super) async fn seed(store: &Store) {
 
 pub(super) async fn populate(store: &Store, strand: &str) {
     store
-        .create_strand(StrandDraft {
+        .weave(Strand {
             tag: strand,
             soul: SOUL,
             label: Some(strand),
@@ -52,21 +51,21 @@ pub(super) async fn populate(store: &Store, strand: &str) {
     let id = |name: &str| format!("{name}_{strand}");
     let hello = message::Content::text("hello");
     let received = store
-        .accept_inbox(inbox(&id("inbox"), strand, &hello), 10)
+        .accept(inbox(&id("inbox"), strand, &hello), 10)
         .await
         .expect("inbox");
     let turn = store
-        .create_turn(TurnDraft {
+        .start(Turn {
             tag: &id("turn"),
             strand,
-            trigger: turn::Trigger::StrandSend,
+            trigger: turn::Trigger::Send,
             from: 0,
             created: FIRST,
         })
         .await
         .expect("turn");
     store
-        .advance_receipt(santi_estate::ReceiptDraft {
+        .advance(santi_estate::Receipt {
             inbox: &received.id,
             state: santi_model::receipt::State::Driving,
             turn: Some(&turn.id),
@@ -76,11 +75,11 @@ pub(super) async fn populate(store: &Store, strand: &str) {
         .await
         .expect("receipt");
     store
-        .place(MessageDraft {
+        .place(Message {
             tag: &id("message"),
             strand,
             actor: message::Role::System,
-            actor_id: "santi",
+            sender: "santi",
             kind: message::Kind::Text,
             content: &message::Content::text("hello"),
             state: message::State::Fixed,
@@ -90,7 +89,7 @@ pub(super) async fn populate(store: &Store, strand: &str) {
         .await
         .expect("message");
     store
-        .create_compact(CompactDraft {
+        .condense(Compact {
             tag: &id("compact"),
             strand,
             first: &id("message"),
@@ -103,7 +102,7 @@ pub(super) async fn populate(store: &Store, strand: &str) {
         .await
         .expect("compact");
     store
-        .create_thinking(ThinkingDraft {
+        .ponder(Thinking {
             tag: &id("thinking"),
             turn: &turn.id,
             response: None,
@@ -112,7 +111,7 @@ pub(super) async fn populate(store: &Store, strand: &str) {
         .await
         .expect("thinking");
     let call = store
-        .create_call(CallDraft {
+        .calling(Call {
             tag: &id("call"),
             turn: &turn.id,
             tool: "shell",
@@ -122,7 +121,7 @@ pub(super) async fn populate(store: &Store, strand: &str) {
         .await
         .expect("call");
     let applied = store
-        .prepare_effect(EffectDraft {
+        .stage(Effect {
             tag: &id("effect"),
             turn: &turn.id,
             call: Some(&call.id),
@@ -133,13 +132,13 @@ pub(super) async fn populate(store: &Store, strand: &str) {
         .await
         .expect("effect");
     store
-        .dispatch_effect(&applied.id, LATER)
+        .dispatching(&applied.id, LATER)
         .await
         .expect("dispatch");
     store
-        .redeem_effect(
+        .redeem(
             &applied.id,
-            RedemptionDraft {
+            Redemption {
                 result: &id("result"),
                 call: &call.id,
                 output: Some(&serde_json::json!({"stdout": "done"})),
@@ -152,7 +151,7 @@ pub(super) async fn populate(store: &Store, strand: &str) {
         .expect("redeem");
     super::job::job(store, strand, &turn.id).await;
     let alarm = store
-        .set_alarm(&alarm::Draft {
+        .arm(&alarm::Draft {
             soul: SOUL.into(),
             strand: strand.into(),
             name: "follow".into(),
@@ -163,7 +162,7 @@ pub(super) async fn populate(store: &Store, strand: &str) {
         .await
         .expect("alarm");
     store
-        .accept_alarm(
+        .fire(
             &alarm.id,
             &Occurrence {
                 generation: 1,
@@ -173,9 +172,9 @@ pub(super) async fn populate(store: &Store, strand: &str) {
         .await
         .expect("occurrence");
     store
-        .accept_replay(
+        .replay(
             inbox(&id("inbox_webhook"), strand, &hello),
-            ReplayDraft::Webhook {
+            Replay::Webhook {
                 subscription: "github",
                 delivery: &id("delivery"),
                 digest: &id("request"),
@@ -185,9 +184,9 @@ pub(super) async fn populate(store: &Store, strand: &str) {
         .await
         .expect("delivery");
     store
-        .accept_replay(
+        .replay(
             inbox(&id("inbox_downstream"), strand, &hello),
-            ReplayDraft::Downstream {
+            Replay::Downstream {
                 owner: "worker",
                 request: &id("worker/request"),
                 digest: &id("downstream"),
@@ -197,7 +196,7 @@ pub(super) async fn populate(store: &Store, strand: &str) {
         .await
         .expect("ingest");
     store
-        .set_environ(EnvironDraft {
+        .export(Environ {
             scope: environ::Scope::Strand,
             owner: strand,
             name: "STRAND_VALUE",
@@ -221,7 +220,7 @@ pub(super) async fn populate(store: &Store, strand: &str) {
         .await
         .expect("material");
     store
-        .finish_turn(CompletionDraft {
+        .finish(Finish {
             turn: &turn.id,
             reply: None,
             provider: "test",
@@ -232,7 +231,7 @@ pub(super) async fn populate(store: &Store, strand: &str) {
         .await
         .expect("finish");
     store
-        .queue_outbox(OutboxDraft {
+        .enqueue(Outbox {
             stream: "events",
             event: &event::Event {
                 id: id("event"),
@@ -251,8 +250,8 @@ pub(super) fn inbox<'a>(
     tag: &'a str,
     strand: &'a str,
     content: &'a message::Content,
-) -> InboxDraft<'a> {
-    InboxDraft {
+) -> Arrival<'a> {
+    Arrival {
         tag,
         strand,
         kind: message::Kind::Text,

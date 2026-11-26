@@ -13,51 +13,15 @@ mod wake;
 
 pub(super) fn graph() -> Graph {
     let mut graph = Graph::new();
+    ledger::plug(&mut graph);
+    job::plug(&mut graph);
+    inbox::plug(&mut graph);
+    history::plug(&mut graph);
+    edge::plug(&mut graph);
+    ops::plug(&mut graph);
+    graph.add(wake::lease());
+    alarm::plug(&mut graph);
     graph
-        .plug::<ledger::Soul>()
-        .plug::<ledger::Strand>()
-        .plug::<ledger::Turn>()
-        .plug::<ledger::TurnCompletion>()
-        .plug::<ledger::TurnFailure>()
-        .plug::<ledger::Inference>()
-        .plug::<ledger::Route>()
-        .plug::<ledger::Message>()
-        .plug::<ledger::StrandEntry>()
-        .plug::<ledger::TurnStop>()
-        .plug::<job::ToolCall>()
-        .plug::<job::StrandEffect>()
-        .plug::<job::Job>()
-        .plug::<inbox::StrandInbox>()
-        .plug::<inbox::InboxSlot>()
-        .plug::<inbox::InboxReceipt>()
-        .plug::<inbox::ReceiptTransition>()
-        .plug::<history::MessageEvent>()
-        .plug::<history::ToolResult>()
-        .plug::<history::ToolOutput>()
-        .plug::<history::ToolFailure>()
-        .plug::<history::ThinkingSpan>()
-        .plug::<history::ThinkingCompletion>()
-        .plug::<history::ThinkingFailure>()
-        .plug::<history::Round>()
-        .plug::<history::Compact>()
-        .plug::<edge::Webhook>()
-        .plug::<edge::WebhookDelivery>()
-        .plug::<edge::Acknowledgement>()
-        .plug::<edge::Window>()
-        .plug::<edge::Downstream>()
-        .plug::<edge::DownstreamIngest>()
-        .plug::<edge::SoulEnviron>()
-        .plug::<edge::StrandEnviron>()
-        .plug::<ops::JobCapability>()
-        .plug::<ops::TraceRecord>()
-        .plug::<ops::OutboxStream>()
-        .plug::<ops::TurnOutbox>()
-        .plug::<ops::error::SoulIncident>()
-        .plug::<ops::error::StrandIncident>();
-    graph.plug::<wake::WakeLease>();
-    graph.plug::<alarm::Alarm>().plug::<alarm::AlarmDelivery>();
-    graph
-        .plug::<ledger::Object>()
         .plug::<material::Revision>()
         .plug::<material::Blob>()
         .plug::<material::Declaration>()

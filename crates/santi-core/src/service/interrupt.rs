@@ -138,7 +138,7 @@ impl Service {
     pub async fn stop(&self, turn: &str) -> Result<Option<turn::Stop>, String> {
         let stopped = self
             .store
-            .request_stop(turn, turn::Cause::Operator, &crate::now())
+            .halt(turn, turn::Cause::Operator, &crate::now())
             .await?;
         if stopped
             .as_ref()
@@ -205,7 +205,7 @@ impl Service {
         for (turn, control) in active {
             match self
                 .store
-                .request_stop(&turn, turn::Cause::Shutdown, &crate::now())
+                .halt(&turn, turn::Cause::Shutdown, &crate::now())
                 .await
             {
                 Ok(Some(_)) => control.stop(turn::Cause::Shutdown),

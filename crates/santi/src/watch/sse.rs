@@ -1,7 +1,7 @@
 use anyhow::{Context, Result};
 use futures_util::{Stream, StreamExt};
 
-pub async fn next_sse_frame<B: AsRef<[u8]>>(
+pub async fn next<B: AsRef<[u8]>>(
     stream: &mut (impl Stream<Item = reqwest::Result<B>> + Unpin),
     buffer: &mut Vec<u8>,
 ) -> Result<Option<(String, String)>> {
@@ -10,7 +10,7 @@ pub async fn next_sse_frame<B: AsRef<[u8]>>(
             let frame = buffer.drain(..end).collect::<Vec<_>>();
             let frame =
                 std::str::from_utf8(&frame).context("decode complete SSE frame as UTF-8")?;
-            if let Some(parsed) = parse_sse_frame(frame) {
+            if let Some(parsed) = parse(frame) {
                 return Ok(Some(parsed));
             }
             if !frame
@@ -41,7 +41,7 @@ fn delimiter(buffer: &[u8]) -> Option<usize> {
         })
         .min()
 }
-pub fn parse_sse_frame(frame: &str) -> Option<(String, String)> {
+pub fn parse(frame: &str) -> Option<(String, String)> {
     let mut event = None;
     let mut data = String::new();
     for line in frame.lines() {

@@ -2,8 +2,8 @@ mod notification;
 mod privacy;
 
 use santi_estate::{
-    AttentionDraft, CallDraft, CapabilityDraft, EffectDraft, Environment, JobDraft, NoticeDraft,
-    Prepared, Store, StrandDraft, TransitionDraft, TurnDraft,
+    Attention, Call, Capability, Effect, Environment, Job, Notice, Prepared, Store, Strand,
+    Transition, Turn,
 };
 use santi_model::{ingest, job, message, turn};
 
@@ -20,7 +20,7 @@ async fn lifecycle() {
     let store = Store::bootstrap(&path, SUDO).await.expect("open");
     store.seed("soul_test", FIRST).await.expect("seed");
     let strand = store
-        .create_strand(StrandDraft {
+        .weave(Strand {
             tag: "strand_test",
             soul: "soul_test",
             label: None,
@@ -32,7 +32,7 @@ async fn lifecycle() {
         .await
         .expect("strand");
     let turn = store
-        .create_turn(TurnDraft {
+        .start(Turn {
             tag: "turn_test",
             strand: &strand.id,
             trigger: turn::Trigger::System,
@@ -42,7 +42,7 @@ async fn lifecycle() {
         .await
         .expect("turn");
     let call = store
-        .create_call(CallDraft {
+        .calling(Call {
             tag: "call_test",
             turn: &turn.id,
             tool: "shell",
@@ -52,7 +52,7 @@ async fn lifecycle() {
         .await
         .expect("call");
     let effect = store
-        .prepare_effect(EffectDraft {
+        .stage(Effect {
             tag: "effect_test",
             turn: &turn.id,
             call: Some(&call.id),
@@ -63,7 +63,7 @@ async fn lifecycle() {
         .await
         .expect("effect");
     store
-        .create_capability(CapabilityDraft {
+        .grant(Capability {
             digest: "capability_digest",
             expires: 1_000,
             soul: "soul_test",
@@ -81,23 +81,23 @@ async fn lifecycle() {
         "frozen-secret-probe".to_string(),
     )]));
     let changed = Environment(std::collections::BTreeMap::new());
-    let draft = JobDraft {
+    let draft = Job {
         environment: Some(&environment),
         tag: "job_test",
         description: "test job",
         command: "true",
         cwd: Some("/tmp"),
-        timeout_seconds: 30,
-        output_limit_bytes: 1024,
-        remind_every_seconds: Some(5),
-        notify_on_terminal: false,
-        request_sha256: "request_digest",
+        timeout: 30,
+        limit: 1024,
+        remind: Some(5),
+        notify: false,
+        digest: "request_digest",
         generation: "stamp_test",
-        supervisor_ref: "santi-stamp-test.service",
+        supervisor: "santi-stamp-test.service",
         created: FIRST,
     };
     let Prepared::New(created) = store
-        .prepare_job("capability_digest", draft, 500)
+        .submit("capability_digest", draft, 500)
         .await
         .expect("prepare")
     else {
@@ -106,9 +106,9 @@ async fn lifecycle() {
     assert_eq!(created.job.state, job::State::Submitting);
     assert_eq!(created.job.origin.soul, "soul_test");
     let Prepared::Existing(replayed) = store
-        .prepare_job(
+        .submit(
             "capability_digest",
-            JobDraft {
+            Job {
                 environment: Some(&changed),
                 ..draft
             },
@@ -123,11 +123,11 @@ async fn lifecycle() {
     privacy::verify(&path, &replayed, &environment).await;
     assert!(
         store
-            .prepare_job(
+            .submit(
                 "capability_digest",
-                JobDraft {
+                Job {
                     environment: None,
-                    request_sha256: "conflict",
+                    digest: "conflict",
                     ..draft
                 },
                 500,
@@ -136,34 +136,34 @@ async fn lifecycle() {
             .is_err()
     );
 
-    let accepted = store.accept_job("job_test", LATER).await.expect("accept");
+    let accepted = store.claim("job_test", LATER).await.expect("accept");
     assert_eq!(accepted.job.state, job::State::Accepted);
     assert_eq!(accepted.job.accepted.as_deref(), Some(LATER));
-    let accepted_again = store
-        .accept_job("job_test", FINISHED)
+    let repeated = store
+        .claim("job_test", FINISHED)
         .await
         .expect("accept again");
-    assert_eq!(accepted_again.job.accepted.as_deref(), Some(LATER));
+    assert_eq!(repeated.job.accepted.as_deref(), Some(LATER));
 
     let running = store
-        .transition_job(
+        .transit(
             "job_test",
-            TransitionDraft {
-                started_millis: Some(700),
-                next_reminder: Some(FINISHED),
-                ..TransitionDraft::new(job::State::Running, LATER)
+            Transition {
+                started: Some(700),
+                next: Some(FINISHED),
+                ..Transition::new(job::State::Running, LATER)
             },
         )
         .await
         .expect("running");
     assert_eq!(running.job.started.as_deref(), Some(LATER));
-    assert_eq!(running.started_millis, Some(700));
+    assert_eq!(running.started, Some(700));
     assert_eq!(running.job.next.as_deref(), Some(FINISHED));
-    assert_eq!(store.active_jobs().await.expect("active").len(), 1);
+    assert_eq!(store.live().await.expect("active").len(), 1);
 
-    let source = ingest::Source::new("job").with_ref("job_test");
+    let source = ingest::Source::new("job").reference("job_test");
     let causes = vec!["runtime".to_string()];
-    let notice = NoticeDraft {
+    let notice = Notice {
         tag: "inbox_attention",
         strand: &strand.id,
         key: "job:job_test",
@@ -175,8 +175,8 @@ async fn lifecycle() {
         created: LATER,
     };
     let offered = store
-        .attend_job(
-            AttentionDraft {
+        .attend(
+            Attention {
                 job: "job_test",
                 base: 0,
                 at: LATER,
@@ -193,16 +193,16 @@ async fn lifecycle() {
         .await
         .expect("attention");
     assert!(offered.inserted);
-    let attended = store.active_jobs().await.expect("attended").remove(0);
-    assert_eq!(attended.attention_revision, 1);
-    assert!(attended.runtime_warned);
-    assert_eq!(attended.reminder_tick, 1);
+    let attended = store.live().await.expect("attended").remove(0);
+    assert_eq!(attended.attention, 1);
+    assert!(attended.runtime);
+    assert_eq!(attended.tick, 1);
     assert_eq!(attended.job.last.as_deref(), Some(LATER));
     assert_eq!(attended.job.next.as_deref(), Some(FINISHED));
     assert!(
         !store
-            .attend_job(
-                AttentionDraft {
+            .attend(
+                Attention {
                     job: "job_test",
                     base: 0,
                     at: LATER,
@@ -222,8 +222,8 @@ async fn lifecycle() {
     );
     assert!(
         store
-            .attend_job(
-                AttentionDraft {
+            .attend(
+                Attention {
                     job: "job_test",
                     base: 2,
                     at: LATER,
@@ -234,7 +234,7 @@ async fn lifecycle() {
                     next: None,
                     terminal: false,
                 },
-                NoticeDraft {
+                Notice {
                     revision: 3,
                     ..notice
                 },
@@ -245,50 +245,42 @@ async fn lifecycle() {
     );
 
     let succeeded = store
-        .transition_job(
+        .transit(
             "job_test",
-            TransitionDraft {
+            Transition {
                 reason: Some("completed"),
-                exit_code: Some(0),
-                ..TransitionDraft::new(job::State::Succeeded, FINISHED)
+                exit: Some(0),
+                ..Transition::new(job::State::Succeeded, FINISHED)
             },
         )
         .await
         .expect("succeed");
     assert_eq!(succeeded.job.finished.as_deref(), Some(FINISHED));
     assert_eq!(succeeded.job.next, None);
-    assert!(store.active_jobs().await.expect("inactive").is_empty());
+    assert!(store.live().await.expect("inactive").is_empty());
     let other = store.job("other_soul", "job_test").await.expect("other");
     assert!(other.is_none());
     assert_eq!(store.jobs("soul_test").await.expect("jobs").len(), 1);
 
-    let acknowledged = store.acknowledge_job("job_test", ACKED).await.expect("ack");
+    let acknowledged = store.ack("job_test", ACKED).await.expect("ack");
     assert_eq!(acknowledged.job.acknowledged.as_deref(), Some(ACKED));
     store
-        .acknowledge_job("job_test", "2026-07-28T00:04:00.000Z")
+        .ack("job_test", "2026-07-28T00:04:00.000Z")
         .await
         .expect("ack twice");
     assert_eq!(
-        store.expired_jobs(ACKED, 10).await.expect("expired"),
-        vec![santi_estate::ExpiredJob {
+        store.stale(ACKED, 10).await.expect("expired"),
+        vec![santi_estate::Expired {
             id: "job_test".to_string(),
             key: "stamp_test".to_string(),
         }]
     );
-    assert!(store.retained_job("stamp_test").await.expect("retained"));
-    let early = store
-        .purge_job("job_test", FINISHED)
-        .await
-        .expect("too early");
+    assert!(store.retained("stamp_test").await.expect("retained"));
+    let early = store.purge("job_test", FINISHED).await.expect("too early");
     assert!(!early);
-    assert!(store.purge_job("job_test", ACKED).await.expect("purge"));
-    assert!(!store.retained_job("stamp_test").await.expect("gone"));
-    assert!(
-        store
-            .prepare_job("capability_digest", draft, 500)
-            .await
-            .is_err()
-    );
+    assert!(store.purge("job_test", ACKED).await.expect("purge"));
+    assert!(!store.retained("stamp_test").await.expect("gone"));
+    assert!(store.submit("capability_digest", draft, 500).await.is_err());
 
     privacy::expire(&store, [&strand.id, &turn.id, &call.id, &effect.id]).await;
 

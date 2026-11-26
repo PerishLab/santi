@@ -9,7 +9,8 @@ pub mod activity;
 #[serde(rename_all = "snake_case")]
 #[schema(as = turn::Trigger)]
 pub enum Trigger {
-    StrandSend,
+    #[serde(rename = "strand_send")]
+    Send,
     System,
 }
 
@@ -150,28 +151,28 @@ impl santi_error::Ruled for Error {
                 category: Category::Invalid,
                 severity: Severity::Error,
                 retry: Retry::Changed,
-                exposure: Exposure::CALLER_AND_OPERATOR,
+                exposure: Exposure::CALLER,
             },
             Self::Provider => santi_error::Descriptor {
                 code: "provider.turn.failed",
                 category: Category::Unavailable,
                 severity: Severity::Error,
                 retry: Retry::Later,
-                exposure: Exposure::CALLER_AND_OPERATOR,
+                exposure: Exposure::CALLER,
             },
             Self::Runtime => santi_error::Descriptor {
                 code: "runtime.turn.failed",
                 category: Category::Internal,
                 severity: Severity::Error,
                 retry: Retry::Later,
-                exposure: Exposure::CALLER_AND_OPERATOR,
+                exposure: Exposure::CALLER,
             },
             Self::Interrupted => santi_error::Descriptor {
                 code: "runtime.turn.interrupted",
                 category: Category::Unavailable,
                 severity: Severity::Error,
                 retry: Retry::Changed,
-                exposure: Exposure::CALLER_AND_OPERATOR,
+                exposure: Exposure::CALLER,
             },
         }
     }

@@ -3,7 +3,7 @@ use clap::Subcommand;
 use super::*;
 
 #[derive(Subcommand)]
-pub enum StrandCommand {
+pub enum Strand {
     #[command(
         about = "Load, drop or query versioned material; --kind uses the legacy render adapter"
     )]
@@ -31,8 +31,11 @@ pub enum StrandCommand {
         long_about = "Read the current process-local activity snapshot. Match current.turn to the exact receipt's latest driving transition before attributing its phase. Null current does not establish idleness or completion. Epoch/revision order observations only within one service instance; a phase does not prove ongoing advancement. Inspect the exact durable receipt for completion or failure."
     )]
     Activity { id: Option<String> },
-    #[command(about = "GET /api/v1/strands/{id}/execution-tail (id falls back to --strand)")]
-    ExecutionTail { id: Option<String> },
+    #[command(
+        name = "execution-tail",
+        about = "GET /api/v1/strands/{id}/execution-tail (id falls back to --strand)"
+    )]
+    Tail { id: Option<String> },
     #[command(about = "GET /api/v1/strands/{id}/budget (id falls back to --strand)")]
     Budget { id: Option<String> },
     #[command(
@@ -81,11 +84,12 @@ pub enum StrandCommand {
         )]
         #[arg(
             long = "watch-format",
+            value_name = "WATCH_FORMAT",
             value_enum,
-            default_value_t = WatchFormat::Filtered,
+            default_value_t = Format::Filtered,
             requires = "watch"
         )]
-        watch_format: WatchFormat,
+        format: Format,
     },
     #[command(
         about = "GET /api/v1/strands/{id}/events — follows the SSE stream (id falls back to --strand). Runs until interrupted; `send --watch` instead stops after proving its accepted receipt"
@@ -96,9 +100,9 @@ pub enum StrandCommand {
             help = "Output format. Raw preserves the prior SSE byte stream",
             long,
             value_enum,
-            default_value_t = WatchFormat::Raw
+            default_value_t = Format::Raw
         )]
-        format: WatchFormat,
+        format: Format,
     },
 }
 
@@ -116,4 +120,16 @@ impl Rendering {
             Self::Prompt => "system_prompt",
         }
     }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, clap::ValueEnum)]
+pub enum Format {
+    #[value(
+        help = "Human-readable milestones that omit stream chunks; send --watch also omits repeated turn states"
+    )]
+    Filtered,
+    #[value(
+        help = "Raw debugging output: SSE bytes for `strand events`, JSON event data for `send --watch`"
+    )]
+    Raw,
 }

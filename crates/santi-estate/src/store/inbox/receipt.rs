@@ -1,4 +1,4 @@
-use super::ReceiptDraft;
+use super::Receipt;
 use crate::store::read;
 use keel::adapt::db::Sqlite;
 use keel::{Core, Op, Rank, Tx, form};
@@ -52,7 +52,7 @@ pub(in crate::store) async fn accept(
         .await
 }
 
-pub(super) async fn advance(core: &Core<Sqlite>, draft: ReceiptDraft<'_>) -> Result<(), String> {
+pub(super) async fn advance(core: &Core<Sqlite>, draft: Receipt<'_>) -> Result<(), String> {
     core.batch(async |tx| shift(tx, draft).await)
         .await
         .map_err(read::error)
@@ -60,7 +60,7 @@ pub(super) async fn advance(core: &Core<Sqlite>, draft: ReceiptDraft<'_>) -> Res
 
 pub(in crate::store) async fn shift(
     tx: &mut Tx<'_, Sqlite>,
-    draft: ReceiptDraft<'_>,
+    draft: Receipt<'_>,
 ) -> Result<(), keel::adapt::Error> {
     let receipt = tx
         .one(&form("InboxReceipt").when("tag", Op::Eq, draft.inbox))
@@ -86,10 +86,7 @@ pub(in crate::store) async fn shift(
     tx.set(
         "InboxReceipt",
         receipt.key(),
-        &[
-            ("state", state_text(&draft.state)),
-            ("updated", draft.occurred),
-        ],
+        &[("state", encode(&draft.state)), ("updated", draft.occurred)],
     )
     .await?;
     Writer(tx)
@@ -108,11 +105,11 @@ pub(in crate::store) async fn close(
     tx: &mut Tx<'_, Sqlite>,
     draft: Close<'_>,
 ) -> Result<(), keel::adapt::Error> {
-    let turn_row = read::need(tx, "Turn", "tag", draft.turn).await?;
+    let turn = read::need(tx, "Turn", "tag", draft.turn).await?;
     let transitions = tx
         .ask(
             &form("ReceiptTransition")
-                .when("turn", Op::Eq, &turn_row.to_string())
+                .when("turn", Op::Eq, &turn.to_string())
                 .when("state", Op::Eq, "driving"),
         )
         .await?;
@@ -122,20 +119,20 @@ pub(in crate::store) async fn close(
         .filter_map(|transition| transition.int("receipt"))
         .collect::<BTreeSet<_>>();
     for key in receipts {
-        let receipt_row = tx
+        let row = tx
             .one(&form("InboxReceipt").when("id", Op::Eq, &key.to_string()))
             .await?
             .ok_or_else(|| keel::adapt::Error::Missing("driving receipt".into()))?;
-        if !matches!(receipt_row.text("state"), Some("driving" | "recovered")) {
+        if !matches!(row.text("state"), Some("driving" | "recovered")) {
             continue;
         }
-        let tag = receipt_row
+        let tag = row
             .text("tag")
             .ok_or_else(|| keel::adapt::Error::Adapt("receipt tag missing".into()))?
             .to_string();
         shift(
             tx,
-            ReceiptDraft {
+            Receipt {
                 inbox: &tag,
                 state: draft.state.clone(),
                 turn: Some(draft.turn),
@@ -164,13 +161,13 @@ pub(super) async fn status(
         .await
         .map_err(read::error)?;
     let mut history = Vec::with_capacity(transitions.rows().len());
-    for transition in transitions.rows() {
-        history.push(decode_transition(core, transition).await?);
+    for row in transitions.rows() {
+        history.push(transition(core, row).await?);
     }
     Ok(Some(receipt::Status {
         inbox: read::text(&row, "tag")?.to_string(),
         strand: read::related(core, "Strand", read::int(&row, "strand")?).await?,
-        state: decode_state(read::text(&row, "state")?)?,
+        state: decode(read::text(&row, "state")?)?,
         accepted: read::text(&row, "accepted")?.to_string(),
         updated: read::text(&row, "updated")?.to_string(),
         transitions: history,
@@ -186,7 +183,7 @@ impl Writer<'_, '_> {
         let turn = draft.turn.map(|turn| turn.to_string());
         let incident = match draft.incident {
             Some(incident) => Some(
-                crate::store::error::incident_key(self.0, incident)
+                crate::store::error::key(self.0, incident)
                     .await?
                     .to_string(),
             ),
@@ -195,7 +192,7 @@ impl Writer<'_, '_> {
         let mut fields = vec![
             ("tag", tag.as_str()),
             ("sequence", sequence.as_str()),
-            ("state", state_text(&draft.state)),
+            ("state", encode(&draft.state)),
             ("occurred", draft.occurred),
             ("receipt", receipt.as_str()),
         ];
@@ -210,10 +207,7 @@ impl Writer<'_, '_> {
     }
 }
 
-async fn decode_transition(
-    core: &Core<Sqlite>,
-    row: &keel::Row,
-) -> Result<receipt::Transition, String> {
+async fn transition(core: &Core<Sqlite>, row: &keel::Row) -> Result<receipt::Transition, String> {
     let turn = match row.int("turn") {
         Some(turn) => Some(read::related(core, "Turn", turn).await?),
         None => None,
@@ -221,7 +215,7 @@ async fn decode_transition(
     Ok(receipt::Transition {
         id: read::text(row, "tag")?.to_string(),
         sequence: read::int(row, "sequence")?,
-        state: decode_state(read::text(row, "state")?)?,
+        state: decode(read::text(row, "state")?)?,
         turn,
         incident: match row.int("incident") {
             Some(incident) => Some(read::related(core, "StrandIncident", incident).await?),
@@ -231,7 +225,7 @@ async fn decode_transition(
     })
 }
 
-fn state_text(state: &receipt::State) -> &'static str {
+fn encode(state: &receipt::State) -> &'static str {
     match state {
         receipt::State::Accepted => "accepted",
         receipt::State::Recovered => "recovered",
@@ -241,7 +235,7 @@ fn state_text(state: &receipt::State) -> &'static str {
     }
 }
 
-fn decode_state(value: &str) -> Result<receipt::State, String> {
+fn decode(value: &str) -> Result<receipt::State, String> {
     match value {
         "accepted" => Ok(receipt::State::Accepted),
         "recovered" => Ok(receipt::State::Recovered),

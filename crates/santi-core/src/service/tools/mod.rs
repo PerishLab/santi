@@ -64,18 +64,18 @@ impl Service {
         let shell = call.name == "shell" || due;
         let kind = (allowed && !barred && shell).then_some("shell");
         let created = crate::now();
-        let effect_tag = kind.map(|_| crate::tag("effect"));
+        let tag = kind.map(|_| crate::tag("effect"));
         let (held, effect) = self
             .store
-            .prepare_invocation(
-                santi_estate::CallDraft {
+            .invoke(
+                santi_estate::Call {
                     tag: &call.call,
                     turn,
                     tool: &call.name,
                     arguments: &call.arguments,
                     created: &created,
                 },
-                effect_tag.as_deref().map(|tag| santi_estate::EffectDraft {
+                tag.as_deref().map(|tag| santi_estate::Effect {
                     tag,
                     turn,
                     call: Some(&call.call),
@@ -199,14 +199,14 @@ impl Service {
                 let error = curbed(error, output_limit);
                 return self
                     .store
-                    .redeem_effect(
+                    .redeem(
                         effect,
-                        santi_estate::RedemptionDraft {
+                        santi_estate::Redemption {
                             result: &crate::tag("result"),
                             call: &call.call,
                             output: None,
                             error: Some(&error),
-                            outcome: effect::Outcome::NotApplied,
+                            outcome: effect::Outcome::Unapplied,
                             occurred: &crate::now(),
                         },
                     )
@@ -217,20 +217,20 @@ impl Service {
             let error = format!("interrupted by {} before dispatch", cause.encode());
             return self
                 .store
-                .redeem_effect(
+                .redeem(
                     effect,
-                    santi_estate::RedemptionDraft {
+                    santi_estate::Redemption {
                         result: &crate::tag("result"),
                         call: &call.call,
                         output: None,
                         error: Some(&error),
-                        outcome: effect::Outcome::NotApplied,
+                        outcome: effect::Outcome::Unapplied,
                         occurred: &crate::now(),
                     },
                 )
                 .await;
         }
-        self.store.dispatch_effect(effect, &crate::now()).await?;
+        self.store.dispatching(effect, &crate::now()).await?;
         let bounds = shell::Bounds {
             timeout: std::time::Duration::from_secs(
                 self.rationed(strand)
@@ -246,9 +246,9 @@ impl Service {
             }
             shell::Outcome::Captured(output) => {
                 self.store
-                    .redeem_effect(
+                    .redeem(
                         effect,
-                        santi_estate::RedemptionDraft {
+                        santi_estate::Redemption {
                             result: &crate::tag("result"),
                             call: &call.call,
                             output: Some(&output),
@@ -262,31 +262,27 @@ impl Service {
             shell::Outcome::Failed(error) => {
                 let error = curbed(error, output_limit);
                 self.store
-                    .redeem_effect(
+                    .redeem(
                         effect,
-                        santi_estate::RedemptionDraft {
+                        santi_estate::Redemption {
                             result: &crate::tag("result"),
                             call: &call.call,
                             output: None,
                             error: Some(&error),
-                            outcome: effect::Outcome::NotApplied,
+                            outcome: effect::Outcome::Unapplied,
                             occurred: &crate::now(),
                         },
                     )
                     .await
             }
             shell::Outcome::Unknown(error) => {
-                self.store
-                    .unknown_effect(effect, &error, &crate::now())
-                    .await?;
+                self.store.suspect(effect, &error, &crate::now()).await?;
                 Err(format!(
                     "shell effect {effect} outcome is unknown; automatic replay is forbidden: {error}"
                 ))
             }
             shell::Outcome::Stopped(error) => {
-                self.store
-                    .unknown_effect(effect, &error, &crate::now())
-                    .await?;
+                self.store.suspect(effect, &error, &crate::now()).await?;
                 Err(error)
             }
         }

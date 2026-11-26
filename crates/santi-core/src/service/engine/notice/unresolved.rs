@@ -20,12 +20,12 @@ pub(super) async fn warn(service: &Service, event: Environment) -> Result<(), St
     );
     let message = service
         .store
-        .place(santi_estate::MessageDraft {
+        .place(santi_estate::Message {
             tag: &crate::tag("msg"),
             strand: &event.address.strand,
             actor: message::Role::System,
-            actor_id: crate::SYSTEM,
-            kind: message::Kind::SantiSystem,
+            sender: crate::SYSTEM,
+            kind: message::Kind::System,
             content: &content,
             state: message::State::Fixed,
             request: false,

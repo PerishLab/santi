@@ -131,9 +131,9 @@ async fn authority() {
         output: 4096,
         shell: 1024,
         lines: 256,
-        feedback_after_calls: Some(2),
-        feedback_command: Some(effect.to_string()),
-        feedback_cwd: Some(STRANDSPACE.to_string()),
+        after: Some(2),
+        command: Some(effect.to_string()),
+        cwd: Some(STRANDSPACE.to_string()),
     })
     .expect("bound service");
     let strand = service.weave().await.expect("create strand").strand;
@@ -149,7 +149,7 @@ async fn authority() {
         .await
         .expect("send strand");
     let runtime = Probe::new(&service)
-        .completed_turn(&strand.id, &accepted_turn(&service, &posted).await.id)
+        .completed(&strand.id, &accepted(&service, &posted).await.id)
         .await;
 
     assert_eq!(
@@ -204,7 +204,7 @@ async fn authority() {
         .expect("budget snapshot")
         .execution
         .expect("execution budget");
-    assert_eq!(execution.feedback_after_calls, Some(2));
-    assert_eq!(execution.feedback_command.as_deref(), Some(effect));
-    assert_eq!(execution.feedback_cwd.as_deref(), Some(STRANDSPACE));
+    assert_eq!(execution.after, Some(2));
+    assert_eq!(execution.command.as_deref(), Some(effect));
+    assert_eq!(execution.cwd.as_deref(), Some(STRANDSPACE));
 }

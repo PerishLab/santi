@@ -1,5 +1,5 @@
 use super::support::*;
-use santi_estate::{MessageDraft, ThinkingDraft};
+use santi_estate::{Message, Thinking};
 use santi_model::{message, strand};
 use serde_json::to_value;
 
@@ -21,7 +21,7 @@ async fn mixed() {
     for index in 0..140 {
         let tag = format!("thinking_{:04}", 1000 - index);
         seat.store
-            .create_thinking(ThinkingDraft {
+            .ponder(Thinking {
                 tag: &tag,
                 turn: "turn_test",
                 response: None,
@@ -32,12 +32,12 @@ async fn mixed() {
         expected.push(record(strand::Target::Thinking, &tag, sequence));
         seat.pair(index).await;
         expected.push(record(
-            strand::Target::ToolCall,
+            strand::Target::Call,
             &format!("call_{:04}", 1000 - index),
             sequence + 1,
         ));
         expected.push(record(
-            strand::Target::ToolResult,
+            strand::Target::Result,
             &format!("result_{:04}", 1000 - index),
             sequence + 2,
         ));
@@ -49,7 +49,7 @@ async fn mixed() {
                 sequence,
             )
             .await;
-            expected.push(record(strand::Target::ToolCall, "call_1000", sequence));
+            expected.push(record(strand::Target::Call, "call_1000", sequence));
             sequence += 1;
             seat.core
                 .set(
@@ -62,11 +62,11 @@ async fn mixed() {
         }
     }
     seat.store
-        .place(MessageDraft {
+        .place(Message {
             tag: "message_last",
             strand: "strand_test",
             actor: message::Role::System,
-            actor_id: "test",
+            sender: "test",
             kind: message::Kind::Text,
             content: &message::Content::text("工具🙂"),
             state: message::State::Fixed,
@@ -83,7 +83,7 @@ async fn mixed() {
         sequence,
     )
     .await;
-    expected.push(record(strand::Target::ToolResult, "result_1000", sequence));
+    expected.push(record(strand::Target::Result, "result_1000", sequence));
     assert_eq!(
         to_value(seat.store.entries("strand_test").await.unwrap()).unwrap(),
         to_value(expected).unwrap()
@@ -155,11 +155,11 @@ async fn covered() {
     let seat = Seat::new().await;
     for tag in ["message_first", "message_last"] {
         seat.store
-            .place(MessageDraft {
+            .place(Message {
                 tag,
                 strand: "strand_test",
                 actor: message::Role::System,
-                actor_id: "test",
+                sender: "test",
                 kind: message::Kind::Text,
                 content: &message::Content::text("history"),
                 state: message::State::Fixed,
@@ -173,7 +173,7 @@ async fn covered() {
         }
     }
     seat.store
-        .create_compact(santi_estate::CompactDraft {
+        .condense(santi_estate::Compact {
             tag: "compact_test",
             strand: "strand_test",
             first: "message_first",

@@ -75,7 +75,7 @@ impl Service {
         match self.remedied(strand, call).await {
             Ok(value) => {
                 self.store
-                    .create_reply(santi_estate::ReplyDraft {
+                    .replying(santi_estate::Reply {
                         tag: &crate::tag("result"),
                         call: &call.call,
                         output: Some(&santi_estate::bounded(value, limit)),

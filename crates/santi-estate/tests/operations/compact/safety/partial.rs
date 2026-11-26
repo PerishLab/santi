@@ -7,7 +7,7 @@ async fn partial() {
     let writer = Writer(&store);
     writer.exchange().await;
     store
-        .create_compact(CompactDraft {
+        .condense(Compact {
             tag: "compact_tail",
             strand: "strand_test",
             first: "m2",

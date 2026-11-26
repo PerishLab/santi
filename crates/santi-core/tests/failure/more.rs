@@ -4,11 +4,11 @@ use santi_core::{message, soul, turn};
 #[tokio::test]
 async fn preserves() {
     let temp = tempfile::tempdir().expect("temp dir");
-    let provider = Arc::new(FailureProvider {
-        stream_error_after_text: Some("provider stream aborted".to_string()),
-        ..FailureProvider::default()
+    let provider = Arc::new(Faulty {
+        midstream: Some("provider stream aborted".to_string()),
+        ..Faulty::default()
     });
-    let service = open_service(&temp, provider.clone()).await;
+    let service = open(&temp, provider.clone()).await;
     let soul = service
         .awaken(soul::Draft {
             memory: None,
@@ -18,11 +18,11 @@ async fn preserves() {
         .expect("awaken soul");
     assert_ne!(soul.id, santi_core::GENESIS);
     let strand = service.seat(&soul.id).await.expect("seat soul").strand;
-    let response = send_text(&service, &strand.id, "trigger stream failure").await;
+    let response = send(&service, &strand.id, "trigger stream failure").await;
     let failed = turn(&service, &response).await.id;
 
-    let runtime = wait_for_aborted_output(&service, &strand.id, &failed).await;
-    let partial_message = runtime
+    let runtime = aborted(&service, &strand.id, &failed).await;
+    let fragment = runtime
         .messages
         .iter()
         .find(|message| {
@@ -30,42 +30,42 @@ async fn preserves() {
                 && message.message.state == message::State::Aborted
         })
         .expect("aborted partial assistant message");
-    assert_eq!(partial_message.text, "partial runtime output");
-    assert_eq!(partial_message.message.actor, soul.id);
-    assert_no_failure_projection(&runtime);
+    assert_eq!(fragment.text, "partial runtime output");
+    assert_eq!(fragment.message.actor, soul.id);
+    unprojected(&runtime);
     assert_eq!(runtime.errors.len(), 1);
     assert_eq!(runtime.errors[0].first.source.operation, "turn.stream");
     assert_eq!(runtime.errors[0].first.context["stage"], "stream");
 
-    let retry = send_text(&service, &strand.id, "continue with preserved partial").await;
+    let retry = send(&service, &strand.id, "continue with preserved partial").await;
     let failed = turn(&service, &retry).await.id;
-    wait_for_turn(&service, &strand.id, &failed, turn::Status::Failed).await;
+    awaiting(&service, &strand.id, &failed, turn::Status::Failed).await;
 
     let projection = "partial runtime output";
     let requests = provider.requests.lock().unwrap();
     assert_eq!(requests.len(), 2);
     assert!(requests[1].input.iter().any(|message| {
-        as_text(message).is_some_and(|(role, content)| role == "assistant" && content == projection)
+        textual(message).is_some_and(|(role, content)| role == "assistant" && content == projection)
     }));
     assert!(requests[1].input.iter().all(|message| {
-        as_text(message).is_none_or(|(_, content)| !content.contains("kind: turn_failed"))
+        textual(message).is_none_or(|(_, content)| !content.contains("kind: turn_failed"))
     }));
 }
 
 #[tokio::test]
 async fn classifies() {
     let temp = tempfile::tempdir().expect("temp dir");
-    let provider = Arc::new(FailureProvider {
-        response_failure: Some("provider rejected response".to_string()),
-        ..FailureProvider::default()
+    let provider = Arc::new(Faulty {
+        response: Some("provider rejected response".to_string()),
+        ..Faulty::default()
     });
-    let service = open_service(&temp, provider).await;
+    let service = open(&temp, provider).await;
     let strand = service.weave().await.expect("create strand").strand;
-    let response = send_text(&service, &strand.id, "trigger response failure").await;
+    let response = send(&service, &strand.id, "trigger response failure").await;
     let failed = turn(&service, &response).await.id;
 
-    let runtime = wait_for_turn(&service, &strand.id, &failed, turn::Status::Failed).await;
-    assert_no_failure_projection(&runtime);
+    let runtime = awaiting(&service, &strand.id, &failed, turn::Status::Failed).await;
+    unprojected(&runtime);
     assert_eq!(runtime.errors.len(), 1);
     assert_eq!(runtime.errors[0].first.source.operation, "turn.response");
     assert_eq!(runtime.errors[0].first.context["stage"], "response");
@@ -74,23 +74,23 @@ async fn classifies() {
 #[tokio::test]
 async fn resolves() {
     let temp = tempfile::tempdir().expect("temp dir");
-    let provider = Arc::new(FailureProvider {
-        fail_with: Some("temporary provider outage".to_string()),
-        fail_for_requests: Some(1),
-        ..FailureProvider::default()
+    let provider = Arc::new(Faulty {
+        failing: Some("temporary provider outage".to_string()),
+        limit: Some(1),
+        ..Faulty::default()
     });
-    let service = open_service(&temp, provider.clone()).await;
+    let service = open(&temp, provider.clone()).await;
     let strand = service.weave().await.expect("create strand").strand;
-    let failed = send_text(&service, &strand.id, "first attempt").await;
+    let failed = send(&service, &strand.id, "first attempt").await;
     let original = turn(&service, &failed).await.id;
-    let before = wait_for_turn(&service, &strand.id, &original, turn::Status::Failed).await;
+    let before = awaiting(&service, &strand.id, &original, turn::Status::Failed).await;
     let held = before.errors[0].id.clone();
 
-    let recovered = send_text(&service, &strand.id, "retry after recovery").await;
+    let recovered = send(&service, &strand.id, "retry after recovery").await;
     let resumed = turn(&service, &recovered).await.id;
-    let after = wait_for_turn(&service, &strand.id, &resumed, turn::Status::Completed).await;
+    let after = awaiting(&service, &strand.id, &resumed, turn::Status::Completed).await;
 
-    assert_no_failure_projection(&after);
+    unprojected(&after);
     assert_eq!(provider.requests.lock().unwrap().len(), 2);
     assert_eq!(after.errors.len(), 1);
     let incident = &after.errors[0];

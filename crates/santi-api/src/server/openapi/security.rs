@@ -1,9 +1,9 @@
 use utoipa::Modify;
 use utoipa::openapi::security::{ApiKey, ApiKeyValue, Http, HttpAuthScheme, SecurityScheme};
 
-pub(super) struct SecurityAddon;
+pub(super) struct Security;
 
-impl Modify for SecurityAddon {
+impl Modify for Security {
     fn modify(&self, document: &mut utoipa::openapi::OpenApi) {
         if let Some(components) = document.components.as_mut() {
             components.add_security_scheme(

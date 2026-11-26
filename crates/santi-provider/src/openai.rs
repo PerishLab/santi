@@ -22,12 +22,12 @@ pub struct Config {
 }
 
 #[derive(Debug, Clone)]
-pub struct OpenAI {
+pub struct Openai {
     config: Config,
     client: Client,
 }
 
-impl OpenAI {
+impl Openai {
     pub fn new(config: Config) -> Self {
         Self {
             config,
@@ -37,7 +37,7 @@ impl OpenAI {
 }
 
 #[async_trait]
-impl Provider for OpenAI {
+impl Provider for Openai {
     fn metadata(&self) -> Metadata {
         Metadata {
             provider: Arc::from("openai"),

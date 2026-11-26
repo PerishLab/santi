@@ -105,7 +105,7 @@ impl Service {
             return Err("strategy must be 'per_thread' or 'single'".to_string());
         }
         self.store
-            .subscribe(santi_estate::WebhookDraft {
+            .subscribe(santi_estate::Webhook {
                 name,
                 adaptor,
                 soul,
@@ -141,11 +141,8 @@ impl Service {
         self.store.snapshot(strand).await
     }
 
-    pub async fn execution_tail(
-        &self,
-        strand: &str,
-    ) -> Result<Option<stream::ExecutionTail>, String> {
-        self.store.execution_tail(strand).await
+    pub async fn tail(&self, strand: &str) -> Result<Option<stream::Tail>, String> {
+        self.store.tail(strand).await
     }
 
     pub async fn stranded(
@@ -189,9 +186,7 @@ impl Service {
         outcome: effect::Outcome,
         evidence: &str,
     ) -> Result<Option<effect::Status>, String> {
-        self.store
-            .settle_effect(effect, outcome, evidence, &now())
-            .await
+        self.store.settle(effect, outcome, evidence, &now()).await
     }
 
     pub async fn trail(&self, effect: &str) -> Result<Vec<crate::trace::Record>, String> {
@@ -229,7 +224,7 @@ impl Service {
 
     pub(in crate::service) async fn dispatched(&self) {
         let sink = error::Sink { service: self };
-        let transitions = match self.store.pending_errors(256).await {
+        let transitions = match self.store.unsent(256).await {
             Ok(transitions) => transitions,
             Err(error) => {
                 eprintln!("santi: error outbox read failed: {error}");
@@ -237,24 +232,20 @@ impl Service {
             }
         };
         for transition in transitions {
-            if !self.dispatch_transition(&sink, &transition).await {
+            if !self.forward(&sink, &transition).await {
                 break;
             }
         }
     }
 
-    async fn dispatch_transition(
-        &self,
-        sink: &error::Sink<'_>,
-        transition: &crate::Transition,
-    ) -> bool {
+    async fn forward(&self, sink: &error::Sink<'_>, transition: &crate::Transition) -> bool {
         if let Err(error) = santi_error::Sink::publish(sink, transition) {
             if error != error::UNHEARD {
                 eprintln!("santi: error outbox dispatch failed: {error}");
             }
             return false;
         }
-        if let Err(error) = self.store.deliver_error(&transition.id, &now()).await {
+        if let Err(error) = self.store.deliver(&transition.id, &now()).await {
             eprintln!("santi: error outbox acknowledgement failed: {error}");
             return false;
         }

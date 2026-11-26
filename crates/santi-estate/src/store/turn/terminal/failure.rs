@@ -1,26 +1,23 @@
-use super::{Failure, Store, fail, read};
+use super::{Outcome as Terminal, Store, fail, read};
 use crate::store::error;
 use keel::{Op, form};
-use santi_error::Fault;
+use santi_error::Fault as Error;
 use santi_model::turn;
 
-pub struct ClassifiedFailureDraft<'a> {
+pub struct Fault<'a> {
     pub turn: &'a str,
     pub detail: &'a str,
     pub incident: santi_error::Draft,
     pub occurred: &'a str,
 }
 
-pub struct ClassifiedFailure {
+pub struct Failure {
     pub turn: turn::Turn,
-    pub fault: Fault,
+    pub fault: Error,
 }
 
 impl Store {
-    pub async fn fail_classified(
-        &self,
-        draft: ClassifiedFailureDraft<'_>,
-    ) -> Result<ClassifiedFailure, String> {
+    pub async fn classify(&self, draft: Fault<'_>) -> Result<Failure, String> {
         let tag = draft.turn.to_string();
         let fault = self
             .core
@@ -43,10 +40,10 @@ impl Store {
                         "classified failure incident belongs to another strand".into(),
                     ));
                 }
-                let fault = error::raise_in(tx, draft.incident, draft.occurred).await?;
+                let fault = error::raise(tx, draft.incident, draft.occurred).await?;
                 fail(
                     tx,
-                    Failure {
+                    Terminal {
                         turn: draft.turn,
                         detail: draft.detail,
                         incident: fault.incident.as_deref(),
@@ -62,6 +59,6 @@ impl Store {
             .turn(&tag)
             .await?
             .ok_or_else(|| "classified failure turn missing".to_string())?;
-        Ok(ClassifiedFailure { turn, fault })
+        Ok(Failure { turn, fault })
     }
 }

@@ -15,13 +15,13 @@ async fn locks() {
             constitution: None,
             environment: Default::default(),
         },
-        Arc::new(BudgetedProvider),
+        Arc::new(Budgeted),
     )
     .await
     .expect("open service");
     let strand = service.weave().await.expect("create strand").strand;
 
-    let posted = send_strand_handler(
+    let posted = send(
         State(service.clone()),
         Path(strand.id.clone()),
         Json(strand::Post {

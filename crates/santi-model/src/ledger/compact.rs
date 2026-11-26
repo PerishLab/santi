@@ -60,8 +60,8 @@ pub struct Report {
     pub collapsed: i64,
     #[serde(default)]
     pub dry: bool,
-    #[serde(default)]
-    pub active_incident_resolved: bool,
+    #[serde(default, rename = "active_incident_resolved")]
+    pub resolved: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub before: Option<crate::budget::Estimate>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -101,7 +101,9 @@ pub struct Page {
     pub first: String,
     pub last: String,
     pub total: i64,
-    pub page_index: i64,
-    pub page_size: i64,
+    #[serde(rename = "page_index")]
+    pub index: i64,
+    #[serde(rename = "page_size")]
+    pub size: i64,
     pub entries: Vec<Entry>,
 }

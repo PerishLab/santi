@@ -37,7 +37,7 @@ fn post() -> strand::Post {
     }
 }
 
-fn requests(provider: &BudgetedProvider, strand: &str) -> usize {
+fn requests(provider: &Budgeted, strand: &str) -> usize {
     provider
         .requests
         .lock()
@@ -56,7 +56,7 @@ fn requests(provider: &BudgetedProvider, strand: &str) -> usize {
 #[tokio::test]
 async fn bytes() {
     let temp = tempfile::tempdir().unwrap();
-    let provider = Arc::new(BudgetedProvider::default());
+    let provider = Arc::new(Budgeted::default());
     let service = open(&temp, provider.clone()).await;
     let source = memory(&temp, &"x".repeat(service::MEMORY + 1));
     let strand = service.weave().await.unwrap().strand;
@@ -103,13 +103,13 @@ async fn bytes() {
         .unwrap();
 
     let temp = tempfile::tempdir().unwrap();
-    let provider = Arc::new(BudgetedProvider::default());
+    let provider = Arc::new(Budgeted::default());
     let service = open(&temp, provider.clone()).await.memory(6).unwrap();
     memory(&temp, "界界");
     let strand = service.weave().await.unwrap().strand;
     let posted = service.send(&strand.id, post()).await.unwrap();
     Probe::new(&service)
-        .completed_turn(&strand.id, &accepted_turn(&service, &posted).await.id)
+        .completed(&strand.id, &accepted(&service, &posted).await.id)
         .await;
     assert_eq!(requests(&provider, &strand.id), 1);
     let source = memory(&temp, "界界a");
@@ -127,7 +127,7 @@ async fn bytes() {
 async fn growth() {
     let temp = tempfile::tempdir().unwrap();
     let source = memory(&temp, "界界");
-    let provider = Arc::new(BudgetedProvider {
+    let provider = Arc::new(Budgeted {
         rounds: 1,
         command: Some(format!("printf '%s' '界界a' > '{}'", source.display())),
         ..Default::default()
@@ -135,8 +135,8 @@ async fn growth() {
     let service = open(&temp, provider.clone()).await.memory(6).unwrap();
     let strand = service.weave().await.unwrap().strand;
     let posted = service.send(&strand.id, post()).await.unwrap();
-    let turn = accepted_turn(&service, &posted).await.id;
-    let runtime = Probe::new(&service).completed_turn(&strand.id, &turn).await;
+    let turn = accepted(&service, &posted).await.id;
+    let runtime = Probe::new(&service).completed(&strand.id, &turn).await;
     assert_eq!(
         requests(&provider, &strand.id),
         1,

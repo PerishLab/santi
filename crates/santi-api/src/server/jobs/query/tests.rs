@@ -10,9 +10,7 @@ use santi_core::{
     service::{Config, Service},
     turn,
 };
-use santi_estate::{
-    CallDraft, CapabilityDraft, EffectDraft, JobDraft, Prepared, StrandDraft, TurnDraft,
-};
+use santi_estate::{Call, Capability, Effect, Job, Prepared, Strand, Turn};
 use santi_provider::{Event, Metadata, Provider, Request as Ask, Streaming};
 use tower::ServiceExt;
 
@@ -46,7 +44,7 @@ async fn seed(temp: &tempfile::TempDir) -> String {
     }
     for (soul, tag) in [("soul-a", "a1"), ("soul-a", "a2"), ("soul-b", "b1")] {
         let strand = store
-            .create_strand(StrandDraft {
+            .weave(Strand {
                 tag,
                 soul,
                 label: None,
@@ -58,7 +56,7 @@ async fn seed(temp: &tempfile::TempDir) -> String {
             .await
             .expect("strand");
         let turn = store
-            .create_turn(TurnDraft {
+            .start(Turn {
                 tag: &format!("{tag}-turn"),
                 strand: &strand.id,
                 trigger: turn::Trigger::System,
@@ -68,7 +66,7 @@ async fn seed(temp: &tempfile::TempDir) -> String {
             .await
             .expect("turn");
         let call = store
-            .create_call(CallDraft {
+            .calling(Call {
                 tag: &format!("{tag}-call"),
                 turn: &turn.id,
                 tool: "shell",
@@ -78,7 +76,7 @@ async fn seed(temp: &tempfile::TempDir) -> String {
             .await
             .expect("call");
         let effect = store
-            .prepare_effect(EffectDraft {
+            .stage(Effect {
                 tag: &format!("{tag}-effect"),
                 turn: &turn.id,
                 call: Some(&call.id),
@@ -90,7 +88,7 @@ async fn seed(temp: &tempfile::TempDir) -> String {
             .expect("effect");
         let capability = format!("{tag}-cap");
         store
-            .create_capability(CapabilityDraft {
+            .grant(Capability {
                 digest: &capability,
                 expires: 1_000,
                 soul,
@@ -103,21 +101,21 @@ async fn seed(temp: &tempfile::TempDir) -> String {
             .await
             .expect("capability");
         let prepared = store
-            .prepare_job(
+            .submit(
                 &capability,
-                JobDraft {
+                Job {
                     environment: None,
                     tag: &format!("{tag}-job"),
                     description: "test job",
                     command: "true",
                     cwd: None,
-                    timeout_seconds: 30,
-                    output_limit_bytes: 1024,
-                    remind_every_seconds: None,
-                    notify_on_terminal: false,
-                    request_sha256: &format!("{tag}-request"),
+                    timeout: 30,
+                    limit: 1024,
+                    remind: None,
+                    notify: false,
+                    digest: &format!("{tag}-request"),
                     generation: &format!("{tag}-generation"),
-                    supervisor_ref: &format!("santi-{tag}.service"),
+                    supervisor: &format!("santi-{tag}.service"),
                     created: AT,
                 },
                 1_000,

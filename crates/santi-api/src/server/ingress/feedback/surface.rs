@@ -1,6 +1,6 @@
 use super::*;
 use async_trait::async_trait;
-use santi_estate::{Acceptance, InboxDraft, ReplayDraft, Store, StrandDraft, WebhookDraft};
+use santi_estate::{Acceptance, Arrival, Replay, Store, Strand, Webhook};
 use santi_provider::{Metadata, Provider, Request, Streaming};
 use std::sync::Arc;
 use tower::ServiceExt;
@@ -32,7 +32,7 @@ async fn fixture() -> (tempfile::TempDir, Service) {
     let now = santi_core::now();
     store.seed("soul_default", &now).await.unwrap();
     store
-        .create_strand(StrandDraft {
+        .weave(Strand {
             tag: "strand_test",
             soul: "soul_default",
             label: None,
@@ -44,7 +44,7 @@ async fn fixture() -> (tempfile::TempDir, Service) {
         .await
         .unwrap();
     store
-        .subscribe(WebhookDraft {
+        .subscribe(Webhook {
             name: "feishu",
             adaptor: "feishu",
             soul: "soul_default",
@@ -56,7 +56,7 @@ async fn fixture() -> (tempfile::TempDir, Service) {
         .unwrap();
     store
         .windowed(
-            InboxDraft {
+            Arrival {
                 tag: "inbox_test",
                 strand: "strand_test",
                 kind: santi_core::message::Kind::Text,
@@ -65,7 +65,7 @@ async fn fixture() -> (tempfile::TempDir, Service) {
                 created: &now,
             },
             Acceptance {
-                replay: ReplayDraft::Webhook {
+                replay: Replay::Webhook {
                     subscription: "feishu",
                     delivery: "event",
                     digest: "digest",

@@ -19,34 +19,34 @@ use tower_http::{
 };
 
 use super::{
-    ApiError,
+    Problem,
     errors::{errors, stranded},
-    ingress::ingest_webhook,
-    sse::{strand_events, transitions, turn_event_stream},
+    ingress::receive,
+    sse::{strand as stream, transitions, turns},
 };
 
 pub(super) mod inference;
 pub(super) mod materials;
 
-pub(super) async fn optional<T: DeserializeOwned>(request: Request) -> Result<Option<T>, ApiError> {
-    let content_type = request.headers().get(header::CONTENT_TYPE).cloned();
+pub(super) async fn optional<T: DeserializeOwned>(request: Request) -> Result<Option<T>, Problem> {
+    let media = request.headers().get(header::CONTENT_TYPE).cloned();
     let bytes = axum::body::to_bytes(request.into_body(), 2 * 1024 * 1024)
         .await
-        .map_err(|_| ApiError::bad_request("request body could not be read"))?;
+        .map_err(|_| Problem::invalid("request body could not be read"))?;
     if bytes.is_empty() {
         return Ok(None);
     }
-    if !content_type
+    if !media
         .as_ref()
         .and_then(|value| value.to_str().ok())
         .is_some_and(json)
     {
-        return Err(ApiError::bad_request(
+        return Err(Problem::invalid(
             "request body must have an application/json content type",
         ));
     }
     serde_json::from_slice(&bytes)
-        .map_err(|error| ApiError::bad_request(format!("invalid JSON request body: {error}")))
+        .map_err(|error| Problem::invalid(format!("invalid JSON request body: {error}")))
 }
 
 fn json(content_type: &str) -> bool {
@@ -103,21 +103,15 @@ pub(super) fn router(service: Service) -> Router {
         .route("/api/v1/alarms/{alarm}/fire", alarms::fire())
         .route("/api/v1/strands", weave().merge(strands()))
         .route("/api/v1/souls", awaken().merge(souls()))
-        .route("/api/v1/souls/{soul}", get_soul())
+        .route("/api/v1/souls/{soul}", soul())
         .route(
             "/api/v1/souls/{soul}/inference",
             inference::soul::read().merge(inference::soul::declare()),
         )
         .route("/api/v1/souls/{soul}/active-turns", get(running))
         .route("/api/v1/souls/{soul}/strands", seat())
-        .route(
-            "/api/v1/souls/{soul}/environment",
-            set_soul_environ().merge(soul_environs()),
-        )
-        .route(
-            "/api/v1/souls/{soul}/environment/{name}",
-            end_soul_environ(),
-        )
+        .route("/api/v1/souls/{soul}/environment", declare().merge(owned()))
+        .route("/api/v1/souls/{soul}/environment/{name}", revoke())
         .route("/api/v1/webhooks", subscribe().merge(webhooks()))
         .route(
             "/api/v1/jobs",
@@ -130,7 +124,7 @@ pub(super) fn router(service: Service) -> Router {
         .route("/api/v1/query", post(super::jobs::query::query()))
         .route(
             "/api/v1/strands/{strand}",
-            get_strand().merge(routing::delete(end_strand)),
+            strand().merge(routing::delete(retire)),
         )
         .route(
             "/api/v1/strands/{strand}/inference",
@@ -138,13 +132,10 @@ pub(super) fn router(service: Service) -> Router {
         )
         .route(
             "/api/v1/strands/{strand}/environment",
-            set_strand_environ().merge(strand_environs()),
+            assign().merge(scoped()),
         )
-        .route(
-            "/api/v1/strands/{strand}/environment/{name}",
-            end_strand_environ(),
-        )
-        .route("/api/v1/strands/{strand}/messages", list_messages())
+        .route("/api/v1/strands/{strand}/environment/{name}", unassign())
+        .route("/api/v1/strands/{strand}/messages", messages())
         .route(
             "/api/v1/strands/{strand}/materials",
             render().merge(get(materials::strand::query)),
@@ -157,7 +148,7 @@ pub(super) fn router(service: Service) -> Router {
             "/api/v1/strands/{strand}/activity/events",
             get(active::activity::events),
         )
-        .route("/api/v1/strands/{strand}/events", get(strand_events))
+        .route("/api/v1/strands/{strand}/events", get(stream))
         .route("/api/v1/strands/{strand}/send", post(send))
         .route("/api/v1/strands/{strand}/drive", post(drive))
         .route("/api/v1/strands/{strand}/fork", fork())
@@ -192,9 +183,9 @@ pub(super) fn router(service: Service) -> Router {
         )
         .route("/api/v1/compacts/{compact}", page())
         .route("/api/v1/strands/{strand}/runtime", snapshot())
-        .route("/api/v1/strands/{strand}/execution-tail", execution_tail())
-        .route("/api/v1/turn-events", get(turn_events))
-        .route("/api/v1/turn-events/stream", get(turn_event_stream))
+        .route("/api/v1/strands/{strand}/execution-tail", tail())
+        .route("/api/v1/turn-events", get(events))
+        .route("/api/v1/turn-events/stream", get(turns))
         .route("/api/v1/turns/{turn}", get(show))
         .route("/api/v1/turns/{turn}/stop", post(stop))
         .route("/api/v1/downstreams", post(enroll).get(downstreams))
@@ -206,7 +197,7 @@ pub(super) fn router(service: Service) -> Router {
 
     Router::new()
         .route("/api/v1/health", get(health))
-        .route("/api/v1/webhooks/{name}", post(ingest_webhook))
+        .route("/api/v1/webhooks/{name}", post(receive))
         .merge(api)
         .route("/api/{*rest}", axum::routing::any(missing))
         .layer(TraceLayer::new_for_http())

@@ -1,4 +1,4 @@
-use super::{Begun, DrainDraft, Opening, Refusal, Store, read, receipt};
+use super::{Begun, Drain, Opening, Refusal, Store, read, receipt};
 use keel::adapt::db::Sqlite;
 use keel::{Op, Rank, Row, Tx, form};
 use santi_model::receipt as model;
@@ -23,14 +23,14 @@ struct Writer<'a, 'tx>(&'a mut Tx<'tx, Sqlite>);
 
 pub(super) async fn open(
     store: &Store,
-    draft: DrainDraft<'_>,
+    draft: Drain<'_>,
     mode: Mode,
     effective: Option<&santi_model::inference::Effective>,
 ) -> Result<Opening, String> {
     let turn = draft.turn.to_string();
     let opened = store
         .core
-        .batch(async |tx| open_in(tx, draft, mode, effective).await)
+        .batch(async |tx| run(tx, draft, mode, effective).await)
         .await
         .map_err(read::error)?;
     match opened {
@@ -62,9 +62,9 @@ pub(super) async fn open(
     }
 }
 
-async fn open_in(
+async fn run(
     tx: &mut Tx<'_, Sqlite>,
-    draft: DrainDraft<'_>,
+    draft: Drain<'_>,
     mode: Mode,
     effective: Option<&santi_model::inference::Effective>,
 ) -> Result<Opened, keel::adapt::Error> {
@@ -92,7 +92,7 @@ async fn open_in(
     }
     let (notices, regular): (Vec<_>, Vec<_>) = pending
         .into_iter()
-        .partition(|pending| pending.coalesce_key.is_some());
+        .partition(|pending| pending.slot.is_some());
     let mut messages = Vec::new();
     let mut assigned = Vec::new();
     let mut writer = Writer(tx);
@@ -131,7 +131,7 @@ async fn open_in(
         .map(|message| message.sequence)
         .or(recovered.from)
         .ok_or_else(|| keel::adapt::Error::Adapt("drain produced no requests".into()))?;
-    writer.put_turn(&strand, &draft, from).await?;
+    writer.turn(&strand, &draft, from).await?;
     if let Some(effective) = effective {
         super::super::turn::inference::record(writer.0, draft.turn, effective, draft.created)
             .await?;
@@ -194,7 +194,7 @@ impl Writer<'_, '_> {
     async fn pause(
         &mut self,
         strand: &Row,
-        draft: &DrainDraft<'_>,
+        draft: &Drain<'_>,
         effective: Option<&santi_model::inference::Effective>,
     ) -> Result<Opened, keel::adapt::Error> {
         let content = serde_json::to_string(&santi_model::message::Content::text("<system_message>\nkind: context_maintenance\nstate: This strand is paused for context maintenance. Pending inbox input remains queued.\n</system_message>"))
@@ -207,7 +207,7 @@ impl Writer<'_, '_> {
                 draft,
             })
             .await?;
-        self.put_turn(strand, draft, message.sequence).await?;
+        self.turn(strand, draft, message.sequence).await?;
         if let Some(effective) = effective {
             super::super::turn::inference::record(self.0, draft.turn, effective, draft.created)
                 .await?;

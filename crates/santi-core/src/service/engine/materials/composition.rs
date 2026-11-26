@@ -95,8 +95,8 @@ impl Service {
         let composed = Composition::new(self.prompt(&brain).await?.text, selection)?;
         self.cached(render::View {
             strand: strand.into(),
-            kind: render::Kind::SystemPrompt,
-            content_type: super::super::render::PLAIN.into(),
+            kind: render::Kind::Prompt,
+            mime: super::super::render::PLAIN.into(),
             text: composed.text.clone(),
             updated: crate::now(),
         });

@@ -1,16 +1,16 @@
-use super::{Command, Inference, Scope, StrandCommand};
+use super::{Command, Inference, Scope, Strand};
 use crate::inference::Declaration;
 use anyhow::Result;
 use clap::{CommandFactory, FromArgMatches, parser::ValueSource};
 
-pub struct ClientDefaults {
+pub struct Defaults {
     pub operator: Option<std::path::PathBuf>,
     pub strand: Option<String>,
     pub soul: Option<String>,
     pub held: Declaration,
 }
 
-impl ClientDefaults {
+impl Defaults {
     pub fn new(
         strand: Option<String>,
         soul: Option<String>,
@@ -24,7 +24,7 @@ impl ClientDefaults {
         }
     }
 
-    pub fn resolve_strand(&self, explicit: Option<String>) -> Result<String> {
+    pub fn strand(&self, explicit: Option<String>) -> Result<String> {
         explicit
             .or_else(|| self.strand.clone())
             .map(|id| id.trim().to_string())
@@ -47,19 +47,16 @@ impl ClientDefaults {
     }
 }
 
-pub fn split_send_args(
-    mut args: Vec<String>,
-    defaults: &ClientDefaults,
-) -> Result<(String, String)> {
+pub fn split(mut args: Vec<String>, defaults: &Defaults) -> Result<(String, String)> {
     match args.len() {
         2 => {
             let text = args.pop().expect("len == 2");
             let id = args.pop().expect("len == 2");
-            Ok((defaults.resolve_strand(Some(id))?, text))
+            Ok((defaults.strand(Some(id))?, text))
         }
         1 => {
             let text = args.pop().expect("len == 1");
-            Ok((defaults.resolve_strand(None)?, text))
+            Ok((defaults.strand(None)?, text))
         }
         _ => anyhow::bail!("send takes `<id> <text>` or `<text>`"),
     }
@@ -79,8 +76,9 @@ pub fn declaration(command: &Command) -> Result<Declaration> {
     let stated = match command {
         Command::Inference(Inference::Soul(Scope::Set(edit)))
         | Command::Inference(Inference::Strand(Scope::Set(edit))) => edit.declaration(),
-        Command::Strand(StrandCommand::Create(delta))
-        | Command::Strand(StrandCommand::Fork { delta, .. }) => delta.declaration(),
+        Command::Strand(Strand::Create(delta)) | Command::Strand(Strand::Fork { delta, .. }) => {
+            delta.declaration()
+        }
         _ => return Ok(Declaration::default()),
     };
     for key in ["SANTI_INFERENCE_PROVIDER", "SANTI_INFERENCE_MODEL"] {

@@ -71,12 +71,12 @@ pub mod provider {
             let effective = Effective {
                 selection: Selection::Scenario(scenario.into()),
                 model: metadata.model,
-                reasoning_effort: None,
+                effort: None,
                 source: Source {
                     route: None,
                     selection: Selection::Scenario(Origin::Service),
                     model: Origin::Default,
-                    reasoning_effort: None,
+                    effort: None,
                 },
             };
             Self {
@@ -90,7 +90,7 @@ pub mod provider {
         fn resolve(&self, layers: &[(&Declaration, Origin)]) -> Result<Effective, String> {
             let mut selected = self.effective.clone();
             for (declaration, origin) in layers {
-                if declaration.reasoning_effort.is_some() {
+                if declaration.effort.is_some() {
                     return Err("fixed provider cannot honor reasoning effort declarations".into());
                 }
                 if let Some(path) = &declaration.scenario {

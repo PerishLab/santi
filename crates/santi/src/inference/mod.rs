@@ -14,19 +14,24 @@ pub use selection::Selection;
 pub struct Declaration {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub scenario: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub reasoning_effort: Option<String>,
+    #[cascade(name = "reasoning_effort")]
+    #[serde(
+        default,
+        rename = "reasoning_effort",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub effort: Option<String>,
 }
 
 impl Declaration {
     pub fn empty(&self) -> bool {
-        self.scenario.is_none() && self.reasoning_effort.is_none()
+        self.scenario.is_none() && self.effort.is_none()
     }
 
     pub fn partial(&self) -> DeclarationPartial {
         DeclarationPartial {
             scenario: self.scenario.clone().map(Some),
-            reasoning_effort: self.reasoning_effort.clone().map(Some),
+            effort: self.effort.clone().map(Some),
         }
     }
 
@@ -39,7 +44,7 @@ impl Declaration {
             return Err("inference scenario requires provider/family/scene with one to three lowercase scene words joined by dots".into());
         }
         if self
-            .reasoning_effort
+            .effort
             .as_deref()
             .is_some_and(|value| value.trim().is_empty())
         {
@@ -61,24 +66,25 @@ pub struct Patch {
     pub scenario: Option<Option<String>>,
     #[serde(
         default,
+        rename = "reasoning_effort",
         skip_serializing_if = "Option::is_none",
         deserialize_with = "nullable"
     )]
-    pub reasoning_effort: Option<Option<String>>,
+    pub effort: Option<Option<String>>,
 }
 
 impl Patch {
     pub fn apply(&self, base: &Declaration) -> Declaration {
         base.clone().merge(DeclarationPartial {
             scenario: self.scenario.clone(),
-            reasoning_effort: self.reasoning_effort.clone(),
+            effort: self.effort.clone(),
         })
     }
 
     pub fn touches(&self, field: &str) -> bool {
         match field {
             "scenario" => self.scenario.is_some(),
-            "reasoning_effort" => self.reasoning_effort.is_some(),
+            "reasoning_effort" => self.effort.is_some(),
             _ => false,
         }
     }
@@ -114,8 +120,8 @@ pub struct Source {
     #[schema(inline)]
     pub selection: Selection<Origin>,
     pub model: Origin,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub reasoning_effort: Option<Origin>,
+    #[serde(rename = "reasoning_effort", skip_serializing_if = "Option::is_none")]
+    pub effort: Option<Origin>,
 }
 
 mod route;
@@ -123,7 +129,7 @@ pub use route::{Label, Route};
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Defaults {
     pub model: String,
-    pub reasoning_effort: Option<String>,
+    pub effort: Option<String>,
 }
 
 pub trait Directory {
@@ -138,8 +144,8 @@ pub struct Effective {
     #[schema(inline)]
     pub selection: Selection<String>,
     pub model: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub reasoning_effort: Option<String>,
+    #[serde(rename = "reasoning_effort", skip_serializing_if = "Option::is_none")]
+    pub effort: Option<String>,
     pub source: Source,
 }
 
@@ -162,11 +168,11 @@ impl Effective {
         if defaults.model.trim().is_empty() {
             return Err(format!("scenario {scenario} resolved to an empty model"));
         }
-        let reasoning_effort = merged.reasoning_effort.or(defaults.reasoning_effort);
+        let effort = merged.effort.or(defaults.effort);
         Ok(Self {
             selection: Selection::Scenario(scenario),
             model: defaults.model,
-            reasoning_effort: reasoning_effort.clone(),
+            effort: effort.clone(),
             source: Source {
                 route: None,
                 selection: Selection::Scenario(
@@ -174,10 +180,8 @@ impl Effective {
                         .unwrap_or(Origin::Default),
                 ),
                 model: Origin::Default,
-                reasoning_effort: origin(layers, |declaration| {
-                    declaration.reasoning_effort.is_some()
-                })
-                .or_else(|| reasoning_effort.map(|_| Origin::Default)),
+                effort: origin(layers, |declaration| declaration.effort.is_some())
+                    .or_else(|| effort.map(|_| Origin::Default)),
             },
         })
     }

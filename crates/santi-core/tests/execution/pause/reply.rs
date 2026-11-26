@@ -104,11 +104,11 @@ pub(super) async fn spoken(replies: usize, tail: Option<&'static str>) -> Spoken
         ("msg_recent", "recent".into()),
     ] {
         store
-            .place(santi_estate::MessageDraft {
+            .place(santi_estate::Message {
                 tag,
                 strand: &strand.id,
                 actor: message::Role::System,
-                actor_id: santi_core::SYSTEM,
+                sender: santi_core::SYSTEM,
                 kind: message::Kind::Text,
                 content: &message::Content::text(text),
                 state: message::State::Fixed,

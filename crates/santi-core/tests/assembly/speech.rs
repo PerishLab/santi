@@ -11,7 +11,7 @@ async fn untagged() {
     .expect("open");
     store.seed("soul_test", FIRST).await.expect("seed");
     store
-        .create_strand(StrandDraft {
+        .weave(Strand {
             tag: "strand_test",
             soul: "soul_test",
             label: None,
@@ -41,11 +41,11 @@ async fn untagged() {
         ),
     ] {
         store
-            .place(MessageDraft {
+            .place(Message {
                 tag,
                 strand: "strand_test",
                 actor,
-                actor_id: "soul_test",
+                sender: "soul_test",
                 kind: message::Kind::Text,
                 content: &message::Content::text(text),
                 state: message::State::Fixed,
@@ -56,17 +56,15 @@ async fn untagged() {
             .expect("message");
     }
 
-    let input = provider_input(&store, "strand_test")
-        .await
-        .expect("assembly");
+    let input = assemble(&store, "strand_test").await.expect("assembly");
     assert_eq!(input.len(), 3);
-    assert_message(
+    check(
         &input[0],
         "user",
         "[message message_inbound]\n[message msg_quoted]\nrun",
     );
-    assert_message(&input[1], "assistant", "hello");
-    assert_message(&input[2], "assistant", "see [message msg_cited]\nlater");
+    check(&input[1], "assistant", "hello");
+    check(&input[2], "assistant", "see [message msg_cited]\nlater");
     assert_eq!(
         store
             .message("message_headed")

@@ -42,8 +42,8 @@ async fn pinned() {
     let store = Store::open(&config.database).await.unwrap();
     let content = message::Content::text("hold this turn open");
     store
-        .accept_inbox(
-            santi_core::InboxDraft {
+        .accept(
+            santi_core::Arrival {
                 tag: &santi_core::tag("inbox"),
                 strand: &strand.id,
                 kind: message::Kind::Text,
@@ -75,7 +75,7 @@ async fn pinned() {
     *resolver.current.lock().unwrap() = effective("b", "b-model", "high");
     let patch = Patch {
         scenario: Some(Some("gateway/family/b".into())),
-        reasoning_effort: Some(Some("high".into())),
+        effort: Some(Some("high".into())),
     };
     store
         .declare(Target::Strand, &strand.id, &patch, &santi_core::now())

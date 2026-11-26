@@ -74,7 +74,7 @@ async fn takeover() {
         2
     );
     world.complete().await;
-    world.store.end_strand("strand_test").await.unwrap();
+    world.store.retire("strand_test").await.unwrap();
     assert!(world.store.window("inbox_test").await.unwrap().is_none());
 }
 
@@ -98,7 +98,7 @@ async fn interrupted() {
     assert_eq!(unknown.state, State::Unknown);
     assert!(world.store.dispatch("inbox_test").await.unwrap().is_none());
     world.complete().await;
-    assert!(world.store.end_strand("strand_test").await.is_err());
+    assert!(world.store.retire("strand_test").await.is_err());
     assert!(
         world
             .store
@@ -165,7 +165,7 @@ async fn interrupted() {
         .await
         .unwrap();
     assert!(world.store.dispatch("inbox_test").await.unwrap().is_none());
-    world.store.end_strand("strand_test").await.unwrap();
+    world.store.retire("strand_test").await.unwrap();
 }
 
 #[tokio::test]
@@ -230,7 +230,7 @@ async fn editing() {
     world.settle("runtime:1", "accepted").await;
     world
         .store
-        .advance_receipt(santi_estate::ReceiptDraft {
+        .advance(santi_estate::Receipt {
             inbox: "inbox_test",
             state: santi_model::receipt::State::Recovered,
             turn: None,

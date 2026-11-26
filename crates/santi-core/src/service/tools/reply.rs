@@ -11,7 +11,7 @@ pub(super) async fn rejected(
     let error = curbed(error, limit);
     service
         .store
-        .create_reply(santi_estate::ReplyDraft {
+        .replying(santi_estate::Reply {
             tag: &crate::tag("result"),
             call: &call.call,
             output: None,
@@ -39,7 +39,7 @@ pub(super) async fn expired(
         .store
         .uncertain(
             effect,
-            santi_estate::ReplyDraft {
+            santi_estate::Reply {
                 tag: &crate::tag("result"),
                 call,
                 output: None,

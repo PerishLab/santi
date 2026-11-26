@@ -6,7 +6,7 @@ use std::{
 };
 
 use futures_util::StreamExt;
-use santi_provider::openai::{Config, OpenAI};
+use santi_provider::openai::{Config, Openai};
 use santi_provider::{Event, Function, Item, Provider, Request, Tool};
 use serde_json::Value;
 
@@ -46,7 +46,7 @@ pub(crate) async fn posted(mut config: Config) -> Value {
         "additionalProperties": false
     });
 
-    let provider = OpenAI::new(config);
+    let provider = Openai::new(config);
     let mut stream = provider
         .stream(Request {
             strand: None,
@@ -95,7 +95,7 @@ pub(crate) async fn bare(mut config: Config) -> Value {
             .expect("write response");
     });
 
-    let provider = OpenAI::new(config);
+    let provider = Openai::new(config);
     let mut stream = provider
         .stream(Request {
             strand: None,
@@ -151,7 +151,7 @@ pub(crate) async fn replayed() -> Value {
             .expect("write response");
     });
 
-    let provider = OpenAI::new(config);
+    let provider = Openai::new(config);
     let mut stream = provider
         .stream(Request {
             strand: None,
@@ -220,7 +220,7 @@ pub(crate) async fn captured(lines: Vec<&'static str>) -> Vec<Event> {
             .expect("write response");
     });
 
-    let provider = OpenAI::new(config);
+    let provider = Openai::new(config);
     let mut stream = provider
         .stream(Request {
             strand: None,

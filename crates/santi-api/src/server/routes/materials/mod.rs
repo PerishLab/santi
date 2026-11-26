@@ -1,4 +1,4 @@
-use super::ApiError;
+use super::Problem;
 use axum::{
     Json,
     extract::{Path, Query, State},
@@ -14,12 +14,9 @@ pub(in crate::server) mod strand;
 pub(super) async fn catalog(
     State(service): State<Service>,
     Query(mut query): Query<material::Query>,
-) -> Result<Json<material::View>, ApiError> {
+) -> Result<Json<material::View>, Problem> {
     query.available = true;
-    service
-        .catalog(query)
-        .map(Json)
-        .map_err(ApiError::from_service)
+    service.catalog(query).map(Json).map_err(Problem::service)
 }
 
 #[cfg(test)]

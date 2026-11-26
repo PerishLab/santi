@@ -9,7 +9,7 @@ impl Directory for Resolved {
     fn defaults(&self, _: &str) -> Result<Defaults, String> {
         Ok(Defaults {
             model: self.model().into(),
-            reasoning_effort: self.effort().map(str::to_owned),
+            effort: self.effort().map(str::to_owned),
         })
     }
 }
@@ -33,7 +33,7 @@ impl Catalog<'_> {
                 identity: Some(name),
                 ..
             }
-            | crate::config::Profile::ChatCompletions {
+            | crate::config::Profile::Completions {
                 identity: Some(name),
                 ..
             } => name.clone(),
@@ -42,9 +42,9 @@ impl Catalog<'_> {
         let key = profile.seal();
         let profile = profile.resolve(&identity, model)?;
         let endpoint = match &profile {
-            Resolved::ChatCompletions(p) => &p.base_url,
-            Resolved::OpenAiResponses(p) => &p.base_url,
-            Resolved::Gemini(p) => &p.base_url,
+            Resolved::Completions(p) => &p.endpoint,
+            Resolved::Responses(p) => &p.endpoint,
+            Resolved::Gemini(p) => &p.endpoint,
         };
         if profile.kind() != route.protocol || endpoint != &route.endpoint {
             return Err("access endpoint or protocol does not match operator custody".into());
@@ -139,7 +139,7 @@ impl Catalog<'_> {
         let (identity, transport, stamp) = self.transport(&route, model)?;
         route.identity = identity;
         route.policy = stamp;
-        if let Resolved::ChatCompletions(chat) = &transport {
+        if let Resolved::Completions(chat) = &transport {
             route.replay = chat.replay == Replay::History;
             route.thinking.clone_from(&chat.thinking);
         }

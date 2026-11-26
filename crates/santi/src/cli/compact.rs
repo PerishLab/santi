@@ -15,7 +15,7 @@ fn slot(value: &str) -> Result<String, String> {
 }
 
 #[derive(Subcommand)]
-pub enum CompactCommand {
+pub enum Compact {
     #[command(
         about = "POST /api/v1/strands/{id}/compact — collapse a range into a summary. With no range, collapses everything settled since the last occupied slot and keeps the most recent message live. Strand from --strand/SANTI_STRAND_ID; soul from --soul/SANTI_SOUL_ID"
     )]
@@ -33,17 +33,14 @@ pub enum CompactCommand {
         )]
         last: Option<String>,
         #[arg(help = "The summary text. Mutually exclusive with --summary-file")]
-        #[arg(
-            long,
-            conflicts_with = "summary_file",
-            required_unless_present = "summary_file"
-        )]
+        #[arg(long, conflicts_with = "file", required_unless_present = "file")]
         summary: Option<String>,
         #[arg(
             help = "Read the summary from a file (or `-` for stdin) instead of --summary",
-            long
+            long = "summary-file",
+            value_name = "SUMMARY_FILE"
         )]
-        summary_file: Option<String>,
+        file: Option<String>,
         #[arg(
             help = "Compact ids of occupied slots to absorb into this one. Repeat the flag, or pass one comma-separated list; spaces and a wrapping pair of brackets are ignored. Two or more merge them, one rewrites its summary in place. The set must be contiguous",
             long,
@@ -76,17 +73,14 @@ pub enum CompactCommand {
         #[arg(help = "Last message seq of the range", long, conflicts_with = "last")]
         to: Option<i64>,
         #[arg(help = "The summary text. Mutually exclusive with --summary-file")]
-        #[arg(
-            long,
-            conflicts_with = "summary_file",
-            required_unless_present = "summary_file"
-        )]
+        #[arg(long, conflicts_with = "file", required_unless_present = "file")]
         summary: Option<String>,
         #[arg(
             help = "Read the summary from a file (or `-` for stdin) instead of --summary",
-            long
+            long = "summary-file",
+            value_name = "SUMMARY_FILE"
         )]
-        summary_file: Option<String>,
+        file: Option<String>,
         #[arg(
             help = "Who/what authored this capsule decision",
             long,
@@ -115,9 +109,9 @@ pub enum CompactCommand {
         compact: String,
         #[arg(long)]
         keyword: Option<String>,
-        #[arg(long, default_value_t = 0)]
-        page_index: i64,
-        #[arg(long, default_value_t = 50)]
-        page_size: i64,
+        #[arg(long = "page-index", value_name = "PAGE_INDEX", default_value_t = 0)]
+        index: i64,
+        #[arg(long = "page-size", value_name = "PAGE_SIZE", default_value_t = 50)]
+        size: i64,
     },
 }

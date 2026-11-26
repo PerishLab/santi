@@ -1,4 +1,4 @@
-use super::super::{ClientDefaults, Http, TIMEOUT};
+use super::super::{Defaults, Http, TIMEOUT};
 use anyhow::{Context, Result};
 use serde_json::{Value, json};
 use std::time::Duration;
@@ -6,18 +6,18 @@ use std::time::Duration;
 pub(in crate::client) struct Reply<'a> {
     pub http: &'a Http<'a>,
     pub base: &'a str,
-    pub defaults: &'a ClientDefaults,
+    pub defaults: &'a Defaults,
 }
 
 impl Reply<'_> {
     pub(in crate::client) async fn run(&self, args: crate::cli::reply::Reply) -> Result<()> {
-        let inbox = super::super::http::urlencoding_encode(&args.inbox);
+        let inbox = super::super::http::encode(&args.inbox);
         let url = format!("{}/api/v1/receipts/{inbox}/reply", self.base);
         let Some(text) = args.text else {
             return self.http.get(&url).await;
         };
         let operation = args.operation.context("reply requires operation")?;
-        let strand = self.defaults.resolve_strand(None)?;
+        let strand = self.defaults.strand(None)?;
         let body = json!({"strand":strand,"operation":operation,"text":text});
         let response = self
             .http
@@ -36,7 +36,7 @@ impl Reply<'_> {
             }
         };
         if !response.status().is_success() {
-            return super::super::http::print_json(response).await;
+            return super::super::http::print(response).await;
         }
         let mut status: Value = response
             .json()
@@ -77,7 +77,7 @@ impl Reply<'_> {
                 }
             };
             if !response.status().is_success() {
-                return super::super::http::print_json(response).await;
+                return super::super::http::print(response).await;
             }
             status = response.json().await.map_err(|error| {
                 super::super::transport(&error);

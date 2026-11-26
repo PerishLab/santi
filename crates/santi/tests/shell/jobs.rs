@@ -4,7 +4,7 @@ mod server;
 use std::collections::HashMap;
 use std::io::Cursor;
 
-use santi::cli::ClientDefaults;
+use santi::cli::Defaults;
 use santi::client::tui::{Request, session};
 use serde_json::{Value, json};
 
@@ -43,7 +43,7 @@ fn routes() -> HashMap<String, Value> {
 }
 
 async fn exercise(server: &server::Server, input: &str) -> String {
-    let defaults = ClientDefaults {
+    let defaults = Defaults {
         operator: None,
         soul: Some("soul_one".into()),
         strand: Some("ss_one".into()),

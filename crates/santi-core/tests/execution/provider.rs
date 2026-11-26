@@ -1,7 +1,7 @@
 use super::*;
 
 #[derive(Clone, Default)]
-pub(super) struct BudgetedProvider {
+pub(super) struct Budgeted {
     pub(super) requests: Arc<Mutex<Vec<Request>>>,
     pub(super) rounds: usize,
     pub(super) command: Option<String>,
@@ -13,7 +13,7 @@ pub(super) struct BudgetedProvider {
 }
 
 #[async_trait]
-impl Provider for BudgetedProvider {
+impl Provider for Budgeted {
     fn metadata(&self) -> Metadata {
         Metadata {
             provider: Arc::from("output-provider"),

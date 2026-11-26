@@ -12,7 +12,7 @@ async fn retains() {
     .expect("bootstrap");
     store.seed("soul_test", FIRST).await.expect("seed");
     store
-        .create_strand(StrandDraft {
+        .weave(Strand {
             tag: "strand_test",
             soul: "soul_test",
             label: None,
@@ -24,7 +24,7 @@ async fn retains() {
         .await
         .expect("strand");
     store
-        .create_turn(TurnDraft {
+        .start(Turn {
             tag: "turn_test",
             strand: "strand_test",
             trigger: turn::Trigger::System,
@@ -42,7 +42,7 @@ async fn retains() {
         ),
     ] {
         store
-            .create_call(CallDraft {
+            .calling(Call {
                 tag: call,
                 turn: "turn_test",
                 tool: "shell",
@@ -52,7 +52,7 @@ async fn retains() {
             .await
             .expect("call");
         store
-            .create_reply(ReplyDraft {
+            .replying(Reply {
                 tag: result,
                 call,
                 output: error
@@ -66,9 +66,7 @@ async fn retains() {
     }
     drop(store);
     let store = Store::open(&database).await.expect("reopen");
-    let input = provider_input(&store, "strand_test")
-        .await
-        .expect("assembly");
+    let input = assemble(&store, "strand_test").await.expect("assembly");
     let outputs = input
         .iter()
         .filter_map(|item| match item {

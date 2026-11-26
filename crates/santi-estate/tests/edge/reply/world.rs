@@ -13,7 +13,7 @@ impl World {
             .unwrap();
         store.seed("soul_test", FIRST).await.unwrap();
         store
-            .create_strand(StrandDraft {
+            .weave(Strand {
                 tag: "strand_test",
                 soul: "soul_test",
                 label: None,
@@ -25,7 +25,7 @@ impl World {
             .await
             .unwrap();
         store
-            .subscribe(WebhookDraft {
+            .subscribe(Webhook {
                 name: "feishu",
                 adaptor: "feishu",
                 soul: "soul_test",
@@ -44,7 +44,7 @@ impl World {
     ) -> Result<santi_estate::Accepted, String> {
         self.store
             .windowed(
-                InboxDraft {
+                Arrival {
                     tag: inbox,
                     strand: "strand_test",
                     kind: message::Kind::Text,
@@ -53,7 +53,7 @@ impl World {
                     created: FIRST,
                 },
                 Acceptance {
-                    replay: ReplayDraft::Webhook {
+                    replay: Replay::Webhook {
                         subscription: "feishu",
                         delivery: "event_one",
                         digest,
@@ -107,7 +107,7 @@ impl World {
     }
     pub(super) async fn complete(&self) {
         self.store
-            .drain_turn(DrainDraft {
+            .drain(Drain {
                 turn: "turn_test",
                 strand: "strand_test",
                 trigger: turn::Trigger::System,
@@ -116,9 +116,6 @@ impl World {
             })
             .await
             .unwrap();
-        self.store
-            .complete_turn("turn_test", 2, LATER)
-            .await
-            .unwrap();
+        self.store.complete("turn_test", 2, LATER).await.unwrap();
     }
 }

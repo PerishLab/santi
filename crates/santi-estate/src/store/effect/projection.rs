@@ -47,10 +47,7 @@ impl Store {
         Ok(effects)
     }
 
-    pub(crate) async fn effects_for_receipt(
-        &self,
-        inbox: &str,
-    ) -> Result<Vec<effect::Effect>, String> {
+    pub(crate) async fn receipted(&self, inbox: &str) -> Result<Vec<effect::Effect>, String> {
         let Some(receipt) = read::one(&self.core, "InboxReceipt", "tag", inbox).await? else {
             return Ok(Vec::new());
         };
@@ -98,8 +95,8 @@ async fn decode(
     core: &keel::Core<keel::adapt::db::Sqlite>,
     row: &keel::Row,
 ) -> Result<effect::Effect, String> {
-    let turn_key = read::int(row, "turn")?;
-    let turn = read::one(core, "Turn", "id", &turn_key.to_string())
+    let key = read::int(row, "turn")?;
+    let turn = read::one(core, "Turn", "id", &key.to_string())
         .await?
         .ok_or_else(|| "effect turn missing".to_string())?;
     let call = match row.int("call") {
@@ -112,7 +109,7 @@ async fn decode(
         turn: read::text(&turn, "tag")?.to_string(),
         call,
         kind: read::text(row, "effect_type")?.to_string(),
-        state: super::write::decode_state(read::text(row, "state")?)?,
+        state: super::write::decode(read::text(row, "state")?)?,
         result: row.text("result").map(str::to_string),
         error: row.text("error").map(str::to_string),
         created: read::text(row, "created")?.to_string(),

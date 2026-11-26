@@ -1,7 +1,6 @@
 #[test]
 fn surface() {
-    let value: serde_json::Value =
-        serde_json::from_str(&santi_api::export_openapi_json().unwrap()).unwrap();
+    let value: serde_json::Value = serde_json::from_str(&santi_api::openapi().unwrap()).unwrap();
     assert!(value["paths"]["/api/v1/souls/{soul}/wake"].is_null());
     assert!(value["paths"]["/api/v1/alarms"]["post"].is_object());
     assert!(value["paths"]["/api/v1/alarms/{alarm}/fire"]["post"].is_object());

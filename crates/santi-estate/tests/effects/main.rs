@@ -1,8 +1,6 @@
 mod timeout;
 
-use santi_estate::{
-    CallDraft, EffectDraft, InboxDraft, RedemptionDraft, Store, StrandDraft, TurnDraft,
-};
+use santi_estate::{Arrival, Call, Effect, Redemption, Store, Strand, Turn};
 use santi_model::{effect, message, receipt, turn};
 
 const SUDO: &str = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
@@ -16,7 +14,7 @@ async fn lifecycle() {
     let store = Store::bootstrap(&path, SUDO).await.expect("open");
     store.seed("soul_test", FIRST).await.expect("seed");
     let strand = store
-        .create_strand(StrandDraft {
+        .weave(Strand {
             tag: "strand_test",
             soul: "soul_test",
             label: None,
@@ -28,8 +26,8 @@ async fn lifecycle() {
         .await
         .expect("strand");
     let inbox = store
-        .accept_inbox(
-            InboxDraft {
+        .accept(
+            Arrival {
                 tag: "inbox_test",
                 strand: &strand.id,
                 kind: message::Kind::Text,
@@ -42,17 +40,17 @@ async fn lifecycle() {
         .await
         .expect("inbox");
     let turn = store
-        .create_turn(TurnDraft {
+        .start(Turn {
             tag: "turn_test",
             strand: &strand.id,
-            trigger: turn::Trigger::StrandSend,
+            trigger: turn::Trigger::Send,
             from: 0,
             created: FIRST,
         })
         .await
         .expect("turn");
     store
-        .advance_receipt(santi_estate::ReceiptDraft {
+        .advance(santi_estate::Receipt {
             inbox: &inbox.id,
             state: receipt::State::Driving,
             turn: Some(&turn.id),
@@ -62,7 +60,7 @@ async fn lifecycle() {
         .await
         .expect("receipt");
     let call = store
-        .create_call(CallDraft {
+        .calling(Call {
             tag: "call_test",
             turn: &turn.id,
             tool: "shell",
@@ -71,8 +69,8 @@ async fn lifecycle() {
         })
         .await
         .expect("call");
-    let redeemed_call = store
-        .create_call(CallDraft {
+    let redeemable = store
+        .calling(Call {
             tag: "call_redeemed",
             turn: &turn.id,
             tool: "shell",
@@ -82,10 +80,10 @@ async fn lifecycle() {
         .await
         .expect("redeemed call");
     let redeemed = store
-        .prepare_effect(EffectDraft {
+        .stage(Effect {
             tag: "effect_redeemed",
             turn: &turn.id,
-            call: Some(&redeemed_call.id),
+            call: Some(&redeemable.id),
             kind: "shell",
             metadata: None,
             created: FIRST,
@@ -94,11 +92,11 @@ async fn lifecycle() {
         .expect("redeemed effect");
     assert!(
         store
-            .redeem_effect(
+            .redeem(
                 &redeemed.id,
-                RedemptionDraft {
+                Redemption {
                     result: "result_early",
-                    call: &redeemed_call.id,
+                    call: &redeemable.id,
                     output: Some(&serde_json::json!({"stdout": "done"})),
                     error: None,
                     outcome: effect::Outcome::Applied,
@@ -110,15 +108,15 @@ async fn lifecycle() {
     );
     assert!(store.reply("result_early").await.expect("early").is_none());
     store
-        .dispatch_effect(&redeemed.id, LATER)
+        .dispatching(&redeemed.id, LATER)
         .await
         .expect("dispatch redeemed");
     let reply = store
-        .redeem_effect(
+        .redeem(
             &redeemed.id,
-            RedemptionDraft {
+            Redemption {
                 result: "result_redeemed",
-                call: &redeemed_call.id,
+                call: &redeemable.id,
                 output: Some(&serde_json::json!({"stdout": "done"})),
                 error: None,
                 outcome: effect::Outcome::Applied,
@@ -139,7 +137,7 @@ async fn lifecycle() {
         effect::State::Settled(effect::Outcome::Applied)
     );
     let prepared = store
-        .prepare_effect(EffectDraft {
+        .stage(Effect {
             tag: "effect_test",
             turn: &turn.id,
             call: Some(&call.id),
@@ -170,14 +168,14 @@ async fn lifecycle() {
     );
 
     let rejected = store
-        .redeem_effect(
+        .redeem(
             &prepared.id,
-            RedemptionDraft {
+            Redemption {
                 result: "result_rejected",
                 call: &call.id,
                 output: None,
                 error: Some("dispatch rejected"),
-                outcome: effect::Outcome::NotApplied,
+                outcome: effect::Outcome::Unapplied,
                 occurred: LATER,
             },
         )
@@ -191,11 +189,11 @@ async fn lifecycle() {
         .expect("status");
     assert_eq!(
         settled.effect.state,
-        effect::State::Settled(effect::Outcome::NotApplied)
+        effect::State::Settled(effect::Outcome::Unapplied)
     );
 
     store
-        .prepare_effect(EffectDraft {
+        .stage(Effect {
             tag: "effect_prepared",
             turn: &turn.id,
             call: None,
@@ -206,7 +204,7 @@ async fn lifecycle() {
         .await
         .expect("second");
     store
-        .prepare_effect(EffectDraft {
+        .stage(Effect {
             tag: "effect_dispatching",
             turn: &turn.id,
             call: None,
@@ -217,13 +215,10 @@ async fn lifecycle() {
         .await
         .expect("third");
     store
-        .dispatch_effect("effect_dispatching", LATER)
+        .dispatching("effect_dispatching", LATER)
         .await
         .expect("dispatch third");
-    store
-        .reconcile_effects(&turn.id, LATER)
-        .await
-        .expect("reconcile");
+    store.reconcile(&turn.id, LATER).await.expect("reconcile");
     assert_eq!(
         store
             .effect("effect_prepared")
@@ -232,7 +227,7 @@ async fn lifecycle() {
             .expect("status")
             .effect
             .state,
-        effect::State::Settled(effect::Outcome::NotApplied)
+        effect::State::Settled(effect::Outcome::Unapplied)
     );
     assert_eq!(
         store
@@ -246,19 +241,14 @@ async fn lifecycle() {
     );
     assert!(
         store
-            .settle_effect(
-                "effect_dispatching",
-                effect::Outcome::NotApplied,
-                " ",
-                LATER
-            )
+            .settle("effect_dispatching", effect::Outcome::Unapplied, " ", LATER)
             .await
             .is_err()
     );
     let settled = store
-        .settle_effect(
+        .settle(
             "effect_dispatching",
-            effect::Outcome::NotApplied,
+            effect::Outcome::Unapplied,
             "operator checked",
             LATER,
         )
@@ -267,11 +257,11 @@ async fn lifecycle() {
         .expect("status");
     assert_eq!(
         settled.effect.state,
-        effect::State::Settled(effect::Outcome::NotApplied)
+        effect::State::Settled(effect::Outcome::Unapplied)
     );
     assert!(
         store
-            .settle_effect(
+            .settle(
                 "effect_dispatching",
                 effect::Outcome::Applied,
                 "second guess",

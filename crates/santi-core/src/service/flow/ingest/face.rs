@@ -8,7 +8,7 @@ impl Service {
         let text = request.text();
         if text.trim().is_empty() {
             return Err(erred(
-                catalog::INVALID_ARGUMENT,
+                catalog::INVALID,
                 strand,
                 "send content must contain text".to_string(),
             ));
@@ -18,7 +18,7 @@ impl Service {
             .strand(strand)
             .await
             .map_err(|message| erred(catalog::INTERNAL, strand, message))?
-            .ok_or_else(|| erred(catalog::NOT_FOUND, strand, "strand not found".to_string()))?;
+            .ok_or_else(|| erred(catalog::MISSING, strand, "strand not found".to_string()))?;
 
         let outcome = self
             .enqueue(
@@ -29,7 +29,7 @@ impl Service {
                     },
                     kind: message::Kind::Text,
                     trigger: "strand_send",
-                    source: Some(ingest::Source::new("strand_send").with_ref(strand.id.clone())),
+                    source: Some(ingest::Source::new("strand_send").reference(strand.id.clone())),
                     reply: None,
                     replay: None,
                 },
@@ -55,7 +55,7 @@ impl Service {
             .map_err(|message| Box::new(erred(catalog::INTERNAL, strand, message)))?
             .ok_or_else(|| {
                 Box::new(erred(
-                    catalog::NOT_FOUND,
+                    catalog::MISSING,
                     strand,
                     "strand not found".to_string(),
                 ))

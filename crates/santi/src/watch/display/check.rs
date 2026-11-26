@@ -30,7 +30,7 @@ fn transitions() {
         ("turn", activity("t1", "generating")),
     ];
     assert_eq!(
-        shown(Presentation::Watch(WatchFormat::Filtered), &frames),
+        shown(Presentation::Watch(Format::Filtered), &frames),
         "turn t1: requesting\nturn t1: thinking\nturn t1: calling\nturn t1: running\nturn t1: requesting\nturn t1: thinking\nturn t1: generating\n"
     );
 }
@@ -58,7 +58,7 @@ fn milestones() {
         ),
     ];
     assert_eq!(
-        shown(Presentation::Watch(WatchFormat::Filtered), &frames),
+        shown(Presentation::Watch(Format::Filtered), &frames),
         "turn t1: thinking\nthinking started r1 (t1)\ntool call shell (c1)\nassistant completed t1: OK\nturn completed t1\n"
     );
 }
@@ -71,7 +71,7 @@ fn identity() {
         ("turn", activity("t1", "thinking")),
     ];
     assert_eq!(
-        shown(Presentation::Watch(WatchFormat::Filtered), &frames),
+        shown(Presentation::Watch(Format::Filtered), &frames),
         "turn t1: thinking\nturn t2: thinking\nturn t1: thinking\n"
     );
 }
@@ -89,7 +89,7 @@ fn reset() {
             frame,
             ("turn", activity("t1", "thinking")),
         ];
-        let output = shown(Presentation::Watch(WatchFormat::Filtered), &frames);
+        let output = shown(Presentation::Watch(Format::Filtered), &frames);
         assert_eq!(output.matches("turn t1: thinking\n").count(), 2);
         assert_eq!(output.lines().count(), 3);
     }
@@ -103,7 +103,7 @@ fn unknown() {
         r#"{"payload":{"beat":"active","activity":{"turn":"t1"}}}"#.into(),
     ] {
         let frames = [("turn", data.clone()), ("turn", data)];
-        let output = shown(Presentation::Watch(WatchFormat::Filtered), &frames);
+        let output = shown(Presentation::Watch(Format::Filtered), &frames);
         assert_eq!(output.lines().count(), 2);
     }
 }
@@ -120,7 +120,7 @@ fn malformed() {
             ("turn", activity("t1", "thinking")),
         ];
         assert_eq!(
-            shown(Presentation::Watch(WatchFormat::Filtered), &frames),
+            shown(Presentation::Watch(Format::Filtered), &frames),
             "turn t1: thinking\nturn t1: thinking\n"
         );
     }
@@ -131,7 +131,7 @@ fn raw() {
     let data = activity("t1", "thinking");
     let frames = [("turn", data.clone()), ("turn", data.clone())];
     assert_eq!(
-        shown(Presentation::Watch(WatchFormat::Raw), &frames),
+        shown(Presentation::Watch(Format::Raw), &frames),
         format!("{data}\n{data}\n")
     );
     assert_eq!(
@@ -154,11 +154,8 @@ fn interruption() {
                 .to_string();
         assert_eq!(Kind::of("turn", "failed", &data), expected);
         assert!(
-            shown(
-                Presentation::Watch(WatchFormat::Filtered),
-                &[("turn", data)]
-            )
-            .contains("turn failed turn_current")
+            shown(Presentation::Watch(Format::Filtered), &[("turn", data)])
+                .contains("turn failed turn_current")
         );
     }
 }

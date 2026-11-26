@@ -1,4 +1,4 @@
-use santi_estate::{EffectDraft, InboxDraft, InterruptionDraft, Store, StrandDraft, TurnDraft};
+use santi_estate::{Abort, Arrival, Effect, Store, Strand, Turn};
 use santi_model::{effect, message, receipt, turn};
 
 const FIRST: &str = "2026-07-28T00:00:00.000Z";
@@ -6,7 +6,7 @@ const LATER: &str = "2026-07-28T00:01:00.000Z";
 const LAST: &str = "2026-07-28T00:02:00.000Z";
 
 #[tokio::test]
-async fn terminal_ceremonies() {
+async fn ceremonies() {
     let temp = tempfile::tempdir().expect("temp");
     let path = temp.path().join("estate.sqlite");
     let store = super::support::bootstrap(&path).await;
@@ -14,11 +14,11 @@ async fn terminal_ceremonies() {
 
     running(&store, "interrupt").await;
     store
-        .request_stop("turn_interrupt", turn::Cause::Operator, FIRST)
+        .halt("turn_interrupt", turn::Cause::Operator, FIRST)
         .await
         .expect("request stop");
     let interrupted = store
-        .interrupt_turn(InterruptionDraft {
+        .abort(Abort {
             turn: "turn_interrupt",
             cause: turn::Cause::Shutdown,
             actor: "santi",
@@ -40,16 +40,16 @@ async fn terminal_ceremonies() {
             .as_ref()
             .is_some_and(|notice| notice.text.contains("interrupted by operator"))
     );
-    assert_effect(
+    outcome(
         &store,
         "effect_interrupt",
-        effect::State::Settled(effect::Outcome::NotApplied),
+        effect::State::Settled(effect::Outcome::Unapplied),
     )
     .await;
-    assert_receipt(&store, "inbox_interrupt", false).await;
+    delivery(&store, "inbox_interrupt", false).await;
 
     let repeated = store
-        .interrupt_turn(InterruptionDraft {
+        .abort(Abort {
             turn: "turn_interrupt",
             cause: turn::Cause::Shutdown,
             actor: "santi",
@@ -68,7 +68,7 @@ async fn terminal_ceremonies() {
         1
     );
     store
-        .create_turn(TurnDraft {
+        .start(Turn {
             tag: "turn_completed",
             strand: "strand_interrupt",
             trigger: turn::Trigger::System,
@@ -78,11 +78,11 @@ async fn terminal_ceremonies() {
         .await
         .expect("completed turn");
     store
-        .complete_turn("turn_completed", 1, LATER)
+        .complete("turn_completed", 1, LATER)
         .await
         .expect("complete");
     let completed = store
-        .interrupt_turn(InterruptionDraft {
+        .abort(Abort {
             turn: "turn_completed",
             cause: turn::Cause::Operator,
             actor: "santi",
@@ -95,19 +95,16 @@ async fn terminal_ceremonies() {
 
     running(&store, "restart").await;
     store
-        .dispatch_effect("effect_restart", FIRST)
+        .dispatching("effect_restart", FIRST)
         .await
         .expect("dispatch");
     running(&store, "stopped").await;
     store
-        .request_stop("turn_stopped", turn::Cause::Shutdown, FIRST)
+        .halt("turn_stopped", turn::Cause::Shutdown, FIRST)
         .await
         .expect("request restart stop");
 
-    assert_eq!(
-        store.recover_turns("santi", LATER).await.expect("recover"),
-        2
-    );
+    assert_eq!(store.recover("santi", LATER).await.expect("recover"), 2);
     let restarted = store
         .turn("turn_restart")
         .await
@@ -123,8 +120,8 @@ async fn terminal_ceremonies() {
             .expect("turn")
             .accepted
     );
-    assert_effect(&store, "effect_restart", effect::State::Unknown).await;
-    assert_receipt(&store, "inbox_restart", true).await;
+    outcome(&store, "effect_restart", effect::State::Unknown).await;
+    delivery(&store, "inbox_restart", true).await;
     let incident = store
         .incident("runtime.turn.failed:strand:strand_restart")
         .await
@@ -140,7 +137,7 @@ async fn terminal_ceremonies() {
     assert_eq!(stopped.turn.status, turn::Status::Failed);
     assert_eq!(stopped.cause, Some(turn::Cause::Shutdown));
     assert_eq!(stopped.settled.as_deref(), Some(LATER));
-    assert_receipt(&store, "inbox_stopped", false).await;
+    delivery(&store, "inbox_stopped", false).await;
     assert_eq!(
         store
             .messages("strand_stopped")
@@ -149,12 +146,9 @@ async fn terminal_ceremonies() {
             .len(),
         1
     );
-    assert_eq!(store.pending_errors(10).await.expect("errors").len(), 1);
+    assert_eq!(store.unsent(10).await.expect("errors").len(), 1);
     assert_eq!(
-        store
-            .recover_turns("santi", LAST)
-            .await
-            .expect("recover twice"),
+        store.recover("santi", LAST).await.expect("recover twice"),
         0
     );
 
@@ -186,7 +180,7 @@ async fn running(store: &Store, suffix: &str) {
     let inbox = format!("inbox_{suffix}");
     let effect = format!("effect_{suffix}");
     store
-        .create_strand(StrandDraft {
+        .weave(Strand {
             tag: &strand,
             soul: "soul_test",
             label: None,
@@ -198,8 +192,8 @@ async fn running(store: &Store, suffix: &str) {
         .await
         .expect("strand");
     store
-        .accept_inbox(
-            InboxDraft {
+        .accept(
+            Arrival {
                 tag: &inbox,
                 strand: &strand,
                 kind: message::Kind::Text,
@@ -212,7 +206,7 @@ async fn running(store: &Store, suffix: &str) {
         .await
         .expect("inbox");
     store
-        .create_turn(TurnDraft {
+        .start(Turn {
             tag: &turn,
             strand: &strand,
             trigger: turn::Trigger::System,
@@ -222,7 +216,7 @@ async fn running(store: &Store, suffix: &str) {
         .await
         .expect("turn");
     store
-        .advance_receipt(santi_estate::ReceiptDraft {
+        .advance(santi_estate::Receipt {
             inbox: &inbox,
             state: receipt::State::Driving,
             turn: Some(&turn),
@@ -232,7 +226,7 @@ async fn running(store: &Store, suffix: &str) {
         .await
         .expect("drive receipt");
     store
-        .prepare_effect(EffectDraft {
+        .stage(Effect {
             tag: &effect,
             turn: &turn,
             call: None,
@@ -244,7 +238,7 @@ async fn running(store: &Store, suffix: &str) {
         .expect("effect");
 }
 
-async fn assert_effect(store: &Store, tag: &str, state: effect::State) {
+async fn outcome(store: &Store, tag: &str, state: effect::State) {
     assert_eq!(
         store
             .effect(tag)
@@ -257,7 +251,7 @@ async fn assert_effect(store: &Store, tag: &str, state: effect::State) {
     );
 }
 
-async fn assert_receipt(store: &Store, tag: &str, incident: bool) {
+async fn delivery(store: &Store, tag: &str, incident: bool) {
     let receipt = store.receipt(tag).await.expect("receipt").expect("status");
     assert_eq!(receipt.state, receipt::State::Failed);
     assert_eq!(

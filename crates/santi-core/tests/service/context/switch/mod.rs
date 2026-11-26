@@ -1,9 +1,9 @@
 use super::super::support::*;
 use santi_core::inference::{Declaration, Effective, Origin, Patch, Source};
 use santi_core::provider::Resolver;
-use santi_core::service::{self, JobLaunch, JobObservation, JobSupervisor, Service};
+use santi_core::service::{self, Service, jobs};
 use santi_core::{Store, message};
-use santi_estate::{Target, TurnDraft};
+use santi_estate::{Target, Turn};
 use tokio::sync::Notify;
 
 struct Held {
@@ -58,20 +58,20 @@ impl Resolver for Switch {
 
 struct Jobs;
 
-impl JobSupervisor for Jobs {
-    fn detach(&self, launch: &JobLaunch) -> Result<(), String> {
+impl jobs::Supervisor for Jobs {
+    fn detach(&self, launch: &jobs::Launch) -> Result<(), String> {
         let _ = launch;
         Err("jobs unavailable".to_string())
     }
-    fn observe(&self, launch: &JobLaunch) -> Result<JobObservation, String> {
+    fn observe(&self, launch: &jobs::Launch) -> Result<jobs::Observation, String> {
         let _ = launch;
-        Ok(JobObservation::Missing)
+        Ok(jobs::Observation::Missing)
     }
-    fn stop(&self, launch: &JobLaunch) -> Result<(), String> {
+    fn stop(&self, launch: &jobs::Launch) -> Result<(), String> {
         let _ = launch;
         Ok(())
     }
-    fn acknowledge(&self, launch: &JobLaunch) -> Result<(), String> {
+    fn acknowledge(&self, launch: &jobs::Launch) -> Result<(), String> {
         let _ = launch;
         Ok(())
     }
@@ -81,12 +81,12 @@ fn effective(provider: &str, model: &str, effort: &str) -> Effective {
     Effective {
         selection: santi_core::inference::Selection::Scenario(format!("fixture/model/{provider}")),
         model: model.to_string(),
-        reasoning_effort: Some(effort.to_string()),
+        effort: Some(effort.to_string()),
         source: Source {
             route: None,
             selection: santi_core::inference::Selection::Scenario(Origin::Service),
             model: Origin::Service,
-            reasoning_effort: Some(Origin::Service),
+            effort: Some(Origin::Service),
         },
     }
 }
@@ -132,7 +132,7 @@ async fn missing() {
     let store = Store::open(&config.database).await.unwrap();
     let from = store.strand(&strand.id).await.unwrap().unwrap().next;
     store
-        .create_turn(TurnDraft {
+        .start(Turn {
             tag: "turn_unknown",
             strand: &strand.id,
             trigger: santi_core::turn::Trigger::System,

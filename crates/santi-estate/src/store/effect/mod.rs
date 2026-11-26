@@ -1,4 +1,4 @@
-use super::tool::{self, CallDraft};
+use super::tool::{self, Call};
 use super::{Store, read};
 use keel::{Op, Rank, form};
 use santi_model::effect;
@@ -7,13 +7,13 @@ mod projection;
 mod types;
 mod write;
 
-pub use types::{EffectDraft, RedemptionDraft};
+pub use types::{Effect, Redemption};
 
 impl Store {
     pub async fn uncertain(
         &self,
         tag: &str,
-        draft: tool::ReplyDraft<'_>,
+        draft: tool::Reply<'_>,
     ) -> Result<santi_model::tool::Reply, String> {
         let output = draft
             .output
@@ -33,10 +33,10 @@ impl Store {
             .ok_or_else(|| "created uncertain tool result missing".to_string())
     }
 
-    pub async fn prepare_invocation(
+    pub async fn invoke(
         &self,
-        call: CallDraft<'_>,
-        effect: Option<EffectDraft<'_>>,
+        call: Call<'_>,
+        effect: Option<Effect<'_>>,
     ) -> Result<(santi_model::tool::Call, Option<effect::Effect>), String> {
         let arguments = serde_json::to_string(call.arguments).map_err(|error| error.to_string())?;
         let metadata = effect
@@ -45,11 +45,11 @@ impl Store {
             .map(serde_json::to_string)
             .transpose()
             .map_err(|error| error.to_string())?;
-        let call_tag = call.tag.to_string();
-        let effect_tag = effect.as_ref().map(|effect| effect.tag.to_string());
+        let called = call.tag.to_string();
+        let staged = effect.as_ref().map(|effect| effect.tag.to_string());
         self.core
             .batch(async |tx| {
-                tool::put_call(tx, call, &arguments).await?;
+                tool::call(tx, call, &arguments).await?;
                 if let Some(effect) = effect {
                     write::Writer::new(tx)
                         .prepare(effect, metadata.as_deref())
@@ -60,10 +60,10 @@ impl Store {
             .await
             .map_err(read::error)?;
         let call = self
-            .call(&call_tag)
+            .call(&called)
             .await?
             .ok_or_else(|| "prepared invocation call missing".to_string())?;
-        let effect = match effect_tag {
+        let effect = match staged {
             Some(tag) => Some(
                 self.effect(&tag)
                     .await?
@@ -75,7 +75,7 @@ impl Store {
         Ok((call, effect))
     }
 
-    pub async fn prepare_effect(&self, draft: EffectDraft<'_>) -> Result<effect::Effect, String> {
+    pub async fn stage(&self, draft: Effect<'_>) -> Result<effect::Effect, String> {
         let metadata = draft
             .metadata
             .map(serde_json::to_string)
@@ -99,38 +99,40 @@ impl Store {
         projection::status(self, tag).await
     }
 
-    pub async fn dispatch_effect(
-        &self,
-        tag: &str,
-        occurred: &str,
-    ) -> Result<effect::Effect, String> {
-        self.move_effect(write::Shift {
-            tag,
-            expected: &["prepared"],
-            state: effect::State::Dispatching,
-            error: None,
-            occurred,
-        })
+    pub async fn dispatching(&self, tag: &str, occurred: &str) -> Result<effect::Effect, String> {
+        shift(
+            self,
+            write::Shift {
+                tag,
+                expected: &["prepared"],
+                state: effect::State::Dispatching,
+                error: None,
+                occurred,
+            },
+        )
         .await
     }
 
-    pub async fn unknown_effect(
+    pub async fn suspect(
         &self,
         tag: &str,
         evidence: &str,
         occurred: &str,
     ) -> Result<effect::Effect, String> {
-        self.move_effect(write::Shift {
-            tag,
-            expected: &["dispatching"],
-            state: effect::State::Unknown,
-            error: Some(evidence),
-            occurred,
-        })
+        shift(
+            self,
+            write::Shift {
+                tag,
+                expected: &["dispatching"],
+                state: effect::State::Unknown,
+                error: Some(evidence),
+                occurred,
+            },
+        )
         .await
     }
 
-    pub async fn settle_effect(
+    pub async fn settle(
         &self,
         tag: &str,
         outcome: effect::Outcome,
@@ -143,21 +145,24 @@ impl Store {
         if self.effect(tag).await?.is_none() {
             return Ok(None);
         }
-        self.move_effect(write::Shift {
-            tag,
-            expected: &["unknown"],
-            state: effect::State::Settled(outcome),
-            error: None,
-            occurred,
-        })
+        shift(
+            self,
+            write::Shift {
+                tag,
+                expected: &["unknown"],
+                state: effect::State::Settled(outcome),
+                error: None,
+                occurred,
+            },
+        )
         .await?;
         self.effect(tag).await
     }
 
-    pub async fn redeem_effect(
+    pub async fn redeem(
         &self,
         tag: &str,
-        draft: RedemptionDraft<'_>,
+        draft: Redemption<'_>,
     ) -> Result<santi_model::tool::Reply, String> {
         let output = draft
             .output
@@ -178,27 +183,29 @@ impl Store {
             .ok_or_else(|| "created effect tool result missing".to_string())
     }
 
-    pub async fn reconcile_effects(&self, turn: &str, occurred: &str) -> Result<(), String> {
+    pub async fn reconcile(&self, turn: &str, occurred: &str) -> Result<(), String> {
         self.core
-            .batch(async |tx| reconcile_in(tx, turn, occurred).await)
+            .batch(async |tx| reconcile(tx, turn, occurred).await)
             .await
             .map_err(read::error)
     }
-
-    async fn move_effect(&self, draft: write::Shift<'_>) -> Result<effect::Effect, String> {
-        let tag = draft.tag;
-        self.core
-            .batch(async |tx| write::Writer::new(tx).shift(draft).await.map(|_| ()))
-            .await
-            .map_err(read::error)?;
-        self.effect(tag)
-            .await?
-            .map(|status| status.effect)
-            .ok_or_else(|| "shifted effect missing".to_string())
-    }
 }
 
-pub(in crate::store) async fn reconcile_in(
+async fn shift(store: &Store, draft: write::Shift<'_>) -> Result<effect::Effect, String> {
+    let tag = draft.tag;
+    store
+        .core
+        .batch(async |tx| write::Writer::new(tx).shift(draft).await.map(|_| ()))
+        .await
+        .map_err(read::error)?;
+    store
+        .effect(tag)
+        .await?
+        .map(|status| status.effect)
+        .ok_or_else(|| "shifted effect missing".to_string())
+}
+
+pub(in crate::store) async fn reconcile(
     tx: &mut keel::Tx<'_, keel::adapt::db::Sqlite>,
     turn: &str,
     occurred: &str,
@@ -216,12 +223,12 @@ pub(in crate::store) async fn reconcile_in(
         let tag = effect
             .text("tag")
             .ok_or_else(|| keel::adapt::Error::Adapt("effect tag missing".into()))?;
-        reconcile(tx, tag, effect.text("state"), occurred).await?;
+        apply(tx, tag, effect.text("state"), occurred).await?;
     }
     Ok(())
 }
 
-async fn reconcile(
+async fn apply(
     tx: &mut keel::Tx<'_, keel::adapt::db::Sqlite>,
     tag: &str,
     state: Option<&str>,
@@ -233,7 +240,7 @@ async fn reconcile(
                 .shift(write::Shift {
                     tag,
                     expected: &["prepared"],
-                    state: effect::State::Settled(effect::Outcome::NotApplied),
+                    state: effect::State::Settled(effect::Outcome::Unapplied),
                     error: None,
                     occurred,
                 })

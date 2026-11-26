@@ -6,7 +6,7 @@ async fn opens() {
     let store = Store::bootstrap(&path, SUDO).await.expect("open");
     store.seed("soul_test", FIRST).await.expect("seed");
     let strand = store
-        .create_strand(StrandDraft {
+        .weave(Strand {
             tag: "strand_test",
             soul: "soul_test",
             label: None,
@@ -18,8 +18,8 @@ async fn opens() {
         .await
         .expect("strand");
     store
-        .accept_inbox(
-            InboxDraft {
+        .accept(
+            Arrival {
                 tag: "inbox_text",
                 strand: &strand.id,
                 kind: message::Kind::Text,
@@ -33,8 +33,8 @@ async fn opens() {
         .expect("text");
     let source = ingest::Source::new("job");
     store
-        .offer_notice(
-            NoticeDraft {
+        .notice(
+            Notice {
                 tag: "inbox_notice_one",
                 strand: &strand.id,
                 key: "attention_one",
@@ -50,8 +50,8 @@ async fn opens() {
         .await
         .expect("notice one");
     store
-        .offer_notice(
-            NoticeDraft {
+        .notice(
+            Notice {
                 tag: "inbox_notice_two",
                 strand: &strand.id,
                 key: "attention_two",
@@ -68,7 +68,7 @@ async fn opens() {
         .expect("notice two");
 
     let opened = store
-        .drain_turn(DrainDraft {
+        .drain(Drain {
             turn: "turn_one",
             strand: &strand.id,
             trigger: turn::Trigger::System,
@@ -103,8 +103,8 @@ async fn opens() {
     }
 
     store
-        .offer_notice(
-            NoticeDraft {
+        .notice(
+            Notice {
                 tag: "inbox_notice_next",
                 strand: &strand.id,
                 key: "attention_one",
@@ -120,7 +120,7 @@ async fn opens() {
         .await
         .expect("next notice");
     let running = store
-        .drain_turn(DrainDraft {
+        .drain(Drain {
             turn: "turn_ignored",
             strand: &strand.id,
             trigger: turn::Trigger::System,
@@ -136,7 +136,7 @@ async fn opens() {
     assert_eq!(store.inboxes(&strand.id).await.expect("held").len(), 1);
 
     store
-        .complete_turn("turn_one", 2, LATER)
+        .complete("turn_one", 2, LATER)
         .await
         .expect("complete");
     assert_eq!(
@@ -150,7 +150,7 @@ async fn opens() {
     );
     assert!(
         store
-            .drain_turn(DrainDraft {
+            .drain(Drain {
                 turn: "turn_one",
                 strand: &strand.id,
                 trigger: turn::Trigger::System,
@@ -164,7 +164,7 @@ async fn opens() {
     assert_eq!(store.messages(&strand.id).await.expect("rollback").len(), 2);
 
     let opened = store
-        .drain_turn(DrainDraft {
+        .drain(Drain {
             turn: "turn_two",
             strand: &strand.id,
             trigger: turn::Trigger::System,
@@ -175,7 +175,7 @@ async fn opens() {
         .expect("second drain");
     assert!(matches!(opened, Opening::Started(_)));
     let call = store
-        .create_call(CallDraft {
+        .calling(Call {
             tag: "call_interrupted",
             turn: "turn_two",
             tool: "shell",
@@ -185,7 +185,7 @@ async fn opens() {
         .await
         .expect("call");
     let effect = store
-        .prepare_effect(EffectDraft {
+        .stage(Effect {
             tag: "effect_interrupted",
             turn: "turn_two",
             call: Some(&call.id),
@@ -196,11 +196,11 @@ async fn opens() {
         .await
         .expect("effect");
     store
-        .dispatch_effect(&effect.id, LATER)
+        .dispatching(&effect.id, LATER)
         .await
         .expect("dispatch");
     store
-        .fail_turn("turn_two", "interrupted", LATER)
+        .fail("turn_two", "interrupted", LATER)
         .await
         .expect("fail second");
     assert_eq!(
@@ -214,7 +214,7 @@ async fn opens() {
         effect::State::Unknown
     );
     let idle = store
-        .drain_turn(DrainDraft {
+        .drain(Drain {
             turn: "turn_three",
             strand: &strand.id,
             trigger: turn::Trigger::System,

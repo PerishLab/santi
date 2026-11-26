@@ -1,6 +1,4 @@
-pub(super) use santi_estate::{
-    CallDraft, DrainDraft, EffectDraft, InboxDraft, NoticeDraft, Opening, Store, StrandDraft,
-};
+pub(super) use santi_estate::{Arrival, Call, Drain, Effect, Notice, Opening, Store, Strand};
 pub(super) use santi_model::{effect, ingest, message, receipt, turn};
 
 pub(super) const SUDO: &str = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
@@ -10,7 +8,7 @@ pub(super) const LATER: &str = "2026-07-28T00:01:00.000Z";
 pub(super) async fn active(store: &Store) {
     store.seed("soul_test", FIRST).await.unwrap();
     store
-        .create_strand(StrandDraft {
+        .weave(Strand {
             tag: "strand_test",
             soul: "soul_test",
             label: None,
@@ -22,7 +20,7 @@ pub(super) async fn active(store: &Store) {
         .await
         .unwrap();
     store
-        .create_turn(santi_estate::TurnDraft {
+        .start(santi_estate::Turn {
             tag: "turn_test",
             strand: "strand_test",
             trigger: turn::Trigger::System,
@@ -35,8 +33,8 @@ pub(super) async fn active(store: &Store) {
 
 pub(super) async fn queued(store: &Store, tag: &str) {
     store
-        .accept_inbox(
-            InboxDraft {
+        .accept(
+            Arrival {
                 tag,
                 strand: "strand_test",
                 kind: message::Kind::Text,
@@ -52,8 +50,8 @@ pub(super) async fn queued(store: &Store, tag: &str) {
 
 pub(super) async fn notice(store: &Store, revision: i64) {
     store
-        .offer_notice(
-            NoticeDraft {
+        .notice(
+            Notice {
                 tag: "notice_test",
                 strand: "strand_test",
                 key: "notice",

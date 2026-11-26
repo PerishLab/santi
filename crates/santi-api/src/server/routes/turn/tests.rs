@@ -2,13 +2,13 @@ use axum::Json;
 use axum::extract::{Path, State};
 use axum::http::StatusCode;
 use santi_core::{inference, message, thinking, turn};
-use santi_estate::{DrainDraft, InboxDraft, Opening, StrandDraft, ThinkingDraft};
+use santi_estate::{Arrival, Drain, Opening, Strand, Thinking};
 
 use super::show;
 use super::support::{ok, open, strand, turn};
 
 #[tokio::test]
-async fn turn_row() {
+async fn row() {
     let temp = tempfile::tempdir().expect("temp");
     let (store, service) = open(&temp).await;
     let strand = strand(&store).await;
@@ -43,7 +43,7 @@ async fn turn_row() {
 }
 
 #[tokio::test]
-async fn turn_ops() {
+async fn operations() {
     let temp = tempfile::tempdir().expect("temp");
     let (store, service) = open(&temp).await;
     let strand = strand(&store).await;
@@ -52,7 +52,7 @@ async fn turn_ops() {
 
     let done = turn(&store, &strand, "turn_done").await;
     store
-        .create_thinking(ThinkingDraft {
+        .ponder(Thinking {
             tag: "thinking_done",
             turn: &done.id,
             response: Some("finished text"),
@@ -72,13 +72,13 @@ async fn turn_ops() {
         .expect("round");
     let finished = santi_core::now();
     store
-        .complete_turn(&done.id, 7, &finished)
+        .complete(&done.id, 7, &finished)
         .await
         .expect("complete");
 
     let failed = turn(&store, &strand, "turn_failed").await;
     store
-        .create_thinking(ThinkingDraft {
+        .ponder(Thinking {
             tag: "thinking_failed",
             turn: &failed.id,
             response: Some("partial text"),
@@ -97,7 +97,7 @@ async fn turn_ops() {
         .await
         .expect("round");
     store
-        .fail_turn(&failed.id, "provider failed", &santi_core::now())
+        .fail(&failed.id, "provider failed", &santi_core::now())
         .await
         .expect("fail");
 
@@ -140,7 +140,7 @@ async fn turn_ops() {
     assert_eq!(finish.incomplete.as_deref(), Some("length"));
 
     let fixture = store
-        .create_strand(StrandDraft {
+        .weave(Strand {
             tag: "ss_turn_inference",
             soul: santi_core::GENESIS,
             label: None,
@@ -154,8 +154,8 @@ async fn turn_ops() {
         .id;
     let content = message::Content::text("inference fixture");
     store
-        .accept_inbox(
-            InboxDraft {
+        .accept(
+            Arrival {
                 tag: "inbox_inference",
                 strand: &fixture,
                 kind: message::Kind::Text,
@@ -170,20 +170,20 @@ async fn turn_ops() {
     let effective = inference::Effective {
         selection: inference::Selection::Scenario("fixture/model/execution".into()),
         model: "test-model".to_string(),
-        reasoning_effort: None,
+        effort: None,
         source: inference::Source {
             route: None,
             selection: inference::Selection::Scenario(inference::Origin::Strand),
             model: inference::Origin::Strand,
-            reasoning_effort: None,
+            effort: None,
         },
     };
     let Opening::Started(started) = store
         .begin(
-            DrainDraft {
+            Drain {
                 turn: "turn_inference",
                 strand: &fixture,
-                trigger: turn::Trigger::StrandSend,
+                trigger: turn::Trigger::Send,
                 actor: santi_core::SYSTEM,
                 created: &santi_core::now(),
             },
@@ -195,7 +195,7 @@ async fn turn_ops() {
         panic!("inference turn did not start");
     };
     store
-        .complete_turn(&started.turn.id, started.turn.from, &santi_core::now())
+        .complete(&started.turn.id, started.turn.from, &santi_core::now())
         .await
         .expect("complete inference turn");
 
@@ -207,13 +207,13 @@ async fn turn_ops() {
 }
 
 #[tokio::test]
-async fn turn_key() {
+async fn key() {
     let temp = tempfile::tempdir().expect("temp");
     let (store, service) = open(&temp).await;
     let strand = strand(&store).await;
     let held = turn(&store, &strand, "turn_held").await;
     store
-        .complete_turn(&held.id, 3, &santi_core::now())
+        .complete(&held.id, 3, &santi_core::now())
         .await
         .expect("complete");
 

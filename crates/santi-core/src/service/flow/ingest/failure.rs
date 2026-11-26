@@ -19,7 +19,7 @@ impl Service {
             return Ok(None);
         }
         let pending = self.store.inboxes(strand).await?.len();
-        let draft = drive_failure(
+        let draft = unstarted(
             strand,
             Drive {
                 trigger: "admission_guard",
@@ -39,12 +39,8 @@ impl Service {
             .await
             .map(|pending| pending.len())
             .unwrap_or_default();
-        self.recorded(
-            strand,
-            drive,
-            drive_failure(strand, drive, &detail, pending),
-        )
-        .await
+        self.recorded(strand, drive, unstarted(strand, drive, &detail, pending))
+            .await
     }
 
     pub(super) async fn declined(
@@ -92,12 +88,7 @@ impl Service {
     }
 }
 
-fn drive_failure(
-    strand: &str,
-    drive: Drive<'_>,
-    detail: &str,
-    pending: usize,
-) -> santi_error::Draft {
+fn unstarted(strand: &str, drive: Drive<'_>, detail: &str, pending: usize) -> santi_error::Draft {
     santi_error::Draft {
         key: crate::drive::Error::Failed
             .descriptor()
@@ -138,7 +129,7 @@ fn refused(
         "receipt {} cannot be replayed while effect {} is {}; inspect `{receipt}` and `{inspection}`; {instruction}; do not resend or repeat the command",
         refusal.inbox, refusal.effect, refusal.state,
     );
-    let mut draft = drive_failure(strand, drive, &detail, pending);
+    let mut draft = unstarted(strand, drive, &detail, pending);
     draft.context["recovery"] = serde_json::json!({
         "command": inspection,
         "receipt": receipt,

@@ -40,16 +40,13 @@ pub(super) fn transition(payload: &str) -> Result<Transition, String> {
 
 fn report(row: &Row, latest: bool) -> Result<Report, String> {
     let prefix = if latest { "latest_" } else { "" };
-    let source_component = format!("{prefix}source_component");
-    let source_operation = format!("{prefix}source_operation");
+    let component = format!("{prefix}source_component");
+    let operation = format!("{prefix}source_operation");
     let message = format!("{prefix}message");
     let context = format!("{prefix}context");
     let seen = if latest { "last_seen" } else { "first_seen" };
     Ok(Report {
-        source: Source::new(
-            read::text(row, &source_component)?,
-            read::text(row, &source_operation)?,
-        ),
+        source: Source::new(read::text(row, &component)?, read::text(row, &operation)?),
         message: read::text(row, &message)?.to_string(),
         context: serde_json::from_str(read::text(row, &context)?)
             .map_err(|error| error.to_string())?,

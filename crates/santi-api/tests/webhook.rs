@@ -2,62 +2,50 @@ use aes::cipher::{BlockEncryptMut, KeyIvInit, block_padding::Pkcs7};
 use axum::http::{HeaderMap, HeaderValue};
 use base64::Engine as _;
 use hmac::{Hmac, Mac};
-use santi_api::webhook::{
-    NormalizedEvent, WebhookAdaptor, WebhookError, WebhookOutcome, feishu::FeishuAdaptor,
-    github::GithubAdaptor,
-};
+use santi_api::webhook::{Adaptor, Error, Event, Outcome, feishu::Feishu, github::Github};
 use serde_json::json;
 use sha2::{Digest, Sha256};
 
 const SECRET: &str = "test-secret";
-const FEISHU_TOKEN: &str = "verification-token-1";
-const FEISHU_KEY: &str = "encrypt-key-1";
+const TOKEN: &str = "verification-token-1";
+const KEY: &str = "encrypt-key-1";
 
 mod github {
     use super::*;
 
     #[test]
     fn signature() {
-        let body = github_body();
+        let body = body();
         let signature = sign(SECRET, body);
-        let adaptor = GithubAdaptor::configured(None, None).addressed(Some("AdamSanti"));
+        let adaptor = Github::configured(None, None).addressed(Some("AdamSanti"));
         assert!(
             adaptor
-                .verify(
-                    &github_headers("issue_comment", Some(&signature)),
-                    body,
-                    SECRET
-                )
+                .verify(&headers("issue_comment", Some(&signature)), body, SECRET)
                 .is_ok()
         );
         assert!(matches!(
             adaptor.verify(
-                &github_headers("issue_comment", Some(&sign("wrong", body))),
+                &headers("issue_comment", Some(&sign("wrong", body))),
                 body,
                 SECRET
             ),
-            Err(WebhookError::Unauthorized(_))
+            Err(Error::Unauthorized(_))
         ));
         assert!(matches!(
-            adaptor.verify(&github_headers("issue_comment", None), body, SECRET),
-            Err(WebhookError::Unauthorized(_))
+            adaptor.verify(&headers("issue_comment", None), body, SECRET),
+            Err(Error::Unauthorized(_))
         ));
     }
 
     #[test]
     fn normalizes() {
-        let event = expect_event(
-            GithubAdaptor::configured(None, None)
+        let event = unwrap(
+            Github::configured(None, None)
                 .addressed(Some("AdamSanti"))
-                .normalize(
-                    &github_headers("issue_comment", None),
-                    github_body(),
-                    SECRET,
-                    "ops",
-                )
+                .normalize(&headers("issue_comment", None), body(), SECRET, "ops")
                 .expect("normalize"),
         );
-        assert!(event.in_scope);
+        assert!(event.scoped);
         assert_eq!(event.label, "github:ops:issue:PerishCode/santi#42");
         assert_eq!(event.delivery.as_deref(), Some("issuecomment-1"));
         assert!(
@@ -75,54 +63,49 @@ mod github {
 
     #[test]
     fn senders() {
-        let headers = github_headers("issue_comment", None);
-        let allowed = expect_event(
-            GithubAdaptor::configured(None, Some("SomeHuman"))
+        let headers = headers("issue_comment", None);
+        let allowed = unwrap(
+            Github::configured(None, Some("SomeHuman"))
                 .addressed(Some("AdamSanti"))
-                .normalize(&headers, github_body(), SECRET, "ops")
+                .normalize(&headers, body(), SECRET, "ops")
                 .expect("normalize"),
         );
-        assert!(allowed.in_scope);
-        let rejected = expect_event(
-            GithubAdaptor::configured(None, Some("someone-else"))
+        assert!(allowed.scoped);
+        let rejected = unwrap(
+            Github::configured(None, Some("someone-else"))
                 .addressed(Some("AdamSanti"))
-                .normalize(&headers, github_body(), SECRET, "ops")
+                .normalize(&headers, body(), SECRET, "ops")
                 .expect("normalize"),
         );
-        assert!(!rejected.in_scope);
-        let own = expect_event(
-            GithubAdaptor::configured(Some("somehuman"), None)
+        assert!(!rejected.scoped);
+        let own = unwrap(
+            Github::configured(Some("somehuman"), None)
                 .addressed(Some("AdamSanti"))
-                .normalize(&headers, github_body(), SECRET, "ops")
+                .normalize(&headers, body(), SECRET, "ops")
                 .expect("normalize"),
         );
-        assert!(own.self_authored);
+        assert!(own.authored);
     }
 
     #[test]
     fn ping() {
-        let event = expect_event(
-            GithubAdaptor::configured(None, None)
+        let event = unwrap(
+            Github::configured(None, None)
                 .addressed(Some("AdamSanti"))
-                .normalize(
-                    &github_headers("ping", None),
-                    br#"{"zen":"ok"}"#,
-                    SECRET,
-                    "ops",
-                )
+                .normalize(&headers("ping", None), br#"{"zen":"ok"}"#, SECRET, "ops")
                 .expect("normalize"),
         );
-        assert!(!event.in_scope);
+        assert!(!event.scoped);
     }
 }
 
 #[path = "webhook/feishu.rs"]
 mod feishu;
 
-fn expect_event(outcome: WebhookOutcome) -> NormalizedEvent {
+fn unwrap(outcome: Outcome) -> Event {
     match outcome {
-        WebhookOutcome::Event(event) => event,
-        WebhookOutcome::Reply(value) => panic!("expected event, got {value}"),
+        Outcome::Event(event) => event,
+        Outcome::Reply(value) => panic!("expected event, got {value}"),
     }
 }
 
@@ -132,7 +115,7 @@ fn sign(secret: &str, body: &[u8]) -> String {
     format!("sha256={}", hex::encode(mac.finalize().into_bytes()))
 }
 
-fn github_headers(event: &str, signature: Option<&str>) -> HeaderMap {
+fn headers(event: &str, signature: Option<&str>) -> HeaderMap {
     let mut headers = HeaderMap::new();
     headers.insert("x-github-event", HeaderValue::from_str(event).unwrap());
     headers.insert(
@@ -148,7 +131,7 @@ fn github_headers(event: &str, signature: Option<&str>) -> HeaderMap {
     headers
 }
 
-fn github_body() -> &'static [u8] {
+fn body() -> &'static [u8] {
     br#"{
         "action":"created",
         "repository":{"full_name":"PerishCode/santi"},
@@ -158,11 +141,11 @@ fn github_body() -> &'static [u8] {
     }"#
 }
 
-fn feishu_payload(sender_type: &str, open_id: &str, event_type: &str) -> String {
+fn payload(sender_type: &str, open_id: &str, event_type: &str) -> String {
     format!(
         r#"{{
             "schema":"2.0",
-            "header":{{"event_id":"ev_123","event_type":"{event_type}","token":"{FEISHU_TOKEN}"}},
+            "header":{{"event_id":"ev_123","event_type":"{event_type}","token":"{TOKEN}"}},
             "event":{{
                 "sender":{{"sender_type":"{sender_type}","sender_id":{{"open_id":"{open_id}","user_id":"u_1"}}}},
                 "message":{{"chat_id":"oc_chat1","chat_type":"p2p","message_id":"om_msg1","content":"top secret"}}
@@ -172,7 +155,7 @@ fn feishu_payload(sender_type: &str, open_id: &str, event_type: &str) -> String 
 }
 
 fn encrypt(plaintext: &str) -> String {
-    let key = Sha256::digest(FEISHU_KEY.as_bytes());
+    let key = Sha256::digest(KEY.as_bytes());
     let iv = [7u8; 16];
     let ciphertext = cbc::Encryptor::<aes::Aes256>::new_from_slices(&key, &iv)
         .unwrap()

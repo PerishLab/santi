@@ -27,7 +27,7 @@ async fn reopen() {
         .register(D::Access {
             name: "original".into(),
             provider: provider.id,
-            protocol: Protocol::ChatCompletions,
+            protocol: Protocol::Chat,
             endpoint: "https://fixture.invalid/v1".into(),
             credential: "custody://local".into(),
         })
@@ -92,7 +92,7 @@ async fn reopen() {
     assert!(store.begin(draft("direct"), &direct).await.is_err());
     assert!(store.turn("direct").await.unwrap().is_none());
     let legacy = store
-        .create_turn(TurnDraft {
+        .start(Turn {
             tag: "legacy",
             strand: STRAND,
             trigger: turn::Trigger::System,
@@ -156,14 +156,11 @@ async fn reopen() {
     .await
     .unwrap();
     drop(core);
-    store
-        .complete_turn("legacy", legacy.from, LATER)
-        .await
-        .unwrap();
+    store.complete("legacy", legacy.from, LATER).await.unwrap();
     let one = drain(&store, "turn_one", &old).await;
     assert_eq!(one.turn.inference.as_ref(), Some(&old));
     store
-        .complete_turn("turn_one", one.turn.from, LATER)
+        .complete("turn_one", one.turn.from, LATER)
         .await
         .expect("complete");
 
@@ -179,7 +176,7 @@ async fn reopen() {
 
     let patch = Patch {
         scenario: Some(Some("gateway/family/next".into())),
-        reasoning_effort: Some(Some("high".to_string())),
+        effort: Some(Some("high".to_string())),
     };
     store
         .declare(Target::Strand, STRAND, &patch, LATER)
@@ -201,7 +198,7 @@ async fn reopen() {
     let two = drain(&store, "turn_two", &next).await;
     assert_eq!(two.turn.inference.as_ref(), Some(&next));
     store
-        .complete_turn("turn_two", two.turn.from, LATER)
+        .complete("turn_two", two.turn.from, LATER)
         .await
         .expect("complete second");
 

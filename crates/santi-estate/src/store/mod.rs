@@ -13,27 +13,22 @@ mod timeline;
 mod tool;
 mod turn;
 
-pub use effect::{EffectDraft, RedemptionDraft};
+pub use effect::{Effect, Redemption};
 pub use inbox::{
-    Acceptance, Accepted, Begun, DownstreamDraft, DrainDraft, Inbox, InboxDraft, Intake, Intent,
-    NoticeDraft, Offer, Opening, Outcome, ReceiptDraft, Refusal, ReplayDraft, WebhookDraft,
+    Acceptance, Accepted, Arrival, Begun, Downstream, Drain, Inbox, Intake, Intent, Notice, Offer,
+    Opening, Outcome, Receipt, Refusal, Replay, Webhook,
 };
-pub use job::{
-    AttentionDraft, CapabilityDraft, Environment, ExpiredJob, JobDraft, JobRecord, Prepared,
-    TransitionDraft,
-};
-pub use support::inference::{Edit, StrandDraft, Target};
-pub use support::{Bootstrap, EnvironDraft, Status, TraceDraft};
-pub use support::{WakeLease, WakeOfferDraft};
+pub use job::{Attention, Capability, Environment, Expired, Job, Prepared, Record, Transition};
+pub use support::inference::{Edit, Strand, Target};
+pub use support::{Bootstrap, Environ, Status, Trace};
+pub use support::{Lease, Wake};
 use support::{entry, read, write};
 pub use timeline::object;
-pub use timeline::{
-    Bind, Capture, CompactDraft, ForkDraft, Limits, MessageDraft, ThinkingDraft, Unbind,
-};
-pub use tool::{CallDraft, ReplyDraft, Spent, Tally, bounded, curbed};
+pub use timeline::{Bind, Capture, Compact, Fork, Limits, Message, Thinking, Unbind};
+pub use tool::{Call, Reply, Spent, Tally, bounded, curbed};
 pub use turn::{
-    Attempt, ClassifiedFailure, ClassifiedFailureDraft, Completion, CompletionDraft, Interruption,
-    InterruptionDraft, Invocation, Maintenance, OutboxDraft, Settlement, TurnDraft,
+    Abort, Attempt, Completion, Failure, Fault, Finish, Interruption, Invocation, Maintenance,
+    Outbox, Settlement, Turn,
 };
 
 #[derive(Clone)]
@@ -72,7 +67,7 @@ impl Store {
             .ok_or_else(|| "created soul missing".to_string())
     }
 
-    pub async fn create_soul(
+    pub async fn awaken(
         &self,
         tag: &str,
         now: &str,
@@ -159,10 +154,10 @@ impl Store {
         let Some(soul) = read::one(&self.core, "Soul", "tag", soul).await? else {
             return Ok(Vec::new());
         };
-        let soul_key = soul.key().to_string();
+        let owner = soul.key().to_string();
         let rows = self
             .core
-            .ask(&keel::form("Strand").when("soul", keel::Op::Eq, &soul_key))
+            .ask(&keel::form("Strand").when("soul", keel::Op::Eq, &owner))
             .await
             .map_err(read::error)?;
         Ok(rows
@@ -172,17 +167,17 @@ impl Store {
             .collect())
     }
 
-    pub async fn strand_key(&self, soul: &str, tag: &str) -> Result<Option<String>, String> {
+    pub async fn key(&self, soul: &str, tag: &str) -> Result<Option<String>, String> {
         let Some(soul) = read::one(&self.core, "Soul", "tag", soul).await? else {
             return Ok(None);
         };
-        let soul_key = soul.key().to_string();
+        let owner = soul.key().to_string();
         let rows = self
             .core
             .ask(&keel::form("Strand").when("tag", keel::Op::Eq, tag).when(
                 "soul",
                 keel::Op::Eq,
-                &soul_key,
+                &owner,
             ))
             .await
             .map_err(read::error)?;
@@ -200,11 +195,11 @@ impl Store {
             .core
             .batch(async |tx| {
                 let soul = read::need(tx, "Soul", "tag", soul).await?;
-                let soul_key = soul.to_string();
+                let owner = soul.to_string();
                 if let Some(row) = tx
                     .one(
                         &keel::form("Strand")
-                            .when("soul", keel::Op::Eq, &soul_key)
+                            .when("soul", keel::Op::Eq, &owner)
                             .when("label", keel::Op::Eq, label),
                     )
                     .await?
@@ -221,7 +216,7 @@ impl Store {
                         ("label", label),
                         ("created", created),
                         ("updated", created),
-                        ("soul", soul_key.as_str()),
+                        ("soul", owner.as_str()),
                     ],
                 )
                 .await?;
@@ -240,17 +235,17 @@ impl Store {
         created: &str,
     ) -> Result<santi_model::strand::Strand, String> {
         match selector {
-            santi_model::strand::Selector::ById(tag) => self
+            santi_model::strand::Selector::Id(tag) => self
                 .strand(tag)
                 .await?
                 .ok_or_else(|| "strand not found".to_string()),
-            santi_model::strand::Selector::ByLabel { soul, label } => {
+            santi_model::strand::Selector::Label { soul, label } => {
                 self.labeled(soul, label, created).await
             }
         }
     }
 
-    pub async fn pending_strands(&self) -> Result<Vec<String>, String> {
+    pub async fn waiting(&self) -> Result<Vec<String>, String> {
         let rows = self
             .core
             .ask(

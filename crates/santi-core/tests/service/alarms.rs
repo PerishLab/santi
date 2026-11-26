@@ -40,7 +40,7 @@ async fn recovery() {
             constitution: None,
             environment: Default::default(),
         },
-        Arc::new(FakeProvider::default()),
+        Arc::new(Fake::default()),
     )
     .await
     .unwrap()
@@ -55,7 +55,7 @@ async fn recovery() {
         cron: "*/15 * * * *".into(),
         generation: None,
     };
-    let first = service.set_alarm(input.clone()).await.unwrap();
+    let first = service.arm(input.clone()).await.unwrap();
     assert!(!first.projection.applied);
     assert_eq!(service.alarms(&brain.soul).await.unwrap().alarms.len(), 1);
     endpoint.0.store(false, Ordering::SeqCst);
@@ -81,9 +81,9 @@ async fn recovery() {
     watcher.await.unwrap();
     let mut invalid = input;
     invalid.text = " ".into();
-    assert!(service.set_alarm(invalid).await.is_err());
+    assert!(service.arm(invalid).await.is_err());
     service
-        .end_alarm(&fixed.alarms[0].id, &brain.soul)
+        .disarm(&fixed.alarms[0].id, &brain.soul)
         .await
         .unwrap();
     assert!(service.alarms(&brain.soul).await.unwrap().alarms.is_empty());

@@ -1,10 +1,10 @@
 use std::sync::{Arc, Mutex};
 
 use axum::http::HeaderMap;
-use santi_api::{CreateJobRequest, Jobs};
+use santi_api::{Creation, Jobs};
 use santi_core::{
     job,
-    service::{self, JobLaunch, JobObservation, JobSupervisor, Service},
+    service::{self, Service, jobs},
 };
 
 use super::*;
@@ -15,25 +15,25 @@ mod query;
 mod race;
 mod recovery;
 
-struct FakeSupervisor {
+struct Fake {
     launches: Mutex<usize>,
 }
 
-impl JobSupervisor for FakeSupervisor {
-    fn detach(&self, _: &JobLaunch) -> Result<(), String> {
+impl jobs::Supervisor for Fake {
+    fn detach(&self, _: &jobs::Launch) -> Result<(), String> {
         *self.launches.lock().unwrap() += 1;
         Ok(())
     }
 
-    fn observe(&self, _: &JobLaunch) -> Result<JobObservation, String> {
-        Ok(JobObservation::Claimed)
+    fn observe(&self, _: &jobs::Launch) -> Result<jobs::Observation, String> {
+        Ok(jobs::Observation::Claimed)
     }
 
-    fn stop(&self, _: &JobLaunch) -> Result<(), String> {
+    fn stop(&self, _: &jobs::Launch) -> Result<(), String> {
         Ok(())
     }
 
-    fn acknowledge(&self, _: &JobLaunch) -> Result<(), String> {
+    fn acknowledge(&self, _: &jobs::Launch) -> Result<(), String> {
         Ok(())
     }
 }
@@ -68,10 +68,10 @@ async fn boots() {
 
 async fn exercise(cwd: Option<&str>, native: bool) {
     let temp = tempfile::tempdir().expect("temp dir");
-    let supervisor = Arc::new(FakeSupervisor {
+    let supervisor = Arc::new(Fake {
         launches: Mutex::new(0),
     });
-    let endpoint: Arc<dyn JobSupervisor> = if native {
+    let endpoint: Arc<dyn jobs::Supervisor> = if native {
         Arc::new(santi_api::jobs::Native::new(
             std::env::var("SANTI_NATIVE_TEST_EXECUTABLE")
                 .expect("explicit built santi-api executable"),
@@ -86,14 +86,14 @@ async fn exercise(cwd: Option<&str>, native: bool) {
         "x-santi-job-capability",
         capability.parse().expect("capability header"),
     );
-    let request = || CreateJobRequest {
+    let request = || Creation {
         description: "http boundary probe".to_string(),
         command: "pwd".to_string(),
         cwd: cwd.map(str::to_string),
-        timeout_seconds: Some(30),
-        output_limit_bytes: Some(4096),
-        remind_every_seconds: Some(5),
-        notify_on_terminal: None,
+        timeout: Some(30),
+        limit: Some(4096),
+        remind: Some(5),
+        notify: None,
     };
 
     for cwd in [
@@ -161,7 +161,7 @@ async fn exercise(cwd: Option<&str>, native: bool) {
                 .join(uri.trim_start_matches("strand://")),
         };
         let log = service
-            .logs(service::JobRead {
+            .logs(service::jobs::Read {
                 soul: &strand.soul,
                 id: &first.job.id,
                 stream: job::Stream::Stdout,

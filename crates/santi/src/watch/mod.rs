@@ -1,4 +1,4 @@
-use crate::cli::WatchFormat;
+use crate::cli::Format;
 use crate::client::{Proof, Target, prove, uncertain};
 use anyhow::{Context, Result};
 use bound::{SILENCE, boundary, ceiling};
@@ -20,7 +20,7 @@ pub(crate) struct Watch<'a> {
 }
 #[derive(Clone, Copy)]
 pub(crate) enum Presentation {
-    Watch(WatchFormat),
+    Watch(Format),
     Tui,
 }
 
@@ -128,7 +128,7 @@ pub(crate) async fn follow(
     loop {
         let frame = match tokio::time::timeout_at(
             limit.map_or(silence, |limit| limit.min(silence)),
-            next_sse_frame(&mut stream, &mut buffer),
+            next(&mut stream, &mut buffer),
         )
         .await
         {
@@ -167,7 +167,7 @@ pub(crate) async fn observe(watch: Watch<'_>, output: &mut impl Emit) -> Result<
     let mut buffer = Vec::new();
     let mut display = Display::new(Presentation::Tui);
     loop {
-        match next_sse_frame(&mut stream, &mut buffer).await {
+        match next(&mut stream, &mut buffer).await {
             Ok(Some((event, data))) => display.write(output, &event, &data),
             Ok(None) => {
                 display.finish(output);
@@ -204,7 +204,7 @@ async fn settle(target: Target<'_>, receipt: &str, boundary: Option<&str>) -> Re
     }
 }
 fn terminal(event: &str, data: &str) -> bool {
-    let beat = json_field(data, &["payload", "beat"]);
+    let beat = field(data, &["payload", "beat"]);
     event == "turn" && matches!(beat.as_deref(), Some("completed") | Some("failed"))
 }
 mod bound;
@@ -212,8 +212,8 @@ mod display;
 mod progress;
 mod render;
 mod sse;
-pub use sse::next_sse_frame;
-pub use sse::parse_sse_frame;
+pub use sse::next;
+pub use sse::parse;
 
 use display::Display;
 pub use render::*;
@@ -244,10 +244,10 @@ pub(crate) fn owner(data: &str) -> Option<String> {
         &["payload", "call", "turn"],
         &["payload", "activity", "turn"],
     ];
-    WHERE.iter().find_map(|path| json_field(data, path))
+    WHERE.iter().find_map(|path| field(data, path))
 }
 
-pub fn json_field(data: &str, path: &[&str]) -> Option<String> {
+pub fn field(data: &str, path: &[&str]) -> Option<String> {
     let value = serde_json::from_str::<serde_json::Value>(data).ok()?;
     let value = path.iter().try_fold(&value, |value, key| value.get(*key))?;
     value.as_str().map(str::to_string)

@@ -8,7 +8,7 @@ async fn dispatch() {
     let store = Store::bootstrap(&path, SUDO).await.unwrap();
     store.seed("soul_test", FIRST).await.unwrap();
     store
-        .create_strand(StrandDraft {
+        .weave(Strand {
             tag: "strand_test",
             soul: "soul_test",
             label: None,
@@ -21,8 +21,8 @@ async fn dispatch() {
         .unwrap();
     let content = message::Content::text("accepted Feishu input");
     store
-        .accept_inbox(
-            InboxDraft {
+        .accept(
+            Arrival {
                 tag: "inbox_test",
                 strand: "strand_test",
                 kind: message::Kind::Text,
@@ -102,10 +102,10 @@ async fn dispatch() {
     assert_eq!(observed.state, "unknown");
     assert!(observed.result.is_none());
     let Opening::Started(_) = store
-        .drain_turn(DrainDraft {
+        .drain(Drain {
             turn: "turn_fixture",
             strand: "strand_test",
-            trigger: turn::Trigger::StrandSend,
+            trigger: turn::Trigger::Send,
             actor: "santi",
             created: LATER,
         })
@@ -115,7 +115,7 @@ async fn dispatch() {
         panic!("accepted input must drain");
     };
     store
-        .finish_turn(santi_estate::CompletionDraft {
+        .finish(santi_estate::Finish {
             turn: "turn_fixture",
             reply: None,
             provider: "test",
@@ -127,7 +127,7 @@ async fn dispatch() {
         .unwrap();
     assert!(
         store
-            .end_strand("strand_test")
+            .retire("strand_test")
             .await
             .unwrap_err()
             .contains("unsettled acknowledgement")
@@ -170,7 +170,7 @@ async fn dispatch() {
         store.receipt("inbox_test").await.unwrap().unwrap().state,
         santi_model::receipt::State::Completed
     );
-    store.end_strand("strand_test").await.unwrap();
+    store.retire("strand_test").await.unwrap();
     assert!(store.acknowledgement("inbox_test").await.unwrap().is_none());
 }
 
@@ -182,7 +182,7 @@ async fn accepted() {
         .unwrap();
     store.seed("soul_test", FIRST).await.unwrap();
     store
-        .create_strand(StrandDraft {
+        .weave(Strand {
             tag: "strand_test",
             soul: "soul_test",
             label: None,
@@ -195,8 +195,8 @@ async fn accepted() {
         .unwrap();
     let content = message::Content::text("accepted Feishu input");
     store
-        .accept_inbox(
-            InboxDraft {
+        .accept(
+            Arrival {
                 tag: "inbox_test",
                 strand: "strand_test",
                 kind: message::Kind::Text,

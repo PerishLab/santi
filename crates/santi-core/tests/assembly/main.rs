@@ -1,8 +1,5 @@
-use santi_core::{Item, provider_input, provider_preview};
-use santi_estate::{
-    CallDraft, CompactDraft, ForkDraft, MessageDraft, ReplyDraft, Store, StrandDraft,
-    ThinkingDraft, TurnDraft,
-};
+use santi_core::{Item, assemble, preview};
+use santi_estate::{Call, Compact, Fork, Message, Reply, Store, Strand, Thinking, Turn};
 use santi_model::{message, thinking, turn};
 
 mod batches;
@@ -16,7 +13,7 @@ const FIRST: &str = "2026-07-28T00:00:00.000Z";
 const LATER: &str = "2026-07-28T00:01:00.000Z";
 
 #[tokio::test]
-async fn assembles_ordered_estate() {
+async fn assembles() {
     let temp = tempfile::tempdir().expect("temp");
     let store = Store::bootstrap(
         temp.path().join("estate.sqlite"),
@@ -26,7 +23,7 @@ async fn assembles_ordered_estate() {
     .expect("open");
     store.seed("soul_test", FIRST).await.expect("seed");
     store
-        .create_strand(StrandDraft {
+        .weave(Strand {
             tag: "strand_test",
             soul: "soul_test",
             label: None,
@@ -38,11 +35,11 @@ async fn assembles_ordered_estate() {
         .await
         .expect("strand");
     store
-        .place(MessageDraft {
+        .place(Message {
             tag: "message_first",
             strand: "strand_test",
             actor: message::Role::System,
-            actor_id: "santi",
+            sender: "santi",
             kind: message::Kind::Text,
             content: &message::Content::text("run"),
             state: message::State::Fixed,
@@ -52,7 +49,7 @@ async fn assembles_ordered_estate() {
         .await
         .expect("first");
     store
-        .create_turn(TurnDraft {
+        .start(Turn {
             tag: "turn_test",
             strand: "strand_test",
             trigger: turn::Trigger::System,
@@ -62,7 +59,7 @@ async fn assembles_ordered_estate() {
         .await
         .expect("turn");
     store
-        .create_thinking(ThinkingDraft {
+        .ponder(Thinking {
             tag: "thinking_test",
             turn: "turn_test",
             response: Some("response_test"),
@@ -71,15 +68,15 @@ async fn assembles_ordered_estate() {
         .await
         .expect("thinking");
     store
-        .update_thinking("thinking_test", None, Some("reasoned"), LATER)
+        .refine("thinking_test", None, Some("reasoned"), LATER)
         .await
         .expect("summarize");
     store
-        .complete_thinking("thinking_test", thinking::Reason::Called, LATER)
+        .conclude("thinking_test", thinking::Reason::Called, LATER)
         .await
         .expect("complete thinking");
     store
-        .create_call(CallDraft {
+        .calling(Call {
             tag: "call_test",
             turn: "turn_test",
             tool: "shell",
@@ -89,7 +86,7 @@ async fn assembles_ordered_estate() {
         .await
         .expect("call");
     store
-        .create_reply(ReplyDraft {
+        .replying(Reply {
             tag: "result_test",
             call: "call_test",
             output: Some(&serde_json::json!({"stdout": "done"})),
@@ -99,11 +96,11 @@ async fn assembles_ordered_estate() {
         .await
         .expect("reply");
     store
-        .place(MessageDraft {
+        .place(Message {
             tag: "message_last",
             strand: "strand_test",
             actor: message::Role::Soul,
-            actor_id: "soul_test",
+            sender: "soul_test",
             kind: message::Kind::Text,
             content: &message::Content::text("done"),
             state: message::State::Fixed,
@@ -113,11 +110,9 @@ async fn assembles_ordered_estate() {
         .await
         .expect("last");
 
-    let input = provider_input(&store, "strand_test")
-        .await
-        .expect("assembly");
+    let input = assemble(&store, "strand_test").await.expect("assembly");
     assert_eq!(input.len(), 4);
-    assert_message(&input[0], "user", "[message message_first]\nrun");
+    check(&input[0], "user", "[message message_first]\nrun");
     let Item::Call { call, name, raw } = &input[1] else {
         panic!("expected call");
     };
@@ -133,9 +128,9 @@ async fn assembles_ordered_estate() {
     assert_eq!(facts["timing"]["called_at"], LATER);
     assert_eq!(facts["timing"]["replied_at"], LATER);
     assert_eq!(facts["timing"]["call_to_result_ms"], 0);
-    assert_message(&input[3], "assistant", "done");
+    check(&input[3], "assistant", "done");
     let child = store
-        .fork(ForkDraft {
+        .fork(Fork {
             tag: "strand_child",
             parent: "strand_test",
             at: 5,
@@ -144,14 +139,14 @@ async fn assembles_ordered_estate() {
         })
         .await
         .expect("fork");
-    let inherited = provider_input(&store, &child.id).await.expect("fork input");
+    let inherited = assemble(&store, &child.id).await.expect("fork input");
     assert_eq!(inherited.len(), 4);
     let Item::Output { output: replay, .. } = &inherited[2] else {
         panic!("expected inherited output");
     };
     assert_eq!(replay, output);
-    assert_message(&inherited[0], "user", "[message message_first]\nrun");
-    assert_message(&inherited[3], "assistant", "done");
+    check(&inherited[0], "user", "[message message_first]\nrun");
+    check(&inherited[3], "assistant", "done");
     assert_eq!(
         store
             .message("message_first")
@@ -167,7 +162,7 @@ async fn assembles_ordered_estate() {
     let last = "message_last";
 
     let report = store
-        .preview_compact("compact_preview", "strand_test", first, last)
+        .preview("compact_preview", "strand_test", first, last)
         .await
         .expect("preview");
     let metadata = serde_json::json!({
@@ -181,10 +176,10 @@ async fn assembles_ordered_estate() {
         },
         "budget": { "bytes": 4000 },
     });
-    let preview = provider_preview(
+    let projected = preview(
         &store,
         "strand_test",
-        santi_core::ProviderPreview {
+        santi_core::Preview {
             report: &report,
             summary: "summary",
             metadata: &metadata,
@@ -192,7 +187,7 @@ async fn assembles_ordered_estate() {
     )
     .await
     .expect("preview assembly");
-    assert_compact(&preview);
+    compacted(&projected);
     let manual = serde_json::json!({
         "schema": "santi.compact_estimate.v1",
         "operation": "manual_compact",
@@ -200,10 +195,10 @@ async fn assembles_ordered_estate() {
         "forecast": metadata["forecast"],
         "budget": metadata["budget"],
     });
-    let plain = provider_preview(
+    let plain = preview(
         &store,
         "strand_test",
-        santi_core::ProviderPreview {
+        santi_core::Preview {
             report: &report,
             summary: "summary",
             metadata: &manual,
@@ -211,9 +206,9 @@ async fn assembles_ordered_estate() {
     )
     .await
     .expect("manual preview assembly");
-    assert_compact(&plain);
+    compacted(&plain);
     store
-        .create_compact(CompactDraft {
+        .condense(Compact {
             tag: "compact_test",
             strand: "strand_test",
             first,
@@ -225,8 +220,8 @@ async fn assembles_ordered_estate() {
         })
         .await
         .expect("compact");
-    assert_compact(
-        &provider_input(&store, "strand_test")
+    compacted(
+        &assemble(&store, "strand_test")
             .await
             .expect("compact assembly"),
     );
@@ -243,7 +238,7 @@ fn identity(item: &Item) -> &str {
         .0
 }
 
-fn assert_message(item: &Item, expected_role: &str, expected_content: &str) {
+fn check(item: &Item, expected_role: &str, expected_content: &str) {
     let Item::Message { role, content } = item else {
         panic!("expected message");
     };
@@ -251,7 +246,7 @@ fn assert_message(item: &Item, expected_role: &str, expected_content: &str) {
     assert_eq!(content, expected_content);
 }
 
-fn assert_compact(items: &[Item]) {
+fn compacted(items: &[Item]) {
     assert_eq!(items.len(), 1);
     let Item::Message { role, content } = &items[0] else {
         panic!("expected compact message");

@@ -11,7 +11,7 @@ impl Service {
     ) -> (Option<Turn>, Fault) {
         match self
             .store
-            .interrupt_turn(santi_estate::InterruptionDraft {
+            .abort(santi_estate::Abort {
                 turn,
                 cause,
                 actor: crate::SYSTEM,

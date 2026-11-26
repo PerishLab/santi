@@ -1,5 +1,5 @@
 use super::*;
-use santi_api::end_strand_handler;
+use santi_api::retire;
 
 #[tokio::test]
 async fn retirement() {
@@ -16,27 +16,27 @@ async fn retirement() {
             constitution: None,
             environment: Default::default(),
         },
-        Arc::new(DriverProvider),
+        Arc::new(Driver),
     )
     .await
     .expect("service");
     let strand = service.weave().await.expect("strand").strand.id;
     let child = service.fork(&strand).await.expect("fork").strand.id;
-    let refused = end_strand_handler(State(service.clone()), Path(strand.clone()))
+    let refused = retire(State(service.clone()), Path(strand.clone()))
         .await
         .expect_err("live fork");
     assert_eq!(refused.status(), StatusCode::CONFLICT);
     assert!(refused.message().contains(&child));
     assert_eq!(
-        end_strand_handler(State(service.clone()), Path(child.clone()))
+        retire(State(service.clone()), Path(child.clone()))
             .await
             .map_err(|e| e.message().to_string())
             .expect("end child"),
         StatusCode::NO_CONTENT
     );
     store
-        .accept_inbox(
-            InboxDraft {
+        .accept(
+            Arrival {
                 tag: "retirement_input",
                 strand: &strand,
                 kind: message::Kind::Text,
@@ -48,7 +48,7 @@ async fn retirement() {
         )
         .await
         .expect("accepted");
-    let refused = end_strand_handler(State(service.clone()), Path(strand.clone()))
+    let refused = retire(State(service.clone()), Path(strand.clone()))
         .await
         .expect_err("pending input");
     assert_eq!(refused.status(), StatusCode::CONFLICT);
@@ -59,12 +59,12 @@ async fn retirement() {
             .expect("receipt")
             .is_some()
     );
-    let missing = end_strand_handler(State(service), Path(child))
+    let missing = retire(State(service), Path(child))
         .await
         .expect_err("already ended");
     assert_eq!(missing.status(), StatusCode::NOT_FOUND);
     let document: serde_json::Value =
-        serde_json::from_str(&santi_api::export_openapi_json().expect("openapi")).expect("json");
+        serde_json::from_str(&santi_api::openapi().expect("openapi")).expect("json");
     let responses = &document["paths"]["/api/v1/strands/{strand}"]["delete"]["responses"];
     for status in ["204", "404", "409", "500"] {
         assert!(responses.get(status).is_some(), "missing response {status}");

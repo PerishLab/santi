@@ -46,7 +46,7 @@ impl Service {
             .metadata()
             .budget
             .map_or(FALLBACK, |budget| budget.bytes);
-        let allowance = self.memory_bytes;
+        let allowance = self.memory;
         let threshold = (bytes.saturating_mul(3) / 4).max(allowance.saturating_add(1));
         Policy {
             allowance,
@@ -103,7 +103,7 @@ impl Service {
             return Ok(());
         }
 
-        for pending_id in self.store.pending_strands().await? {
+        for pending_id in self.store.waiting().await? {
             if pending_id == strand {
                 continue;
             }
@@ -162,14 +162,14 @@ impl Service {
 
         let content = metaprompt(snapshot, policy);
         let source =
-            ingest::Source::new("runtime_memory_pressure").with_ref(maintenance.soul.clone());
+            ingest::Source::new("runtime_memory_pressure").reference(maintenance.soul.clone());
         let inbox = crate::tag("inbox");
         self.store
-            .accept_inbox(
-                santi_estate::InboxDraft {
+            .accept(
+                santi_estate::Arrival {
                     tag: &inbox,
                     strand: &maintenance.id,
-                    kind: message::Kind::SantiSystem,
+                    kind: message::Kind::System,
                     content: &content,
                     source: Some(&source),
                     created: &crate::now(),

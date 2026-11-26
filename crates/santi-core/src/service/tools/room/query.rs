@@ -123,7 +123,7 @@ impl Service {
         match self.queried(strand, call).await {
             Ok(output) => {
                 self.store
-                    .create_reply(santi_estate::ReplyDraft {
+                    .replying(santi_estate::Reply {
                         tag: &crate::tag("result"),
                         call: &call.call,
                         output: Some(&santi_estate::bounded(output, limit)),

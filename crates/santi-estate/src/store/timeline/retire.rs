@@ -4,7 +4,7 @@ use keel::{Op, Rank, Row, Tx, form};
 use std::collections::BTreeSet;
 
 impl Store {
-    pub async fn end_strand(&self, tag: &str) -> Result<Vec<String>, String> {
+    pub async fn retire(&self, tag: &str) -> Result<Vec<String>, String> {
         self.core
             .batch(async |tx| {
                 let key = read::need(tx, "Strand", "tag", tag).await?;

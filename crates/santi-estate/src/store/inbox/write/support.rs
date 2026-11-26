@@ -32,18 +32,18 @@ pub(super) async fn linked(
 
 pub(super) fn held(inbox: Option<&Row>) -> Result<Offer, keel::adapt::Error> {
     Ok(Offer {
-        inbox: inbox.map(inbox_tag).transpose()?,
+        inbox: inbox.map(tag).transpose()?,
         inserted: false,
     })
 }
 
-pub(super) fn inbox_tag(row: &Row) -> Result<String, keel::adapt::Error> {
+pub(super) fn tag(row: &Row) -> Result<String, keel::adapt::Error> {
     row.text("tag")
         .map(str::to_string)
         .ok_or_else(|| keel::adapt::Error::Adapt("inbox tag missing".into()))
 }
 
-pub(super) fn optional_source<'a>(
+pub(super) fn source<'a>(
     fields: &mut Vec<(&'a str, &'a str)>,
     reference: Option<&'a str>,
     metadata: Option<&'a str>,

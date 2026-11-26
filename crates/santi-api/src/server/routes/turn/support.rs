@@ -4,15 +4,15 @@ use async_trait::async_trait;
 use futures_util::stream;
 use santi_core::service::{self, Service};
 use santi_core::{Store, turn};
-use santi_estate::{StrandDraft, TurnDraft};
+use santi_estate::{Strand, Turn};
 use santi_provider::{Event, Metadata, Provider, Request, Streaming};
 
-use crate::ApiError;
+use crate::Problem;
 
-struct DriverProvider;
+struct Driver;
 
 #[async_trait]
-impl Provider for DriverProvider {
+impl Provider for Driver {
     fn metadata(&self) -> Metadata {
         Metadata {
             provider: Arc::from("test-provider"),
@@ -50,14 +50,14 @@ pub(super) async fn open(temp: &tempfile::TempDir) -> (Store, Service) {
             constitution: None,
             environment: Default::default(),
         },
-        Arc::new(DriverProvider),
+        Arc::new(Driver),
     )
     .await
     .expect("service");
     (store, service)
 }
 
-pub(super) fn ok<T>(result: Result<T, ApiError>, what: &str) -> T {
+pub(super) fn ok<T>(result: Result<T, Problem>, what: &str) -> T {
     match result {
         Ok(value) => value,
         Err(error) => panic!("{what}: {}: {}", error.code(), error.message()),
@@ -66,7 +66,7 @@ pub(super) fn ok<T>(result: Result<T, ApiError>, what: &str) -> T {
 
 pub(super) async fn strand(store: &Store) -> String {
     store
-        .create_strand(StrandDraft {
+        .weave(Strand {
             tag: "ss_turn_read",
             soul: santi_core::GENESIS,
             label: None,
@@ -82,10 +82,10 @@ pub(super) async fn strand(store: &Store) -> String {
 
 pub(super) async fn turn(store: &Store, strand: &str, tag: &str) -> turn::Turn {
     store
-        .create_turn(TurnDraft {
+        .start(Turn {
             tag,
             strand,
-            trigger: turn::Trigger::StrandSend,
+            trigger: turn::Trigger::Send,
             from: 0,
             created: &santi_core::now(),
         })

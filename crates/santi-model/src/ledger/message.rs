@@ -26,7 +26,8 @@ pub enum State {
 #[schema(as = message::Kind)]
 pub enum Kind {
     Text,
-    SantiSystem,
+    #[serde(rename = "santi_system")]
+    System,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
@@ -43,8 +44,10 @@ pub enum Part {
         text: String,
     },
     Image {
-        mime_type: String,
-        data_base64: String,
+        #[serde(rename = "mime_type")]
+        mime: String,
+        #[serde(rename = "data_base64")]
+        data: String,
     },
 }
 
@@ -74,7 +77,7 @@ pub enum Intake {
 }
 
 impl Intake {
-    pub fn is_request(self) -> bool {
+    pub fn requested(self) -> bool {
         matches!(self, Intake::Request)
     }
 }
@@ -119,7 +122,8 @@ pub struct Event {
     pub action: String,
     pub role: Role,
     pub actor: String,
-    pub base_version: i64,
+    #[serde(rename = "base_version")]
+    pub base: i64,
     pub payload: Value,
     pub created: Timestamp,
 }

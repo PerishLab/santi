@@ -4,7 +4,7 @@ use sqlx::{Connection, SqliteConnection};
 
 use super::*;
 
-async fn answer(error: ApiError) -> (StatusCode, String) {
+async fn answer(error: Problem) -> (StatusCode, String) {
     let response = error.into_response();
     let status = response.status();
     let body = to_bytes(response.into_body(), 1 << 16).await.expect("body");
@@ -17,8 +17,8 @@ async fn aside(database: &std::path::Path) -> SqliteConnection {
         .expect("second connection")
 }
 
-fn draft<'a>(tag: &'a str, created: &'a str) -> StrandDraft<'a> {
-    StrandDraft {
+fn draft<'a>(tag: &'a str, created: &'a str) -> Strand<'a> {
+    Strand {
         tag,
         soul: santi_core::GENESIS,
         label: None,
@@ -60,14 +60,14 @@ async fn taken() {
         .expect("unique index");
     let created = santi_core::now();
     store
-        .create_strand(draft("ss_first", &created))
+        .weave(draft("ss_first", &created))
         .await
         .expect("first strand");
     let error = store
-        .create_strand(draft("ss_second", &created))
+        .weave(draft("ss_second", &created))
         .await
         .expect_err("unique violation");
-    let (status, body) = answer(ApiError::from_service(error)).await;
+    let (status, body) = answer(Problem::service(error)).await;
     assert_eq!(status, StatusCode::CONFLICT);
     assert_eq!(
         shape(&body),
@@ -88,10 +88,10 @@ async fn down() {
         .expect("hold the write lock");
     let created = santi_core::now();
     let error = store
-        .create_strand(draft("ss_down", &created))
+        .weave(draft("ss_down", &created))
         .await
         .expect_err("blocked write");
-    let (status, body) = answer(ApiError::from_service(error)).await;
+    let (status, body) = answer(Problem::service(error)).await;
     assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE);
     assert_eq!(
         shape(&body),
@@ -115,7 +115,7 @@ async fn service(temp: &tempfile::TempDir, database: &std::path::Path) -> Servic
             constitution: None,
             environment: Default::default(),
         },
-        Arc::new(DriverProvider),
+        Arc::new(Driver),
     )
     .await
     .expect("open service")
@@ -140,7 +140,7 @@ async fn fault() {
             .await
             .expect("drop");
     }
-    let error = effect_status_handler(State(service), Path("effect_fault".to_string()))
+    let error = effect(State(service), Path("effect_fault".to_string()))
         .await
         .expect_err("broken store");
     let (status, body) = answer(error).await;
@@ -158,7 +158,7 @@ async fn other() {
     let (database, store) = open(&temp).await;
     drop(store);
     let service = service(&temp, &database).await;
-    let error = effect_status_handler(State(service), Path("effect_none".to_string()))
+    let error = effect(State(service), Path("effect_none".to_string()))
         .await
         .expect_err("missing effect");
     let (status, body) = answer(error).await;
@@ -201,7 +201,7 @@ mod errors {
             StatusCode::SERVICE_UNAVAILABLE
         );
         assert_eq!(
-            ApiError::forbidden("outside zone").status(),
+            Problem::forbidden("outside zone").status(),
             StatusCode::FORBIDDEN
         );
         let budget = engine().transient(santi_core::Signal {
@@ -211,7 +211,7 @@ mod errors {
             message: "over budget".to_string(),
             context: serde_json::Value::Null,
         });
-        assert_eq!(ApiError::from_santi(budget).status(), StatusCode::LOCKED);
+        assert_eq!(Problem::santi(budget).status(), StatusCode::LOCKED);
         let unavailable = engine().transient(santi_core::Signal {
             descriptor: drive::Error::Failed.descriptor(),
             source: santi_core::Source::new("test", "driver"),
@@ -220,7 +220,7 @@ mod errors {
             context: serde_json::Value::Null,
         });
         assert_eq!(
-            ApiError::from_santi(unavailable).status(),
+            Problem::santi(unavailable).status(),
             StatusCode::SERVICE_UNAVAILABLE
         );
         assert_eq!(

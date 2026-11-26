@@ -26,7 +26,7 @@ async fn settled() {
     assert_eq!(choice.range.first, "s0");
     assert_eq!(choice.range.last, "r0");
     let report = store
-        .create_compact(CompactDraft {
+        .condense(Compact {
             tag: "compact_toolonly",
             strand: "strand_test",
             first: &choice.range.first,
@@ -40,7 +40,7 @@ async fn settled() {
         .expect("commit");
     assert_eq!((report.from, report.to, report.collapsed), (2, 4, 3));
     let page = store
-        .compact_page("compact_toolonly", None, 0, 20)
+        .page("compact_toolonly", None, 0, 20)
         .await
         .expect("page")
         .expect("compact");
@@ -54,7 +54,7 @@ async fn settled() {
     writer.refuse(&named("s1", "c1"), "[compact.empty]").await;
     writer.refuse(&seated(2, 4), "[compact.unknown]").await;
     let child = store
-        .fork(santi_estate::ForkDraft {
+        .fork(santi_estate::Fork {
             tag: "strand_child",
             parent: "strand_test",
             at: report.to,
@@ -66,7 +66,7 @@ async fn settled() {
     let inherited = store.compacts(&child.id).await.expect("child compacts");
     assert_eq!(inherited.len(), 1);
     let inherited = store
-        .compact_page(&inherited[0].id, None, 0, 20)
+        .page(&inherited[0].id, None, 0, 20)
         .await
         .expect("child page")
         .expect("child compact");
@@ -118,7 +118,7 @@ async fn unanchored() {
         ("s0", "r1")
     );
     let preview = store
-        .preview_compact("cmp_toolonly", "strand_test", "s0", "r0")
+        .preview("cmp_toolonly", "strand_test", "s0", "r0")
         .await
         .expect_err("cannot cut a completed multi-call exchange at an intermediate result");
     assert!(
@@ -169,11 +169,11 @@ async fn selectors() {
     writer.call("c0", "turn_test").await;
     writer.result("r0", "c0").await;
     store
-        .place(MessageDraft {
+        .place(Message {
             tag: "m1",
             strand: "strand_test",
             actor: message::Role::Soul,
-            actor_id: "soul_test",
+            sender: "soul_test",
             kind: message::Kind::Text,
             content: &message::Content::text("aborted"),
             state: message::State::Aborted,

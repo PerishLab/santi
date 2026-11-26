@@ -1,6 +1,6 @@
 use super::super::{NOW, SUDO};
 use super::{declaration, parent};
-use santi_estate::{ForkDraft, Store, StrandDraft, Target};
+use santi_estate::{Fork, Store, Strand, Target};
 use santi_model::inference::{Declaration, Patch};
 
 #[tokio::test]
@@ -11,7 +11,7 @@ async fn fork() {
         .expect("open");
     let parent = parent(&store).await;
     let child = store
-        .fork(ForkDraft {
+        .fork(Fork {
             tag: "ss_child",
             parent: &parent.id,
             at: 0,
@@ -43,10 +43,10 @@ async fn fork() {
     );
     let explicit = Declaration {
         scenario: Some("gateway/gpt/review".into()),
-        reasoning_effort: None,
+        effort: None,
     };
     let other = store
-        .fork(ForkDraft {
+        .fork(Fork {
             tag: "ss_other",
             parent: &parent.id,
             at: 0,
@@ -57,9 +57,9 @@ async fn fork() {
         .expect("fork explicit");
     assert_eq!(other.inference, explicit);
     assert_eq!(other.soul, parent.soul);
-    assert!(other.inference.reasoning_effort.is_none());
+    assert!(other.inference.effort.is_none());
     let bare = store
-        .create_strand(StrandDraft {
+        .weave(Strand {
             tag: "ss_bare",
             soul: &parent.soul,
             label: None,
@@ -71,7 +71,7 @@ async fn fork() {
         .await
         .expect("bare parent");
     let inherited = store
-        .fork(ForkDraft {
+        .fork(Fork {
             tag: "ss_bare_child",
             parent: &bare.id,
             at: 0,

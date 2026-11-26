@@ -39,8 +39,12 @@ pub struct Edit {
         help = "Persist the provider/family/scenario path on the selected scope"
     )]
     pub scenario: Option<String>,
-    #[arg(long, help = "Persist this reasoning effort on the selected scope")]
-    pub reasoning_effort: Option<String>,
+    #[arg(
+        long = "reasoning-effort",
+        value_name = "REASONING_EFFORT",
+        help = "Persist this reasoning effort on the selected scope"
+    )]
+    pub effort: Option<String>,
     #[arg(
         long,
         value_enum,
@@ -70,14 +74,14 @@ impl Edit {
     pub fn declaration(&self) -> Declaration {
         Declaration {
             scenario: self.scenario.clone(),
-            reasoning_effort: self.reasoning_effort.clone(),
+            effort: self.effort.clone(),
         }
     }
 
     pub fn patch(&self, held: &Declaration) -> Result<Patch> {
         for (field, explicit) in [
             (Field::Scenario, self.scenario.is_some()),
-            (Field::Effort, self.reasoning_effort.is_some()),
+            (Field::Effort, self.effort.is_some()),
         ] {
             if explicit && self.clear.contains(&field) {
                 bail!(
@@ -89,17 +93,14 @@ impl Edit {
         let stated = held.overlay(&self.declaration());
         let patch = Patch {
             scenario: pick(self.clear.contains(&Field::Scenario), &stated.scenario),
-            reasoning_effort: pick(
-                self.clear.contains(&Field::Effort),
-                &stated.reasoning_effort,
-            ),
+            effort: pick(self.clear.contains(&Field::Effort), &stated.effort),
         };
         let declared = Declaration {
             scenario: patch.scenario.clone().unwrap_or_default(),
-            reasoning_effort: patch.reasoning_effort.clone().unwrap_or_default(),
+            effort: patch.effort.clone().unwrap_or_default(),
         };
         declared.validate().map_err(anyhow::Error::msg)?;
-        if patch.scenario.is_none() && patch.reasoning_effort.is_none() {
+        if patch.scenario.is_none() && patch.effort.is_none() {
             bail!("inference set requires a field value or --clear");
         }
         Ok(patch)
@@ -113,11 +114,15 @@ pub struct Delta {
         help = "Declare the provider/family/scenario path on the new strand"
     )]
     pub scenario: Option<String>,
-    #[arg(long, help = "Declare this reasoning effort on the new strand")]
-    pub reasoning_effort: Option<String>,
+    #[arg(
+        long = "reasoning-effort",
+        value_name = "REASONING_EFFORT",
+        help = "Declare this reasoning effort on the new strand"
+    )]
+    pub effort: Option<String>,
     #[arg(
         long,
-        conflicts_with_all = ["scenario", "reasoning_effort"],
+        conflicts_with_all = ["scenario", "effort"],
         help = "Declare an explicit empty delta so every field inherits from the soul"
     )]
     pub inherit: bool,
@@ -127,7 +132,7 @@ impl Delta {
     pub fn declaration(&self) -> Declaration {
         Declaration {
             scenario: self.scenario.clone(),
-            reasoning_effort: self.reasoning_effort.clone(),
+            effort: self.effort.clone(),
         }
     }
 

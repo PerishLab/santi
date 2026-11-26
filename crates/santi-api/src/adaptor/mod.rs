@@ -5,64 +5,56 @@ pub mod cron;
 pub mod feishu;
 pub mod github;
 
-use feishu::FeishuAdaptor;
-use github::GithubAdaptor;
+use feishu::Feishu;
+use github::Github;
 
 #[derive(Debug, Clone)]
-pub struct NormalizedEvent {
+pub struct Event {
     pub text: String,
     pub label: String,
     pub metadata: Option<Value>,
     pub delivery: Option<String>,
-    pub in_scope: bool,
-    pub self_authored: bool,
+    pub scoped: bool,
+    pub authored: bool,
 }
 
 #[derive(Debug, Clone)]
-pub enum WebhookOutcome {
-    Event(NormalizedEvent),
+pub enum Outcome {
+    Event(Event),
     Reply(Value),
 }
 
 #[derive(Debug)]
-pub enum WebhookError {
+pub enum Error {
     Unauthorized(String),
-    BadRequest(String),
+    Invalid(String),
     Unavailable(String),
 }
 
-pub trait WebhookAdaptor: Send + Sync {
-    fn verify(
-        &self,
-        headers: &HeaderMap,
-        raw_body: &[u8],
-        secret: &str,
-    ) -> Result<(), WebhookError>;
+pub trait Adaptor: Send + Sync {
+    fn verify(&self, headers: &HeaderMap, raw: &[u8], secret: &str) -> Result<(), Error>;
 
     fn normalize(
         &self,
         headers: &HeaderMap,
-        raw_body: &[u8],
+        raw: &[u8],
         secret: &str,
-        webhook_name: &str,
-    ) -> Result<WebhookOutcome, WebhookError>;
+        name: &str,
+    ) -> Result<Outcome, Error>;
 }
 
-pub(crate) fn adaptor_for(adaptor: &str, account: Option<&str>) -> Option<Box<dyn WebhookAdaptor>> {
+pub(crate) fn resolve(adaptor: &str, account: Option<&str>) -> Option<Box<dyn Adaptor>> {
     match adaptor {
         "github" => {
             let held = crate::runtime::held();
             Some(Box::new(
-                GithubAdaptor::configured(
-                    held.github.login.as_deref(),
-                    held.github.allow.as_deref(),
-                )
-                .addressed(account),
+                Github::configured(held.github.login.as_deref(), held.github.allow.as_deref())
+                    .addressed(account),
             ))
         }
         "feishu" => {
             let held = crate::runtime::held();
-            Some(Box::new(FeishuAdaptor::configured(
+            Some(Box::new(Feishu::configured(
                 held.feishu.secret.as_deref(),
                 held.feishu.allow.as_deref(),
             )))
@@ -71,7 +63,7 @@ pub(crate) fn adaptor_for(adaptor: &str, account: Option<&str>) -> Option<Box<dy
     }
 }
 
-fn sender_allowed(sender: &str, allow: Option<&str>) -> bool {
+fn allowed(sender: &str, allow: Option<&str>) -> bool {
     match allow.map(str::trim) {
         None | Some("") => true,
         Some(list) => list
@@ -80,7 +72,7 @@ fn sender_allowed(sender: &str, allow: Option<&str>) -> bool {
     }
 }
 
-fn string_at(value: &Value, path: &[&str]) -> Option<String> {
+fn field(value: &Value, path: &[&str]) -> Option<String> {
     let mut cursor = value;
     for key in path {
         cursor = cursor.get(key)?;

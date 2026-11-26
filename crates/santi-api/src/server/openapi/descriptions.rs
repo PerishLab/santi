@@ -1,4 +1,4 @@
-pub const COMPONENT_DESCRIPTIONS: [(&str, &str); 14] = [
+pub const COMPONENTS: [(&str, &str); 14] = [
     (
         "receipt.Acknowledgement",
         "Channel confirmation is separate from task receipt and completion. The receipt owns its dispatch intent, complete process result and any later operator resolution. It never authorizes task replay.",
@@ -53,11 +53,11 @@ pub const COMPONENT_DESCRIPTIONS: [(&str, &str); 14] = [
     ),
     (
         "message::Role",
-        "No user/account actor: santi is individual-first, not multi-tenant. All\ninbound (a CLI send, a webhook event) arrives as `System` — the sender's\nidentity is metainfo carried in the content, opaque to core, not a distinct\nactor kind. `(actor, kind)` is the full marker at the provider\nboundary (see `item`): Soul→assistant, System+Text→user\n(world-inbound), System+SantiSystem→system (runtime-meta, not user speech).",
+        "No user/account actor: santi is individual-first, not multi-tenant. All\ninbound (a CLI send, a webhook event) arrives as `System` — the sender's\nidentity is metainfo carried in the content, opaque to core, not a distinct\nactor kind. `(actor, kind)` is the full marker at the provider\nboundary (see `item`): Soul→assistant, System+Text→user\n(world-inbound), System+System→system (runtime-meta, not user speech).",
     ),
 ];
 
-pub const PROPERTY_DESCRIPTIONS: [(&str, &str, &str); 18] = [
+pub const PROPERTIES: [(&str, &str, &str); 18] = [
     (
         "receipt.Acknowledgement",
         "state",

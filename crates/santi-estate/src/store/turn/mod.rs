@@ -9,14 +9,11 @@ mod stop;
 mod terminal;
 pub use maintenance::{Attempt, Invocation, Maintenance, Settlement};
 
-pub use outbox::OutboxDraft;
+pub use outbox::Outbox;
 pub(in crate::store) use terminal::terminal;
-pub use terminal::{
-    ClassifiedFailure, ClassifiedFailureDraft, Completion, CompletionDraft, Interruption,
-    InterruptionDraft,
-};
+pub use terminal::{Abort, Completion, Failure, Fault, Finish, Interruption};
 
-pub struct TurnDraft<'a> {
+pub struct Turn<'a> {
     pub tag: &'a str,
     pub strand: &'a str,
     pub trigger: turn::Trigger,
@@ -25,7 +22,7 @@ pub struct TurnDraft<'a> {
 }
 
 impl Store {
-    pub async fn create_turn(&self, draft: TurnDraft<'_>) -> Result<turn::Turn, String> {
+    pub async fn start(&self, draft: Turn<'_>) -> Result<turn::Turn, String> {
         let tag = draft.tag.to_string();
         self.core
             .batch(async |tx| {
@@ -120,12 +117,7 @@ impl Store {
             .count())
     }
 
-    pub async fn complete_turn(
-        &self,
-        tag: &str,
-        to: i64,
-        finished: &str,
-    ) -> Result<turn::Turn, String> {
+    pub async fn complete(&self, tag: &str, to: i64, finished: &str) -> Result<turn::Turn, String> {
         self.core
             .batch(async |tx| terminal::complete(tx, tag, to, finished).await)
             .await
@@ -135,17 +127,12 @@ impl Store {
             .ok_or_else(|| "finished turn missing".to_string())
     }
 
-    pub async fn fail_turn(
-        &self,
-        tag: &str,
-        error: &str,
-        finished: &str,
-    ) -> Result<turn::Turn, String> {
+    pub async fn fail(&self, tag: &str, error: &str, finished: &str) -> Result<turn::Turn, String> {
         self.core
             .batch(async |tx| {
                 terminal::fail(
                     tx,
-                    terminal::Failure {
+                    terminal::Outcome {
                         turn: tag,
                         detail: error,
                         incident: None,
@@ -161,7 +148,7 @@ impl Store {
             .ok_or_else(|| "finished turn missing".to_string())
     }
 
-    pub async fn fail_linked(
+    pub async fn collapse(
         &self,
         tag: &str,
         error: &str,
@@ -172,7 +159,7 @@ impl Store {
             .batch(async |tx| {
                 terminal::fail(
                     tx,
-                    terminal::Failure {
+                    terminal::Outcome {
                         turn: tag,
                         detail: error,
                         incident: Some(incident),
@@ -217,12 +204,12 @@ impl Store {
         let finish = if outcome.status == turn::Status::Running {
             None
         } else {
-            self.finish(read::text(row, "tag")?).await?
+            ended(self, read::text(row, "tag")?).await?
         };
         Ok(turn::Turn {
             id: read::text(row, "tag")?.to_string(),
             strand: read::related(&self.core, "Strand", read::int(row, "strand")?).await?,
-            trigger: decode_trigger(read::text(row, "trigger")?)?,
+            trigger: decode(read::text(row, "trigger")?)?,
             from: read::int(row, "from")?,
             to: outcome.to,
             status: outcome.status,
@@ -234,36 +221,36 @@ impl Store {
             finish,
         })
     }
+}
 
-    async fn finish(&self, turn: &str) -> Result<Option<Box<turn::Finish>>, String> {
-        let turn = read::one(&self.core, "Turn", "tag", turn)
-            .await?
-            .ok_or_else(|| "turn not found".to_string())?;
-        let rows = self
-            .core
-            .ask(
-                &form("ThinkingSpan")
-                    .when("turn", Op::Eq, &turn.key().to_string())
-                    .order("created", Rank::Desc)
-                    .order("tag", Rank::Desc)
-                    .top(1),
-            )
-            .await
-            .map_err(read::error)?;
-        let Some(row) = rows.rows().first() else {
-            return Ok(None);
-        };
-        let span = self.decode_thinking(row).await?;
-        let Some(round) = span.round else {
-            return Ok(None);
-        };
-        Ok(Some(Box::new(turn::Finish {
-            span: span.id,
-            response: span.response,
-            status: round.status,
-            incomplete: round.incomplete,
-        })))
-    }
+async fn ended(store: &Store, turn: &str) -> Result<Option<Box<turn::Finish>>, String> {
+    let turn = read::one(&store.core, "Turn", "tag", turn)
+        .await?
+        .ok_or_else(|| "turn not found".to_string())?;
+    let rows = store
+        .core
+        .ask(
+            &form("ThinkingSpan")
+                .when("turn", Op::Eq, &turn.key().to_string())
+                .order("created", Rank::Desc)
+                .order("tag", Rank::Desc)
+                .top(1),
+        )
+        .await
+        .map_err(read::error)?;
+    let Some(row) = rows.rows().first() else {
+        return Ok(None);
+    };
+    let span = crate::store::timeline::thinking::decode(store, row).await?;
+    let Some(round) = span.round else {
+        return Ok(None);
+    };
+    Ok(Some(Box::new(turn::Finish {
+        span: span.id,
+        response: span.response,
+        status: round.status,
+        incomplete: round.incomplete,
+    })))
 }
 
 struct Outcome {
@@ -275,14 +262,14 @@ struct Outcome {
 
 fn trigger(trigger: &turn::Trigger) -> &'static str {
     match trigger {
-        turn::Trigger::StrandSend => "strand_send",
+        turn::Trigger::Send => "strand_send",
         turn::Trigger::System => "system",
     }
 }
 
-fn decode_trigger(value: &str) -> Result<turn::Trigger, String> {
+fn decode(value: &str) -> Result<turn::Trigger, String> {
     match value {
-        "strand_send" => Ok(turn::Trigger::StrandSend),
+        "strand_send" => Ok(turn::Trigger::Send),
         "system" => Ok(turn::Trigger::System),
         value => Err(format!("unknown turn trigger {value}")),
     }

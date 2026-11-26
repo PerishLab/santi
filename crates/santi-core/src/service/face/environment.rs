@@ -10,7 +10,7 @@ impl Service {
         self.store.environs(scope, owner.trim()).await
     }
 
-    pub async fn set_environ(
+    pub async fn export(
         &self,
         scope: environ::Scope,
         owner: &str,
@@ -20,7 +20,7 @@ impl Service {
         let name = request.name.trim();
         environment::legal(name)?;
         self.store
-            .set_environ(santi_estate::EnvironDraft {
+            .export(santi_estate::Environ {
                 scope,
                 owner,
                 name,
@@ -30,7 +30,7 @@ impl Service {
             .await
     }
 
-    pub async fn end_environ(
+    pub async fn unset(
         &self,
         scope: environ::Scope,
         owner: &str,
@@ -38,6 +38,6 @@ impl Service {
     ) -> Result<bool, String> {
         let name = name.trim();
         environment::legal(name)?;
-        self.store.end_environ(scope, owner.trim(), name).await
+        self.store.unset(scope, owner.trim(), name).await
     }
 }

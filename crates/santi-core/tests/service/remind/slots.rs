@@ -3,7 +3,7 @@ use super::{BUDGET, field};
 use santi_core::{Store, compact, message, service, strand};
 
 #[derive(Clone)]
-struct Bounded(FakeProvider);
+struct Bounded(Fake);
 
 #[async_trait]
 impl Provider for Bounded {
@@ -58,7 +58,7 @@ struct Fixture {
     service: service::Service,
     store: Store,
     strand: String,
-    provider: FakeProvider,
+    provider: Fake,
 }
 
 async fn opened() -> Fixture {
@@ -72,7 +72,7 @@ async fn opened() -> Fixture {
         constitution: None,
         environment: Default::default(),
     };
-    let provider = FakeProvider::default();
+    let provider = Fake::default();
     let service = service::Service::open(
         crate::SCENARIO,
         config.clone(),
@@ -94,11 +94,11 @@ async fn opened() -> Fixture {
 impl Fixture {
     async fn fixed(&self, tag: &str, text: &str) {
         self.store
-            .place(santi_estate::MessageDraft {
+            .place(santi_estate::Message {
                 tag,
                 strand: &self.strand,
                 actor: message::Role::System,
-                actor_id: santi_core::SYSTEM,
+                sender: santi_core::SYSTEM,
                 kind: message::Kind::Text,
                 content: &message::Content::text(text),
                 state: message::State::Fixed,
@@ -122,9 +122,9 @@ impl Fixture {
             )
             .await
             .unwrap();
-        let turn = accepted_turn(&self.service, &posted).await;
+        let turn = accepted(&self.service, &posted).await;
         Probe::new(&self.service)
-            .completed_turn(&self.strand, &turn.id)
+            .completed(&self.strand, &turn.id)
             .await;
     }
 

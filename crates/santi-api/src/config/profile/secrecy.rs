@@ -3,8 +3,8 @@ use super::Profile;
 impl Profile {
     pub(crate) fn seal(&self) -> Option<&str> {
         let (Self::Gemini { seal, .. }
-        | Self::ChatCompletions { seal, .. }
-        | Self::OpenAiResponses { seal, .. }) = self;
+        | Self::Completions { seal, .. }
+        | Self::Responses { seal, .. }) = self;
         seal.as_deref()
     }
 }

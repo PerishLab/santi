@@ -72,8 +72,8 @@ async fn probe() {
     crate::Store::open(&temp.path().join("santi.sqlite").display().to_string())
         .await
         .unwrap()
-        .accept_inbox(
-            crate::InboxDraft {
+        .accept(
+            crate::Arrival {
                 tag: &crate::tag("inbox"),
                 strand: &strand,
                 kind: crate::message::Kind::Text,

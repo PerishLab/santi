@@ -61,7 +61,7 @@ impl Provider for Script {
             let index = requests.len();
             requests.push((
                 self.effective.selection.value().clone(),
-                self.effective.reasoning_effort.clone(),
+                self.effective.effort.clone(),
                 request,
             ));
             index

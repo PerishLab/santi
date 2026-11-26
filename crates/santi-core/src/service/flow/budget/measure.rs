@@ -9,9 +9,9 @@ impl Service {
         strand: &str,
         pending: bool,
     ) -> Result<budget::Estimate, String> {
-        let mut input = crate::provider_input(&self.store, strand).await?;
+        let mut input = crate::assemble(&self.store, strand).await?;
         if pending {
-            input.extend(self.pending_input(strand).await?);
+            input.extend(self.pending(strand).await?);
         }
         let instructions = self.wording(strand).await?;
         self.measured(
@@ -37,8 +37,8 @@ impl Service {
         strand: &str,
         instructions: String,
     ) -> Result<budget::Estimate, String> {
-        let mut input = crate::provider_input(&self.store, strand).await?;
-        input.extend(self.pending_input(strand).await?);
+        let mut input = crate::assemble(&self.store, strand).await?;
+        input.extend(self.pending(strand).await?);
         self.measured(provider, input, instructions, self.offered(strand).await?)
     }
 
@@ -82,7 +82,7 @@ impl Service {
         })
     }
 
-    pub(super) async fn pending_input(&self, strand: &str) -> Result<Vec<Item>, String> {
+    pub(super) async fn pending(&self, strand: &str) -> Result<Vec<Item>, String> {
         Ok(self
             .store
             .inboxes(strand)
@@ -93,7 +93,7 @@ impl Service {
                 (!content.trim().is_empty()).then(|| Item::Message {
                     role: match inbox.kind {
                         crate::message::Kind::Text => "user",
-                        crate::message::Kind::SantiSystem => "system",
+                        crate::message::Kind::System => "system",
                     }
                     .to_string(),
                     content,

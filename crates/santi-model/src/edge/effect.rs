@@ -8,7 +8,8 @@ use crate::Timestamp;
 #[schema(as = effect::Outcome)]
 pub enum Outcome {
     Applied,
-    NotApplied,
+    #[serde(rename = "not_applied")]
+    Unapplied,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema, PartialEq, Eq)]

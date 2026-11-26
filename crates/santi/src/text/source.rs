@@ -1,6 +1,6 @@
 use anyhow::{Context, Result};
 
-fn read_text_file(path: &str, label: &str) -> Result<String> {
+fn read(path: &str, label: &str) -> Result<String> {
     if path == "-" {
         let mut buf = String::new();
         std::io::Read::read_to_string(&mut std::io::stdin(), &mut buf)
@@ -11,6 +11,6 @@ fn read_text_file(path: &str, label: &str) -> Result<String> {
     }
 }
 
-pub(crate) fn read_summary_file(path: &str) -> Result<String> {
-    read_text_file(path, "summary")
+pub(crate) fn summary(path: &str) -> Result<String> {
+    read(path, "summary")
 }

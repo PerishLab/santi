@@ -1,11 +1,11 @@
-use santi_estate::{Store, TraceDraft};
+use santi_estate::{Store, Trace};
 use santi_model::trace;
 
 const FIRST: &str = "2026-07-28T00:00:00.000Z";
 const LATER: &str = "2026-07-28T00:01:00.000Z";
 
 #[tokio::test]
-async fn trace_records() {
+async fn records() {
     let temp = tempfile::tempdir().expect("temp");
     let path = temp.path().join("estate.sqlite");
     let store = super::support::bootstrap(&path).await;
@@ -18,7 +18,7 @@ async fn trace_records() {
         value: "strand_test".to_string(),
     };
     store
-        .record_trace(TraceDraft {
+        .trace(Trace {
             tag: "trace_two",
             boot: "boot_test",
             span: 2,
@@ -31,7 +31,7 @@ async fn trace_records() {
         .await
         .expect("child");
     store
-        .record_trace(TraceDraft {
+        .trace(Trace {
             tag: "trace_one",
             boot: "boot_test",
             span: 1,
@@ -45,7 +45,7 @@ async fn trace_records() {
         .expect("root");
     assert!(
         store
-            .record_trace(TraceDraft {
+            .trace(Trace {
                 tag: "trace_invalid",
                 boot: "boot_test",
                 span: 0,

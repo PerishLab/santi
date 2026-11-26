@@ -14,7 +14,7 @@ pub(super) fn build(spec: &Spec) -> Command {
 pub(super) fn build(spec: &Spec) -> Command {
     use std::os::windows::process::CommandExt;
 
-    const CREATE_NEW_PROCESS_GROUP: u32 = 0x0000_0200;
+    const GROUPED: u32 = 0x0000_0200;
 
     let mut command = Command::new("powershell.exe");
     command
@@ -25,6 +25,6 @@ pub(super) fn build(spec: &Spec) -> Command {
             "-Command",
             &spec.command,
         ])
-        .creation_flags(CREATE_NEW_PROCESS_GROUP);
+        .creation_flags(GROUPED);
     command
 }

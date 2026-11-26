@@ -1,4 +1,4 @@
-use super::{Value, WebhookError, string_at};
+use super::{Error, Value, field};
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub(super) enum Relation {
@@ -21,13 +21,9 @@ impl Relation {
     }
 }
 
-pub(super) fn related(
-    payload: &Value,
-    event: &str,
-    recipient: &str,
-) -> Result<Relation, WebhookError> {
+pub(super) fn related(payload: &Value, event: &str, recipient: &str) -> Result<Relation, Error> {
     let action = payload["action"].as_str().unwrap_or("");
-    let changed = string_at(payload, &["assignee", "login"])
+    let changed = field(payload, &["assignee", "login"])
         .is_some_and(|login| login.eq_ignore_ascii_case(recipient));
     if event == "issues" && changed {
         match action {
@@ -46,8 +42,8 @@ pub(super) fn related(
     } else {
         "issue"
     };
-    let current = string_at(payload, &[source, "body"]);
-    let previous = string_at(payload, &["changes", "body", "from"]);
+    let current = field(payload, &[source, "body"]);
+    let previous = field(payload, &["changes", "body", "from"]);
     let mentions = [current, previous]
         .into_iter()
         .flatten()
@@ -66,7 +62,7 @@ pub(super) fn related(
             Some(assignee) => assignee["login"]
                 .as_str()
                 .is_some_and(|login| login.eq_ignore_ascii_case(recipient)),
-            None => return Err(WebhookError::BadRequest(
+            None => return Err(Error::Invalid(
                 "GitHub issue assignment data is unavailable; supply the complete event payload"
                     .into(),
             )),

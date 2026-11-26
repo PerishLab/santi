@@ -4,10 +4,7 @@ mod toolonly;
 
 use std::collections::BTreeMap;
 
-use santi_estate::{
-    CallDraft, CompactDraft, Limits, MessageDraft, ReplyDraft, Store, StrandDraft, ThinkingDraft,
-    TurnDraft,
-};
+use santi_estate::{Call, Compact, Limits, Message, Reply, Store, Strand, Thinking, Turn};
 use santi_model::{compact, message, thinking, turn};
 
 const CREATED: &str = "2026-10-22T00:00:00.000Z";
@@ -21,7 +18,7 @@ async fn opened(path: &std::path::Path) -> Store {
     let store = super::super::support::bootstrap(path).await;
     store.seed("soul_test", CREATED).await.expect("seed");
     store
-        .create_strand(StrandDraft {
+        .weave(Strand {
             tag: "strand_test",
             soul: "soul_test",
             label: None,
@@ -40,11 +37,11 @@ struct Writer<'a>(&'a Store);
 impl<'a> Writer<'a> {
     async fn fixed(&self, tag: &str, role: message::Role, actor: &str, text: &str) {
         self.0
-            .place(MessageDraft {
+            .place(Message {
                 tag,
                 strand: "strand_test",
                 actor: role,
-                actor_id: actor,
+                sender: actor,
                 kind: message::Kind::Text,
                 content: &message::Content::text(text),
                 state: message::State::Fixed,
@@ -57,7 +54,7 @@ impl<'a> Writer<'a> {
 
     async fn turn(&self, tag: &str) {
         self.0
-            .create_turn(TurnDraft {
+            .start(Turn {
                 tag,
                 strand: "strand_test",
                 trigger: turn::Trigger::System,
@@ -96,7 +93,7 @@ fn round(calls: &[&str], text: usize, continuation: Option<usize>) -> thinking::
 impl<'a> Writer<'a> {
     async fn thought(&self, tag: &str, on: &str, recorded: thinking::Round) {
         self.0
-            .create_thinking(ThinkingDraft {
+            .ponder(Thinking {
                 tag,
                 turn: on,
                 response: None,
@@ -113,7 +110,7 @@ impl<'a> Writer<'a> {
 
     async fn call(&self, tag: &str, on: &str) {
         self.0
-            .create_call(CallDraft {
+            .calling(Call {
                 tag,
                 turn: on,
                 tool: "shell",
@@ -126,7 +123,7 @@ impl<'a> Writer<'a> {
 
     async fn result(&self, tag: &str, on: &str) {
         self.0
-            .create_reply(ReplyDraft {
+            .replying(Reply {
                 tag,
                 call: on,
                 output: Some(&serde_json::json!({"stdout": "done"})),
@@ -269,12 +266,12 @@ async fn cuts() {
     );
 
     let preview = store
-        .preview_compact("compact_preview", "strand_test", "m0", "m1")
+        .preview("compact_preview", "strand_test", "m0", "m1")
         .await
         .expect_err("preview refuses");
     assert!(preview.contains("[compact.exchange]"), "{preview}");
     let direct = store
-        .create_compact(CompactDraft {
+        .condense(Compact {
             tag: "compact_direct",
             strand: "strand_test",
             first: "m1",

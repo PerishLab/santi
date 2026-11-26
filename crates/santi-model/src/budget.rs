@@ -99,12 +99,24 @@ pub struct Execution {
     pub shell: usize,
     #[serde(default = "lined")]
     pub lines: usize,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub feedback_after_calls: Option<usize>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub feedback_command: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub feedback_cwd: Option<String>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        rename = "feedback_after_calls"
+    )]
+    pub after: Option<usize>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        rename = "feedback_command"
+    )]
+    pub command: Option<String>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        rename = "feedback_cwd"
+    )]
+    pub cwd: Option<String>,
 }
 
 pub fn timeout() -> u64 {
@@ -137,27 +149,23 @@ impl Execution {
         if self.lines == 0 {
             return Err("execution budget lines must be positive".to_string());
         }
-        if self.feedback_after_calls == Some(0) {
+        if self.after == Some(0) {
             return Err("execution feedback call threshold must be positive".to_string());
         }
         if self
-            .feedback_command
+            .command
             .as_ref()
             .is_some_and(|command| command.trim().is_empty())
         {
             return Err("execution feedback command must not be empty".to_string());
         }
-        if self.feedback_command.is_some() && self.feedback_after_calls.is_none() {
+        if self.command.is_some() && self.after.is_none() {
             return Err("execution feedback command requires a call threshold".to_string());
         }
-        if self.feedback_cwd.is_some() && self.feedback_command.is_none() {
+        if self.cwd.is_some() && self.command.is_none() {
             return Err("execution feedback cwd requires a caller-owned command".to_string());
         }
-        if self
-            .feedback_cwd
-            .as_ref()
-            .is_some_and(|cwd| cwd.trim().is_empty())
-        {
+        if self.cwd.as_ref().is_some_and(|cwd| cwd.trim().is_empty()) {
             return Err("execution feedback cwd must not be empty".to_string());
         }
         Ok(())
@@ -191,21 +199,21 @@ impl santi_error::Ruled for Error {
                 category: Category::Exhausted,
                 severity: Severity::Error,
                 retry: Retry::Resolved,
-                exposure: Exposure::CALLER_AND_OPERATOR,
+                exposure: Exposure::CALLER,
             },
             Self::Execution => santi_error::Descriptor {
                 code: "runtime.execution_budget.exceeded",
                 category: Category::Exhausted,
                 severity: Severity::Error,
                 retry: Retry::Changed,
-                exposure: Exposure::CALLER_AND_OPERATOR,
+                exposure: Exposure::CALLER,
             },
             Self::Inbox => santi_error::Descriptor {
                 code: "runtime.inbox.capacity_exceeded",
                 category: Category::Exhausted,
                 severity: Severity::Error,
                 retry: Retry::Later,
-                exposure: Exposure::CALLER_AND_OPERATOR,
+                exposure: Exposure::CALLER,
             },
         }
     }

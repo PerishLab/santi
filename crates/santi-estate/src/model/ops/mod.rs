@@ -1,75 +1,65 @@
-use super::job::{Job, StrandEffect, ToolCall};
-use super::ledger::{Soul, Strand, Turn};
-use keel::atom::{int, string};
-use keel::resource;
+use keel::Graph;
+use keel::atom::Kind as Atom;
+use keel::bond::Kind as Bond;
+use keel::spec::{Only, Rule, Spec};
 
 pub(crate) mod catalog;
 pub(crate) mod error;
 
-#[resource]
-pub(crate) struct JobCapability {
-    #[field(string, unique)]
-    digest: string,
-    #[field(int, min = 1)]
-    expires: int,
-    #[field(string, opt)]
-    request_sha256: string,
-    #[field(string)]
-    created: string,
-    #[relation(Soul, many2one)]
-    soul: Soul,
-    #[relation(Strand, many2one, root)]
-    strand: Strand,
-    #[relation(Turn, many2one)]
-    turn: Turn,
-    #[relation(ToolCall, many2one)]
-    call: ToolCall,
-    #[relation(StrandEffect, many2one)]
-    effect: StrandEffect,
-    #[relation(Job, one2one, opt)]
-    consumed: Job,
+pub(super) fn plug(graph: &mut Graph) {
+    graph
+        .add(capability())
+        .add(trace())
+        .add(stream())
+        .add(outbox());
+    error::plug(graph);
 }
 
-#[resource(frozen)]
-pub(crate) struct TraceRecord {
-    #[field(string, unique)]
-    tag: string,
-    #[field(string)]
-    boot: string,
-    #[field(int, min = 1)]
-    span: int,
-    #[field(int, opt, min = 1)]
-    parent: int,
-    #[field(string)]
-    name: string,
-    #[field(string)]
-    tags: string,
-    #[field(string)]
-    opened: string,
-    #[field(string)]
-    closed: string,
+fn capability() -> Spec {
+    Spec::build("JobCapability")
+        .sole("digest", Atom::Text)
+        .field("expires", Atom::Int)
+        .rule("expires", Rule::new().min(1))
+        .optional("request_sha256", Atom::Text, Only::Free)
+        .field("created", Atom::Text)
+        .bond("soul", Bond::Many2one, "Soul", &[])
+        .root("strand", Bond::Many2one, "Strand")
+        .bond("turn", Bond::Many2one, "Turn", &[])
+        .bond("call", Bond::Many2one, "ToolCall", &[])
+        .bond("effect", Bond::Many2one, "StrandEffect", &[])
+        .free("consumed", Bond::One2one, "Job")
+        .seal()
 }
 
-#[resource]
-pub(crate) struct OutboxStream {
-    #[field(string, unique)]
-    tag: string,
+fn trace() -> Spec {
+    Spec::build("TraceRecord")
+        .sole("tag", Atom::Text)
+        .field("boot", Atom::Text)
+        .field("span", Atom::Int)
+        .rule("span", Rule::new().min(1))
+        .optional("parent", Atom::Int, Only::Free)
+        .rule("parent", Rule::new().min(1))
+        .field("name", Atom::Text)
+        .field("tags", Atom::Text)
+        .field("opened", Atom::Text)
+        .field("closed", Atom::Text)
+        .freeze()
+        .seal()
 }
 
-#[resource(frozen)]
-pub(crate) struct TurnOutbox {
-    #[field(string, unique)]
-    tag: string,
-    #[field(serial, scope = stream)]
-    sequence: int,
-    #[field(string)]
-    label: string,
-    #[field(string)]
-    payload: string,
-    #[field(string)]
-    created: string,
-    #[relation(Turn, one2one, root)]
-    turn: Turn,
-    #[relation(OutboxStream, many2one)]
-    stream: OutboxStream,
+fn stream() -> Spec {
+    Spec::build("OutboxStream").sole("tag", Atom::Text).seal()
+}
+
+fn outbox() -> Spec {
+    Spec::build("TurnOutbox")
+        .sole("tag", Atom::Text)
+        .serial("sequence", "stream")
+        .field("label", Atom::Text)
+        .field("payload", Atom::Text)
+        .field("created", Atom::Text)
+        .root("turn", Bond::One2one, "Turn")
+        .bond("stream", Bond::Many2one, "OutboxStream", &[])
+        .freeze()
+        .seal()
 }

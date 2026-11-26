@@ -25,11 +25,11 @@ pub async fn running(
     State(service): State<Service>,
     Path(soul): Path<String>,
     Query(params): Query<Params>,
-) -> Result<Json<active::Projection>, ApiError> {
+) -> Result<Json<active::Projection>, Problem> {
     service
         .running(&soul, params.exclude.as_deref())
         .await
-        .map_err(ApiError::from_service)?
+        .map_err(Problem::service)?
         .map(Json)
-        .ok_or_else(|| ApiError::not_found("soul not found"))
+        .ok_or_else(|| Problem::missing("soul not found"))
 }

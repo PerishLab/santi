@@ -3,12 +3,12 @@ use super::transfer;
 use anyhow::Result;
 
 use super::super::Http;
-use crate::cli::{ClientDefaults, Inference, Scope, Sources};
+use crate::cli::{Defaults, Inference, Scope, Sources};
 
 pub(in crate::client) async fn run(
     http: &Http<'_>,
     base: &str,
-    defaults: &ClientDefaults,
+    defaults: &Defaults,
     command: Inference,
 ) -> Result<()> {
     let route = match command {
@@ -30,12 +30,7 @@ struct Route<'a> {
     command: Scope,
 }
 
-async fn target(
-    http: &Http<'_>,
-    base: &str,
-    defaults: &ClientDefaults,
-    route: Route<'_>,
-) -> Result<()> {
+async fn target(http: &Http<'_>, base: &str, defaults: &Defaults, route: Route<'_>) -> Result<()> {
     let Route { path, command } = route;
     match command {
         Scope::Get { id } => {
@@ -55,9 +50,9 @@ async fn target(
     }
 }
 
-fn resolve(defaults: &ClientDefaults, id: Option<String>, scope: &str) -> Result<String> {
+fn resolve(defaults: &Defaults, id: Option<String>, scope: &str) -> Result<String> {
     if scope == "strands" {
-        return defaults.resolve_strand(id);
+        return defaults.strand(id);
     }
     match id.map(|id| id.trim().to_string()) {
         Some(id) if !id.is_empty() => Ok(id),
@@ -65,13 +60,8 @@ fn resolve(defaults: &ClientDefaults, id: Option<String>, scope: &str) -> Result
     }
 }
 
-async fn sources(
-    http: &Http<'_>,
-    base: &str,
-    defaults: &ClientDefaults,
-    command: Sources,
-) -> Result<()> {
-    use super::super::http::urlencoding_encode as encode;
+async fn sources(http: &Http<'_>, base: &str, defaults: &Defaults, command: Sources) -> Result<()> {
+    use super::super::http::encode;
     use anyhow::Context;
     let url = format!("{base}/api/v1/inference/sources");
     let (method, path) = match command {
