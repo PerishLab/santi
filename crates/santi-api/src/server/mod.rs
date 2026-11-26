@@ -13,13 +13,13 @@ use std::{fs, net::SocketAddr};
 
 use crate::provider;
 
-pub use effects::{ResolveEffectRequest, effect, settle};
-pub use error::ApiError;
-pub use errors::{ErrorQueryParams, errors, incident, stranded};
-pub use jobs::{CreateJobRequest, Jobs};
-pub use routes::{Environs, drive, end_strand, health, send};
+pub use effects::{Resolution, effect, settle};
+pub use error::Problem;
+pub use errors::{Window, errors, incident, stranded};
+pub use jobs::{Creation, Jobs};
+pub use routes::{Environs, drive, health, retire, send};
 
-pub fn export_openapi_json() -> Result<String, String> {
+pub fn openapi() -> Result<String, String> {
     serde_json::to_string_pretty(&openapi::document()).map_err(|error| error.to_string())
 }
 
@@ -70,13 +70,13 @@ pub async fn serve() -> Result<(), String> {
         .map_err(|error| error.to_string())?;
     println!("santi-api listening on http://{address}");
     let feedback = tokio::spawn(ingress::feedback::watch(service.clone()));
-    let result = shutdown::serve(service, listener, held.grace, wait_for_shutdown_signal()).await;
+    let result = shutdown::serve(service, listener, held.grace, shutdown()).await;
     feedback.abort();
     let _ = feedback.await;
     result
 }
 
-async fn wait_for_shutdown_signal() {
+async fn shutdown() {
     #[cfg(unix)]
     {
         use tokio::signal::unix::{SignalKind, signal};

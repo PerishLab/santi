@@ -8,9 +8,9 @@ use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     net::{TcpListener, TcpStream},
 };
-#[path = "send_watch/redirect.rs"]
+#[path = "observing/redirect.rs"]
 mod redirect;
-#[path = "send_watch/server.rs"]
+#[path = "observing/server.rs"]
 mod server;
 use server::{Scenario, invoke, spawn};
 struct Wire(TcpStream);
@@ -285,8 +285,8 @@ async fn redirect() {
     assert_eq!(replayed.load(Ordering::SeqCst), 0);
 }
 
-#[path = "send_watch/presentation.rs"]
+#[path = "observing/presentation.rs"]
 mod presentation;
 
-#[path = "send_watch/progress.rs"]
+#[path = "observing/progress.rs"]
 mod progress;

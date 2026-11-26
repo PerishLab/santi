@@ -1,116 +1,118 @@
-use super::job::ToolCall;
-use super::ledger::{Message, Strand, StrandEntry, Turn};
-use keel::atom::{int, string};
-use keel::resource;
+use keel::Graph;
+use keel::atom::Kind as Atom;
+use keel::bond::Kind as Bond;
+use keel::spec::{Only, Rule, Spec};
 
-#[resource(frozen)]
-pub(crate) struct MessageEvent {
-    #[field(string, unique)]
-    tag: string,
-    #[field(string, values = ["delete", "fix", "insert", "patch", "prepared", "remove"])]
-    action: string,
-    #[field(string, values = ["soul", "system"])]
-    actor_type: string,
-    #[field(string)]
-    actor: string,
-    #[field(int, min = 1)]
-    base_version: int,
-    #[field(string)]
-    payload: string,
-    #[field(string)]
-    created: string,
-    #[relation(Message, many2one, root)]
-    message: Message,
+pub(super) fn plug(graph: &mut Graph) {
+    graph
+        .add(event())
+        .add(result())
+        .add(output())
+        .add(failure())
+        .add(thinking())
+        .add(completion())
+        .add(failed())
+        .add(round())
+        .add(compact());
 }
 
-#[resource(frozen)]
-pub(crate) struct ToolResult {
-    #[field(string, unique)]
-    tag: string,
-    #[field(string)]
-    created: string,
-    #[relation(ToolCall, one2one, root)]
-    call: ToolCall,
+fn event() -> Spec {
+    Spec::build("MessageEvent")
+        .sole("tag", Atom::Text)
+        .field("action", Atom::Text)
+        .rule(
+            "action",
+            Rule::new().values(&["delete", "fix", "insert", "patch", "prepared", "remove"]),
+        )
+        .field("actor_type", Atom::Text)
+        .rule("actor_type", Rule::new().values(&["soul", "system"]))
+        .field("actor", Atom::Text)
+        .field("base_version", Atom::Int)
+        .rule("base_version", Rule::new().min(1))
+        .field("payload", Atom::Text)
+        .field("created", Atom::Text)
+        .root("message", Bond::Many2one, "Message")
+        .freeze()
+        .seal()
 }
 
-#[resource(frozen)]
-pub(crate) struct ToolOutput {
-    #[field(string)]
-    output: string,
-    #[relation(ToolResult, one2one, root)]
-    result: ToolResult,
+fn result() -> Spec {
+    Spec::build("ToolResult")
+        .sole("tag", Atom::Text)
+        .field("created", Atom::Text)
+        .root("call", Bond::One2one, "ToolCall")
+        .freeze()
+        .seal()
 }
 
-#[resource(frozen)]
-pub(crate) struct ToolFailure {
-    #[field(string)]
-    error: string,
-    #[relation(ToolResult, one2one, root)]
-    result: ToolResult,
+fn output() -> Spec {
+    Spec::build("ToolOutput")
+        .field("output", Atom::Text)
+        .root("result", Bond::One2one, "ToolResult")
+        .freeze()
+        .seal()
 }
 
-#[resource]
-pub(crate) struct ThinkingSpan {
-    #[field(string, unique)]
-    tag: string,
-    #[field(string, opt)]
-    response: string,
-    #[field(string, opt)]
-    summary: string,
-    #[field(string)]
-    created: string,
-    #[field(string)]
-    updated: string,
-    #[relation(Turn, many2one, root)]
-    turn: Turn,
+fn failure() -> Spec {
+    Spec::build("ToolFailure")
+        .field("error", Atom::Text)
+        .root("result", Bond::One2one, "ToolResult")
+        .freeze()
+        .seal()
 }
 
-#[resource(frozen)]
-pub(crate) struct ThinkingCompletion {
-    #[field(string, values = ["called", "finished", "spoke"])]
-    reason: string,
-    #[field(string)]
-    finished: string,
-    #[relation(ThinkingSpan, one2one, root)]
-    thinking: ThinkingSpan,
+fn thinking() -> Spec {
+    Spec::build("ThinkingSpan")
+        .sole("tag", Atom::Text)
+        .optional("response", Atom::Text, Only::Free)
+        .optional("summary", Atom::Text, Only::Free)
+        .field("created", Atom::Text)
+        .field("updated", Atom::Text)
+        .root("turn", Bond::Many2one, "Turn")
+        .seal()
 }
 
-#[resource(frozen)]
-pub(crate) struct ThinkingFailure {
-    #[field(string)]
-    error: string,
-    #[field(string)]
-    finished: string,
-    #[relation(ThinkingSpan, one2one, root)]
-    thinking: ThinkingSpan,
+fn completion() -> Spec {
+    Spec::build("ThinkingCompletion")
+        .field("reason", Atom::Text)
+        .rule(
+            "reason",
+            Rule::new().values(&["called", "finished", "spoke"]),
+        )
+        .field("finished", Atom::Text)
+        .root("thinking", Bond::One2one, "ThinkingSpan")
+        .freeze()
+        .seal()
 }
 
-#[resource(frozen)]
-pub(crate) struct Round {
-    #[field(string)]
-    record: string,
-    #[relation(ThinkingSpan, one2one, root)]
-    thinking: ThinkingSpan,
+fn failed() -> Spec {
+    Spec::build("ThinkingFailure")
+        .field("error", Atom::Text)
+        .field("finished", Atom::Text)
+        .root("thinking", Bond::One2one, "ThinkingSpan")
+        .freeze()
+        .seal()
 }
 
-#[resource(frozen)]
-pub(crate) struct Compact {
-    #[field(string, unique)]
-    tag: string,
-    #[field(string)]
-    summary: string,
-    #[field(string, opt)]
-    created: string,
-    #[field(string, opt)]
-    metadata: string,
-    #[relation(Strand, many2one, root)]
-    strand: Strand,
-    #[relation(Message, many2one, opt)]
-    first: Message,
-    #[relation(Message, many2one, opt)]
-    last: Message,
-    #[relation(StrandEntry, many2one, opt)]
-    head: StrandEntry,
-    #[relation(StrandEntry, many2one, opt)]
-    tail: StrandEntry,
+fn round() -> Spec {
+    Spec::build("Round")
+        .field("record", Atom::Text)
+        .root("thinking", Bond::One2one, "ThinkingSpan")
+        .freeze()
+        .seal()
+}
+
+fn compact() -> Spec {
+    Spec::build("Compact")
+        .sole("tag", Atom::Text)
+        .field("summary", Atom::Text)
+        .optional("created", Atom::Text, Only::Free)
+        .optional("metadata", Atom::Text, Only::Free)
+        .root("strand", Bond::Many2one, "Strand")
+        .free("first", Bond::Many2one, "Message")
+        .free("last", Bond::Many2one, "Message")
+        .free("head", Bond::Many2one, "StrandEntry")
+        .free("tail", Bond::Many2one, "StrandEntry")
+        .freeze()
+        .seal()
 }

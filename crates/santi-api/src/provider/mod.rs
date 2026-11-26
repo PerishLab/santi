@@ -4,7 +4,7 @@ use std::sync::Arc;
 use santi_core::inference::{Declaration, Effective, Origin};
 use santi_provider::{Provider, chat::completions, openai};
 
-use crate::config::{ChatCompletions, OpenAiResponses, Profile, Resolved};
+use crate::config::{Completions, Profile, Resolved, Responses};
 
 mod estate;
 
@@ -43,17 +43,17 @@ impl Catalog<'_> {
 
 pub fn build(config: Resolved) -> Result<Arc<dyn Provider>, String> {
     match config {
-        Resolved::OpenAiResponses(config) => responses(config),
-        Resolved::ChatCompletions(config) => completions(config),
+        Resolved::Responses(config) => responses(config),
+        Resolved::Completions(config) => completions(config),
         Resolved::Gemini(config) => Ok(Arc::new(santi_provider::gemini::Gemini::new(
             santi_provider::gemini::Config {
                 outgoing: crate::config::headers::compile(&config.outgoing)?,
                 provider: config.provider,
-                key: config.api_key,
+                key: config.key,
                 model: config.model,
-                url: config.base_url,
-                effort: config.reasoning_effort,
-                ceiling: config.max_tokens,
+                url: config.endpoint,
+                effort: config.effort,
+                ceiling: config.tokens,
                 bytes: config.bytes,
                 maintenance: config.maintenance,
                 headers: config.headers,
@@ -62,15 +62,15 @@ pub fn build(config: Resolved) -> Result<Arc<dyn Provider>, String> {
     }
 }
 
-fn responses(config: OpenAiResponses) -> Result<Arc<dyn Provider>, String> {
-    Ok(Arc::new(openai::OpenAI::new(openai::Config {
+fn responses(config: Responses) -> Result<Arc<dyn Provider>, String> {
+    Ok(Arc::new(openai::Openai::new(openai::Config {
         outgoing: crate::config::headers::compile(&config.outgoing)?,
-        key: config.api_key,
+        key: config.key,
         model: config.model,
-        url: config.base_url,
-        effort: config.reasoning_effort,
+        url: config.endpoint,
+        effort: config.effort,
         summary: config.summary,
-        ceiling: config.max_output_tokens,
+        ceiling: config.tokens,
         bytes: Some(config.bytes),
         maintenance: Some(config.maintenance),
         attempts: config.attempts,
@@ -78,17 +78,17 @@ fn responses(config: OpenAiResponses) -> Result<Arc<dyn Provider>, String> {
     })))
 }
 
-fn completions(config: ChatCompletions) -> Result<Arc<dyn Provider>, String> {
+fn completions(config: Completions) -> Result<Arc<dyn Provider>, String> {
     Ok(Arc::new(completions::Chat::new(completions::Config {
         outgoing: crate::config::headers::compile(&config.outgoing)?,
         provider: config.provider,
-        key: config.api_key,
+        key: config.key,
         model: config.model,
-        url: config.base_url,
+        url: config.endpoint,
         thinking: config.thinking,
         replay: config.replay,
-        effort: config.reasoning_effort,
-        ceiling: config.max_tokens,
+        effort: config.effort,
+        ceiling: config.tokens,
         bytes: Some(config.bytes),
         maintenance: Some(config.maintenance),
         headers: config.headers,
@@ -179,11 +179,11 @@ x-session = "{{{{strand.id}}}}"
         else {
             unreachable!()
         };
-        *protocol = Protocol::ChatCompletions;
+        *protocol = Protocol::Chat;
         *endpoint = format!("http://{address}");
         let declaration = Declaration {
             scenario: Some("gateway/family/review".into()),
-            reasoning_effort: Some("high".into()),
+            effort: Some("high".into()),
         };
         let effective = resolver
             .selecting(&[(&declaration, Origin::Service)], &rows)

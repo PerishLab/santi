@@ -1,5 +1,5 @@
 use super::*;
-use santi_estate::{CallDraft, ForkDraft, ReplyDraft, ThinkingDraft, TurnDraft};
+use santi_estate::{Call, Fork, Reply, Thinking, Turn};
 
 #[path = "positions.rs"]
 mod positions;
@@ -25,7 +25,7 @@ async fn active() {
     opened(&store, &parent.id, head).await;
     let partial = store.strand(&parent.id).await.unwrap().unwrap().next - 1;
     let broken = store
-        .fork(ForkDraft {
+        .fork(Fork {
             tag: "ss_partial",
             parent: &parent.id,
             at: partial,
@@ -46,9 +46,7 @@ async fn active() {
     closed(&store, &parent.id).await;
     let repaired = service.fork(&broken.id).await.unwrap().strand;
     assert_eq!(repaired.fork, Some(head));
-    let inherited = santi_core::provider_input(&store, &repaired.id)
-        .await
-        .unwrap();
+    let inherited = santi_core::assemble(&store, &repaired.id).await.unwrap();
     assert!(
         !inherited
             .iter()
@@ -106,7 +104,7 @@ async fn closed(store: &santi_core::Store, parent: &str) {
             return Ok(());
         }
         store
-            .create_call(CallDraft {
+            .calling(Call {
                 tag: "call_second",
                 turn: "turn_active",
                 tool: "shell",
@@ -130,10 +128,7 @@ async fn closed(store: &santi_core::Store, parent: &str) {
             assert_eq!(turn.to, Some(head));
             return Ok(());
         }
-        store
-            .complete_turn("turn_active", head, &now)
-            .await
-            .map(|_| ())
+        store.complete("turn_active", head, &now).await.map(|_| ())
     })
     .await;
 }
@@ -147,7 +142,7 @@ async fn replied(store: &santi_core::Store, tag: &str, call: &str, now: &str) {
             return Ok(());
         }
         store
-            .create_reply(ReplyDraft {
+            .replying(Reply {
                 tag,
                 call,
                 output: Some(&json!({"exit_code":0})),
@@ -181,17 +176,17 @@ async fn fixture(mut write: impl AsyncFnMut() -> Result<(), String>) {
 async fn opened(store: &santi_core::Store, parent: &str, head: i64) {
     let now = santi_core::now();
     store
-        .create_turn(TurnDraft {
+        .start(Turn {
             tag: "turn_active",
             strand: parent,
-            trigger: santi_core::turn::Trigger::StrandSend,
+            trigger: santi_core::turn::Trigger::Send,
             from: head + 1,
             created: &now,
         })
         .await
         .unwrap();
     store
-        .create_thinking(ThinkingDraft {
+        .ponder(Thinking {
             tag: "thinking_active",
             turn: "turn_active",
             response: Some("active"),
@@ -211,7 +206,7 @@ async fn opened(store: &santi_core::Store, parent: &str, head: i64) {
         .await
         .unwrap();
     store
-        .create_call(CallDraft {
+        .calling(Call {
             tag: "call_active",
             turn: "turn_active",
             tool: "shell",

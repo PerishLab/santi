@@ -3,7 +3,7 @@ use keel::{Op, Rank, form};
 use santi_model::event;
 
 #[derive(Clone, Copy)]
-pub struct OutboxDraft<'a> {
+pub struct Outbox<'a> {
     pub stream: &'a str,
     pub event: &'a event::Event,
 }
@@ -28,7 +28,7 @@ impl<'a> Fingerprint<'a> {
 }
 
 impl Store {
-    pub async fn queue_outbox(&self, draft: OutboxDraft<'_>) -> Result<(), String> {
+    pub async fn enqueue(&self, draft: Outbox<'_>) -> Result<(), String> {
         let payload = serde_json::to_string(draft.event).map_err(|error| error.to_string())?;
         self.core
             .batch(async |tx| queue(tx, draft, &payload).await)
@@ -97,7 +97,7 @@ impl Store {
 
 pub(in crate::store) async fn queue(
     tx: &mut keel::Tx<'_, keel::adapt::db::Sqlite>,
-    draft: OutboxDraft<'_>,
+    draft: Outbox<'_>,
     payload: &str,
 ) -> Result<(), keel::adapt::Error> {
     let stream = match tx
@@ -117,11 +117,11 @@ pub(in crate::store) async fn queue(
             "outbox event completion does not match its turn".into(),
         ));
     }
-    let turn_row = tx
+    let row = tx
         .one(&form("Turn").when("id", Op::Eq, &turn.to_string()))
         .await?
         .ok_or_else(|| keel::adapt::Error::Missing("outbox turn".into()))?;
-    let strand = turn_row
+    let strand = row
         .int("strand")
         .ok_or_else(|| keel::adapt::Error::Adapt("turn strand missing".into()))?;
     let strand = tx

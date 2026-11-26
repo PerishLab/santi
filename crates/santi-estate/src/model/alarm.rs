@@ -1,32 +1,32 @@
-use super::inbox::InboxReceipt;
-use super::ledger::Strand;
-use keel::atom::{int, string};
-use keel::resource;
+use keel::Graph;
+use keel::atom::Kind as Atom;
+use keel::bond::Kind as Bond;
+use keel::spec::{Rule, Spec};
 
-#[resource]
-pub(crate) struct Alarm {
-    #[field(string, unique)]
-    tag: string,
-    #[field(string, unique = strand)]
-    name: string,
-    #[field(string)]
-    text: string,
-    #[field(string)]
-    cron: string,
-    #[field(int, min = 1)]
-    generation: int,
-    #[relation(Strand, many2one, root)]
-    strand: Strand,
+pub(super) fn plug(graph: &mut Graph) {
+    graph.add(alarm()).add(delivery());
 }
 
-#[resource(frozen)]
-pub(crate) struct AlarmDelivery {
-    #[field(int, min = 1)]
-    generation: int,
-    #[field(int, unique = (alarm, generation), min = 0)]
-    minute: int,
-    #[relation(Alarm, many2one, root)]
-    alarm: Alarm,
-    #[relation(InboxReceipt, one2one)]
-    receipt: InboxReceipt,
+fn alarm() -> Spec {
+    Spec::build("Alarm")
+        .sole("tag", Atom::Text)
+        .per("name", Atom::Text, &["strand"])
+        .field("text", Atom::Text)
+        .field("cron", Atom::Text)
+        .field("generation", Atom::Int)
+        .rule("generation", Rule::new().min(1))
+        .root("strand", Bond::Many2one, "Strand")
+        .seal()
+}
+
+fn delivery() -> Spec {
+    Spec::build("AlarmDelivery")
+        .field("generation", Atom::Int)
+        .rule("generation", Rule::new().min(1))
+        .per("minute", Atom::Int, &["alarm", "generation"])
+        .rule("minute", Rule::new().min(0))
+        .root("alarm", Bond::Many2one, "Alarm")
+        .bond("receipt", Bond::One2one, "InboxReceipt", &[])
+        .freeze()
+        .seal()
 }

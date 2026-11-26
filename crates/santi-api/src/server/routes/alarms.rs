@@ -1,4 +1,4 @@
-use super::super::ApiError;
+use super::super::Problem;
 use axum::{
     Json,
     extract::{Path, Query, State},
@@ -62,52 +62,44 @@ pub(super) fn fire() -> MethodRouter<Service> {
 }
 
 impl Alarms {
-    async fn set(&self, draft: alarm::Draft) -> Result<Json<alarm::View>, ApiError> {
-        self.0
-            .set_alarm(draft)
-            .await
-            .map(Json)
-            .map_err(ApiError::from_service)
+    async fn set(&self, draft: alarm::Draft) -> Result<Json<alarm::View>, Problem> {
+        self.0.arm(draft).await.map(Json).map_err(Problem::service)
     }
 
-    async fn list(&self, owner: Owner) -> Result<Json<alarm::View>, ApiError> {
+    async fn list(&self, owner: Owner) -> Result<Json<alarm::View>, Problem> {
         self.0
             .alarms(&owner.soul)
             .await
             .map(Json)
-            .map_err(ApiError::from_service)
+            .map_err(Problem::service)
     }
 
-    async fn get(&self, tag: String, owner: Owner) -> Result<Json<alarm::View>, ApiError> {
-        let mut view = self
-            .0
-            .alarms(&owner.soul)
-            .await
-            .map_err(ApiError::from_service)?;
+    async fn get(&self, tag: String, owner: Owner) -> Result<Json<alarm::View>, Problem> {
+        let mut view = self.0.alarms(&owner.soul).await.map_err(Problem::service)?;
         view.alarms.retain(|alarm| alarm.id == tag);
         if view.alarms.is_empty() {
-            return Err(ApiError::not_found("alarm not found"));
+            return Err(Problem::missing("alarm not found"));
         }
         Ok(Json(view))
     }
 
-    async fn end(&self, tag: String, owner: Owner) -> Result<Json<alarm::View>, ApiError> {
+    async fn end(&self, tag: String, owner: Owner) -> Result<Json<alarm::View>, Problem> {
         self.0
-            .end_alarm(&tag, &owner.soul)
+            .disarm(&tag, &owner.soul)
             .await
             .map(Json)
-            .map_err(ApiError::from_service)
+            .map_err(Problem::service)
     }
 
     async fn fire(
         &self,
         tag: String,
         occurrence: alarm::Occurrence,
-    ) -> Result<(axum::http::StatusCode, Json<ingest::Receipt>), ApiError> {
+    ) -> Result<(axum::http::StatusCode, Json<ingest::Receipt>), Problem> {
         self.0
-            .fire_alarm(&tag, occurrence)
+            .fire(&tag, occurrence)
             .await
             .map(|receipt| (axum::http::StatusCode::ACCEPTED, Json(receipt)))
-            .map_err(ApiError::from_service)
+            .map_err(Problem::service)
     }
 }

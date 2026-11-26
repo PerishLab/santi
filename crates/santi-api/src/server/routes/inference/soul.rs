@@ -20,8 +20,8 @@ pub(crate) fn read() -> MethodRouter<Service> {
         |State(service): State<Service>, Path(soul): Path<String>| async move {
             match service.inference(Target::Soul, &soul).await {
                 Ok(Some(reading)) => Ok(Json(reading)),
-                Ok(None) => Err(ApiError::not_found("soul not found")),
-                Err(error) => Err(ApiError::from_service(error)),
+                Ok(None) => Err(Problem::missing("soul not found")),
+                Err(error) => Err(Problem::service(error)),
             }
         },
     )

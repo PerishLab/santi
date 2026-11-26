@@ -204,12 +204,12 @@ impl Service {
         let content = reminded(&event, &gauge, band);
         let message = self
             .store
-            .place(santi_estate::MessageDraft {
+            .place(santi_estate::Message {
                 tag: &crate::tag("msg"),
                 strand: &event.address.strand,
                 actor: message::Role::System,
-                actor_id: crate::SYSTEM,
-                kind: message::Kind::SantiSystem,
+                sender: crate::SYSTEM,
+                kind: message::Kind::System,
                 content: &content,
                 state: message::State::Fixed,
                 request: false,

@@ -1,7 +1,7 @@
 use super::*;
 
 impl Store {
-    pub async fn set_alarm(&self, draft: &alarm::Draft) -> Result<alarm::Alarm, String> {
+    pub async fn arm(&self, draft: &alarm::Draft) -> Result<alarm::Alarm, String> {
         let owner = self
             .strand(&draft.strand)
             .await?
@@ -92,7 +92,7 @@ impl Store {
             .ok_or("written alarm missing".into())
     }
 
-    pub async fn end_alarm(&self, tag: &str, soul: &str) -> Result<(), String> {
+    pub async fn disarm(&self, tag: &str, soul: &str) -> Result<(), String> {
         let Some(alarm) = self.alarm(tag).await? else {
             return Ok(());
         };

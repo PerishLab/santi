@@ -130,15 +130,11 @@ async fn preserves() {
         (compact.first.as_str(), compact.last.as_str()),
         ("message_legacy", "message_legacy")
     );
-    let page = store
-        .compact_page(&compact.id, None, 0, 10)
-        .await
-        .unwrap()
-        .unwrap();
+    let page = store.page(&compact.id, None, 0, 10).await.unwrap().unwrap();
     assert_eq!(page.entries.len(), 1);
     assert_eq!(page.entries[0].text, "original legacy content");
     let child = store
-        .fork(santi_estate::ForkDraft {
+        .fork(santi_estate::Fork {
             tag: "strand_child",
             parent: "strand_test",
             at: 1,
@@ -149,7 +145,7 @@ async fn preserves() {
         .unwrap();
     assert_eq!(store.compacts(&child.id).await.unwrap().len(), 1);
     store
-        .create_compact(CompactDraft {
+        .condense(Compact {
             tag: "compact_rewrite",
             strand: "strand_test",
             first: "message_legacy",
@@ -174,7 +170,7 @@ async fn preserves() {
     drop(core);
     let reopened = Store::open(&path).await.unwrap();
     let page = reopened
-        .compact_page("compact_rewrite", None, 0, 10)
+        .page("compact_rewrite", None, 0, 10)
         .await
         .unwrap()
         .unwrap();

@@ -2,7 +2,7 @@ use std::{thread, time::Duration};
 
 use santi_core::{
     job,
-    service::{JobLaunch, JobSupervisor},
+    service::jobs::{self, Supervisor as _},
 };
 
 use super::support::{Guard, alive, launch, path, state, terminal};
@@ -22,8 +22,8 @@ fn retains() {
     let command = r#"printf 'capability=%s\nsoul=%s\n' "${SANTI_JOB_CREATE_CAPABILITY-unset}" "$SANTI_SOUL_ID"; printf 'stderr-probe\n' >&2; exit 7"#;
     #[cfg(target_os = "windows")]
     let command = r#"Write-Output "capability=$env:SANTI_JOB_CREATE_CAPABILITY"; Write-Output "soul=$env:SANTI_SOUL_ID"; [Console]::Error.WriteLine("stderr-probe"); exit 7"#;
-    let launch = JobLaunch {
-        base_url: None,
+    let launch = jobs::Launch {
+        endpoint: None,
         environment: Some(santi_estate::Environment(std::collections::BTreeMap::from(
             [
                 ("SANTI_SOUL_ID".to_string(), "forged".to_string()),
@@ -45,12 +45,12 @@ fn retains() {
             description: "native production adapter probe".to_string(),
             command: command.to_string(),
             cwd: None,
-            timeout_seconds: 30,
-            output_limit_bytes: 4096,
+            timeout: 30,
+            limit: 4096,
             remind: None,
             state: job::State::Accepted,
             reason: None,
-            exit_code: None,
+            exit: None,
             created: "2026-07-27T00:00:00.000Z".to_string(),
             updated: "2026-07-27T00:00:00.000Z".to_string(),
             accepted: Some("2026-07-27T00:00:00.000Z".to_string()),
@@ -157,7 +157,7 @@ fn times() {
     #[cfg(target_os = "windows")]
     let command = "Start-Sleep -Seconds 30";
     let (supervisor, mut launch) = launch(&temp, "runtime limit probe", command, 4096);
-    launch.job.timeout_seconds = 1;
+    launch.job.timeout = 1;
     let guard = Guard {
         supervisor: &supervisor,
         launch: &launch,
@@ -165,7 +165,7 @@ fn times() {
 
     supervisor.detach(&launch).expect("detach transient job");
     let terminal = terminal(&supervisor, &launch);
-    assert_eq!(terminal.state, job::State::TimedOut);
+    assert_eq!(terminal.state, job::State::Timeout);
     assert_eq!(terminal.reason.as_deref(), Some("runtime_limit"));
 
     supervisor.acknowledge(&launch).expect("acknowledge job");

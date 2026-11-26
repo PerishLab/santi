@@ -26,14 +26,14 @@ pub(super) enum Stroke {
     Right,
     Home,
     End,
-    WordLeft,
-    WordRight,
+    Prev,
+    Next,
     Up,
     Down,
-    ScrollUp,
-    ScrollDown,
-    PageUp,
-    PageDown,
+    Rise,
+    Fall,
+    Ascend,
+    Descend,
     Ahead,
     Behind,
     Shed,
@@ -120,8 +120,8 @@ fn translate(event: Event) -> Option<Stroke> {
 
 fn rolled(mouse: MouseEvent) -> Option<Stroke> {
     match mouse.kind {
-        MouseEventKind::ScrollUp => Some(Stroke::ScrollUp),
-        MouseEventKind::ScrollDown => Some(Stroke::ScrollDown),
+        MouseEventKind::ScrollUp => Some(Stroke::Rise),
+        MouseEventKind::ScrollDown => Some(Stroke::Fall),
         MouseEventKind::Down(MouseButton::Left) => Some(Stroke::Press(mouse.column, mouse.row)),
         MouseEventKind::Drag(MouseButton::Left) => Some(Stroke::Drag(mouse.column, mouse.row)),
         MouseEventKind::Up(MouseButton::Left) => Some(Stroke::Release),
@@ -143,8 +143,8 @@ pub(super) fn pressed(key: KeyEvent) -> Option<Stroke> {
         KeyCode::Backspace if control || alt => Some(Stroke::Shed),
         KeyCode::Backspace => Some(Stroke::Erase),
         KeyCode::Delete => Some(Stroke::Delete),
-        KeyCode::Left if alt => Some(Stroke::WordLeft),
-        KeyCode::Right if alt => Some(Stroke::WordRight),
+        KeyCode::Left if alt => Some(Stroke::Prev),
+        KeyCode::Right if alt => Some(Stroke::Next),
         KeyCode::Left => Some(Stroke::Left),
         KeyCode::Right => Some(Stroke::Right),
         KeyCode::Home if control => Some(Stroke::Bottom),
@@ -159,12 +159,12 @@ pub(super) fn pressed(key: KeyEvent) -> Option<Stroke> {
         KeyCode::Char('t') if control => Some(Stroke::Verbose),
         KeyCode::Char('y') if control => Some(Stroke::Copy),
         KeyCode::Esc => Some(Stroke::Interrupt),
-        KeyCode::Up if control => Some(Stroke::ScrollUp),
-        KeyCode::Down if control => Some(Stroke::ScrollDown),
+        KeyCode::Up if control => Some(Stroke::Rise),
+        KeyCode::Down if control => Some(Stroke::Fall),
         KeyCode::Up => Some(Stroke::Up),
         KeyCode::Down => Some(Stroke::Down),
-        KeyCode::PageUp => Some(Stroke::PageUp),
-        KeyCode::PageDown => Some(Stroke::PageDown),
+        KeyCode::PageUp => Some(Stroke::Ascend),
+        KeyCode::PageDown => Some(Stroke::Descend),
         KeyCode::Char('c' | 'd') if control => Some(Stroke::Quit),
         KeyCode::Char(character) if !control => Some(Stroke::Typed(character)),
         _ => None,
@@ -192,7 +192,7 @@ mod tests {
         ));
         assert!(matches!(
             key(KeyCode::PageDown, KeyModifiers::NONE),
-            Some(Stroke::PageDown)
+            Some(Stroke::Descend)
         ));
         assert!(matches!(
             key(KeyCode::Enter, KeyModifiers::SHIFT),

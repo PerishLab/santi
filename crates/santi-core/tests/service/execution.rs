@@ -13,7 +13,7 @@ mod secrets;
 
 #[path = "../execution/provider.rs"]
 mod provider;
-use provider::BudgetedProvider;
+use provider::Budgeted;
 
 #[path = "../execution/refusal.rs"]
 mod refusal;
@@ -28,7 +28,7 @@ mod bounded;
 async fn bounds() {
     let temp = tempfile::tempdir().expect("temp dir");
     bootstrap(&temp).await;
-    let provider = Arc::new(BudgetedProvider {
+    let provider = Arc::new(Budgeted {
         rounds: 1,
         ..Default::default()
     });
@@ -54,9 +54,9 @@ async fn bounds() {
         output: 1000,
         shell: 16,
         lines: 256,
-        feedback_after_calls: None,
-        feedback_command: None,
-        feedback_cwd: None,
+        after: None,
+        command: None,
+        cwd: None,
     })
     .expect("bound service");
     let strand = service.weave().await.expect("create strand").strand;
@@ -72,7 +72,7 @@ async fn bounds() {
         .await
         .expect("send strand");
     let runtime = Probe::new(&service)
-        .completed_turn(&strand.id, &accepted_turn(&service, &posted).await.id)
+        .completed(&strand.id, &accepted(&service, &posted).await.id)
         .await;
     assert_eq!(runtime.results.len(), 1);
     let output = runtime.results[0].output.as_ref().expect("tool output");
@@ -96,7 +96,7 @@ async fn normalizes() {
     let temp = tempfile::tempdir().expect("temp dir");
     bootstrap(&temp).await;
     let allotment = 32;
-    let provider = Arc::new(BudgetedProvider {
+    let provider = Arc::new(Budgeted {
         rounds: 1,
         command: Some(r"printf '\377\377\377\377'; printf '\376\376\376\376' >&2".to_string()),
         ..Default::default()
@@ -123,9 +123,9 @@ async fn normalizes() {
         output: 100,
         shell: allotment,
         lines: 256,
-        feedback_after_calls: None,
-        feedback_command: None,
-        feedback_cwd: None,
+        after: None,
+        command: None,
+        cwd: None,
     })
     .expect("bound service");
     let strand = service.weave().await.expect("create strand").strand;
@@ -141,7 +141,7 @@ async fn normalizes() {
         .await
         .expect("send strand");
     let runtime = Probe::new(&service)
-        .completed_turn(&strand.id, &accepted_turn(&service, &posted).await.id)
+        .completed(&strand.id, &accepted(&service, &posted).await.id)
         .await;
     assert_eq!(runtime.results.len(), 1);
     let output = runtime.results[0].output.as_ref().expect("tool output");
@@ -167,7 +167,7 @@ async fn normalizes() {
 async fn rounds() {
     let temp = tempfile::tempdir().expect("temp dir");
     bootstrap(&temp).await;
-    let provider = Arc::new(BudgetedProvider {
+    let provider = Arc::new(Budgeted {
         rounds: usize::MAX,
         ..Default::default()
     });
@@ -193,9 +193,9 @@ async fn rounds() {
         output: 100,
         shell: 20,
         lines: 256,
-        feedback_after_calls: None,
-        feedback_command: None,
-        feedback_cwd: None,
+        after: None,
+        command: None,
+        cwd: None,
     })
     .expect("bound service");
     let strand = service.weave().await.expect("create strand").strand;
@@ -211,7 +211,7 @@ async fn rounds() {
         .await
         .expect("send strand");
     let runtime = Probe::new(&service)
-        .failed_turn(&strand.id, &accepted_turn(&service, &posted).await.id)
+        .failed(&strand.id, &accepted(&service, &posted).await.id)
         .await;
     assert_eq!(runtime.results.len(), 2);
     assert!(runtime.results[1].error.is_some());
@@ -229,7 +229,7 @@ async fn stateless() {
     let temp = tempfile::tempdir().expect("temp dir");
     bootstrap(&temp).await;
     let thought = "weighing which command to run";
-    let provider = Arc::new(BudgetedProvider {
+    let provider = Arc::new(Budgeted {
         rounds: 1,
         command: Some("true".to_string()),
         thought: Some(thought.to_string()),
@@ -262,7 +262,7 @@ async fn stateless() {
         .await
         .expect("send strand");
     let runtime = Probe::new(&service)
-        .completed_turn(&strand.id, &accepted_turn(&service, &posted).await.id)
+        .completed(&strand.id, &accepted(&service, &posted).await.id)
         .await;
     assert_eq!(runtime.results.len(), 1);
     assert!(

@@ -22,6 +22,7 @@ pub struct Feishu {
     pub acknowledge: Option<String>,
     pub feedback: Option<String>,
     pub application: Option<String>,
-    pub encrypt_key: Option<String>,
+    #[cascade(name = "encrypt_key")]
+    pub secret: Option<String>,
     pub allow: Option<String>,
 }

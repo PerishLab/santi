@@ -1,5 +1,5 @@
 use super::*;
-use santi_api::webhook::WebhookError;
+use santi_api::webhook::Error;
 
 fn payload(action: &str) -> Value {
     json!({
@@ -18,14 +18,14 @@ fn assignment() {
     input["assignee"] = json!({"login":"adamsanti"});
     input["issue"]["assignees"] = json!([{"login":"AdamSanti"}]);
     let event = received("issues", input.clone());
-    assert!(event.in_scope);
+    assert!(event.scoped);
     assert!(event.text.contains("@PerishCode assigned you (@AdamSanti)"));
     assert!(event.text.contains("Acceptance and references"));
     assert_eq!(event.metadata.unwrap()["relationship"], "assignment");
     input["action"] = json!("unassigned");
     input["issue"]["assignees"] = json!([]);
     let removed = received("issues", input);
-    assert!(removed.in_scope);
+    assert!(removed.scoped);
     assert_eq!(event.label, removed.label);
     assert!(
         removed
@@ -41,10 +41,10 @@ fn assignment() {
 #[test]
 fn responsibility() {
     let mut input = payload("created");
-    assert!(!received("issue_comment", input.clone()).in_scope);
+    assert!(!received("issue_comment", input.clone()).scoped);
     input["issue"]["assignees"] = json!([{"login":"AdamSanti"}]);
     let event = received("issue_comment", input.clone());
-    assert!(event.in_scope);
+    assert!(event.scoped);
     assert!(
         event
             .text
@@ -52,7 +52,7 @@ fn responsibility() {
     );
     input["action"] = json!("closed");
     let event = received("issues", input);
-    assert!(event.in_scope);
+    assert!(event.scoped);
     assert!(event.text.contains("closed an Issue assigned to you"));
 }
 
@@ -72,7 +72,7 @@ fn mentions() {
         let mut input = payload("created");
         input["comment"]["body"] = json!(body);
         let event = received("issue_comment", input);
-        assert_eq!(event.in_scope, related, "{body}");
+        assert_eq!(event.scoped, related, "{body}");
         if related {
             assert!(event.text.contains("addressing you (@AdamSanti)"));
             assert_eq!(event.metadata.unwrap()["relationship"], "mention");
@@ -80,22 +80,22 @@ fn mentions() {
     }
     let mut input = payload("opened");
     input["issue"]["body"] = json!("@AdamSanti review this proposal");
-    assert!(received("issues", input.clone()).in_scope);
+    assert!(received("issues", input.clone()).scoped);
     input["action"] = json!("labeled");
-    assert!(!received("issues", input.clone()).in_scope);
+    assert!(!received("issues", input.clone()).scoped);
     input["action"] = json!("edited");
     input["changes"] = json!({"body":{"from":"previous proposal"}});
-    assert!(received("issues", input).in_scope);
+    assert!(received("issues", input).scoped);
 }
 
 #[test]
 fn edits() {
     let mut input = payload("edited");
     input["changes"] = json!({"body":{"from":"@AdamSanti please review"}});
-    assert!(received("issue_comment", input.clone()).in_scope);
+    assert!(received("issue_comment", input.clone()).scoped);
     input["action"] = json!("deleted");
     input["comment"]["body"] = json!("@AdamSanti please review");
-    assert!(received("issue_comment", input).in_scope);
+    assert!(received("issue_comment", input).scoped);
 }
 
 #[test]
@@ -107,12 +107,12 @@ fn identity() {
     let mut input = payload("opened");
     let data = serde_json::to_vec(&input).unwrap();
     assert!(matches!(
-        GithubAdaptor::configured(None, None).normalize(&headers, &data, "secret", "ops"),
-        Err(WebhookError::Unavailable(_))
+        Github::configured(None, None).normalize(&headers, &data, "secret", "ops"),
+        Err(Error::Unavailable(_))
     ));
     input["issue"].as_object_mut().unwrap().remove("assignees");
     assert!(
-        GithubAdaptor::configured(None, None)
+        Github::configured(None, None)
             .addressed(Some("AdamSanti"))
             .normalize(
                 &headers,
@@ -124,6 +124,6 @@ fn identity() {
     );
     input["sender"]["login"] = json!("AdamSanti");
     let event = received("issues", input);
-    assert!(event.self_authored);
-    assert!(!event.in_scope);
+    assert!(event.authored);
+    assert!(!event.scoped);
 }

@@ -17,7 +17,7 @@ mod wire;
 struct Fixture {
     temp: tempfile::TempDir,
     service: Service,
-    provider: FakeProvider,
+    provider: Fake,
     strand: String,
 }
 
@@ -26,7 +26,7 @@ impl Fixture {
         let temp = tempfile::tempdir().unwrap();
         bootstrap(&temp).await;
         source(&temp, "first-marker");
-        let provider = FakeProvider::default();
+        let provider = Fake::default();
         let service = Service::open(
             crate::SCENARIO,
             config(&temp),
@@ -68,9 +68,9 @@ impl Fixture {
             )
             .await
             .unwrap();
-        let turn = accepted_turn(&self.service, &posted).await;
+        let turn = accepted(&self.service, &posted).await;
         Probe::new(&self.service)
-            .completed_turn(&self.strand, &turn.id)
+            .completed(&self.strand, &turn.id)
             .await
     }
 
@@ -79,7 +79,7 @@ impl Fixture {
             .render(
                 &self.strand,
                 render::Request {
-                    kind: render::Kind::SystemPrompt,
+                    kind: render::Kind::Prompt,
                 },
             )
             .await
@@ -205,7 +205,7 @@ async fn refresh() {
     let restarted = Service::open(
         crate::SCENARIO,
         config(&fixture.temp),
-        Arc::new(FakeProvider::default()),
+        Arc::new(Fake::default()),
     )
     .await
     .unwrap();
@@ -213,7 +213,7 @@ async fn refresh() {
         .render(
             &fixture.strand,
             render::Request {
-                kind: render::Kind::SystemPrompt,
+                kind: render::Kind::Prompt,
             },
         )
         .await
@@ -221,7 +221,7 @@ async fn refresh() {
     assert!(rendered.text.contains("new-marker"));
 }
 
-struct Observed(FakeProvider);
+struct Observed(Fake);
 
 #[async_trait]
 impl Provider for Observed {

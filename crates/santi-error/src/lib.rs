@@ -43,12 +43,12 @@ pub struct Exposure {
 }
 
 impl Exposure {
-    pub const CALLER_AND_OPERATOR: Self = Self {
+    pub const CALLER: Self = Self {
         caller: true,
         operator: true,
         model: false,
     };
-    pub const OPERATOR_ONLY: Self = Self {
+    pub const OPERATOR: Self = Self {
         caller: false,
         operator: true,
         model: false,

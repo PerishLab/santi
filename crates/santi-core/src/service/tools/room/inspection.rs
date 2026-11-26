@@ -66,11 +66,11 @@ async fn discovers() {
         let id = format!("message_{index}");
         service
             .store
-            .place(santi_estate::MessageDraft {
+            .place(santi_estate::Message {
                 tag: &id,
                 strand: &strand.id,
                 actor: message::Role::System,
-                actor_id: crate::SYSTEM,
+                sender: crate::SYSTEM,
                 kind: message::Kind::Text,
                 content: &message::Content::text("记忆".repeat(2000)),
                 state: message::State::Fixed,
@@ -82,7 +82,7 @@ async fn discovers() {
         if index < 5 {
             service
                 .store
-                .create_compact(santi_estate::CompactDraft {
+                .condense(santi_estate::Compact {
                     tag: &format!("compact_{index}"),
                     strand: &strand.id,
                     first: &id,

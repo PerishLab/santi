@@ -39,7 +39,7 @@ impl Service {
             }
         };
         let metadata = provider.metadata();
-        let draft = santi_estate::CompletionDraft {
+        let draft = santi_estate::Finish {
             turn,
             reply: last.as_ref().map(|message| message.message.id.as_str()),
             provider: &metadata.provider,
@@ -48,14 +48,15 @@ impl Service {
             occurred: &crate::now(),
         };
         let completed = if let Some(content) = pause.as_ref() {
-            let source = crate::ingest::Source::new("soul_memory_pause").with_ref(turn.to_string());
+            let source =
+                crate::ingest::Source::new("soul_memory_pause").reference(turn.to_string());
             self.store
                 .handoff(
                     draft,
-                    santi_estate::InboxDraft {
+                    santi_estate::Arrival {
                         tag: &crate::tag("inbox"),
                         strand,
-                        kind: message::Kind::SantiSystem,
+                        kind: message::Kind::System,
                         content,
                         source: Some(&source),
                         created: &crate::now(),
@@ -63,7 +64,7 @@ impl Service {
                 )
                 .await
         } else {
-            self.store.finish_turn(draft).await
+            self.store.finish(draft).await
         };
         match completed {
             Ok(completion) => {

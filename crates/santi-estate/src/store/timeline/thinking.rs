@@ -2,7 +2,7 @@ use crate::store::{Store, read, write};
 use keel::{Op, Rank, form};
 use santi_model::thinking;
 
-pub struct ThinkingDraft<'a> {
+pub struct Thinking<'a> {
     pub tag: &'a str,
     pub turn: &'a str,
     pub response: Option<&'a str>,
@@ -10,10 +10,7 @@ pub struct ThinkingDraft<'a> {
 }
 
 impl Store {
-    pub async fn create_thinking(
-        &self,
-        draft: ThinkingDraft<'_>,
-    ) -> Result<thinking::Span, String> {
+    pub async fn ponder(&self, draft: Thinking<'_>) -> Result<thinking::Span, String> {
         self.core
             .batch(async |tx| {
                 let turn = tx
@@ -27,12 +24,12 @@ impl Store {
                     .one(&form("Strand").when("id", Op::Eq, &strand.to_string()))
                     .await?
                     .ok_or_else(|| keel::adapt::Error::Missing("turn strand".into()))?;
-                let turn_key = turn.key().to_string();
+                let key = turn.key().to_string();
                 let mut fields = vec![
                     ("tag", draft.tag),
                     ("created", draft.created),
                     ("updated", draft.created),
-                    ("turn", turn_key.as_str()),
+                    ("turn", key.as_str()),
                 ];
                 if let Some(response) = draft.response {
                     fields.push(("response", response));
@@ -57,7 +54,7 @@ impl Store {
             .ok_or_else(|| "created thinking span missing".to_string())
     }
 
-    pub async fn update_thinking(
+    pub async fn refine(
         &self,
         tag: &str,
         response: Option<&str>,
@@ -101,30 +98,29 @@ impl Store {
         }
     }
 
-    pub async fn complete_thinking(
+    pub async fn conclude(
         &self,
         tag: &str,
         reason: thinking::Reason,
         finished: &str,
     ) -> Result<Option<thinking::Span>, String> {
-        self.finish_thinking(tag, Some(reason), None, finished)
-            .await
+        finish(self, tag, Ok(reason), finished).await
     }
 
-    pub async fn fail_thinking(
+    pub async fn falter(
         &self,
         tag: &str,
         error: &str,
         finished: &str,
     ) -> Result<Option<thinking::Span>, String> {
-        self.finish_thinking(tag, None, Some(error), finished).await
+        finish(self, tag, Err(error), finished).await
     }
 
     pub async fn thinking(&self, tag: &str) -> Result<Option<thinking::Span>, String> {
         let Some(row) = read::one(&self.core, "ThinkingSpan", "tag", tag).await? else {
             return Ok(None);
         };
-        self.decode_thinking(&row).await.map(Some)
+        decode(self, &row).await.map(Some)
     }
 
     pub async fn thinkings(&self, strand: &str) -> Result<Vec<thinking::Span>, String> {
@@ -144,7 +140,7 @@ impl Store {
         let mut spans = Vec::with_capacity(entries.rows().len());
         for entry in entries.rows() {
             let row = crate::store::entry::target(&self.core, entry).await?;
-            spans.push(self.decode_thinking(&row).await?);
+            spans.push(decode(self, &row).await?);
         }
         Ok(spans)
     }
@@ -165,112 +161,108 @@ impl Store {
             .map_err(read::error)?;
         let mut spans = Vec::with_capacity(rows.rows().len());
         for row in rows.rows() {
-            spans.push(self.decode_thinking(row).await?);
+            spans.push(decode(self, row).await?);
         }
         Ok(spans)
     }
+}
 
-    async fn finish_thinking(
-        &self,
-        tag: &str,
-        reason: Option<thinking::Reason>,
-        error: Option<&str>,
-        finished: &str,
-    ) -> Result<Option<thinking::Span>, String> {
-        let found = self
-            .core
-            .batch(async |tx| {
-                let Some(row) = tx
-                    .one(&form("ThinkingSpan").when("tag", Op::Eq, tag))
-                    .await?
-                else {
-                    return Ok(false);
-                };
-                let key = row.key().to_string();
-                let complete = tx
-                    .one(&form("ThinkingCompletion").when("thinking", Op::Eq, &key))
+async fn finish(
+    store: &Store,
+    tag: &str,
+    outcome: Result<thinking::Reason, &str>,
+    finished: &str,
+) -> Result<Option<thinking::Span>, String> {
+    let found = store
+        .core
+        .batch(async |tx| {
+            let Some(row) = tx
+                .one(&form("ThinkingSpan").when("tag", Op::Eq, tag))
+                .await?
+            else {
+                return Ok(false);
+            };
+            let key = row.key().to_string();
+            let complete = tx
+                .one(&form("ThinkingCompletion").when("thinking", Op::Eq, &key))
+                .await?;
+            let failed = tx
+                .one(&form("ThinkingFailure").when("thinking", Op::Eq, &key))
+                .await?;
+            if complete.is_some() || failed.is_some() {
+                return Ok(true);
+            }
+            match outcome {
+                Ok(reason) => {
+                    tx.put(
+                        "ThinkingCompletion",
+                        &[
+                            ("reason", reason.encode()),
+                            ("finished", finished),
+                            ("thinking", &key),
+                        ],
+                    )
                     .await?;
-                let failed = tx
-                    .one(&form("ThinkingFailure").when("thinking", Op::Eq, &key))
-                    .await?;
-                if complete.is_some() || failed.is_some() {
-                    return Ok(true);
                 }
-                match (reason, error) {
-                    (Some(reason), None) => {
-                        tx.put(
-                            "ThinkingCompletion",
-                            &[
-                                ("reason", reason.encode()),
-                                ("finished", finished),
-                                ("thinking", &key),
-                            ],
-                        )
-                        .await?;
-                    }
-                    (None, Some(error)) => {
-                        tx.put(
-                            "ThinkingFailure",
-                            &[("error", error), ("finished", finished), ("thinking", &key)],
-                        )
-                        .await?;
-                    }
-                    _ => {
-                        return Err(keel::adapt::Error::Adapt("invalid thinking outcome".into()));
-                    }
-                }
-                tx.set("ThinkingSpan", row.key(), &[("updated", finished)])
+                Err(error) => {
+                    tx.put(
+                        "ThinkingFailure",
+                        &[("error", error), ("finished", finished), ("thinking", &key)],
+                    )
                     .await?;
-                Ok(true)
-            })
-            .await
-            .map_err(read::error)?;
-        if found {
-            self.thinking(tag).await
-        } else {
-            Ok(None)
-        }
-    }
-
-    pub(crate) async fn decode_thinking(&self, row: &keel::Row) -> Result<thinking::Span, String> {
-        let key = row.key().to_string();
-        let complete = read::one(&self.core, "ThinkingCompletion", "thinking", &key).await?;
-        let failed = read::one(&self.core, "ThinkingFailure", "thinking", &key).await?;
-        let outcome = match (complete, failed) {
-            (None, None) => Outcome {
-                state: thinking::State::Running,
-                reason: None,
-                error: None,
-                finished: None,
-            },
-            (Some(done), None) => Outcome {
-                state: thinking::State::Completed,
-                reason: Some(decode_reason(read::text(&done, "reason")?)?),
-                error: None,
-                finished: Some(read::text(&done, "finished")?.to_string()),
-            },
-            (None, Some(failed)) => Outcome {
-                state: thinking::State::Failed,
-                reason: None,
-                error: Some(read::text(&failed, "error")?.to_string()),
-                finished: Some(read::text(&failed, "finished")?.to_string()),
-            },
-            (Some(_), Some(_)) => return Err("thinking span has conflicting outcomes".to_string()),
-        };
-        Ok(thinking::Span {
-            id: read::text(row, "tag")?.to_string(),
-            turn: read::related(&self.core, "Turn", read::int(row, "turn")?).await?,
-            response: row.text("response").map(str::to_string),
-            state: outcome.state,
-            summary: row.text("summary").map(str::to_string),
-            completion_reason: outcome.reason,
-            error: outcome.error,
-            created: read::text(row, "created")?.to_string(),
-            updated: read::text(row, "updated")?.to_string(),
-            finished: outcome.finished,
-            round: super::round::rounded(&self.core, &key).await?,
+                }
+            }
+            tx.set("ThinkingSpan", row.key(), &[("updated", finished)])
+                .await?;
+            Ok(true)
         })
+        .await
+        .map_err(read::error)?;
+    if found {
+        store.thinking(tag).await
+    } else {
+        Ok(None)
     }
+}
+
+pub(crate) async fn decode(store: &Store, row: &keel::Row) -> Result<thinking::Span, String> {
+    let key = row.key().to_string();
+    let complete = read::one(&store.core, "ThinkingCompletion", "thinking", &key).await?;
+    let failed = read::one(&store.core, "ThinkingFailure", "thinking", &key).await?;
+    let outcome = match (complete, failed) {
+        (None, None) => Outcome {
+            state: thinking::State::Running,
+            reason: None,
+            error: None,
+            finished: None,
+        },
+        (Some(done), None) => Outcome {
+            state: thinking::State::Completed,
+            reason: Some(reason(read::text(&done, "reason")?)?),
+            error: None,
+            finished: Some(read::text(&done, "finished")?.to_string()),
+        },
+        (None, Some(failed)) => Outcome {
+            state: thinking::State::Failed,
+            reason: None,
+            error: Some(read::text(&failed, "error")?.to_string()),
+            finished: Some(read::text(&failed, "finished")?.to_string()),
+        },
+        (Some(_), Some(_)) => return Err("thinking span has conflicting outcomes".to_string()),
+    };
+    Ok(thinking::Span {
+        id: read::text(row, "tag")?.to_string(),
+        turn: read::related(&store.core, "Turn", read::int(row, "turn")?).await?,
+        response: row.text("response").map(str::to_string),
+        state: outcome.state,
+        summary: row.text("summary").map(str::to_string),
+        reason: outcome.reason,
+        error: outcome.error,
+        created: read::text(row, "created")?.to_string(),
+        updated: read::text(row, "updated")?.to_string(),
+        finished: outcome.finished,
+        round: super::round::rounded(&store.core, &key).await?,
+    })
 }
 
 struct Outcome {
@@ -280,7 +272,7 @@ struct Outcome {
     finished: Option<String>,
 }
 
-fn decode_reason(value: &str) -> Result<thinking::Reason, String> {
+fn reason(value: &str) -> Result<thinking::Reason, String> {
     match value {
         "spoke" => Ok(thinking::Reason::Spoke),
         "called" => Ok(thinking::Reason::Called),

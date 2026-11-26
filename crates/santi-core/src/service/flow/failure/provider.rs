@@ -11,7 +11,7 @@ impl Service {
         let descriptor = crate::turn::Error::Provider.descriptor();
         match self
             .store
-            .fail_classified(santi_estate::ClassifiedFailureDraft {
+            .classify(santi_estate::Fault {
                 turn,
                 detail: error,
                 incident: santi_error::Draft {
@@ -39,7 +39,7 @@ impl Service {
                 eprintln!(
                     "santi: provider failure incident persistence failed for {turn}: {persistence_error}"
                 );
-                let held = self.store.fail_turn(turn, error, &crate::now()).await.ok();
+                let held = self.store.fail(turn, error, &crate::now()).await.ok();
                 (held, unrecorded(strand, turn, persistence_error))
             }
         }

@@ -5,19 +5,19 @@ use fields::{capacity, optional, positive, required};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Resolved {
-    OpenAiResponses(OpenAiResponses),
-    ChatCompletions(ChatCompletions),
+    Responses(Responses),
+    Completions(Completions),
     Gemini(Gemini),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct OpenAiResponses {
-    pub api_key: String,
+pub struct Responses {
+    pub key: String,
     pub model: String,
-    pub base_url: String,
-    pub reasoning_effort: Option<String>,
+    pub endpoint: String,
+    pub effort: Option<String>,
     pub summary: Option<String>,
-    pub max_output_tokens: Option<u32>,
+    pub tokens: Option<u32>,
     pub bytes: usize,
     pub maintenance: usize,
     pub attempts: Option<u32>,
@@ -28,11 +28,11 @@ pub struct OpenAiResponses {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Gemini {
     pub provider: String,
-    pub api_key: String,
+    pub key: String,
     pub model: String,
-    pub base_url: String,
-    pub reasoning_effort: Option<String>,
-    pub max_tokens: Option<u32>,
+    pub endpoint: String,
+    pub effort: Option<String>,
+    pub tokens: Option<u32>,
     pub bytes: usize,
     pub maintenance: usize,
     pub headers: Vec<String>,
@@ -40,15 +40,15 @@ pub struct Gemini {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ChatCompletions {
+pub struct Completions {
     pub provider: String,
-    pub api_key: String,
+    pub key: String,
     pub model: String,
-    pub base_url: String,
+    pub endpoint: String,
     pub thinking: Option<String>,
     pub replay: santi_provider::chat::completions::Replay,
-    pub reasoning_effort: Option<String>,
-    pub max_tokens: Option<u32>,
+    pub effort: Option<String>,
+    pub tokens: Option<u32>,
     pub bytes: usize,
     pub maintenance: usize,
     pub headers: Vec<String>,
@@ -59,23 +59,23 @@ pub struct ChatCompletions {
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Profile {
     #[serde(rename = "openai_responses")]
-    OpenAiResponses {
+    Responses {
         #[serde(default)]
         seal: Option<String>,
-        #[serde(default)]
-        api_key: Option<String>,
-        #[serde(default)]
-        base_url: Option<String>,
-        #[serde(default)]
-        reasoning_effort: Option<String>,
+        #[serde(default, rename = "api_key")]
+        key: Option<String>,
+        #[serde(default, rename = "base_url")]
+        endpoint: Option<String>,
+        #[serde(default, rename = "reasoning_effort")]
+        effort: Option<String>,
         #[serde(default, alias = "reasoning_summary")]
         summary: Option<String>,
-        #[serde(default)]
-        max_output_tokens: Option<u32>,
+        #[serde(default, rename = "max_output_tokens")]
+        tokens: Option<u32>,
         #[serde(default, alias = "input_budget_bytes")]
         bytes: Option<usize>,
-        #[serde(default)]
-        maintenance_bytes: Option<usize>,
+        #[serde(default, rename = "maintenance_bytes")]
+        maintenance: Option<usize>,
         #[serde(default)]
         attempts: Option<u32>,
         #[serde(default)]
@@ -89,44 +89,45 @@ pub enum Profile {
         seal: Option<String>,
         #[serde(default)]
         identity: Option<String>,
-        #[serde(default)]
-        api_key: Option<String>,
-        #[serde(default)]
-        base_url: Option<String>,
-        #[serde(default)]
-        reasoning_effort: Option<String>,
-        #[serde(default)]
-        max_tokens: Option<u32>,
+        #[serde(default, rename = "api_key")]
+        key: Option<String>,
+        #[serde(default, rename = "base_url")]
+        endpoint: Option<String>,
+        #[serde(default, rename = "reasoning_effort")]
+        effort: Option<String>,
+        #[serde(default, rename = "max_tokens")]
+        tokens: Option<u32>,
         #[serde(default, alias = "input_budget_bytes")]
         bytes: Option<usize>,
-        #[serde(default)]
-        maintenance_bytes: Option<usize>,
+        #[serde(default, rename = "maintenance_bytes")]
+        maintenance: Option<usize>,
         #[serde(default)]
         headers: Option<Vec<String>>,
         #[serde(default, rename = "request_headers")]
         outgoing: std::collections::BTreeMap<String, String>,
     },
-    ChatCompletions {
+    #[serde(rename = "chat_completions")]
+    Completions {
         #[serde(default)]
         seal: Option<String>,
         #[serde(default)]
         identity: Option<String>,
-        #[serde(default)]
-        api_key: Option<String>,
-        #[serde(default)]
-        base_url: Option<String>,
+        #[serde(default, rename = "api_key")]
+        key: Option<String>,
+        #[serde(default, rename = "base_url")]
+        endpoint: Option<String>,
         #[serde(default)]
         thinking: Option<String>,
         #[serde(default)]
         replay: santi_provider::chat::completions::Replay,
-        #[serde(default)]
-        reasoning_effort: Option<String>,
-        #[serde(default)]
-        max_tokens: Option<u32>,
+        #[serde(default, rename = "reasoning_effort")]
+        effort: Option<String>,
+        #[serde(default, rename = "max_tokens")]
+        tokens: Option<u32>,
         #[serde(default, alias = "input_budget_bytes")]
         bytes: Option<usize>,
-        #[serde(default)]
-        maintenance_bytes: Option<usize>,
+        #[serde(default, rename = "maintenance_bytes")]
+        maintenance: Option<usize>,
         #[serde(default)]
         headers: Option<Vec<String>>,
         #[serde(default, rename = "request_headers")]
@@ -137,36 +138,36 @@ pub enum Profile {
 impl Profile {
     pub fn kind(&self) -> &'static str {
         match self {
-            Self::OpenAiResponses { .. } => "openai_responses",
+            Self::Responses { .. } => "openai_responses",
             Self::Gemini { .. } => "gemini_generate_content",
-            Self::ChatCompletions { .. } => "chat_completions",
+            Self::Completions { .. } => "chat_completions",
         }
     }
 
     pub fn resolve(&self, provider: &str, model: &str) -> Result<Resolved, String> {
         match self {
-            Profile::OpenAiResponses {
+            Profile::Responses {
                 seal: _,
-                api_key,
-                base_url,
-                reasoning_effort,
+                key,
+                endpoint,
+                effort,
                 summary,
-                max_output_tokens,
+                tokens,
                 bytes,
-                maintenance_bytes,
+                maintenance,
                 attempts,
                 headers,
                 outgoing,
-            } => Ok(Resolved::OpenAiResponses(OpenAiResponses {
-                api_key: required(api_key, provider, "api_key")?,
+            } => Ok(Resolved::Responses(Responses {
+                key: required(key, provider, "api_key")?,
                 model: model.to_owned(),
-                base_url: optional(base_url, provider, "base_url")?
+                endpoint: optional(endpoint, provider, "base_url")?
                     .unwrap_or_else(|| "https://api.openai.com/v1".to_string()),
-                reasoning_effort: optional(reasoning_effort, provider, "reasoning_effort")?,
+                effort: optional(effort, provider, "reasoning_effort")?,
                 summary: optional(summary, provider, "reasoning_summary")?,
-                max_output_tokens: *max_output_tokens,
+                tokens: *tokens,
                 bytes: positive(*bytes, provider, "bytes")?,
-                maintenance: capacity(*bytes, *maintenance_bytes, provider)?,
+                maintenance: capacity(*bytes, *maintenance, provider)?,
                 attempts: *attempts,
                 headers: super::headers::allowed(headers.as_deref(), provider)?,
                 outgoing: super::headers::requests(outgoing, provider)?,
@@ -174,50 +175,50 @@ impl Profile {
             Profile::Gemini {
                 seal: _,
                 identity: _,
-                api_key,
-                base_url,
-                reasoning_effort,
-                max_tokens,
+                key,
+                endpoint,
+                effort,
+                tokens,
                 bytes,
-                maintenance_bytes,
+                maintenance,
                 headers,
                 outgoing,
             } => Ok(Resolved::Gemini(Gemini {
                 provider: provider.to_string(),
-                api_key: required(api_key, provider, "api_key")?,
+                key: required(key, provider, "api_key")?,
                 model: model.to_owned(),
-                base_url: required(base_url, provider, "base_url")?,
-                reasoning_effort: optional(reasoning_effort, provider, "reasoning_effort")?,
-                max_tokens: *max_tokens,
+                endpoint: required(endpoint, provider, "base_url")?,
+                effort: optional(effort, provider, "reasoning_effort")?,
+                tokens: *tokens,
                 bytes: positive(*bytes, provider, "bytes")?,
-                maintenance: capacity(*bytes, *maintenance_bytes, provider)?,
+                maintenance: capacity(*bytes, *maintenance, provider)?,
                 headers: super::headers::allowed(headers.as_deref(), provider)?,
                 outgoing: super::headers::requests(outgoing, provider)?,
             })),
-            Profile::ChatCompletions {
+            Profile::Completions {
                 seal: _,
                 identity: _,
-                api_key,
-                base_url,
+                key,
+                endpoint,
                 thinking,
                 replay,
-                reasoning_effort,
-                max_tokens,
+                effort,
+                tokens,
                 bytes,
-                maintenance_bytes,
+                maintenance,
                 headers,
                 outgoing,
-            } => Ok(Resolved::ChatCompletions(ChatCompletions {
+            } => Ok(Resolved::Completions(Completions {
                 provider: provider.to_string(),
-                api_key: required(api_key, provider, "api_key")?,
+                key: required(key, provider, "api_key")?,
                 model: model.to_owned(),
-                base_url: required(base_url, provider, "base_url")?,
+                endpoint: required(endpoint, provider, "base_url")?,
                 thinking: optional(thinking, provider, "thinking")?,
                 replay: *replay,
-                reasoning_effort: optional(reasoning_effort, provider, "reasoning_effort")?,
-                max_tokens: *max_tokens,
+                effort: optional(effort, provider, "reasoning_effort")?,
+                tokens: *tokens,
                 bytes: positive(*bytes, provider, "bytes")?,
-                maintenance: capacity(*bytes, *maintenance_bytes, provider)?,
+                maintenance: capacity(*bytes, *maintenance, provider)?,
                 headers: super::headers::allowed(headers.as_deref(), provider)?,
                 outgoing: super::headers::requests(outgoing, provider)?,
             })),

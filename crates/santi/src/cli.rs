@@ -14,31 +14,31 @@ Optional Locus observation: set [locus] enabled = true in config.toml below the 
 pub struct Cli {
     #[arg(
         help = "Base URL of a running santi server. Falls back to SANTI_BASE_URL, then base_url in the client file: .local/secrets/santi.toml under a Plumb repository root discovered via plumb.toml from the current directory, otherwise client.toml in the santi home, then the local default. Only used by HTTP client commands.",
-        long,
+        long = "base-url",
+        value_name = "BASE_URL",
         global = true
     )]
-    pub base_url: Option<String>,
-
+    pub endpoint: Option<String>,
     #[arg(
         help = "Static bearer token sent on client requests. Falls back to SANTI_API_KEY, then api_key in the client file. Transitional: prefer edge auth to reach santi behind forward-auth.",
-        long,
+        long = "api-key",
+        value_name = "API_KEY",
         global = true
     )]
-    pub api_key: Option<String>,
-
+    pub key: Option<String>,
     #[arg(
         help = "Edge auth via authentik client_credentials. Each auth flag falls back to its SANTI_AUTH_* variable, then its auth_* key in the client file. A complete set is exchanged for a short-lived JWT cached at token_cache (SANTI_TOKEN_CACHE) or a per-identity default.",
-        long,
+        long = "auth-token-url",
+        value_name = "AUTH_TOKEN_URL",
         global = true
     )]
-    pub auth_token_url: Option<String>,
-    #[arg(long, global = true)]
-    pub auth_client_id: Option<String>,
-    #[arg(long, global = true)]
-    pub auth_username: Option<String>,
-    #[arg(long, global = true)]
-    pub auth_password: Option<String>,
-
+    pub token: Option<String>,
+    #[arg(long = "auth-client-id", value_name = "AUTH_CLIENT_ID", global = true)]
+    pub client: Option<String>,
+    #[arg(long = "auth-username", value_name = "AUTH_USERNAME", global = true)]
+    pub username: Option<String>,
+    #[arg(long = "auth-password", value_name = "AUTH_PASSWORD", global = true)]
+    pub password: Option<String>,
     #[arg(
         help = "Default strand id used when a strand subcommand omits an explicit id. Falls back to SANTI_STRAND_ID, the session context Santi sets for its jobs and resumes. Empty/absent → an id must be passed",
         long,
@@ -89,10 +89,14 @@ pub enum Command {
         about = "Page retained active and resolved incidents by scope; pass the last id as --before"
     )]
     Errors {
-        #[arg(long, default_value = "runtime")]
-        scope_kind: String,
-        #[arg(long, default_value = "default")]
-        scope_id: String,
+        #[arg(
+            long = "scope-kind",
+            value_name = "SCOPE_KIND",
+            default_value = "runtime"
+        )]
+        kind: String,
+        #[arg(long = "scope-id", value_name = "SCOPE_ID", default_value = "default")]
+        id: String,
         #[arg(long, default_value_t = 50)]
         limit: i64,
         #[arg(
@@ -123,13 +127,13 @@ pub enum Command {
     Reply(reply::Reply),
     #[command(about = "Query or explicitly resolve one external-effect attempt")]
     #[command(subcommand)]
-    Effect(EffectCommand),
+    Effect(Effect),
     #[command(about = "Strand resources under /api/v1/strands")]
     #[command(subcommand)]
-    Strand(StrandCommand),
+    Strand(Strand),
     #[command(about = "Compact a strand's own timeline, or query a compact's detail")]
     #[command(subcommand)]
-    Compact(CompactCommand),
+    Compact(Compact),
     #[command(about = "Soul-owned detached jobs under /api/v1/jobs")]
     #[command(subcommand)]
     Job(Job),
@@ -156,7 +160,7 @@ pub enum Command {
 }
 
 #[derive(Subcommand)]
-pub enum EffectCommand {
+pub enum Effect {
     #[command(about = "GET /api/v1/effects/{id}")]
     Query { effect: String },
     #[command(
@@ -165,7 +169,7 @@ pub enum EffectCommand {
     Resolve {
         effect: String,
         #[arg(long, value_enum)]
-        outcome: EffectOutcomeArg,
+        outcome: Outcome,
         #[arg(long)]
         evidence: String,
     },
@@ -184,13 +188,13 @@ pub enum Environment {
     #[command(about = "List declarations for one soul or strand")]
     List {
         #[arg(value_enum)]
-        scope: EnvironmentScope,
+        scope: Target,
         owner: String,
     },
     #[command(about = "Create or replace one declaration")]
     Set {
         #[arg(value_enum)]
-        scope: EnvironmentScope,
+        scope: Target,
         owner: String,
         name: String,
         value: String,
@@ -198,19 +202,19 @@ pub enum Environment {
     #[command(about = "Idempotently end one declaration")]
     End {
         #[arg(value_enum)]
-        scope: EnvironmentScope,
+        scope: Target,
         owner: String,
         name: String,
     },
 }
 
 #[derive(Debug, Clone, Copy, ValueEnum, PartialEq, Eq)]
-pub enum EnvironmentScope {
+pub enum Target {
     Soul,
     Strand,
 }
 
-impl EnvironmentScope {
+impl Target {
     pub fn path(self) -> &'static str {
         match self {
             Self::Soul => "souls",
@@ -257,31 +261,21 @@ impl Strategy {
 }
 
 #[derive(Debug, Clone, Copy, ValueEnum, PartialEq, Eq)]
-pub enum EffectOutcomeArg {
+pub enum Outcome {
     Applied,
-    NotApplied,
+    #[value(name = "not-applied")]
+    Unapplied,
 }
 
-impl EffectOutcomeArg {
-    pub fn as_api_str(self) -> &'static str {
+impl Outcome {
+    pub fn encode(self) -> &'static str {
         match self {
             Self::Applied => "applied",
-            Self::NotApplied => "not_applied",
+            Self::Unapplied => "not_applied",
         }
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq, ValueEnum)]
-pub enum WatchFormat {
-    #[value(
-        help = "Human-readable milestones that omit stream chunks; send --watch also omits repeated turn states"
-    )]
-    Filtered,
-    #[value(
-        help = "Raw debugging output: SSE bytes for `strand events`, JSON event data for `send --watch`"
-    )]
-    Raw,
-}
 pub mod alarm;
 mod compact;
 mod defaults;
@@ -296,5 +290,4 @@ pub use defaults::*;
 pub use inference::*;
 pub use job::*;
 pub use strand::*;
-
 pub(crate) mod skill;

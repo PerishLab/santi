@@ -1,10 +1,10 @@
 use clap::Parser;
-use santi::auth::form_urlencode;
+use santi::auth::encode;
 use santi::cli::alarm::Alarm;
-use santi::cli::{Cli, ClientDefaults, Command, StrandCommand, split_send_args};
+use santi::cli::{Cli, Command, Defaults, Strand, split};
 
-fn defaults(strand: Option<&str>, soul: Option<&str>) -> ClientDefaults {
-    ClientDefaults {
+fn defaults(strand: Option<&str>, soul: Option<&str>) -> Defaults {
+    Defaults {
         operator: None,
         strand: strand.map(str::to_string),
         soul: soul.map(str::to_string),
@@ -24,17 +24,14 @@ fn tui() {
 #[test]
 fn resolves() {
     let defaults = defaults(Some("sess_default"), None);
-    assert_eq!(
-        defaults.resolve_strand(Some("sess_x".into())).unwrap(),
-        "sess_x"
-    );
-    assert_eq!(defaults.resolve_strand(None).unwrap(), "sess_default");
+    assert_eq!(defaults.strand(Some("sess_x".into())).unwrap(), "sess_x");
+    assert_eq!(defaults.strand(None).unwrap(), "sess_default");
 }
 
 #[test]
 fn requires() {
-    assert!(defaults(None, None).resolve_strand(None).is_err());
-    assert!(defaults(Some("  "), None).resolve_strand(None).is_err());
+    assert!(defaults(None, None).strand(None).is_err());
+    assert!(defaults(Some("  "), None).strand(None).is_err());
 }
 
 #[test]
@@ -49,34 +46,34 @@ fn trims() {
 #[test]
 fn encodes() {
     assert_eq!(
-        form_urlencode(&[("grant_type", "client_credentials"), ("scope", "openid")]),
+        encode(&[("grant_type", "client_credentials"), ("scope", "openid")]),
         "grant_type=client_credentials&scope=openid"
     );
-    assert_eq!(form_urlencode(&[("k", "a b&c=d/e")]), "k=a+b%26c%3Dd%2Fe");
-    assert_eq!(form_urlencode(&[("x", "Az0-_.~")]), "x=Az0-_.~");
+    assert_eq!(encode(&[("k", "a b&c=d/e")]), "k=a+b%26c%3Dd%2Fe");
+    assert_eq!(encode(&[("x", "Az0-_.~")]), "x=Az0-_.~");
 }
 
 #[test]
 fn splits() {
     let config = defaults(Some("sess_default"), None);
-    let (id, text) = split_send_args(vec!["sess_x".into(), "hi".into()], &config).unwrap();
+    let (id, text) = split(vec!["sess_x".into(), "hi".into()], &config).unwrap();
     assert_eq!((id.as_str(), text.as_str()), ("sess_x", "hi"));
 
-    let (id, text) = split_send_args(vec!["hello".into()], &config).unwrap();
+    let (id, text) = split(vec!["hello".into()], &config).unwrap();
     assert_eq!((id.as_str(), text.as_str()), ("sess_default", "hello"));
-    assert!(split_send_args(vec!["hello".into()], &defaults(None, None)).is_err());
+    assert!(split(vec!["hello".into()], &defaults(None, None)).is_err());
 }
 
 #[test]
 fn fork() {
     let parsed = Cli::try_parse_from(["santi", "strand", "fork", "ss_parent"]).unwrap();
-    let Command::Strand(StrandCommand::Fork { id, .. }) = parsed.command else {
+    let Command::Strand(Strand::Fork { id, .. }) = parsed.command else {
         panic!("expected strand fork command");
     };
     assert_eq!(id.as_deref(), Some("ss_parent"));
 
     let parsed = Cli::try_parse_from(["santi", "strand", "fork"]).unwrap();
-    let Command::Strand(StrandCommand::Fork { id, .. }) = parsed.command else {
+    let Command::Strand(Strand::Fork { id, .. }) = parsed.command else {
         panic!("expected strand fork command");
     };
     assert_eq!(id, None);
@@ -85,14 +82,14 @@ fn fork() {
 #[test]
 fn drive() {
     let parsed = Cli::try_parse_from(["santi", "strand", "drive", "ss_blocked"]).unwrap();
-    let Command::Strand(StrandCommand::Drive { id }) = parsed.command else {
+    let Command::Strand(Strand::Drive { id }) = parsed.command else {
         panic!("expected strand drive command");
     };
     assert_eq!(id.as_deref(), Some("ss_blocked"));
 
     let parsed =
         Cli::try_parse_from(["santi", "--strand", "ss_default", "strand", "drive"]).unwrap();
-    let Command::Strand(StrandCommand::Drive { id }) = parsed.command else {
+    let Command::Strand(Strand::Drive { id }) = parsed.command else {
         panic!("expected strand drive command");
     };
     assert_eq!(id, None);
@@ -129,10 +126,10 @@ fn alarm() {
 }
 
 #[test]
-fn execution_tail() {
+fn tail() {
     let parsed =
         Cli::try_parse_from(["santi", "strand", "execution-tail", "ss_supervised"]).unwrap();
-    let Command::Strand(StrandCommand::ExecutionTail { id }) = parsed.command else {
+    let Command::Strand(Strand::Tail { id }) = parsed.command else {
         panic!("expected execution-tail command");
     };
     assert_eq!(id.as_deref(), Some("ss_supervised"));
@@ -145,7 +142,7 @@ fn execution_tail() {
         "execution-tail",
     ])
     .unwrap();
-    let Command::Strand(StrandCommand::ExecutionTail { id }) = parsed.command else {
+    let Command::Strand(Strand::Tail { id }) = parsed.command else {
         panic!("expected execution-tail command");
     };
     assert_eq!(id, None);

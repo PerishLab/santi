@@ -5,7 +5,7 @@ mod fork;
 
 #[test]
 fn api() {
-    let text = santi_api::export_openapi_json().expect("export openapi");
+    let text = santi_api::openapi().expect("export openapi");
     let document: serde_json::Value = serde_json::from_str(&text).expect("parse openapi");
     assert_eq!(document["info"]["version"].as_str(), Some("v1"));
     let request = &document["components"]["schemas"]["CreateJobRequest"];
@@ -30,10 +30,10 @@ fn api() {
     assert!(description.contains("`basis` is `precommit_preview`"));
     assert!(description.contains("`context_estimate.forecast`"));
     assert!(description.contains("not exact postcommit context"));
-    let execution_tail = &document["paths"]["/api/v1/strands/{strand}/execution-tail"]["get"]["responses"]
-        ["200"]["content"]["application/json"]["schema"];
+    let tail = &document["paths"]["/api/v1/strands/{strand}/execution-tail"]["get"]["responses"]["200"]
+        ["content"]["application/json"]["schema"];
     assert_eq!(
-        execution_tail["$ref"].as_str(),
+        tail["$ref"].as_str(),
         Some("#/components/schemas/stream.ExecutionTail")
     );
     for schema in [

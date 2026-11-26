@@ -44,12 +44,12 @@ impl Source {
         }
     }
 
-    pub fn with_ref(mut self, source: impl Into<String>) -> Self {
+    pub fn reference(mut self, source: impl Into<String>) -> Self {
         self.source = Some(source.into());
         self
     }
 
-    pub fn with_metadata(mut self, metadata: Value) -> Self {
+    pub fn metadata(mut self, metadata: Value) -> Self {
         self.metadata = Some(metadata);
         self
     }

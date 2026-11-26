@@ -2,7 +2,7 @@ use super::*;
 use axum::body::Body;
 use axum::http::{Request, StatusCode};
 use santi_core::inference::Declaration;
-use santi_core::service::{self, JobLaunch, JobObservation, JobSupervisor};
+use santi_core::service::{self, jobs};
 use std::sync::Arc;
 use tower::ServiceExt;
 
@@ -10,17 +10,17 @@ use tower::ServiceExt;
 mod catalog;
 
 struct Idle;
-impl JobSupervisor for Idle {
-    fn detach(&self, _: &JobLaunch) -> Result<(), String> {
+impl jobs::Supervisor for Idle {
+    fn detach(&self, _: &jobs::Launch) -> Result<(), String> {
         Err("no jobs".into())
     }
-    fn observe(&self, _: &JobLaunch) -> Result<JobObservation, String> {
+    fn observe(&self, _: &jobs::Launch) -> Result<jobs::Observation, String> {
         Err("no jobs".into())
     }
-    fn stop(&self, _: &JobLaunch) -> Result<(), String> {
+    fn stop(&self, _: &jobs::Launch) -> Result<(), String> {
         Err("no jobs".into())
     }
-    fn acknowledge(&self, _: &JobLaunch) -> Result<(), String> {
+    fn acknowledge(&self, _: &jobs::Launch) -> Result<(), String> {
         Err("no jobs".into())
     }
 }
@@ -73,7 +73,7 @@ async fn fixture() -> (tempfile::TempDir, axum::Router) {
     serve(
         Declaration {
             scenario: Some("gateway/family/routine".into()),
-            reasoning_effort: None,
+            effort: None,
         },
         "https://api.openai.com/v1",
     )

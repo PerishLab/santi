@@ -24,13 +24,14 @@ pub struct Draft {
     pub timeout: Option<u64>,
     pub output: Option<u64>,
     pub remind: Option<u64>,
-    pub notify_on_terminal: bool,
+    #[serde(rename = "notify_on_terminal")]
+    pub notify: bool,
 }
 
 #[derive(Debug, Clone)]
 pub struct Launch {
     pub environment: Option<santi_estate::Environment>,
-    pub base_url: Option<String>,
+    pub endpoint: Option<String>,
     pub job: job::Job,
     pub stamp: String,
     pub sidecar: String,

@@ -9,10 +9,10 @@ pub(super) mod handoff;
 mod recovery;
 mod success;
 
-pub use failure::{ClassifiedFailure, ClassifiedFailureDraft};
-pub use success::{Completion, CompletionDraft};
+pub use failure::{Failure, Fault};
+pub use success::{Completion, Finish};
 
-pub struct InterruptionDraft<'a> {
+pub struct Abort<'a> {
     pub turn: &'a str,
     pub cause: turn::Cause,
     pub actor: &'a str,
@@ -24,7 +24,7 @@ pub struct Interruption {
     pub notice: Option<message::Placed>,
 }
 
-pub(in crate::store) struct Failure<'a> {
+pub(in crate::store) struct Outcome<'a> {
     pub turn: &'a str,
     pub detail: &'a str,
     pub incident: Option<&'a str>,
@@ -34,10 +34,7 @@ pub(in crate::store) struct Failure<'a> {
 struct Reader<'a, 'tx>(&'a mut Tx<'tx, Sqlite>);
 
 impl Store {
-    pub async fn interrupt_turn(
-        &self,
-        draft: InterruptionDraft<'_>,
-    ) -> Result<Interruption, String> {
+    pub async fn abort(&self, draft: Abort<'_>) -> Result<Interruption, String> {
         let notice = self
             .core
             .batch(async |tx| recovery::interrupt(tx, &draft).await)
@@ -58,7 +55,7 @@ impl Store {
         Ok(Interruption { stop, notice })
     }
 
-    pub async fn recover_turns(&self, actor: &str, occurred: &str) -> Result<usize, String> {
+    pub async fn recover(&self, actor: &str, occurred: &str) -> Result<usize, String> {
         self.core
             .batch(async |tx| recovery::recover(tx, actor, occurred).await)
             .await
@@ -98,7 +95,7 @@ pub(in crate::store) async fn complete(
 
 pub(in crate::store) async fn fail(
     tx: &mut Tx<'_, Sqlite>,
-    failure: Failure<'_>,
+    failure: Outcome<'_>,
 ) -> Result<(), keel::adapt::Error> {
     let turn = Reader(tx).eligible(failure.turn).await?;
     tx.put(
@@ -110,7 +107,7 @@ pub(in crate::store) async fn fail(
         ],
     )
     .await?;
-    effect::reconcile_in(tx, failure.turn, failure.finished).await?;
+    effect::reconcile(tx, failure.turn, failure.finished).await?;
     crate::store::inbox::receipt::close(
         tx,
         crate::store::inbox::receipt::Close {

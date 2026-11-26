@@ -39,7 +39,7 @@ async fn transmitted(chat: bool) {
         .render(
             &strand,
             render::Request {
-                kind: render::Kind::SystemPrompt,
+                kind: render::Kind::Prompt,
             },
         )
         .await
@@ -69,8 +69,8 @@ async fn transmitted(chat: bool) {
         )
         .await
         .unwrap();
-    let turn = accepted_turn(&service, &posted).await;
-    let runtime = Probe::new(&service).completed_turn(&strand, &turn.id).await;
+    let turn = accepted(&service, &posted).await;
+    let runtime = Probe::new(&service).completed(&strand, &turn.id).await;
     let body = server.await.unwrap();
     let text = if chat {
         body["messages"][0]["content"].as_str().unwrap()
@@ -106,7 +106,7 @@ fn provider(url: String, chat: bool) -> Arc<dyn Provider> {
             },
         ))
     } else {
-        Arc::new(santi_provider::openai::OpenAI::new(
+        Arc::new(santi_provider::openai::Openai::new(
             santi_provider::openai::Config {
                 outgoing: Default::default(),
                 key: "test".into(),

@@ -1,4 +1,4 @@
-use super::{CapabilityDraft, JobDraft, TransitionDraft};
+use super::{Capability, Job, Transition};
 use keel::adapt::db::Sqlite;
 use keel::{Op, Row, Tx, form};
 use santi_model::job;
@@ -10,7 +10,7 @@ pub(super) struct Writer<'a, 'tx>(&'a mut Tx<'tx, Sqlite>);
 
 pub(super) async fn capability(
     tx: &mut Tx<'_, Sqlite>,
-    draft: CapabilityDraft<'_>,
+    draft: Capability<'_>,
 ) -> Result<(), keel::adapt::Error> {
     let mut writer = Writer(tx);
     if draft.expires < 1 {
@@ -50,8 +50,8 @@ pub(super) async fn capability(
 pub(super) async fn prepare(
     tx: &mut Tx<'_, Sqlite>,
     digest: &str,
-    draft: JobDraft<'_>,
-    now_millis: i64,
+    draft: Job<'_>,
+    now: i64,
 ) -> Result<(bool, String), keel::adapt::Error> {
     let mut writer = Writer(tx);
     let capability = writer
@@ -60,7 +60,7 @@ pub(super) async fn prepare(
         .await?
         .ok_or_else(|| adapt("invalid job capability"))?;
     if let Some(job) = capability.int("consumed") {
-        if capability.text("request_sha256") != Some(draft.request_sha256) {
+        if capability.text("request_sha256") != Some(draft.digest) {
             return Err(adapt("job capability conflicts with its accepted request"));
         }
         let job = writer
@@ -73,17 +73,17 @@ pub(super) async fn prepare(
     let expires = capability
         .int("expires")
         .ok_or_else(|| adapt("job capability expiry missing"))?;
-    if now_millis > expires {
+    if now > expires {
         return Err(adapt("job capability expired"));
     }
-    let job = writer.put_job(&capability, draft).await?;
+    let job = writer.put(&capability, draft).await?;
     writer
         .0
         .set(
             "JobCapability",
             capability.key(),
             &[
-                ("request_sha256", draft.request_sha256),
+                ("request_sha256", draft.digest),
                 ("consumed", &job.to_string()),
             ],
         )
@@ -123,7 +123,7 @@ impl<'a, 'tx> Writer<'a, 'tx> {
     pub async fn transition(
         &mut self,
         tag: &str,
-        draft: TransitionDraft<'_>,
+        draft: Transition<'_>,
     ) -> Result<(), keel::adapt::Error> {
         let job = self.relation("Job", tag).await?;
         if draft
@@ -136,7 +136,7 @@ impl<'a, 'tx> Writer<'a, 'tx> {
         if let Some(reason) = draft.reason {
             fields.push(("reason", reason));
         }
-        let exit = draft.exit_code.map(|exit| exit.to_string());
+        let exit = draft.exit.map(|exit| exit.to_string());
         if let Some(exit) = exit.as_deref() {
             fields.push(("exit_code", exit));
         }
@@ -146,7 +146,7 @@ impl<'a, 'tx> Writer<'a, 'tx> {
             fields.push(("started", started));
         }
         let millis = (draft.state == job::State::Running && job.int("started_millis").is_none())
-            .then_some(draft.started_millis)
+            .then_some(draft.started)
             .flatten()
             .map(|millis| millis.to_string());
         if let Some(millis) = millis.as_deref() {
@@ -154,7 +154,7 @@ impl<'a, 'tx> Writer<'a, 'tx> {
         }
         if draft.state == job::State::Running
             && job.text("next_reminder").is_none()
-            && let Some(next) = draft.next_reminder
+            && let Some(next) = draft.next
         {
             fields.push(("next_reminder", next));
         }
@@ -162,7 +162,7 @@ impl<'a, 'tx> Writer<'a, 'tx> {
             fields.push(("finished", draft.occurred));
         }
         self.0.set("Job", job.key(), &fields).await?;
-        self.clear_transition(&job, &draft).await
+        self.clear(&job, &draft).await
     }
 
     pub async fn acknowledge(
@@ -199,22 +199,18 @@ pub(super) fn state(state: &job::State) -> &'static str {
         job::State::Cancelling => "cancelling",
         job::State::Succeeded => "succeeded",
         job::State::Failed => "failed",
-        job::State::TimedOut => "timed_out",
+        job::State::Timeout => "timed_out",
         job::State::Cancelled => "cancelled",
         job::State::Unknown => "unknown",
     }
 }
 
 impl Writer<'_, '_> {
-    async fn put_job(
-        &mut self,
-        capability: &Row,
-        draft: JobDraft<'_>,
-    ) -> Result<i64, keel::adapt::Error> {
-        let timeout = signed(draft.timeout_seconds, "job timeout")?;
-        let output = signed(draft.output_limit_bytes, "job output limit")?;
+    async fn put(&mut self, capability: &Row, draft: Job<'_>) -> Result<i64, keel::adapt::Error> {
+        let timeout = signed(draft.timeout, "job timeout")?;
+        let output = signed(draft.limit, "job output limit")?;
         let remind = draft
-            .remind_every_seconds
+            .remind
             .map(|value| signed(value, "job reminder interval"))
             .transpose()?;
         let strand = key(capability, "strand")?;
@@ -232,7 +228,7 @@ impl Writer<'_, '_> {
             ("command", draft.command),
             ("timeout_seconds", timeout.as_str()),
             ("output_limit_bytes", output.as_str()),
-            ("request_sha256", draft.request_sha256),
+            ("request_sha256", draft.digest),
             (
                 "capability_sha256",
                 capability
@@ -240,7 +236,7 @@ impl Writer<'_, '_> {
                     .ok_or_else(|| adapt("capability digest missing"))?,
             ),
             ("generation", draft.generation),
-            ("supervisor_ref", draft.supervisor_ref),
+            ("supervisor_ref", draft.supervisor),
             ("created", draft.created),
             ("updated", draft.created),
             ("strand", strand.as_str()),
@@ -257,22 +253,18 @@ impl Writer<'_, '_> {
         if let Some(remind) = remind.as_deref() {
             fields.push(("remind_every_seconds", remind));
         }
-        if draft.notify_on_terminal {
+        if draft.notify {
             fields.push(("notify_on_terminal", "true"));
         }
         self.0.put("Job", &fields).await
     }
 
-    async fn clear_transition(
-        &mut self,
-        job: &Row,
-        draft: &TransitionDraft<'_>,
-    ) -> Result<(), keel::adapt::Error> {
+    async fn clear(&mut self, job: &Row, draft: &Transition<'_>) -> Result<(), keel::adapt::Error> {
         let mut unset = Vec::new();
         if draft.reason.is_none() && job.text("reason").is_some() {
             unset.push("reason");
         }
-        if draft.exit_code.is_none() && job.int("exit_code").is_some() {
+        if draft.exit.is_none() && job.int("exit_code").is_some() {
             unset.push("exit_code");
         }
         if draft.state.terminal() && job.text("next_reminder").is_some() {

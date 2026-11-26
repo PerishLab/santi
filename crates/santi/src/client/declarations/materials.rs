@@ -1,11 +1,11 @@
-use crate::cli::{ClientDefaults, Materials, Person, Reading, Rendering, Soul};
-use crate::client::{Http, urlencoding_encode};
+use crate::cli::{Defaults, Materials, Person, Reading, Rendering, Soul};
+use crate::client::{Http, encode};
 use anyhow::{Context, Result};
 
 pub(in crate::client) async fn soul(
     http: &Http<'_>,
     base: &str,
-    defaults: &ClientDefaults,
+    defaults: &Defaults,
     args: Soul,
 ) -> Result<()> {
     match args.command {
@@ -26,14 +26,14 @@ pub(in crate::client) async fn soul(
 pub(in crate::client) struct Seat<'a, 'h> {
     http: &'a Http<'h>,
     base: &'a str,
-    defaults: &'a ClientDefaults,
+    defaults: &'a Defaults,
 }
 
 impl<'a, 'h> Seat<'a, 'h> {
     pub(in crate::client) fn new(
         http: &'a Http<'h>,
         base: &'a str,
-        defaults: &'a ClientDefaults,
+        defaults: &'a Defaults,
     ) -> Self {
         Self {
             http,
@@ -55,7 +55,7 @@ impl<'a, 'h> Seat<'a, 'h> {
             None => args.id,
         };
         let id = if scope == "strands" {
-            defaults.resolve_strand(explicit)?
+            defaults.strand(explicit)?
         } else {
             explicit
                 .map(Ok)
@@ -90,10 +90,10 @@ impl<'a, 'h> Seat<'a, 'h> {
                 append(&mut query, "operation", operation);
                 append(&mut query, "context", context);
                 if let Some(reference) = reference {
-                    query.push_str(&format!("&reference={}", urlencoding_encode(&reference)));
+                    query.push_str(&format!("&reference={}", encode(&reference)));
                 }
                 if let Some(blob) = blob {
-                    query.push_str(&format!("&blob={}", urlencoding_encode(&blob)));
+                    query.push_str(&format!("&blob={}", encode(&blob)));
                 }
                 http.get(&query).await
             }
@@ -125,6 +125,6 @@ impl<'a, 'h> Seat<'a, 'h> {
 
 fn append(query: &mut String, name: &str, value: Option<String>) {
     if let Some(value) = value {
-        query.push_str(&format!("&{name}={}", urlencoding_encode(&value)));
+        query.push_str(&format!("&{name}={}", encode(&value)));
     }
 }

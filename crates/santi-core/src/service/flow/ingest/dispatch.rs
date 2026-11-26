@@ -114,7 +114,7 @@ impl Service {
             }
         };
         let held = match self
-            .admit_pending(&strand, provider.as_ref(), drive.operation, maintenance)
+            .admit(&strand, provider.as_ref(), drive.operation, maintenance)
             .await
         {
             Ok(held) => held,
@@ -128,9 +128,9 @@ impl Service {
         let tag = crate::tag("turn");
         let trigger = match if maintenance { "system" } else { drive.trigger } {
             "system" => crate::turn::Trigger::System,
-            _ => crate::turn::Trigger::StrandSend,
+            _ => crate::turn::Trigger::Send,
         };
-        let draft = santi_estate::DrainDraft {
+        let draft = santi_estate::Drain {
             turn: &tag,
             strand: &strand.id,
             trigger,

@@ -11,7 +11,7 @@ struct Paused {
 #[async_trait]
 impl Provider for Paused {
     fn metadata(&self) -> Metadata {
-        FakeProvider::default().metadata()
+        Fake::default().metadata()
     }
 
     async fn stream(&self, request: Request) -> Result<Streaming, String> {
@@ -101,8 +101,8 @@ async fn boundary() {
             .contains("round-marker")
     );
     release.notify_one();
-    let turn = accepted_turn(&service, &posted).await;
-    let runtime = Probe::new(&service).completed_turn(&strand, &turn.id).await;
+    let turn = accepted(&service, &posted).await;
+    let runtime = Probe::new(&service).completed(&strand, &turn.id).await;
     let requests = requests.lock().unwrap();
     assert_eq!(requests.len(), 2);
     assert!(
@@ -149,8 +149,8 @@ async fn prepared() {
         )
         .await
         .unwrap();
-    let turn = accepted_turn(&service, &posted).await;
-    let runtime = Probe::new(&service).failed_turn(&strand, &turn.id).await;
+    let turn = accepted(&service, &posted).await;
+    let runtime = Probe::new(&service).failed(&strand, &turn.id).await;
     assert_eq!(runtime.contexts.len(), 1);
     assert!(runtime.contexts[0].thinking.is_none());
     assert_eq!(runtime.contexts[0].materials.len(), 1);

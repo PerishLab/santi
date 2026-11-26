@@ -14,14 +14,15 @@ use santi_core::service::Service;
 use serde_json::json;
 use sha2::{Digest as _, Sha256};
 
-use crate::webhook::{WebhookOutcome, adaptor_for};
+use crate::webhook::{Outcome, resolve};
 
-use super::ApiError;
+use super::Problem;
 use santi_core::ingest;
 
 #[utoipa::path(
     post,
     path = "/api/v1/webhooks/{name}",
+    operation_id = "ingest_webhook",
     summary = "Webhook ingest endpoint. Not bearer-gated — authenticity is established by the\nadaptor verifying the request signature against the subscription's secret. An\nout-of-scope or self-authored event returns 200 without waking the soul.",
     params(("name" = String, Path)),
     request_body(content_type = "application/json", description = "Raw provider event payload"),
@@ -35,45 +36,45 @@ use santi_core::ingest;
         (status = 503, body = Fault)
     )
 )]
-pub(super) async fn ingest_webhook(
+pub(super) async fn receive(
     State(service): State<Service>,
     Path(name): Path<String>,
     headers: HeaderMap,
     body: Bytes,
-) -> Result<Response, ApiError> {
+) -> Result<Response, Problem> {
     let subscription = service
         .webhook(&name)
         .await
-        .map_err(ApiError::from_service)?
-        .ok_or_else(|| ApiError::not_found("webhook not found"))?;
+        .map_err(Problem::service)?
+        .ok_or_else(|| Problem::missing("webhook not found"))?;
     let soul = service
         .soul(&subscription.soul)
         .await
-        .map_err(ApiError::from_service)?
-        .ok_or_else(|| ApiError::not_found("soul not found"))?;
+        .map_err(Problem::service)?
+        .ok_or_else(|| Problem::missing("soul not found"))?;
     let account = soul
         .identity
         .as_ref()
         .and_then(|identity| identity.channels.get(&subscription.adaptor));
-    let adaptor = adaptor_for(&subscription.adaptor, account.map(String::as_str))
-        .ok_or_else(|| ApiError::internal(format!("unknown adaptor {}", subscription.adaptor)))?;
+    let adaptor = resolve(&subscription.adaptor, account.map(String::as_str))
+        .ok_or_else(|| Problem::internal(format!("unknown adaptor {}", subscription.adaptor)))?;
     let secret = crate::config::env(&subscription.credential).ok_or_else(|| {
-        ApiError::unauthorized(format!(
+        Problem::unauthorized(format!(
             "webhook secret env {} is not set",
             subscription.credential
         ))
     })?;
     adaptor
         .verify(&headers, &body, &secret)
-        .map_err(ApiError::from_webhook)?;
+        .map_err(Problem::webhook)?;
     let event = match adaptor
         .normalize(&headers, &body, &secret, &name)
-        .map_err(ApiError::from_webhook)?
+        .map_err(Problem::webhook)?
     {
-        WebhookOutcome::Reply(reply) => return Ok((StatusCode::OK, Json(reply)).into_response()),
-        WebhookOutcome::Event(event) => event,
+        Outcome::Reply(reply) => return Ok((StatusCode::OK, Json(reply)).into_response()),
+        Outcome::Event(event) => event,
     };
-    if !event.in_scope || event.self_authored {
+    if !event.scoped || event.authored {
         return Ok(StatusCode::OK.into_response());
     }
     let label = if subscription.strategy == "single" {
@@ -90,8 +91,8 @@ pub(super) async fn ingest_webhook(
         .and_then(serde_json::Value::as_str)
         .map(str::to_string);
     let source = ingest::Source::new("webhook")
-        .with_ref(format!("{}:{name}", subscription.adaptor))
-        .with_metadata(json!({
+        .reference(format!("{}:{name}", subscription.adaptor))
+        .metadata(json!({
             "subscription": name,
             "feedback": reply.is_some(),
             "adaptor": subscription.adaptor,
@@ -121,7 +122,7 @@ pub(super) async fn ingest_webhook(
             }
         }
         None if subscription.adaptor == "github" => {
-            return Err(ApiError::bad_request("missing X-GitHub-Delivery header"));
+            return Err(Problem::invalid("missing X-GitHub-Delivery header"));
         }
         None => {
             service
@@ -129,13 +130,13 @@ pub(super) async fn ingest_webhook(
                 .await
         }
     }
-    .map_err(ApiError::from_service)?;
+    .map_err(Problem::service)?;
     match outcome {
         ingest::Outcome::Accepted { receipt } => {
             ack::accept(&service, confirmation, &receipt).await;
             Ok((StatusCode::ACCEPTED, Json(receipt)).into_response())
         }
-        ingest::Outcome::Rejected { error } => Err(ApiError::from_santi(*error)),
+        ingest::Outcome::Rejected { error } => Err(Problem::santi(*error)),
     }
 }
 
@@ -160,13 +161,13 @@ fn digest(adaptor: &str, headers: &HeaderMap, body: &[u8]) -> String {
 pub(super) async fn acknowledgement(
     State(service): State<Service>,
     Path(inbox): Path<String>,
-) -> Result<Json<santi_core::receipt::Acknowledgement>, ApiError> {
+) -> Result<Json<santi_core::receipt::Acknowledgement>, Problem> {
     service
         .acknowledgement(&inbox)
         .await
-        .map_err(ApiError::from_service)?
+        .map_err(Problem::service)?
         .map(Json)
-        .ok_or_else(|| ApiError::not_found("acknowledgement not found"))
+        .ok_or_else(|| Problem::missing("acknowledgement not found"))
 }
 
 #[utoipa::path(post, path = "/api/v1/receipts/{inbox}/acknowledgement/confirm", params(("inbox" = String, Path)), request_body = santi_core::receipt::Confirmation,
@@ -176,10 +177,10 @@ pub(super) async fn confirmed(
     State(service): State<Service>,
     Path(inbox): Path<String>,
     Json(resolution): Json<santi_core::receipt::Confirmation>,
-) -> Result<Json<santi_core::receipt::Acknowledgement>, ApiError> {
+) -> Result<Json<santi_core::receipt::Acknowledgement>, Problem> {
     service
         .confirmed(&inbox, &resolution)
         .await
-        .map_err(ApiError::from_service)?;
+        .map_err(Problem::service)?;
     acknowledgement(State(service), Path(inbox)).await
 }

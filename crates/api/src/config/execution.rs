@@ -11,9 +11,15 @@ pub struct Execution {
     pub output: usize,
     pub shell: usize,
     pub lines: usize,
-    pub feedback_after_calls: Option<usize>,
-    pub feedback_command: Option<String>,
-    pub feedback_cwd: Option<String>,
+    #[cascade(name = "feedback_after_calls")]
+    #[serde(rename = "feedback_after_calls")]
+    pub after: Option<usize>,
+    #[cascade(name = "feedback_command")]
+    #[serde(rename = "feedback_command")]
+    pub command: Option<String>,
+    #[cascade(name = "feedback_cwd")]
+    #[serde(rename = "feedback_cwd")]
+    pub cwd: Option<String>,
 }
 
 impl Default for Execution {
@@ -26,9 +32,9 @@ impl Default for Execution {
             output: 4 * 1024 * 1024,
             shell: 8192,
             lines: 256,
-            feedback_after_calls: None,
-            feedback_command: None,
-            feedback_cwd: None,
+            after: None,
+            command: None,
+            cwd: None,
         }
     }
 }

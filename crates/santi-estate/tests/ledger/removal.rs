@@ -3,7 +3,7 @@ use std::path::Path;
 
 use keel::adapt::db::Sqlite;
 use santi_error::Scope;
-use santi_estate::{EnvironDraft, ForkDraft, ReplayDraft, Store};
+use santi_estate::{Environ, Fork, Replay, Store};
 use santi_model::{environ, message};
 
 use super::seed::{FIRST, LATER, SOUL, SUDO, failure, inbox, populate, seed};
@@ -25,7 +25,7 @@ async fn owned() {
     let store = Store::bootstrap(&path, SUDO).await.expect("open");
     seed(&store).await;
     store
-        .set_environ(EnvironDraft {
+        .export(Environ {
             scope: environ::Scope::Soul,
             owner: SOUL,
             name: "SOUL_VALUE",
@@ -44,7 +44,7 @@ async fn owned() {
     settled(&store, "kept").await;
     let before = live(&path).await;
 
-    store.end_strand("gone").await.expect("end strand");
+    store.retire("gone").await.expect("end strand");
 
     assert!(store.strand("gone").await.expect("strand").is_none());
     assert!(store.objects("gone").await.expect("objects").is_empty());
@@ -63,9 +63,9 @@ async fn owned() {
     let hello = message::Content::text("hello");
     assert!(
         store
-            .accept_replay(
+            .replay(
                 inbox("inbox_late", "kept", &hello),
-                ReplayDraft::Webhook {
+                Replay::Webhook {
                     subscription: "github",
                     delivery: "delivery_gone",
                     digest: "request_gone",
@@ -87,7 +87,7 @@ async fn forked() {
     populate(&store, "parent").await;
     let parent = store.strand("parent").await.expect("parent").expect("live");
     let child = store
-        .fork(ForkDraft {
+        .fork(Fork {
             tag: "child",
             parent: "parent",
             at: parent.next - 1,
@@ -99,14 +99,14 @@ async fn forked() {
     let shown = store.messages(&child.id).await.expect("shown").len();
     assert!(shown > 0);
 
-    let refused = store.end_strand("parent").await.expect_err("refused");
+    let refused = store.retire("parent").await.expect_err("refused");
     assert!(refused.contains("child"), "{refused}");
     assert!(store.strand("parent").await.expect("parent").is_some());
     assert_eq!(store.messages("child").await.expect("child").len(), shown);
 
-    store.end_strand("child").await.expect("end child");
+    store.retire("child").await.expect("end child");
     settled(&store, "parent").await;
-    store.end_strand("parent").await.expect("end parent");
+    store.retire("parent").await.expect("end parent");
     dangling(&path).await;
 }
 
@@ -163,25 +163,25 @@ fn held(spec: &keel::spec::Spec, row: &keel::Row, live: &BTreeMap<String, BTreeS
 
 async fn settled(store: &Store, strand: &str) {
     store
-        .reconcile_effects(&format!("turn_{strand}"), LATER)
+        .reconcile(&format!("turn_{strand}"), LATER)
         .await
         .expect("settle prepared effect");
     store
-        .transition_job(
+        .transit(
             &format!("job_{strand}"),
-            santi_estate::TransitionDraft::new(santi_model::job::State::Succeeded, LATER),
+            santi_estate::Transition::new(santi_model::job::State::Succeeded, LATER),
         )
         .await
         .expect("complete job");
     store
-        .acknowledge_job(&format!("job_{strand}"), LATER)
+        .ack(&format!("job_{strand}"), LATER)
         .await
         .expect("acknowledge job");
     let santi_estate::Opening::Started(started) = store
-        .drain_turn(santi_estate::DrainDraft {
+        .drain(santi_estate::Drain {
             turn: &format!("drain_{strand}"),
             strand,
-            trigger: santi_model::turn::Trigger::StrandSend,
+            trigger: santi_model::turn::Trigger::Send,
             actor: "santi",
             created: LATER,
         })
@@ -191,7 +191,7 @@ async fn settled(store: &Store, strand: &str) {
         panic!("expected pending input");
     };
     store
-        .finish_turn(santi_estate::CompletionDraft {
+        .finish(santi_estate::Finish {
             turn: &started.turn.id,
             reply: None,
             provider: "test",

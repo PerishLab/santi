@@ -14,7 +14,7 @@ impl Service {
         };
         match self
             .store
-            .fail_classified(santi_estate::ClassifiedFailureDraft {
+            .classify(santi_estate::Fault {
                 turn,
                 detail: error,
                 incident: santi_error::Draft {

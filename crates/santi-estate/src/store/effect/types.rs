@@ -1,5 +1,5 @@
 #[derive(Clone, Copy)]
-pub struct EffectDraft<'a> {
+pub struct Effect<'a> {
     pub tag: &'a str,
     pub turn: &'a str,
     pub call: Option<&'a str>,
@@ -8,7 +8,7 @@ pub struct EffectDraft<'a> {
     pub created: &'a str,
 }
 
-pub struct RedemptionDraft<'a> {
+pub struct Redemption<'a> {
     pub result: &'a str,
     pub call: &'a str,
     pub output: Option<&'a serde_json::Value>,

@@ -23,12 +23,12 @@ impl Service {
         let content = message::Content::text(spelled(detail));
         let placed = self
             .store
-            .place(santi_estate::MessageDraft {
+            .place(santi_estate::Message {
                 tag: &crate::tag("msg"),
                 strand,
                 actor: message::Role::System,
-                actor_id: crate::SYSTEM,
-                kind: message::Kind::SantiSystem,
+                sender: crate::SYSTEM,
+                kind: message::Kind::System,
                 content: &content,
                 state: message::State::Fixed,
                 request: false,

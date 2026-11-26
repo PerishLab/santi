@@ -7,7 +7,7 @@ use tokio::time::sleep;
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn running() {
     let temp = tempfile::tempdir().expect("temp dir");
-    let supervisor = Arc::new(FakeSupervisor {
+    let supervisor = Arc::new(Fake {
         launches: Mutex::new(0),
     });
     let provider = Arc::new(Gated::new());
@@ -120,9 +120,9 @@ async fn running() {
         store.inboxes(&strand.id).await.expect("drained").is_empty(),
         "terminal notice remained pending after turn completion"
     );
-    let record = store.job_record(&job).await.expect("record").expect("job");
+    let record = store.tracked(&job).await.expect("record").expect("job");
     assert_eq!(record.job.state, job::State::Succeeded);
-    assert!(record.terminal_notified.is_some());
+    assert!(record.notified.is_some());
     assert_eq!(*supervisor.launches.lock().unwrap(), 0);
     assert_ne!(finished, running.id);
     let _ = sent;

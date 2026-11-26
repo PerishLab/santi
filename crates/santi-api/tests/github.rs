@@ -1,8 +1,8 @@
 use axum::http::{HeaderMap, HeaderValue};
-use santi_api::webhook::{NormalizedEvent, WebhookAdaptor, WebhookOutcome, github::GithubAdaptor};
+use santi_api::webhook::{Adaptor, Event, Outcome, github::Github};
 use serde_json::{Value, json};
 
-fn received(event: &str, mut payload: Value) -> NormalizedEvent {
+fn received(event: &str, mut payload: Value) -> Event {
     payload["issue"]
         .as_object_mut()
         .unwrap()
@@ -13,7 +13,7 @@ fn received(event: &str, mut payload: Value) -> NormalizedEvent {
     }
     let mut headers = HeaderMap::new();
     headers.insert("X-GitHub-Event", HeaderValue::from_str(event).unwrap());
-    let outcome = GithubAdaptor::configured(None, None)
+    let outcome = Github::configured(None, None)
         .addressed(Some("AdamSanti"))
         .normalize(
             &headers,
@@ -23,7 +23,7 @@ fn received(event: &str, mut payload: Value) -> NormalizedEvent {
         )
         .unwrap();
     match outcome {
-        WebhookOutcome::Event(event) => event,
+        Outcome::Event(event) => event,
         _ => panic!("expected event"),
     }
 }

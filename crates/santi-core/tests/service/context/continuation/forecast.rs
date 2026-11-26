@@ -70,9 +70,7 @@ async fn exercise(capsule: bool) {
         assert_eq!(metadata["schema"], "santi.compact_estimate.v1");
         assert!(metadata.get("source_trust").is_none());
     }
-    let input = santi_core::provider_input(&store, &strand.id)
-        .await
-        .unwrap();
+    let input = santi_core::assemble(&store, &strand.id).await.unwrap();
     let Some(Item::Message { content, .. }) = input.first() else {
         panic!("compact header missing");
     };

@@ -4,10 +4,7 @@ use std::{
     process::{Command, Output},
 };
 
-use santi_core::{
-    job,
-    service::{JobLaunch, JobObservation, JobSupervisor, JobTerminal},
-};
+use santi_core::{job, service::jobs};
 
 use super::{
     DIRECTORY, GENERATION, STAMP, TIMEOUT, files, handoff,
@@ -31,7 +28,7 @@ impl Systemd {
             .map_err(|error| error.to_string())
     }
 
-    fn matching(&self, launch: &JobLaunch) -> Result<bool, String> {
+    fn matching(&self, launch: &jobs::Launch) -> Result<bool, String> {
         let held = properties(&launch.sidecar)?;
         if held.get("LoadState").map(String::as_str) == Some("not-found") {
             return Ok(false);
@@ -43,8 +40,8 @@ impl Systemd {
     }
 }
 
-impl JobSupervisor for Systemd {
-    fn detach(&self, launch: &JobLaunch) -> Result<(), String> {
+impl jobs::Supervisor for Systemd {
+    fn detach(&self, launch: &jobs::Launch) -> Result<(), String> {
         let directory = Path::new(&launch.directory);
         files::directory(directory).prepare()?;
         let requested = Spec::from(launch);
@@ -71,12 +68,12 @@ impl JobSupervisor for Systemd {
             .arg("--property=TimeoutStopSec=5s")
             .arg(format!(
                 "--property=TimeoutStartSec={}s",
-                launch.job.timeout_seconds
+                launch.job.timeout
             ))
             .arg(format!("--property=ExecStopPost={stop}"))
             .arg(format!("--setenv={DIRECTORY}={}", launch.directory))
             .arg(format!("--setenv={STAMP}={}", launch.stamp))
-            .arg(format!("--setenv={TIMEOUT}={}", launch.job.timeout_seconds))
+            .arg(format!("--setenv={TIMEOUT}={}", launch.job.timeout))
             .arg(&self.executable)
             .args(["__job", "run"])
             .output()
@@ -91,7 +88,7 @@ impl JobSupervisor for Systemd {
         ))
     }
 
-    fn observe(&self, launch: &JobLaunch) -> Result<JobObservation, String> {
+    fn observe(&self, launch: &jobs::Launch) -> Result<jobs::Observation, String> {
         let directory = Path::new(&launch.directory);
         let state = files::directory(directory).state()?;
         if let Some(terminal) = files::directory(directory).terminal()? {
@@ -99,13 +96,13 @@ impl JobSupervisor for Systemd {
                 && launch.stamp.starts_with("stamp_")
                 && launch.job.state == job::State::Submitting
             {
-                return Ok(JobObservation::Aborted);
+                return Ok(jobs::Observation::Aborted);
             }
-            return Ok(JobObservation::Terminal(terminal));
+            return Ok(jobs::Observation::Terminal(terminal));
         }
         let held = properties(&launch.sidecar)?;
         if held.get("LoadState").map(String::as_str) == Some("not-found") {
-            return Ok(JobObservation::Missing);
+            return Ok(jobs::Observation::Missing);
         }
         if !held.get("Environment").is_some_and(|environment| {
             environment.contains(&format!("{STAMP}={}", launch.stamp))
@@ -130,30 +127,30 @@ impl JobSupervisor for Systemd {
                     .as_ref()
                     .is_some_and(|state| state.phase == Phase::Claimed) =>
             {
-                Ok(JobObservation::Claimed)
+                Ok(jobs::Observation::Claimed)
             }
-            ("activating", _, _) | ("active", "running", _) => Ok(JobObservation::Running),
-            ("active", "exited", "success") => Ok(JobObservation::Terminal(JobTerminal {
+            ("activating", _, _) | ("active", "running", _) => Ok(jobs::Observation::Running),
+            ("active", "exited", "success") => Ok(jobs::Observation::Terminal(jobs::Terminal {
                 state: job::State::Succeeded,
                 reason: None,
                 exit: Some(0),
             })),
-            ("failed", _, _) if limited => Ok(JobObservation::Terminal(JobTerminal {
+            ("failed", _, _) if limited => Ok(jobs::Observation::Terminal(jobs::Terminal {
                 state: job::State::Failed,
                 reason: Some("output_limit".to_string()),
                 exit: status,
             })),
-            ("failed", _, _) if cancelled => Ok(JobObservation::Terminal(JobTerminal {
+            ("failed", _, _) if cancelled => Ok(jobs::Observation::Terminal(jobs::Terminal {
                 state: job::State::Cancelled,
                 reason: Some("cancel_requested".to_string()),
                 exit: status,
             })),
-            ("failed", _, "timeout") => Ok(JobObservation::Terminal(JobTerminal {
-                state: job::State::TimedOut,
+            ("failed", _, "timeout") => Ok(jobs::Observation::Terminal(jobs::Terminal {
+                state: job::State::Timeout,
                 reason: Some("runtime_limit".to_string()),
                 exit: status,
             })),
-            ("failed", _, _) => Ok(JobObservation::Terminal(JobTerminal {
+            ("failed", _, _) => Ok(jobs::Observation::Terminal(jobs::Terminal {
                 state: job::State::Failed,
                 reason: Some(if result.is_empty() {
                     "supervisor_failed".to_string()
@@ -162,17 +159,17 @@ impl JobSupervisor for Systemd {
                 }),
                 exit: status,
             })),
-            ("deactivating", _, _) => Ok(JobObservation::Running),
-            _ => Ok(JobObservation::Claimed),
+            ("deactivating", _, _) => Ok(jobs::Observation::Running),
+            _ => Ok(jobs::Observation::Claimed),
         }
     }
 
-    fn stop(&self, launch: &JobLaunch) -> Result<(), String> {
+    fn stop(&self, launch: &jobs::Launch) -> Result<(), String> {
         files::directory(Path::new(&launch.directory)).mark(files::CANCEL)?;
         control(&["stop", &launch.sidecar], true)
     }
 
-    fn acknowledge(&self, launch: &JobLaunch) -> Result<(), String> {
+    fn acknowledge(&self, launch: &jobs::Launch) -> Result<(), String> {
         control(&["stop", &launch.sidecar], false)?;
         control(&["reset-failed", &launch.sidecar], false)
     }

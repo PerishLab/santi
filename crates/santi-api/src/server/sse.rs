@@ -13,35 +13,35 @@ use santi_core::service::Service;
 use santi_core::{Transition, now, tag};
 use tokio::sync::broadcast;
 
-use super::ApiError;
+use super::Problem;
 use super::routes::bearer;
 use santi_core::stream;
 
-pub(super) async fn strand_events(
+pub(super) async fn strand(
     State(service): State<Service>,
     Path(strand): Path<String>,
-) -> Result<Sse<impl Stream<Item = Result<Event, Infallible>>>, ApiError> {
+) -> Result<Sse<impl Stream<Item = Result<Event, Infallible>>>, Problem> {
     let held = service
         .strand(&strand)
         .await
-        .map_err(ApiError::from_service)?
-        .ok_or_else(|| ApiError::not_found("strand not found"))?;
+        .map_err(Problem::service)?
+        .ok_or_else(|| Problem::missing("strand not found"))?;
     drop(held);
 
     let mut receiver = service.listen().await;
     let service = service.clone();
     let opened = strand.clone();
     let stream = async_stream::stream! {
-        yield Ok(sse_event(santi_core::stream::Event {
+        yield Ok(frame(santi_core::stream::Event {
             id: tag("stream"),
             strand: opened,
             created: now(),
             payload: stream::Payload::Open,
         }));
 
-        while let Some(received) = receive_strand(&service, &mut receiver, &strand).await {
+        while let Some(received) = pull(&service, &mut receiver, &strand).await {
             yield Ok(match received {
-                Ok(event) => sse_event(event),
+                Ok(event) => frame(event),
                 Err(skipped) => gap(skipped),
             });
         }
@@ -63,7 +63,7 @@ pub(super) async fn transitions(
     let stream = async_stream::stream! {
         while let Some(received) = receive(&service, &mut receiver).await {
             yield Ok(match received {
-                Ok(transition) => error_sse_event(transition),
+                Ok(transition) => fault(transition),
                 Err(skipped) => gap(skipped),
             });
         }
@@ -74,6 +74,7 @@ pub(super) async fn transitions(
 #[utoipa::path(
     get,
     path = "/api/v1/turn-events/stream",
+    operation_id = "turn_event_stream",
     summary = "Persistent zone-filtered turn event wake-up stream; bound observation time at the client.",
     security(("downstream_bearer" = [])),
     responses(
@@ -81,19 +82,19 @@ pub(super) async fn transitions(
         (status = 401, body = santi_core::Fault)
     )
 )]
-pub(super) async fn turn_event_stream(
+pub(super) async fn turns(
     State(service): State<Service>,
     headers: HeaderMap,
-) -> Result<Sse<impl Stream<Item = Result<Event, Infallible>>>, ApiError> {
+) -> Result<Sse<impl Stream<Item = Result<Event, Infallible>>>, Problem> {
     let principal = service
         .principal(bearer(&headers))
         .await
-        .map_err(ApiError::from_service)?
-        .ok_or_else(|| ApiError::unauthorized("invalid or missing credential"))?;
+        .map_err(Problem::service)?
+        .ok_or_else(|| Problem::unauthorized("invalid or missing credential"))?;
     let mut receiver = service.listen().await;
     let service = service.clone();
     let stream = async_stream::stream! {
-        while let Some(received) = receive_turn(&service, &mut receiver, &principal.prefix).await {
+        while let Some(received) = watch(&service, &mut receiver, &principal.prefix).await {
             yield Ok(match received {
                 Ok(()) => Event::default().event("turn_event_available").data("{}"),
                 Err(skipped) => gap(skipped),
@@ -103,7 +104,7 @@ pub(super) async fn turn_event_stream(
     Ok(Sse::new(stream).keep_alive(KeepAlive::default()))
 }
 
-async fn receive_strand(
+async fn pull(
     service: &Service,
     receiver: &mut broadcast::Receiver<stream::Event>,
     strand: &str,
@@ -117,7 +118,7 @@ async fn receive_strand(
     }
 }
 
-async fn receive_turn(
+async fn watch(
     service: &Service,
     receiver: &mut broadcast::Receiver<stream::Event>,
     prefix: &str,
@@ -168,21 +169,21 @@ fn gap(skipped: u64) -> Event {
     )
 }
 
-fn error_sse_event(transition: Transition) -> Event {
+fn fault(transition: Transition) -> Event {
     Event::default()
         .id(transition.id.clone())
         .event("error_transition")
         .data(serde_json::to_string(&transition).unwrap_or_else(|_| "{}".to_string()))
 }
 
-fn sse_event(event: stream::Event) -> Event {
+fn frame(event: stream::Event) -> Event {
     Event::default()
         .id(event.id.clone())
-        .event(sse_event_name(&event.payload))
+        .event(label(&event.payload))
         .data(serde_json::to_string(&event).unwrap_or_else(|_| "{}".to_string()))
 }
 
-fn sse_event_name(payload: &stream::Payload) -> &'static str {
+fn label(payload: &stream::Payload) -> &'static str {
     match payload {
         stream::Payload::Open => "open",
         stream::Payload::Message(_) => "message",

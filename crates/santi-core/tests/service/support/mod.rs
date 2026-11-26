@@ -7,7 +7,7 @@ pub(crate) use santi_core::{SOULSPACE, STRANDSPACE, soulward, strandward};
 mod probe;
 pub(crate) use probe::*;
 
-pub(crate) async fn accepted_turn(
+pub(crate) async fn accepted(
     service: &Service,
     response: &strand::Posted,
 ) -> santi_core::turn::Turn {
@@ -50,12 +50,12 @@ pub(crate) async fn bootstrap(temp: &tempfile::TempDir) {
 }
 
 #[derive(Clone, Default)]
-pub(crate) struct FakeProvider {
+pub(crate) struct Fake {
     pub(crate) requests: Arc<Mutex<Vec<Request>>>,
 }
 
 #[async_trait]
-impl Provider for FakeProvider {
+impl Provider for Fake {
     fn metadata(&self) -> Metadata {
         Metadata {
             provider: Arc::from("fake-provider"),
@@ -82,14 +82,14 @@ pub(crate) fn fixed(scenario: &str, model: &str) -> santi_core::inference::Effec
     santi_core::inference::Effective {
         selection: santi_core::inference::Selection::Scenario(scenario.into()),
         model: model.to_string(),
-        reasoning_effort: None,
+        effort: None,
         source: santi_core::inference::Source {
             route: None,
             selection: santi_core::inference::Selection::Scenario(
                 santi_core::inference::Origin::Service,
             ),
             model: santi_core::inference::Origin::Default,
-            reasoning_effort: None,
+            effort: None,
         },
     }
 }
@@ -112,8 +112,8 @@ pub(crate) async fn pinned(
     } = seed;
     let content = santi_core::message::Content::text(text);
     store
-        .accept_inbox(
-            santi_core::InboxDraft {
+        .accept(
+            santi_core::Arrival {
                 tag: &santi_core::tag("inbox"),
                 strand,
                 kind: santi_core::message::Kind::Text,
@@ -127,7 +127,7 @@ pub(crate) async fn pinned(
         .expect("enqueue fixture input");
     match store
         .begin(
-            santi_estate::DrainDraft {
+            santi_estate::Drain {
                 turn: tag,
                 strand,
                 trigger: santi_core::turn::Trigger::System,

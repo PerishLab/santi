@@ -1,10 +1,9 @@
-use super::{
-    history::ThinkingSpan,
-    ledger::{Soul, Strand, Turn},
-};
+use super::ledger::{Soul, Strand};
 use keel::{
-    atom::{int, string},
+    atom::{Kind as Atom, int, string},
+    bond::Kind as Bond,
     resource,
+    spec::{Resource, Rule, Spec},
 };
 
 #[resource(frozen)]
@@ -115,22 +114,25 @@ pub(crate) struct Local {
     change: Change,
 }
 
-#[resource]
-pub(crate) struct Context {
-    #[field(string, unique)]
-    tag: string,
-    #[field(int, unique = turn, min = 1)]
-    round: int,
-    #[field(string)]
-    digest: string,
-    #[field(string)]
-    rendered: string,
-    #[field(string)]
-    created: string,
-    #[relation(Turn, many2one, root)]
-    turn: Turn,
-    #[relation(ThinkingSpan, one2one, opt)]
-    thinking: ThinkingSpan,
+pub(crate) struct Context;
+
+impl Resource for Context {
+    fn name() -> &'static str {
+        "Context"
+    }
+
+    fn spec() -> Spec {
+        Spec::build("Context")
+            .sole("tag", Atom::Text)
+            .per("round", Atom::Int, &["turn"])
+            .rule("round", Rule::new().min(1))
+            .field("digest", Atom::Text)
+            .field("rendered", Atom::Text)
+            .field("created", Atom::Text)
+            .root("turn", Bond::Many2one, "Turn")
+            .free("thinking", Bond::One2one, "ThinkingSpan")
+            .seal()
+    }
 }
 
 #[resource(frozen)]

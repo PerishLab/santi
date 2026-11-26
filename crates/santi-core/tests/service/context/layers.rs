@@ -1,7 +1,7 @@
 use super::*;
 use santi_core::inference::{Declaration, Defaults, Directory, Effective, Origin, Patch};
 use santi_core::provider::Resolver;
-use santi_core::service::{self, JobLaunch, JobObservation, JobSupervisor, Service};
+use santi_core::service::{self, Service, jobs};
 use santi_estate::Target;
 use std::sync::atomic::{AtomicBool, Ordering};
 use tokio::sync::watch;
@@ -22,7 +22,7 @@ impl Directory for Catalog {
         let name = scenario.rsplit('/').next().unwrap();
         Ok(Defaults {
             model: format!("{name}-model"),
-            reasoning_effort: None,
+            effort: None,
         })
     }
 }
@@ -122,20 +122,20 @@ struct Recorder {
 
 pub(crate) struct Jobs;
 
-impl JobSupervisor for Jobs {
-    fn detach(&self, launch: &JobLaunch) -> Result<(), String> {
+impl jobs::Supervisor for Jobs {
+    fn detach(&self, launch: &jobs::Launch) -> Result<(), String> {
         let _ = launch;
         Err("jobs unavailable".to_string())
     }
-    fn observe(&self, launch: &JobLaunch) -> Result<JobObservation, String> {
+    fn observe(&self, launch: &jobs::Launch) -> Result<jobs::Observation, String> {
         let _ = launch;
-        Ok(JobObservation::Missing)
+        Ok(jobs::Observation::Missing)
     }
-    fn stop(&self, launch: &JobLaunch) -> Result<(), String> {
+    fn stop(&self, launch: &jobs::Launch) -> Result<(), String> {
         let _ = launch;
         Ok(())
     }
-    fn acknowledge(&self, launch: &JobLaunch) -> Result<(), String> {
+    fn acknowledge(&self, launch: &jobs::Launch) -> Result<(), String> {
         let _ = launch;
         Ok(())
     }
@@ -148,7 +148,7 @@ impl Resolver for Layers {
             effective.selection =
                 santi_core::inference::Selection::Scenario("gateway/family/beta".into());
             effective.model = "beta-model".into();
-            effective.reasoning_effort = Some("high".into());
+            effective.effort = Some("high".into());
         }
         Ok(effective)
     }
@@ -167,7 +167,7 @@ impl Resolver for Layers {
         Ok(Arc::new(Recorder {
             provider: effective.selection.value().clone(),
             model: effective.model.clone(),
-            effort: effective.reasoning_effort.clone(),
+            effort: effective.effort.clone(),
             bytes,
             maintenance,
             calls: self.calls.clone(),
@@ -185,7 +185,7 @@ pub(crate) struct Selection<'a> {
 fn patch(scenario: &str, effort: &str) -> Patch {
     Patch {
         scenario: Some(Some(scenario.into())),
-        reasoning_effort: Some(Some(effort.into())),
+        effort: Some(Some(effort.into())),
     }
 }
 
@@ -243,8 +243,8 @@ pub(crate) async fn declare(store: &Store, strand: &str, selection: Selection<'_
 pub(crate) async fn enqueue(store: &Store, strand: &str, text: &str) {
     let content = message::Content::text(text);
     store
-        .accept_inbox(
-            santi_core::InboxDraft {
+        .accept(
+            santi_core::Arrival {
                 tag: &santi_core::tag("inbox"),
                 strand,
                 kind: message::Kind::Text,

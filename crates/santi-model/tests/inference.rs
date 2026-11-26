@@ -10,14 +10,14 @@ impl Map {
                 "gateway/alpha/work",
                 Defaults {
                     model: "alpha-default".into(),
-                    reasoning_effort: Some("low".into()),
+                    effort: Some("low".into()),
                 },
             ),
             (
                 "gateway/beta/work",
                 Defaults {
                     model: "beta-default".into(),
-                    reasoning_effort: Some("high".into()),
+                    effort: Some("high".into()),
                 },
             ),
         ]))
@@ -37,27 +37,27 @@ impl Directory for Map {
 fn cascade() {
     let lower = Declaration {
         scenario: Some("gateway/alpha/work".into()),
-        reasoning_effort: None,
+        effort: None,
     };
     let high = Declaration {
         scenario: Some("gateway/beta/work".into()),
-        reasoning_effort: Some("medium".into()),
+        effort: Some("medium".into()),
     };
     let merged = high.overlay(&lower);
     assert_eq!(merged.scenario.as_deref(), Some("gateway/beta/work"));
-    assert_eq!(merged.reasoning_effort.as_deref(), Some("medium"));
+    assert_eq!(merged.effort.as_deref(), Some("medium"));
 }
 
 #[test]
 fn switch() {
     let service = Declaration {
         scenario: Some("gateway/alpha/work".into()),
-        reasoning_effort: None,
+        effort: None,
     };
     let soul = Declaration::default();
     let strand = Declaration {
         scenario: Some("gateway/beta/work".into()),
-        reasoning_effort: None,
+        effort: None,
     };
     let effective = Effective::resolve(
         &[
@@ -73,28 +73,28 @@ fn switch() {
         Selection::Scenario("gateway/beta/work".into())
     );
     assert_eq!(effective.model, "beta-default");
-    assert_eq!(effective.reasoning_effort.as_deref(), Some("high"));
+    assert_eq!(effective.effort.as_deref(), Some("high"));
     assert_eq!(
         effective.source.selection,
         Selection::Scenario(Origin::Strand)
     );
     assert_eq!(effective.source.model, Origin::Default);
-    assert_eq!(effective.source.reasoning_effort, Some(Origin::Default));
+    assert_eq!(effective.source.effort, Some(Origin::Default));
 }
 
 #[test]
 fn wins() {
     let service = Declaration {
         scenario: Some("gateway/alpha/work".into()),
-        reasoning_effort: None,
+        effort: None,
     };
     let soul = Declaration {
         scenario: None,
-        reasoning_effort: Some("medium".into()),
+        effort: Some("medium".into()),
     };
     let strand = Declaration {
         scenario: None,
-        reasoning_effort: None,
+        effort: None,
     };
     let effective = Effective::resolve(
         &[
@@ -106,9 +106,9 @@ fn wins() {
     )
     .unwrap();
     assert_eq!(effective.model, "alpha-default");
-    assert_eq!(effective.reasoning_effort.as_deref(), Some("medium"));
+    assert_eq!(effective.effort.as_deref(), Some("medium"));
     assert_eq!(effective.source.model, Origin::Default);
-    assert_eq!(effective.source.reasoning_effort, Some(Origin::Soul));
+    assert_eq!(effective.source.effort, Some(Origin::Soul));
     assert_eq!(
         effective.source.selection,
         Selection::Scenario(Origin::Service)
@@ -119,14 +119,14 @@ fn wins() {
 fn patch() {
     let base = Declaration {
         scenario: Some("gateway/alpha/work".into()),
-        reasoning_effort: Some("low".into()),
+        effort: Some("low".into()),
     };
     let patch: Patch = serde_json::from_str(r#"{"reasoning_effort":"high"}"#).expect("patch");
     assert!(!patch.touches("scenario"));
     assert!(patch.touches("reasoning_effort"));
     let applied = patch.apply(&base);
     assert_eq!(applied.scenario, base.scenario);
-    assert_eq!(applied.reasoning_effort.as_deref(), Some("high"));
+    assert_eq!(applied.effort.as_deref(), Some("high"));
     let cleared: Patch = serde_json::from_str(r#"{"scenario":null}"#).expect("null");
     assert_eq!(cleared.apply(&base).scenario, None);
 }

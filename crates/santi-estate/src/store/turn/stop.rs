@@ -3,7 +3,7 @@ use keel::{Op, form};
 use santi_model::turn;
 
 impl Store {
-    pub async fn request_stop(
+    pub async fn halt(
         &self,
         tag: &str,
         cause: turn::Cause,
@@ -50,7 +50,7 @@ impl Store {
         self.stop(tag).await
     }
 
-    pub async fn settle_stop(&self, tag: &str, settled: &str) -> Result<turn::Stop, String> {
+    pub async fn halted(&self, tag: &str, settled: &str) -> Result<turn::Stop, String> {
         self.core
             .batch(async |tx| {
                 let turn = read::need(tx, "Turn", "tag", tag).await?;
@@ -89,7 +89,7 @@ impl Store {
         let Some(turn) = self.turn(tag).await? else {
             return Ok(None);
         };
-        let row = read::one(&self.core, "TurnStop", "turn", &turn_key(self, tag).await?).await?;
+        let row = read::one(&self.core, "TurnStop", "turn", &key(self, tag).await?).await?;
         let (cause, requested, settled) = match row {
             Some(row) => (
                 Some(decode(
@@ -115,7 +115,7 @@ impl Store {
     }
 }
 
-async fn turn_key(store: &Store, tag: &str) -> Result<String, String> {
+async fn key(store: &Store, tag: &str) -> Result<String, String> {
     read::one(&store.core, "Turn", "tag", tag)
         .await?
         .map(|row| row.key().to_string())

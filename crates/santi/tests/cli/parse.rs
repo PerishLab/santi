@@ -1,7 +1,7 @@
 use clap::Parser;
 use santi::cli::{
-    Cli, Command, CompactCommand, EffectCommand, EffectOutcomeArg, Environment, EnvironmentScope,
-    Job, StrandCommand, Strategy, Stream, Turn, WatchFormat, Webhook,
+    Cli, Command, Compact, Effect, Environment, Format, Job, Outcome, Strand, Strategy, Stream,
+    Target, Turn, Webhook,
 };
 #[test]
 fn receipt() {
@@ -46,7 +46,7 @@ fn environment() {
     else {
         panic!("expected environment set command");
     };
-    assert_eq!(scope, EnvironmentScope::Soul);
+    assert_eq!(scope, Target::Soul);
     assert_eq!(owner, "soul_default");
     assert_eq!(name, "STIM_BASE_URL");
     assert_eq!(value, "https://stim.example.com");
@@ -73,10 +73,10 @@ fn jobs() {
         description,
         command,
         cwd,
-        timeout_seconds,
-        output_limit_bytes,
-        remind_every_seconds,
-        notify_on_terminal,
+        timeout,
+        limit,
+        remind,
+        notify,
     }) = parsed.command
     else {
         panic!("expected job create");
@@ -84,10 +84,10 @@ fn jobs() {
     assert_eq!(description, "compile release");
     assert_eq!(command, "cargo build --release");
     assert_eq!(cwd.as_deref(), Some("strand://repo"));
-    assert_eq!(timeout_seconds, Some(90));
-    assert_eq!(output_limit_bytes, Some(4096));
-    assert_eq!(remind_every_seconds, Some(30));
-    assert!(!notify_on_terminal);
+    assert_eq!(timeout, Some(90));
+    assert_eq!(limit, Some(4096));
+    assert_eq!(remind, Some(30));
+    assert!(!notify);
     let parsed = Cli::try_parse_from([
         "santi", "job", "logs", "job_1", "--stream", "stderr", "--cursor", "12", "--limit", "80",
     ])
@@ -145,7 +145,7 @@ fn webhooks() {
 #[test]
 fn effects() {
     let parsed = Cli::try_parse_from(["santi", "effect", "query", "effect_123"]).unwrap();
-    let Command::Effect(EffectCommand::Query { effect }) = parsed.command else {
+    let Command::Effect(Effect::Query { effect }) = parsed.command else {
         panic!("expected effect query");
     };
     assert_eq!(effect, "effect_123");
@@ -161,7 +161,7 @@ fn effects() {
         "marker absent",
     ])
     .unwrap();
-    let Command::Effect(EffectCommand::Resolve {
+    let Command::Effect(Effect::Resolve {
         effect,
         outcome,
         evidence,
@@ -170,24 +170,24 @@ fn effects() {
         panic!("expected effect resolution");
     };
     assert_eq!(effect, "effect_123");
-    assert_eq!(outcome, EffectOutcomeArg::NotApplied);
+    assert_eq!(outcome, Outcome::Unapplied);
     assert_eq!(evidence, "marker absent");
 }
 
 #[test]
 fn watch() {
     let parsed = Cli::try_parse_from(["santi", "strand", "send", "--watch", "hello"]).unwrap();
-    let Command::Strand(StrandCommand::Send {
+    let Command::Strand(Strand::Send {
         args,
         watch,
-        watch_format,
+        format,
     }) = parsed.command
     else {
         panic!("expected strand send command");
     };
     assert_eq!(args, vec!["hello"]);
     assert!(watch);
-    assert_eq!(watch_format, WatchFormat::Filtered);
+    assert_eq!(format, Format::Filtered);
 
     assert!(
         Cli::try_parse_from(["santi", "strand", "send", "--watch-format", "raw", "hello"]).is_err()
@@ -203,24 +203,24 @@ fn watch() {
         "hello",
     ])
     .unwrap();
-    let Command::Strand(StrandCommand::Send { watch_format, .. }) = parsed.command else {
+    let Command::Strand(Strand::Send { format, .. }) = parsed.command else {
         panic!("expected strand send command");
     };
-    assert_eq!(watch_format, WatchFormat::Raw);
+    assert_eq!(format, Format::Raw);
 
     let parsed = Cli::try_parse_from(["santi", "strand", "events", "ss_1"]).unwrap();
-    let Command::Strand(StrandCommand::Events { id, format }) = parsed.command else {
+    let Command::Strand(Strand::Events { id, format }) = parsed.command else {
         panic!("expected strand events command");
     };
     assert_eq!(id.as_deref(), Some("ss_1"));
-    assert_eq!(format, WatchFormat::Raw);
+    assert_eq!(format, Format::Raw);
 
     let parsed =
         Cli::try_parse_from(["santi", "strand", "events", "ss_1", "--format", "filtered"]).unwrap();
-    let Command::Strand(StrandCommand::Events { format, .. }) = parsed.command else {
+    let Command::Strand(Strand::Events { format, .. }) = parsed.command else {
         panic!("expected strand events command");
     };
-    assert_eq!(format, WatchFormat::Filtered);
+    assert_eq!(format, Format::Filtered);
 }
 
 #[test]
@@ -244,10 +244,10 @@ fn capsule() {
         "--dry",
     ])
     .unwrap();
-    let Command::Compact(CompactCommand::Capsule {
+    let Command::Compact(Compact::Capsule {
         from,
         to,
-        summary_file,
+        file,
         source,
         reason,
         risk,
@@ -259,7 +259,7 @@ fn capsule() {
     };
     assert_eq!(from, Some(1));
     assert_eq!(to, Some(9));
-    assert_eq!(summary_file.as_deref(), Some("summary.md"));
+    assert_eq!(file.as_deref(), Some("summary.md"));
     assert_eq!(source, "operator");
     assert_eq!(reason, "recover budget");
     assert_eq!(risk, "summary may omit detail");
@@ -272,7 +272,7 @@ fn absorbs() {
         let mut args = vec!["santi", "compact", "exec", "--summary", "k", "--absorb"];
         args.push(list);
         let parsed = Cli::try_parse_from(args).unwrap();
-        let Command::Compact(CompactCommand::Exec { absorb, .. }) = parsed.command else {
+        let Command::Compact(Compact::Exec { absorb, .. }) = parsed.command else {
             panic!("expected compact exec");
         };
         absorb
@@ -283,7 +283,7 @@ fn absorbs() {
     let mut args = vec!["santi", "compact", "exec", "--summary", "k", "--absorb"];
     args.extend(["compact_a,compact_b", "--absorb", "compact_c"]);
     let parsed = Cli::try_parse_from(args).unwrap();
-    let Command::Compact(CompactCommand::Exec { absorb, .. }) = parsed.command else {
+    let Command::Compact(Compact::Exec { absorb, .. }) = parsed.command else {
         panic!("expected compact exec");
     };
     assert_eq!(absorb, ["compact_a", "compact_b", "compact_c"]);

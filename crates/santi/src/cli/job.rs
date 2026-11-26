@@ -14,17 +14,17 @@ pub enum Job {
             help = "Job working directory: soul://, soul://<path>, strand://, or strand://<path>; no parent traversal. Omit to use the runtime execution directory, not the creating shell cwd"
         )]
         cwd: Option<String>,
-        #[arg(long)]
-        timeout_seconds: Option<u64>,
-        #[arg(long)]
-        output_limit_bytes: Option<u64>,
-        #[arg(long)]
-        remind_every_seconds: Option<u64>,
+        #[arg(long = "timeout-seconds", value_name = "TIMEOUT_SECONDS")]
+        timeout: Option<u64>,
+        #[arg(long = "output-limit-bytes", value_name = "OUTPUT_LIMIT_BYTES")]
+        limit: Option<u64>,
+        #[arg(long = "remind-every-seconds", value_name = "REMIND_EVERY_SECONDS")]
+        remind: Option<u64>,
         #[arg(
-            long,
+            long = "notify-on-terminal",
             help = "Request one terminal fact in the origin strand inbox after the job finishes (succeeded, failed, timed_out, cancelled or unknown); late work can depend on it"
         )]
-        notify_on_terminal: bool,
+        notify: bool,
     },
     #[command(about = "List jobs owned by --soul/SANTI_SOUL_ID")]
     List,
@@ -34,10 +34,10 @@ pub enum Job {
     )]
     Query {
         #[arg(
-            long,
+            long = "all-strands",
             help = "Query every strand visible to --soul/SANTI_SOUL_ID; overrides SANTI_STRAND_ID"
         )]
-        all_strands: bool,
+        all: bool,
         #[arg(
             long,
             value_name = "STATE",

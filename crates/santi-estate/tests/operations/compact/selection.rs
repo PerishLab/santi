@@ -1,4 +1,4 @@
-use santi_estate::{CompactDraft, Limits, MessageDraft, Store, StrandDraft};
+use santi_estate::{Compact, Limits, Message, Store, Strand};
 use santi_model::{compact, message};
 
 const CREATED: &str = "2026-10-22T00:00:00.000Z";
@@ -11,7 +11,7 @@ async fn strand(path: &std::path::Path, states: &[message::State]) -> Store {
     let store = super::super::support::bootstrap(path).await;
     store.seed("soul_test", CREATED).await.expect("seed");
     store
-        .create_strand(StrandDraft {
+        .weave(Strand {
             tag: "strand_test",
             soul: "soul_test",
             label: None,
@@ -24,11 +24,11 @@ async fn strand(path: &std::path::Path, states: &[message::State]) -> Store {
         .expect("strand");
     for (index, state) in states.iter().enumerate() {
         store
-            .place(MessageDraft {
+            .place(Message {
                 tag: &format!("m{index}"),
                 strand: "strand_test",
                 actor: message::Role::Soul,
-                actor_id: "soul_test",
+                sender: "soul_test",
                 kind: message::Kind::Text,
                 content: &message::Content::text("settled exchange"),
                 state: state.clone(),
@@ -43,7 +43,7 @@ async fn strand(path: &std::path::Path, states: &[message::State]) -> Store {
 
 async fn occupy(store: &Store, tag: &str, first: &str, last: &str) {
     store
-        .create_compact(CompactDraft {
+        .condense(Compact {
             tag,
             strand: "strand_test",
             first,
@@ -76,7 +76,7 @@ async fn accepted(store: &Store, request: &compact::Exec, limits: Limits) -> com
         .await
         .expect("selection accepts");
     store
-        .preview_compact(
+        .preview(
             "compact_preview",
             "strand_test",
             &choice.range.first,
@@ -163,7 +163,7 @@ async fn hull() {
     .await;
     assert_eq!(choice.range, range("m1", "m3"));
     let report = store
-        .create_compact(CompactDraft {
+        .condense(Compact {
             tag: "compact_hull",
             strand: "strand_test",
             first: &choice.range.first,

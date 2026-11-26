@@ -19,7 +19,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 
 #[derive(Clone)]
 struct Bounded {
-    inner: FakeProvider,
+    inner: Fake,
     bytes: Arc<AtomicUsize>,
 }
 
@@ -48,7 +48,7 @@ async fn reuse() {
     bootstrap(&temp).await;
     let bytes = Arc::new(AtomicUsize::new(1));
     let provider = Arc::new(Bounded {
-        inner: FakeProvider::default(),
+        inner: Fake::default(),
         bytes: bytes.clone(),
     });
     let config = service::Config {
@@ -93,7 +93,7 @@ async fn reuse() {
         .expect("expanded recovery remains held");
     assert_eq!(occurrences(&service, &strand.id).await, 2);
     service.drive(&strand.id).await.expect("explicit recovery");
-    Probe::new(&service).any_completed(&strand.id).await;
+    Probe::new(&service).settled(&strand.id).await;
     let incidents = service
         .stranded(&strand.id, 10)
         .await
@@ -117,8 +117,8 @@ async fn enqueue(config: &service::Config, strand: &str, text: &str) {
     let store = Store::open(&config.database).await.expect("open store");
     let content = message::Content::text(text);
     store
-        .accept_inbox(
-            santi_core::InboxDraft {
+        .accept(
+            santi_core::Arrival {
                 tag: &santi_core::tag("inbox"),
                 strand,
                 kind: message::Kind::Text,
@@ -157,7 +157,7 @@ async fn capacity() {
     bootstrap(&temp).await;
     let bytes = Arc::new(AtomicUsize::new(200_000));
     let provider = Arc::new(Bounded {
-        inner: FakeProvider::default(),
+        inner: Fake::default(),
         bytes: bytes.clone(),
     });
     let service = Service::open(
@@ -186,7 +186,7 @@ async fn capacity() {
             .render(
                 &strand.id,
                 santi_core::render::Request {
-                    kind: santi_core::render::Kind::SystemPrompt,
+                    kind: santi_core::render::Kind::Prompt,
                 },
             )
             .await

@@ -1,6 +1,6 @@
 use super::{LATER, STRAND, choice, start};
 use keel::adapt::db::Sqlite;
-use santi_estate::TurnDraft;
+use santi_estate::Turn;
 use santi_model::catalog::{Definition, Protocol};
 use santi_model::{
     inference::{Origin, Selection},
@@ -21,7 +21,7 @@ async fn retirement() {
             .register(Definition::Access {
                 name: "chat".into(),
                 provider: supplier.id,
-                protocol: Protocol::ChatCompletions,
+                protocol: Protocol::Chat,
                 endpoint: "https://example.invalid/v1".into(),
                 credential: "custody://chat".into(),
             })
@@ -38,7 +38,7 @@ async fn retirement() {
         original.selection = Selection::Provider("legacy".into());
         original.source.selection = Selection::Provider(Origin::Strand);
         let turn = store
-            .create_turn(TurnDraft {
+            .start(Turn {
                 tag: "recorded",
                 strand: STRAND,
                 trigger: Trigger::System,
@@ -80,12 +80,9 @@ async fn retirement() {
                 .contains("Inference/")
         );
         if completed {
-            store
-                .complete_turn(&turn.id, turn.from, LATER)
-                .await
-                .unwrap();
+            store.complete(&turn.id, turn.from, LATER).await.unwrap();
         } else {
-            store.fail_turn(&turn.id, "fixture", LATER).await.unwrap();
+            store.fail(&turn.id, "fixture", LATER).await.unwrap();
         }
         store.withdraw(alias).await.unwrap();
         drop(store);

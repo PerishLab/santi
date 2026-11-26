@@ -1,5 +1,5 @@
 use super::NOW;
-use santi_estate::{Store, StrandDraft};
+use santi_estate::{Store, Strand};
 use santi_model::inference::Declaration;
 
 mod catalog;
@@ -11,7 +11,7 @@ mod turn;
 fn declaration() -> Declaration {
     Declaration {
         scenario: Some("gateway/deepseek/recall".into()),
-        reasoning_effort: Some("high".into()),
+        effort: Some("high".into()),
     }
 }
 
@@ -19,7 +19,7 @@ async fn parent(store: &Store) -> santi_model::strand::Strand {
     let soul = store.seed("soul", NOW).await.expect("seed");
     let inference = declaration();
     store
-        .create_strand(StrandDraft {
+        .weave(Strand {
             tag: "ss_parent",
             soul: &soul.id,
             label: None,

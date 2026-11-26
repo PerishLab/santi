@@ -6,7 +6,7 @@ use anyhow::{Context, Result};
 
 use super::create::{Creation, identity, post};
 use super::send::{Request as Send, Target, emission};
-use crate::cli::ClientDefaults;
+use crate::cli::Defaults;
 
 pub(super) use crate::watch::Kind;
 
@@ -16,7 +16,7 @@ const HISTORY: usize = 20;
 pub struct Request<'a> {
     pub client: &'a reqwest::Client,
     pub base: &'a str,
-    pub defaults: &'a ClientDefaults,
+    pub defaults: &'a Defaults,
     pub bearer: Option<&'a str>,
     pub memory: Option<String>,
 }
@@ -135,7 +135,7 @@ impl Request<'_> {
         }
         let soul = match self.defaults.soul() {
             Some(soul) => {
-                self.get_soul(soul).await?;
+                self.soul(soul).await?;
                 soul.to_string()
             }
             None => self.awaken().await?,
@@ -168,7 +168,7 @@ impl Request<'_> {
         if owner != soul {
             anyhow::bail!("strand {strand} belongs to soul {owner}, not {soul}");
         }
-        self.get_soul(soul).await?;
+        self.soul(soul).await?;
         Ok(Identity {
             soul: soul.to_string(),
             strand: strand.to_string(),
@@ -176,7 +176,7 @@ impl Request<'_> {
         })
     }
 
-    async fn get_soul(&self, soul: &str) -> Result<()> {
+    async fn soul(&self, soul: &str) -> Result<()> {
         let detail = self.get(&format!("/api/v1/souls/{soul}")).await?;
         let resolved = text(&detail, "/id")?;
         if resolved != soul {

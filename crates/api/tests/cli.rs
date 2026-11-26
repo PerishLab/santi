@@ -1,4 +1,4 @@
-use api::cli::{Capability, Cli, Command, InboxCommand};
+use api::cli::{Capability, Cli, Command, Inbox};
 use clap::Parser;
 
 #[test]
@@ -13,7 +13,7 @@ fn local() {
     assert!(matches!(
         parsed.command,
         Some(Command::Doctor {
-            storage_only: false,
+            storage: false,
             jobs: false,
         })
     ));
@@ -21,7 +21,7 @@ fn local() {
     assert!(matches!(
         parsed.command,
         Some(Command::Doctor {
-            storage_only: true,
+            storage: true,
             jobs: false
         })
     ));
@@ -29,7 +29,7 @@ fn local() {
     assert!(matches!(
         parsed.command,
         Some(Command::Doctor {
-            storage_only: false,
+            storage: false,
             jobs: true
         })
     ));
@@ -67,7 +67,7 @@ fn local() {
 #[test]
 fn sources() {
     let parsed = Cli::try_parse_from(["santi-api", "inbox", "seed", "hello"]).unwrap();
-    let Some(Command::Inbox(InboxCommand::Seed { text, file, stdin })) = parsed.command else {
+    let Some(Command::Inbox(Inbox::Seed { text, file, stdin })) = parsed.command else {
         panic!("expected inbox seed command");
     };
     assert_eq!(text.as_deref(), Some("hello"));

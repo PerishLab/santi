@@ -33,7 +33,7 @@ impl santi_error::Ruled for Error {
                 category: Category::Unavailable,
                 severity: Severity::Error,
                 retry: Retry::Resolved,
-                exposure: Exposure::CALLER_AND_OPERATOR,
+                exposure: Exposure::CALLER,
             },
         }
     }

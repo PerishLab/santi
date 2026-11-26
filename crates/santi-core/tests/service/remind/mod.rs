@@ -2,7 +2,7 @@ use super::super::support::*;
 use santi_core::{Store, compact, message, service, strand};
 const BUDGET: usize = 200_000;
 const CEILING: i64 = BUDGET as i64 - 90_000;
-struct Plain(FakeProvider);
+struct Plain(Fake);
 #[async_trait]
 impl Provider for Plain {
     fn metadata(&self) -> Metadata {
@@ -43,7 +43,7 @@ async fn opened() -> Opened {
     let temp = tempfile::tempdir().unwrap();
     bootstrap(&temp).await;
     let config = config(&temp);
-    let provider = Arc::new(Plain(FakeProvider::default()));
+    let provider = Arc::new(Plain(Fake::default()));
     let service = service::Service::open(crate::SCENARIO, config.clone(), provider)
         .await
         .unwrap();
@@ -67,11 +67,11 @@ impl Opened {
     async fn fill(&self, tag: &str, share: i64) {
         let missing = CEILING * share / 100 - self.active().await;
         self.store
-            .place(santi_estate::MessageDraft {
+            .place(santi_estate::Message {
                 tag,
                 strand: &self.strand,
                 actor: message::Role::System,
-                actor_id: santi_core::SYSTEM,
+                sender: santi_core::SYSTEM,
                 kind: message::Kind::Text,
                 content: &message::Content::text("x".repeat(missing as usize)),
                 state: message::State::Fixed,
@@ -176,7 +176,7 @@ async fn unweighed() {
     let before = held.service.audit(&held.strand).await.unwrap().unwrap();
     let created = santi_core::now();
     held.store
-        .create_thinking(santi_estate::ThinkingDraft {
+        .ponder(santi_estate::Thinking {
             tag: "thinking_thought",
             turn: "turn_thought",
             response: Some("response_thought"),
@@ -185,10 +185,10 @@ async fn unweighed() {
         .await
         .unwrap();
     held.store
-        .update_thinking("thinking_thought", None, Some("a summary"), &created)
+        .refine("thinking_thought", None, Some("a summary"), &created)
         .await
         .unwrap();
-    let projected = santi_core::provider_input(&held.store, &held.strand)
+    let projected = santi_core::assemble(&held.store, &held.strand)
         .await
         .unwrap();
     assert!(!format!("{projected:?}").contains("a summary"));
@@ -214,7 +214,7 @@ async fn framed() {
     let created = santi_core::now();
     let arguments = serde_json::json!({"command": "pwd"});
     held.store
-        .create_call(santi_estate::CallDraft {
+        .calling(santi_estate::Call {
             tag: "call_framed",
             turn: "turn_framed",
             tool: "shell",
@@ -281,7 +281,7 @@ async fn rearms() {
 async fn unbudgeted() {
     let temp = tempfile::tempdir().unwrap();
     bootstrap(&temp).await;
-    let provider = Arc::new(FakeProvider::default());
+    let provider = Arc::new(Fake::default());
     let service = service::Service::open(crate::SCENARIO, config(&temp), provider)
         .await
         .unwrap();

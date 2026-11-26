@@ -7,7 +7,7 @@ use santi_core::service::{self, Service};
 async fn ingests() {
     let temp = tempfile::tempdir().expect("temp dir");
     bootstrap(&temp).await;
-    let provider = Arc::new(FakeProvider::default());
+    let provider = Arc::new(Fake::default());
     let service = Service::open(
         crate::SCENARIO,
         service::Config {
@@ -34,7 +34,7 @@ async fn ingests() {
     };
     let strand = receipt.strand;
 
-    let runtime = Probe::new(&service).any_completed(&strand).await;
+    let runtime = Probe::new(&service).settled(&strand).await;
     assert!(
         runtime
             .turns
@@ -67,8 +67,8 @@ async fn ingests() {
     else {
         panic!("expected accepted");
     };
-    let strand_id_again = receipt_again.strand;
-    assert_eq!(strand_id_again, strand);
+    let again = receipt_again.strand;
+    assert_eq!(again, strand);
 
     let requests = provider.requests.lock().unwrap();
     assert!(requests.iter().any(|request| {
@@ -94,7 +94,7 @@ async fn drains() {
         constitution: None,
         environment: Default::default(),
     };
-    let provider = Arc::new(FakeProvider::default());
+    let provider = Arc::new(Fake::default());
 
     let strand = {
         let service = Service::open(crate::SCENARIO, config.clone(), provider.clone())
@@ -108,8 +108,8 @@ async fn drains() {
         .expect("open store directly");
     let content = message::Content::text("stranded before the crash");
     store
-        .accept_inbox(
-            santi_core::InboxDraft {
+        .accept(
+            santi_core::Arrival {
                 tag: &santi_core::tag("inbox"),
                 strand: &strand,
                 kind: message::Kind::Text,
@@ -128,7 +128,7 @@ async fn drains() {
         .expect("reopen service");
     service.resume().await.expect("resume pending");
 
-    let runtime = Probe::new(&service).any_completed(&strand).await;
+    let runtime = Probe::new(&service).settled(&strand).await;
     assert!(
         runtime
             .messages
@@ -157,7 +157,7 @@ async fn started() {
         constitution: None,
         environment: Default::default(),
     };
-    let provider = Arc::new(FakeProvider::default());
+    let provider = Arc::new(Fake::default());
     let service = Service::open(crate::SCENARIO, config.clone(), provider.clone())
         .await
         .expect("open service");

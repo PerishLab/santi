@@ -21,7 +21,7 @@ pub struct Key<'a> {
 pub struct Issuer {
     issuer: String,
     audience: String,
-    key_id: String,
+    kid: String,
     ttl: u64,
     key: SigningKey,
 }
@@ -42,16 +42,11 @@ struct Claims<'a> {
 }
 
 impl Issuer {
-    pub fn new(
-        issuer: &str,
-        audience: &str,
-        key: Key<'_>,
-        ttl_seconds: u64,
-    ) -> Result<Self, String> {
+    pub fn new(issuer: &str, audience: &str, key: Key<'_>, ttl: u64) -> Result<Self, String> {
         let issuer = required("capability.issuer", issuer, 256)?;
         let audience = required("capability.audience", audience, 256)?;
-        let key_id = required("capability.key_id", key.id, 128)?;
-        if ttl_seconds == 0 || ttl_seconds > LIMIT {
+        let kid = required("capability.key_id", key.id, 128)?;
+        if ttl == 0 || ttl > LIMIT {
             return Err(format!(
                 "capability.ttl_seconds must be between 1 and {LIMIT}"
             ));
@@ -65,8 +60,8 @@ impl Issuer {
         Ok(Self {
             issuer,
             audience,
-            key_id,
-            ttl: ttl_seconds,
+            kid,
+            ttl,
             key: SigningKey::from_bytes(&bytes),
         })
     }
@@ -80,7 +75,7 @@ impl Issuer {
     }
 
     pub fn id(&self) -> &str {
-        &self.key_id
+        &self.kid
     }
 
     fn mint(&self, origin: Origin<&str>, now: u64) -> Result<String, String> {
@@ -93,7 +88,7 @@ impl Issuer {
             schema: SCHEMA,
             iss: &self.issuer,
             aud: &self.audience,
-            kid: &self.key_id,
+            kid: &self.kid,
             soul: origin.soul,
             strand: origin.strand,
             turn: origin.turn,
@@ -121,7 +116,7 @@ impl fmt::Debug for Issuer {
             .debug_struct("Issuer")
             .field("issuer", &self.issuer)
             .field("audience", &self.audience)
-            .field("key_id", &self.key_id)
+            .field("key_id", &self.kid)
             .field("ttl", &self.ttl)
             .field("private_key", &"[redacted]")
             .finish()

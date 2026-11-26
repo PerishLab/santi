@@ -149,7 +149,7 @@ impl Service {
         let (finished, canonical_error) = match cause {
             Cause::Provider(metadata) => self.misfired(strand, turn, &error, metadata).await,
             Cause::Budget(admission, canonical_error) => {
-                self.failed_budget(Budget {
+                self.budgeted(Budget {
                     strand,
                     turn,
                     error: &error,
@@ -175,7 +175,7 @@ impl Service {
         );
     }
 
-    async fn failed_budget(&self, failure: Budget<'_>) -> (Option<Turn>, Fault) {
+    async fn budgeted(&self, failure: Budget<'_>) -> (Option<Turn>, Fault) {
         let Budget {
             strand,
             turn,
@@ -186,10 +186,10 @@ impl Service {
         let persisted = match canonical.incident.as_deref() {
             Some(incident) => {
                 self.store
-                    .fail_linked(turn, error, incident, &crate::now())
+                    .collapse(turn, error, incident, &crate::now())
                     .await
             }
-            None => self.store.fail_turn(turn, error, &crate::now()).await,
+            None => self.store.fail(turn, error, &crate::now()).await,
         };
         match persisted {
             Ok(turn) => (Some(turn), canonical),

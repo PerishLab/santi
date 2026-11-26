@@ -48,7 +48,7 @@ pub(super) fn run() -> Result<(), String> {
                 .filter(|(name, _)| !name.starts_with(santi_core::environment::RESERVED)),
         );
     }
-    if let Some(base_url) = &spec.base_url {
+    if let Some(base_url) = &spec.endpoint {
         command.env("SANTI_BASE_URL", base_url);
     }
     command
@@ -103,7 +103,7 @@ pub(super) fn run() -> Result<(), String> {
             exit: status.code(),
         },
         Some(Halt::Timeout) => Record {
-            state: job::State::TimedOut,
+            state: job::State::Timeout,
             reason: Some("runtime_limit".to_string()),
             exit: status.code(),
         },
@@ -151,7 +151,7 @@ pub(super) fn finalize() -> Result<(), String> {
     } else {
         match std::env::var("SERVICE_RESULT").as_deref() {
             Ok("timeout") => Record {
-                state: job::State::TimedOut,
+                state: job::State::Timeout,
                 reason: Some("runtime_limit".to_string()),
                 exit: status,
             },

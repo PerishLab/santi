@@ -2,14 +2,14 @@ use anyhow::Result;
 
 use super::*;
 
-pub(super) fn compact_capsule_body(capsule: Capsule<'_>) -> Result<serde_json::Value> {
+pub(super) fn capsule(capsule: Capsule<'_>) -> Result<serde_json::Value> {
     let Capsule {
         first,
         last,
         from,
         to,
         summary,
-        file: summary_file,
+        file,
         source,
         reason,
         risk,
@@ -17,8 +17,8 @@ pub(super) fn compact_capsule_body(capsule: Capsule<'_>) -> Result<serde_json::V
         preview: dry,
         soul,
     } = capsule;
-    let summary = match summary_file {
-        Some(path) => read_summary_file(&path)?,
+    let summary = match file {
+        Some(path) => crate::text::source::summary(&path)?,
         None => summary.expect("clap requires summary or summary_file"),
     };
     let mut body = serde_json::json!({
@@ -41,7 +41,7 @@ pub(super) fn compact_capsule_body(capsule: Capsule<'_>) -> Result<serde_json::V
     Ok(body)
 }
 
-pub(super) fn urlencoding_encode(value: &str) -> String {
+pub(super) fn encode(value: &str) -> String {
     let mut out = String::with_capacity(value.len());
     for byte in value.bytes() {
         match byte {
@@ -54,7 +54,7 @@ pub(super) fn urlencoding_encode(value: &str) -> String {
     out
 }
 
-pub(super) fn build_client(bearer: Option<&str>) -> Result<reqwest::Client> {
+pub(super) fn build(bearer: Option<&str>) -> Result<reqwest::Client> {
     let mut builder = reqwest::Client::builder()
         .redirect(reqwest::redirect::Policy::none())
         .retry(reqwest::retry::never());
@@ -83,7 +83,7 @@ impl Http<'_> {
                 return Err(anyhow::Error::new(error)).with_context(|| label);
             }
         };
-        print_json(response).await
+        print(response).await
     }
 
     #[locus::trace(with = plumb::observation::view())]
@@ -163,10 +163,10 @@ impl Http<'_> {
         if !response.status().is_success() {
             return refuse(response).await;
         }
-        print_json(response).await
+        print(response).await
     }
 
-    pub(super) async fn follow(&self, url: &str, format: WatchFormat) -> Result<()> {
+    pub(super) async fn follow(&self, url: &str, format: Format) -> Result<()> {
         let response = self.client.get(url).send().await;
         let response = match response {
             Ok(response) => response,
@@ -183,17 +183,18 @@ impl Http<'_> {
         let mut stream = response.bytes_stream();
         let mut stdout = std::io::stdout();
         match format {
-            WatchFormat::Raw => {
+            Format::Raw => {
                 while let Some(chunk) = stream.next().await {
                     let chunk = read(chunk).context("read event stream")?;
                     stdout.write_all(&chunk).context("write event chunk")?;
                     stdout.flush().ok();
                 }
             }
-            WatchFormat::Filtered => {
+            Format::Filtered => {
                 let mut buffer = Vec::new();
-                while let Some((event, data)) = next_sse_frame(&mut stream, &mut buffer).await? {
-                    print_watch_line(&mut stdout, &event, &data);
+                while let Some((event, data)) = crate::watch::next(&mut stream, &mut buffer).await?
+                {
+                    line(&mut stdout, &event, &data);
                 }
             }
         }
@@ -201,7 +202,7 @@ impl Http<'_> {
     }
 }
 
-pub(super) async fn print_json(response: reqwest::Response) -> Result<()> {
+pub(super) async fn print(response: reqwest::Response) -> Result<()> {
     let status = response.status();
     let text = read(response.text().await).context("read response body")?;
     match serde_json::from_str::<serde_json::Value>(&text) {
@@ -215,7 +216,7 @@ pub(super) async fn print_json(response: reqwest::Response) -> Result<()> {
     Ok(())
 }
 
-pub(super) fn strand_send_body(text: String, soul: Option<&str>) -> serde_json::Value {
+pub(super) fn payload(text: String, soul: Option<&str>) -> serde_json::Value {
     let mut content = serde_json::json!({
         "content": [{ "type": "text", "text": text }]
     });
@@ -225,8 +226,8 @@ pub(super) fn strand_send_body(text: String, soul: Option<&str>) -> serde_json::
     content
 }
 
-pub(super) fn print_watch_line(stdout: &mut impl std::io::Write, event: &str, data: &str) {
-    if let Some(line) = render_watch_event(event, data) {
+pub(super) fn line(stdout: &mut impl std::io::Write, event: &str, data: &str) {
+    if let Some(line) = render(event, data) {
         writeln!(stdout, "{line}").ok();
         stdout.flush().ok();
     }

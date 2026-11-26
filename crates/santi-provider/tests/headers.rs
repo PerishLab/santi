@@ -147,7 +147,7 @@ async fn exchange(chat: bool, strand: &str, retry: bool) {
             headers: Vec::new(),
         }))
     } else {
-        Arc::new(openai::OpenAI::new(openai::Config {
+        Arc::new(openai::Openai::new(openai::Config {
             outgoing: configured(),
             key: "test-key".into(),
             model: "fixture".into(),

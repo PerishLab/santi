@@ -1,7 +1,7 @@
 use santi_model::{ingest, message};
 
 #[derive(Clone)]
-pub struct InboxDraft<'a> {
+pub struct Arrival<'a> {
     pub tag: &'a str,
     pub strand: &'a str,
     pub kind: message::Kind,
@@ -11,7 +11,7 @@ pub struct InboxDraft<'a> {
 }
 
 #[derive(Clone, Copy)]
-pub struct NoticeDraft<'a> {
+pub struct Notice<'a> {
     pub tag: &'a str,
     pub strand: &'a str,
     pub key: &'a str,
@@ -36,14 +36,14 @@ pub struct Inbox {
     pub kind: message::Kind,
     pub content: message::Content,
     pub source: Option<ingest::Source>,
-    pub coalesce_key: Option<String>,
-    pub coalesce_revision: Option<i64>,
-    pub coalesce_causes: Vec<String>,
+    pub key: Option<String>,
+    pub revision: Option<i64>,
+    pub causes: Vec<String>,
     pub created: String,
 }
 
 #[derive(Clone)]
-pub struct DrainDraft<'a> {
+pub struct Drain<'a> {
     pub turn: &'a str,
     pub strand: &'a str,
     pub trigger: santi_model::turn::Trigger,
@@ -51,7 +51,7 @@ pub struct DrainDraft<'a> {
     pub created: &'a str,
 }
 
-pub struct ReceiptDraft<'a> {
+pub struct Receipt<'a> {
     pub inbox: &'a str,
     pub state: santi_model::receipt::State,
     pub turn: Option<&'a str>,

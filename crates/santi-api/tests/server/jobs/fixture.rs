@@ -1,6 +1,6 @@
 use super::super::*;
-use santi_core::{service::JobSupervisor, strand::Strand};
-use santi_estate::{CapabilityDraft, TurnDraft};
+use santi_core::{service::jobs, strand::Strand};
+use santi_estate::{Capability, Turn};
 use sha2::{Digest, Sha256};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -8,7 +8,7 @@ pub(super) const CAPABILITY: &str = "jobcap_http_probe";
 
 pub(super) async fn prepare(
     temp: &tempfile::TempDir,
-    supervisor: Arc<dyn JobSupervisor>,
+    supervisor: Arc<dyn jobs::Supervisor>,
 ) -> (Service, Strand, santi_core::Store) {
     let database = temp.path().join("santi.sqlite");
     super::support::bootstrap(&database).await;
@@ -22,7 +22,7 @@ pub(super) async fn prepare(
             constitution: None,
             environment: Default::default(),
         },
-        Arc::new(DriverProvider),
+        Arc::new(Driver),
         supervisor,
     )
     .await
@@ -39,7 +39,7 @@ pub(super) async fn prepare(
         .await
         .expect("open estate");
     store
-        .create_turn(TurnDraft {
+        .start(Turn {
             tag: "turn_http",
             strand: &strand.id,
             trigger: santi_core::turn::Trigger::System,
@@ -49,7 +49,7 @@ pub(super) async fn prepare(
         .await
         .expect("turn");
     store
-        .create_call(CallDraft {
+        .calling(Call {
             tag: "call_http",
             turn: "turn_http",
             tool: "shell",
@@ -59,7 +59,7 @@ pub(super) async fn prepare(
         .await
         .expect("call");
     store
-        .prepare_effect(EffectDraft {
+        .stage(Effect {
             tag: "effect_http",
             turn: "turn_http",
             call: Some("call_http"),
@@ -70,7 +70,7 @@ pub(super) async fn prepare(
         .await
         .expect("effect");
     store
-        .create_capability(CapabilityDraft {
+        .grant(Capability {
             digest: &digest,
             expires: expiry,
             soul: &strand.soul,

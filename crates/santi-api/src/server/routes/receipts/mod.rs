@@ -108,6 +108,7 @@ pub(super) fn souls() -> MethodRouter<Service> {
 #[utoipa::path(
     get,
     path = "/api/v1/souls/{soul}",
+    operation_id = "get_soul",
     params(("soul" = String, Path)),
     responses(
         (status = 200, body = Soul),
@@ -115,10 +116,10 @@ pub(super) fn souls() -> MethodRouter<Service> {
         (status = 500, body = Fault)
     )
 )]
-pub(super) fn get_soul() -> MethodRouter<Service> {
+pub(super) fn soul() -> MethodRouter<Service> {
     routing::get(
         |State(service): State<Service>, Path(soul): Path<String>| async move {
-            Receipts(service).get_soul(soul).await
+            Receipts(service).soul(soul).await
         },
     )
 }
@@ -155,6 +156,7 @@ pub(super) fn webhooks() -> MethodRouter<Service> {
 #[utoipa::path(
     get,
     path = "/api/v1/strands/{strand}",
+    operation_id = "get_strand",
     params(("strand" = String, Path)),
     responses(
         (status = 200, body = strand::Detail),
@@ -162,10 +164,10 @@ pub(super) fn webhooks() -> MethodRouter<Service> {
         (status = 500, body = Fault)
     )
 )]
-pub(super) fn get_strand() -> MethodRouter<Service> {
+pub(super) fn strand() -> MethodRouter<Service> {
     routing::get(
         |State(service): State<Service>, Path(strand): Path<String>| async move {
-            Receipts(service).get_strand(strand).await
+            Receipts(service).strand(strand).await
         },
     )
 }
@@ -173,6 +175,7 @@ pub(super) fn get_strand() -> MethodRouter<Service> {
 #[utoipa::path(
     get,
     path = "/api/v1/strands/{strand}/messages",
+    operation_id = "list_messages",
     params(("strand" = String, Path)),
     responses(
         (status = 200, body = [santi_core::message::Placed]),
@@ -180,10 +183,10 @@ pub(super) fn get_strand() -> MethodRouter<Service> {
         (status = 500, body = Fault)
     )
 )]
-pub(super) fn list_messages() -> MethodRouter<Service> {
+pub(super) fn messages() -> MethodRouter<Service> {
     routing::get(
         |State(service): State<Service>, Path(strand): Path<String>| async move {
-            Receipts(service).list_messages(strand).await
+            Receipts(service).messages(strand).await
         },
     )
 }

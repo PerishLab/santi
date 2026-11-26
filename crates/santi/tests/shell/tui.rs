@@ -1,18 +1,18 @@
 #[path = "tui/server.rs"]
 mod server;
 
-use santi::cli::ClientDefaults;
+use santi::cli::Defaults;
 use santi::client::tui::{Request, session};
-use server::spawn_server;
+use server::spawn;
 use std::io::Cursor;
 
 #[tokio::test]
 async fn starts() {
-    let server = spawn_server().await;
+    let server = spawn().await;
     let temp = tempfile::tempdir().expect("temp dir");
     let memory = temp.path().join("jarvis.md");
     std::fs::write(&memory, "You are Jarvis.").expect("write memory");
-    let defaults = ClientDefaults {
+    let defaults = Defaults {
         operator: None,
         soul: None,
         strand: None,
@@ -24,7 +24,7 @@ async fn starts() {
     session(
         Request {
             client: &client,
-            base: &server.base_url,
+            base: &server.base,
             defaults: &defaults,
             bearer: None,
             memory: Some(memory.display().to_string()),
@@ -76,8 +76,8 @@ async fn starts() {
 }
 #[tokio::test]
 async fn refuses() {
-    let server = spawn_server().await;
-    let defaults = ClientDefaults {
+    let server = spawn().await;
+    let defaults = Defaults {
         operator: None,
         soul: Some("soul_jarvis".to_string()),
         strand: Some("ss_foreign".to_string()),
@@ -89,7 +89,7 @@ async fn refuses() {
     let error = session(
         Request {
             client: &client,
-            base: &server.base_url,
+            base: &server.base,
             defaults: &defaults,
             bearer: None,
             memory: None,
@@ -107,8 +107,8 @@ async fn refuses() {
 }
 #[tokio::test]
 async fn owner() {
-    let server = spawn_server().await;
-    let defaults = ClientDefaults {
+    let server = spawn().await;
+    let defaults = Defaults {
         operator: None,
         soul: None,
         strand: Some("ss_ownerless".to_string()),
@@ -120,7 +120,7 @@ async fn owner() {
     let error = session(
         Request {
             client: &client,
-            base: &server.base_url,
+            base: &server.base,
             defaults: &defaults,
             bearer: None,
             memory: None,

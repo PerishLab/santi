@@ -1,4 +1,4 @@
-use super::{ReplayDraft, WebhookDraft};
+use super::{Replay, Webhook};
 use keel::{Op, form};
 
 #[derive(PartialEq, Eq)]
@@ -20,7 +20,7 @@ impl<'a> Identity<'a> {
     }
 }
 
-pub(super) fn exact(row: &keel::Row, draft: &WebhookDraft<'_>, soul: i64) -> bool {
+pub(super) fn exact(row: &keel::Row, draft: &Webhook<'_>, soul: i64) -> bool {
     Identity::read(row)
         == Some(Identity {
             adaptor: draft.adaptor,
@@ -30,10 +30,10 @@ pub(super) fn exact(row: &keel::Row, draft: &WebhookDraft<'_>, soul: i64) -> boo
         })
 }
 
-pub(super) fn conflict(replay: ReplayDraft<'_>) -> &'static str {
+pub(super) fn conflict(replay: Replay<'_>) -> &'static str {
     match replay {
-        ReplayDraft::Webhook { .. } => "webhook delivery conflicts with an accepted payload",
-        ReplayDraft::Downstream { .. } => "downstream request conflicts with an accepted payload",
+        Replay::Webhook { .. } => "webhook delivery conflicts with an accepted payload",
+        Replay::Downstream { .. } => "downstream request conflicts with an accepted payload",
     }
 }
 

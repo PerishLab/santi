@@ -1,15 +1,15 @@
 use super::*;
 
 impl Service {
-    pub(in crate::service) async fn reconcile_alarms(&self) {
+    pub(in crate::service) async fn resync(&self) {
         let mut state = self.alarms.state.lock().await;
         if state.retry.is_some_and(|due| due <= Instant::now()) {
-            self.apply_alarms(&mut state).await;
+            self.sync(&mut state).await;
         }
     }
 
-    pub(super) async fn apply_alarms(&self, state: &mut State) {
-        let result = self.project_alarms().await;
+    pub(super) async fn sync(&self, state: &mut State) {
+        let result = self.project().await;
         match result {
             Ok(mut projection) => {
                 projection.observed = Some(crate::now());
@@ -25,7 +25,7 @@ impl Service {
         }
     }
 
-    async fn project_alarms(&self) -> Result<alarm::Projection, String> {
+    async fn project(&self) -> Result<alarm::Projection, String> {
         let alarms = self.store.alarms().await?;
         let endpoint = self.alarms.endpoint.clone();
         tokio::task::spawn_blocking(move || endpoint.apply(&alarms))

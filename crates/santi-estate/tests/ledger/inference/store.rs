@@ -1,6 +1,6 @@
 use super::super::{NOW, SUDO};
 use super::{declaration, parent};
-use santi_estate::{Store, StrandDraft, Target};
+use santi_estate::{Store, Strand, Target};
 use santi_model::inference::Patch;
 
 #[tokio::test]
@@ -25,14 +25,14 @@ async fn roundtrip() {
         .await
         .expect("clear scenario");
     assert_eq!(cleared.scenario, None);
-    assert_eq!(cleared.reasoning_effort.as_deref(), Some("high"));
+    assert_eq!(cleared.effort.as_deref(), Some("high"));
     let empty = store
         .declare(
             Target::Strand,
             &strand.id,
             &Patch {
                 scenario: Some(None),
-                reasoning_effort: Some(None),
+                effort: Some(None),
             },
             NOW,
         )
@@ -61,7 +61,7 @@ async fn created() {
         .expect("open");
     let soul = store.seed("old_soul", NOW).await.expect("seed");
     let strand = store
-        .create_strand(StrandDraft {
+        .weave(Strand {
             tag: "ss_old",
             soul: &soul.id,
             label: None,
@@ -106,21 +106,21 @@ async fn atomic() {
         patched.scenario.as_deref(),
         Some("gateway/deepseek/analysis")
     );
-    assert_eq!(patched.reasoning_effort.as_deref(), Some("high"));
+    assert_eq!(patched.effort.as_deref(), Some("high"));
     let adjusted = store
         .declare(
             Target::Strand,
             &strand.id,
             &Patch {
                 scenario: Some(Some("gateway/gpt/recall".into())),
-                reasoning_effort: Some(None),
+                effort: Some(None),
             },
             NOW,
         )
         .await
         .expect("modify and clear");
     assert_eq!(adjusted.scenario.as_deref(), Some("gateway/gpt/recall"));
-    assert_eq!(adjusted.reasoning_effort, None);
+    assert_eq!(adjusted.effort, None);
     let error = store
         .declare(
             Target::Strand,
@@ -153,7 +153,7 @@ async fn atomic() {
         .await
         .expect("soul patch");
     assert_eq!(soul.scenario.as_deref(), Some("gateway/gpt/review"));
-    assert_eq!(soul.reasoning_effort, None);
+    assert_eq!(soul.effort, None);
     let soul = store
         .declare(
             Target::Soul,

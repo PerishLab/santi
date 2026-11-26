@@ -6,7 +6,7 @@ use std::{
 
 use futures_util::StreamExt;
 use santi_provider::chat::completions::{self, Chat};
-use santi_provider::openai::{self, OpenAI};
+use santi_provider::openai::{self, Openai};
 use santi_provider::{Event, Item, Provider, Receipt, Report, Request, Trace, Usage};
 
 const HEADERS: &str = "x-request-id: req_1\r\nx-teamo-actual-model: gpt-5.5-real\r\nx-trace-id: trace_1\r\nset-cookie: session=secret\r\n";
@@ -18,7 +18,7 @@ async fn responses() {
         r#"{"type":"response.incomplete","response":{"id":"resp_1","status":"incomplete","incomplete_details":{"reason":"max_output_tokens"},"model":"gpt-5.5","usage":{"input_tokens":120,"input_tokens_details":{"cached_tokens":100},"output_tokens":30,"output_tokens_details":{"reasoning_tokens":20}}}}"#,
         r#"{"type":"response.completed","response":{"id":"resp_1","status":"completed","model":"gpt-5.5","usage":{"input_tokens":120,"input_tokens_details":{"cached_tokens":100},"output_tokens":30,"output_tokens_details":{"reasoning_tokens":20}}}}"#,
     ]);
-    let provider = OpenAI::new(openai::Config {
+    let provider = Openai::new(openai::Config {
         outgoing: Default::default(),
         key: "test-key".to_string(),
         model: "gpt-5.5".to_string(),
@@ -101,7 +101,7 @@ async fn unlisted() {
     let url = served(&[
         r#"{"type":"response.completed","response":{"id":"resp_1","status":"completed","model":"gpt-5.5","usage":{"input_tokens":120,"input_tokens_details":{"cached_tokens":100},"output_tokens":30,"output_tokens_details":{"reasoning_tokens":20}}}}"#,
     ]);
-    let provider = OpenAI::new(openai::Config {
+    let provider = Openai::new(openai::Config {
         outgoing: Default::default(),
         key: "test-key".to_string(),
         model: "gpt-5.5".to_string(),

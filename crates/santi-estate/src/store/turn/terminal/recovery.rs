@@ -1,4 +1,4 @@
-use super::{Failure, InterruptionDraft, fail, terminal};
+use super::{Abort, Outcome, fail, terminal};
 use crate::store::turn::stop;
 use crate::store::{error, write};
 use keel::adapt::db::Sqlite;
@@ -25,7 +25,7 @@ struct Writer<'a, 'tx>(&'a mut Tx<'tx, Sqlite>);
 
 pub(super) async fn interrupt(
     tx: &mut Tx<'_, Sqlite>,
-    draft: &InterruptionDraft<'_>,
+    draft: &Abort<'_>,
 ) -> Result<Option<String>, keel::adapt::Error> {
     let turn = tx
         .one(&form("Turn").when("tag", Op::Eq, draft.turn))
@@ -105,18 +105,18 @@ async fn terminate(
     let strand = Writer(tx)
         .related(termination.turn, "strand", "turn strand")
         .await?;
-    let strand_tag = text(&strand, "tag")?;
+    let owner = text(&strand, "tag")?;
     let (detail, incident) = match termination.cause {
         Some(cause) => (format!("interrupted by {}", cause.encode()), None),
         None => {
             let detail = "interrupted by restart".to_string();
             let descriptor = turn::Error::Runtime.descriptor();
-            let fault = error::raise_in(
+            let fault = error::raise(
                 tx,
                 santi_error::Draft {
-                    key: descriptor.key("strand", strand_tag),
+                    key: descriptor.key("strand", owner),
                     descriptor,
-                    scope: santi_error::Scope::new("strand", strand_tag),
+                    scope: santi_error::Scope::new("strand", owner),
                     source: santi_error::Source::new("santi-core", "turn.restart_reconcile"),
                     message: "turn failed inside the runtime".to_string(),
                     context: serde_json::json!({
@@ -135,7 +135,7 @@ async fn terminate(
     };
     fail(
         tx,
-        Failure {
+        Outcome {
             turn: tag,
             detail: &detail,
             incident: incident.as_deref(),

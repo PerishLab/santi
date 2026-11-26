@@ -6,7 +6,7 @@ use serde_json::json;
 async fn inputs() {
     let frame = Frame::new().await;
     assert!(frame.expected.len() > 400);
-    let input = value::input(provider_input(&frame.store, "strand_test").await.unwrap());
+    let input = value::input(assemble(&frame.store, "strand_test").await.unwrap());
     assert_eq!(input, frame.expected);
     let end = frame
         .store
@@ -18,7 +18,7 @@ async fn inputs() {
         - 1;
     frame
         .store
-        .fork(ForkDraft {
+        .fork(Fork {
             tag: "strand_child",
             parent: "strand_test",
             at: end,
@@ -28,19 +28,19 @@ async fn inputs() {
         .await
         .unwrap();
     assert_eq!(
-        value::input(provider_input(&frame.store, "strand_child").await.unwrap()),
+        value::input(assemble(&frame.store, "strand_child").await.unwrap()),
         frame.expected
     );
     let reopened = Store::open(frame.temp.path().join("estate.sqlite"))
         .await
         .unwrap();
     assert_eq!(
-        value::input(provider_input(&reopened, "strand_test").await.unwrap()),
+        value::input(assemble(&reopened, "strand_test").await.unwrap()),
         frame.expected
     );
     frame
         .store
-        .create_compact(CompactDraft {
+        .condense(Compact {
             tag: "compact_partial",
             strand: "strand_test",
             first: "message_first",
@@ -52,19 +52,19 @@ async fn inputs() {
         })
         .await
         .unwrap();
-    let partial = value::input(provider_input(&frame.store, "strand_test").await.unwrap());
+    let partial = value::input(assemble(&frame.store, "strand_test").await.unwrap());
     assert_eq!(&partial[1..], &frame.expected[frame.middle + 1..]);
     let header = value::header(&partial[0]);
     assert_eq!(header["compact"], "compact_partial");
     assert_eq!(header["covered_strand_seq"]["start_seq"], 1);
     assert_eq!(header["covered_strand_seq"]["end_seq"], frame.middle + 1);
     assert_eq!(
-        value::input(provider_input(&frame.store, "strand_child").await.unwrap()),
+        value::input(assemble(&frame.store, "strand_child").await.unwrap()),
         frame.expected
     );
     let report = frame
         .store
-        .preview_compact(
+        .preview(
             "compact_preview",
             "strand_test",
             "message_first",
@@ -73,10 +73,10 @@ async fn inputs() {
         .await
         .unwrap();
     let preview = value::input(
-        provider_preview(
+        preview(
             &frame.store,
             "strand_test",
-            santi_core::ProviderPreview {
+            santi_core::Preview {
                 report: &report,
                 summary: "full 工具🙂",
                 metadata: &json!({}),
@@ -92,7 +92,7 @@ async fn inputs() {
     assert_eq!(header["collapsed_entries"], frame.expected.len());
     frame
         .store
-        .create_compact(CompactDraft {
+        .condense(Compact {
             tag: "compact_full",
             strand: "strand_test",
             first: "message_first",
@@ -104,7 +104,7 @@ async fn inputs() {
         })
         .await
         .unwrap();
-    let compacted = value::input(provider_input(&frame.store, "strand_test").await.unwrap());
+    let compacted = value::input(assemble(&frame.store, "strand_test").await.unwrap());
     assert_eq!(compacted.len(), 1);
     assert_eq!(value::header(&compacted[0])["compact"], "compact_full");
     assert_eq!(
@@ -118,7 +118,7 @@ async fn inputs() {
             .contains("<compact_summary>\nfull 工具🙂")
     );
     assert_eq!(
-        value::input(provider_input(&frame.store, "strand_child").await.unwrap()),
+        value::input(assemble(&frame.store, "strand_child").await.unwrap()),
         frame.expected
     );
 }

@@ -1,5 +1,5 @@
 use santi_error::{Draft, Kind, Scope, Source, Status, catalog};
-use santi_estate::{Store, StrandDraft};
+use santi_estate::{Store, Strand};
 
 const SUDO: &str = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
 const FIRST: &str = "2026-07-28T00:00:00.000Z";
@@ -14,7 +14,7 @@ async fn lifecycle() {
     let store = Store::bootstrap(&path, SUDO).await.expect("open");
     store.seed("soul_default", FIRST).await.expect("soul");
     store
-        .create_strand(StrandDraft {
+        .weave(Strand {
             tag: "strand_test",
             soul: "soul_default",
             label: None,
@@ -45,18 +45,15 @@ async fn lifecycle() {
     assert_eq!(active.occurrences, 2);
     assert_eq!(active.latest.message, "latest");
 
-    let pending = store.pending_errors(10).await.expect("pending");
+    let pending = store.unsent(10).await.expect("pending");
     assert_eq!(pending.len(), 1);
     assert_eq!(pending[0].kind, Kind::Opened);
+    store.deliver(&pending[0].id, LATER).await.expect("deliver");
     store
-        .deliver_error(&pending[0].id, LATER)
-        .await
-        .expect("deliver");
-    store
-        .deliver_error(&pending[0].id, LATER)
+        .deliver(&pending[0].id, LATER)
         .await
         .expect("redeliver");
-    assert!(store.pending_errors(10).await.expect("empty").is_empty());
+    assert!(store.unsent(10).await.expect("empty").is_empty());
 
     assert!(
         store
@@ -104,7 +101,7 @@ async fn lifecycle() {
         .await
         .expect("reopen incident");
     assert_ne!(reopened.incident.as_deref(), Some(incident.as_str()));
-    let pending = store.pending_errors(10).await.expect("pending");
+    let pending = store.unsent(10).await.expect("pending");
     assert_eq!(
         pending.iter().map(|event| &event.kind).collect::<Vec<_>>(),
         vec![&Kind::Resolved, &Kind::Opened]

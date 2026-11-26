@@ -38,7 +38,7 @@ impl Service {
         self.external(External {
             input,
             reply: None,
-            replay: Some(santi_estate::ReplayDraft::Webhook {
+            replay: Some(santi_estate::Replay::Webhook {
                 subscription: delivery.subscription,
                 delivery: delivery.id,
                 digest: delivery.digest,
@@ -56,7 +56,7 @@ impl Service {
         self.external(External {
             input,
             reply: Some(reply),
-            replay: Some(santi_estate::ReplayDraft::Webhook {
+            replay: Some(santi_estate::Replay::Webhook {
                 subscription: delivery.subscription,
                 delivery: delivery.id,
                 digest: delivery.digest,
@@ -77,7 +77,7 @@ impl Service {
         let strand = self
             .store
             .selected(
-                &strand::Selector::ByLabel {
+                &strand::Selector::Label {
                     soul: input.soul.to_string(),
                     label: input.label.to_string(),
                 },

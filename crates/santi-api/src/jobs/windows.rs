@@ -3,10 +3,7 @@ use std::{
     process::{Command, Stdio},
 };
 
-use santi_core::{
-    job,
-    service::{JobLaunch, JobObservation, JobSupervisor},
-};
+use santi_core::{job, service::jobs};
 use std::os::windows::process::CommandExt;
 
 use super::{
@@ -14,8 +11,8 @@ use super::{
     model::{Phase, Spec},
 };
 
-const DETACHED_PROCESS: u32 = 0x0000_0008;
-const CREATE_NEW_PROCESS_GROUP: u32 = 0x0000_0200;
+const DETACHED: u32 = 0x0000_0008;
+const GROUPED: u32 = 0x0000_0200;
 
 pub struct Windows {
     executable: PathBuf,
@@ -35,8 +32,8 @@ impl Windows {
     }
 }
 
-impl JobSupervisor for Windows {
-    fn detach(&self, launch: &JobLaunch) -> Result<(), String> {
+impl jobs::Supervisor for Windows {
+    fn detach(&self, launch: &jobs::Launch) -> Result<(), String> {
         let directory = Path::new(&launch.directory);
         files::directory(directory).prepare()?;
         let requested = Spec::from(launch);
@@ -63,17 +60,17 @@ impl JobSupervisor for Windows {
             .args(["__job", "run"])
             .env(DIRECTORY, &launch.directory)
             .env(STAMP, &launch.stamp)
-            .env(TIMEOUT, launch.job.timeout_seconds.to_string())
+            .env(TIMEOUT, launch.job.timeout.to_string())
             .stdin(Stdio::null())
             .stdout(Stdio::null())
             .stderr(Stdio::null())
-            .creation_flags(DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP)
+            .creation_flags(DETACHED | GROUPED)
             .spawn()
             .map_err(|error| format!("failed to launch Windows job sidecar: {error}"))?;
         handoff(&launch.job.id, directory)
     }
 
-    fn observe(&self, launch: &JobLaunch) -> Result<JobObservation, String> {
+    fn observe(&self, launch: &jobs::Launch) -> Result<jobs::Observation, String> {
         let directory = Path::new(&launch.directory);
         let state = files::directory(directory).state()?;
         if let Some(terminal) = files::directory(directory).terminal()? {
@@ -81,25 +78,25 @@ impl JobSupervisor for Windows {
                 && launch.stamp.starts_with("stamp_")
                 && launch.job.state == job::State::Submitting
             {
-                return Ok(JobObservation::Aborted);
+                return Ok(jobs::Observation::Aborted);
             }
-            return Ok(JobObservation::Terminal(terminal));
+            return Ok(jobs::Observation::Terminal(terminal));
         }
         if !files::directory(directory).active()? {
-            return Ok(JobObservation::Missing);
+            return Ok(jobs::Observation::Missing);
         }
         if state.is_some_and(|state| state.phase == Phase::Claimed) {
-            Ok(JobObservation::Claimed)
+            Ok(jobs::Observation::Claimed)
         } else {
-            Ok(JobObservation::Running)
+            Ok(jobs::Observation::Running)
         }
     }
 
-    fn stop(&self, launch: &JobLaunch) -> Result<(), String> {
+    fn stop(&self, launch: &jobs::Launch) -> Result<(), String> {
         files::directory(Path::new(&launch.directory)).mark(files::CANCEL)
     }
 
-    fn acknowledge(&self, launch: &JobLaunch) -> Result<(), String> {
+    fn acknowledge(&self, launch: &jobs::Launch) -> Result<(), String> {
         if files::directory(Path::new(&launch.directory)).active()? {
             Err(format!(
                 "job {} Windows sidecar is still active",

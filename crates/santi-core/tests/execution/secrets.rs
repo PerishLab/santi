@@ -8,7 +8,7 @@ async fn secrets() {
     let command = r#"printf '%s' '{"name":"owner","token":"fixture-token","nested":{"client_secret":"fixture-secret"},"credential_sha256":"digest"}'"#;
     #[cfg(windows)]
     let command = r#"Write-Output '{"name":"owner","token":"fixture-token","nested":{"client_secret":"fixture-secret"},"credential_sha256":"digest"}'"#;
-    let provider = Arc::new(BudgetedProvider {
+    let provider = Arc::new(Budgeted {
         rounds: 1,
         command: Some(command.to_string()),
         ..Default::default()
@@ -40,7 +40,7 @@ async fn secrets() {
         .await
         .expect("send strand");
     let runtime = Probe::new(&service)
-        .completed_turn(&strand.id, &accepted_turn(&service, &posted).await.id)
+        .completed(&strand.id, &accepted(&service, &posted).await.id)
         .await;
     let output = runtime.results[0].output.as_ref().expect("tool output");
     let stdout = output["stdout"].as_str().expect("stdout");

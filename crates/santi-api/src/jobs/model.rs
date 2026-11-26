@@ -1,15 +1,12 @@
-use santi_core::{
-    job,
-    service::{JobLaunch, JobTerminal},
-};
+use santi_core::{job, service::jobs};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub(super) struct Spec {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub environment: Option<santi_estate::Environment>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub base_url: Option<String>,
+    #[serde(default, rename = "base_url", skip_serializing_if = "Option::is_none")]
+    pub endpoint: Option<String>,
     pub schema: String,
     pub id: String,
     pub origin: job::Origin,
@@ -38,10 +35,10 @@ struct Identity<'a> {
 }
 
 impl Spec {
-    pub(super) fn from(launch: &JobLaunch) -> Self {
+    pub(super) fn from(launch: &jobs::Launch) -> Self {
         Self {
             environment: launch.environment.clone(),
-            base_url: launch.base_url.clone(),
+            endpoint: launch.endpoint.clone(),
             schema: "santi.job.execution.v2".to_string(),
             id: launch.job.id.clone(),
             origin: launch.job.origin.clone(),
@@ -50,7 +47,7 @@ impl Spec {
             description: launch.job.description.clone(),
             command: launch.job.command.clone(),
             cwd: launch.cwd.clone(),
-            output: launch.job.output_limit_bytes,
+            output: launch.job.limit,
         }
     }
 
@@ -77,7 +74,7 @@ impl Spec {
     }
 }
 
-pub(super) type Record = JobTerminal;
+pub(super) type Record = jobs::Terminal;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -129,7 +126,7 @@ mod tests {
     }
 
     #[test]
-    fn base_url() {
+    fn endpoint() {
         let value = serde_json::json!({
             "schema": "santi.job.execution.v2", "id": "job_test",
             "origin": { "soul": "soul_test", "strand": "strand_test", "turn": "turn_test",
@@ -138,7 +135,7 @@ mod tests {
             "description": "endpoint", "command": "true", "cwd": "/tmp", "output_limit_bytes": 1024
         });
         let legacy: Spec = serde_json::from_value(value.clone()).expect("spec without endpoint");
-        assert!(legacy.base_url.is_none());
+        assert!(legacy.endpoint.is_none());
         assert!(
             serde_json::to_value(&legacy)
                 .expect("encode legacy")
@@ -149,7 +146,7 @@ mod tests {
         let mut recorded = value;
         recorded["base_url"] = serde_json::json!("http://127.0.0.1:43309");
         let endpoint: Spec = serde_json::from_value(recorded.clone()).expect("spec with endpoint");
-        assert_eq!(endpoint.base_url.as_deref(), Some("http://127.0.0.1:43309"));
+        assert_eq!(endpoint.endpoint.as_deref(), Some("http://127.0.0.1:43309"));
         assert!(legacy.matches(&endpoint));
         assert!(endpoint.matches(&legacy));
         assert_eq!(

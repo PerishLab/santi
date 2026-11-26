@@ -1,6 +1,6 @@
 use super::*;
 use axum::extract::Query;
-use santi_api::{ErrorQueryParams, errors_handler, incident_handler, strand_errors_handler};
+use santi_api::{Window, errors, incident, stranded};
 use santi_core::{Scope, Source, catalog};
 
 #[tokio::test]
@@ -18,7 +18,7 @@ async fn history() {
             constitution: None,
             environment: Default::default(),
         },
-        Arc::new(DriverProvider),
+        Arc::new(Driver),
     )
     .await
     .expect("service");
@@ -37,7 +37,7 @@ async fn history() {
         .expect("resolve");
     let second = raise(&store, &scope).await;
     let other = raise(&store, &Scope::new("strand", &foreign)).await;
-    let initial = strand_errors_handler(
+    let initial = stranded(
         State(service.clone()),
         Path(target.clone()),
         Query(query(None)),
@@ -48,7 +48,7 @@ async fn history() {
     .0;
     assert_eq!(initial.len(), 1);
     let cursor = initial[0].id.clone();
-    let page = strand_errors_handler(
+    let page = stranded(
         State(service.clone()),
         Path(target.clone()),
         Query(query(Some(cursor.clone()))),
@@ -60,7 +60,7 @@ async fn history() {
     assert_eq!(page.len(), 1);
     assert_ne!(page[0].id, cursor);
     for id in [&first, &second] {
-        let held = incident_handler(State(service.clone()), Path(id.clone()))
+        let held = incident(State(service.clone()), Path(id.clone()))
             .await
             .map_err(|e| e.message().to_string())
             .expect("inspect")
@@ -68,7 +68,7 @@ async fn history() {
         assert_eq!(held.incident.id, *id);
         assert_eq!(held.transitions.len(), if *id == first { 2 } else { 1 });
     }
-    let error = strand_errors_handler(
+    let error = stranded(
         State(service.clone()),
         Path(target.clone()),
         Query(query(Some(other))),
@@ -76,7 +76,7 @@ async fn history() {
     .await
     .expect_err("foreign cursor");
     assert_eq!(error.status(), StatusCode::BAD_REQUEST);
-    let error = strand_errors_handler(
+    let error = stranded(
         State(service.clone()),
         Path("missing".into()),
         Query(query(None)),
@@ -84,7 +84,7 @@ async fn history() {
     .await
     .expect_err("missing strand");
     assert_eq!(error.status(), StatusCode::NOT_FOUND);
-    let empty = errors_handler(
+    let empty = errors(
         State(service.clone()),
         Path(("runtime".into(), "default".into())),
         Query(query(None)),
@@ -94,12 +94,12 @@ async fn history() {
     .expect("compatible empty list")
     .0;
     assert!(empty.is_empty());
-    let missing = incident_handler(State(service), Path("missing".into()))
+    let missing = incident(State(service), Path("missing".into()))
         .await
         .expect_err("missing incident");
     assert_eq!(missing.status(), StatusCode::NOT_FOUND);
     let doc: serde_json::Value =
-        serde_json::from_str(&santi_api::export_openapi_json().expect("export")).expect("json");
+        serde_json::from_str(&santi_api::openapi().expect("export")).expect("json");
     assert!(
         doc["paths"]["/api/v1/incidents/{incident}"]["get"]["responses"]
             .get("404")
@@ -108,8 +108,8 @@ async fn history() {
     assert!(doc["components"]["schemas"].get("error.History").is_some());
 }
 
-fn query(before: Option<String>) -> ErrorQueryParams {
-    ErrorQueryParams {
+fn query(before: Option<String>) -> Window {
+    Window {
         limit: Some(1),
         before,
     }

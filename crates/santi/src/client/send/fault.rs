@@ -20,13 +20,13 @@ pub(crate) fn uncertain(target: Target<'_>, receipt: &str, detail: String) -> an
     )
 }
 
-pub(crate) fn accepted_warning(value: Option<&serde_json::Value>) -> Option<&serde_json::Value> {
+pub(crate) fn warning(value: Option<&serde_json::Value>) -> Option<&serde_json::Value> {
     value?
         .pointer("/receipt/warning")
         .filter(|warning| !warning.is_null())
 }
 
-pub(crate) fn accepted_warning_error(
+pub(crate) fn warned(
     target: Target<'_>,
     warning: &serde_json::Value,
     receipt: &str,
@@ -48,7 +48,7 @@ pub(crate) fn accepted_warning_error(
 #[cfg(test)]
 mod tests {
     use super::super::outcome::Unsettled;
-    use super::{accepted_warning_error, uncertain, unknown};
+    use super::{uncertain, unknown, warned};
 
     #[test]
     fn typed() {
@@ -61,7 +61,7 @@ mod tests {
         let errors = [
             unknown(target, "POST response was ambiguous".to_string()),
             uncertain(target, "inbox_direct", "receipt was unreadable".to_string()),
-            accepted_warning_error(target, &warning, "inbox_direct"),
+            warned(target, &warning, "inbox_direct"),
         ];
 
         for error in errors {

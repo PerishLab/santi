@@ -152,8 +152,8 @@ async fn send(service: &Service, id: &str) {
         )
         .await
         .unwrap();
-    let turn = accepted_turn(service, &posted).await;
-    Probe::new(service).completed_turn(id, &turn.id).await;
+    let turn = accepted(service, &posted).await;
+    Probe::new(service).completed(id, &turn.id).await;
 }
 
 fn originals(input: &[Item]) -> Vec<String> {
@@ -219,7 +219,7 @@ async fn restores() {
         ["original 工具🙂", "original answer"]
     );
     let child = service.fork(&strand.id).await.unwrap().strand;
-    let inherited = santi_core::provider_input(&store, &child.id).await.unwrap();
+    let inherited = santi_core::assemble(&store, &child.id).await.unwrap();
     assert_eq!(
         originals(&inherited),
         ["original 工具🙂", "original answer", "original followup"]

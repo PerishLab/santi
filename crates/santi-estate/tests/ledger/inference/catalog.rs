@@ -28,10 +28,7 @@ async fn choices() {
         .await
         .unwrap();
     let mut candidates = Vec::new();
-    for (name, protocol) in [
-        ("chat", Protocol::ChatCompletions),
-        ("native", Protocol::Gemini),
-    ] {
+    for (name, protocol) in [("chat", Protocol::Chat), ("native", Protocol::Gemini)] {
         let access = s
             .register(D::Access {
                 name: name.into(),

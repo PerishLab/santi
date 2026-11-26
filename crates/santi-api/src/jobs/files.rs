@@ -179,10 +179,9 @@ impl Directory<'_> {
 
 #[cfg(target_os = "windows")]
 fn contended(error: &std::io::Error) -> bool {
-    const ERROR_LOCK_VIOLATION: i32 = 33;
+    const VIOLATION: i32 = 33;
 
-    error.kind() == std::io::ErrorKind::WouldBlock
-        || error.raw_os_error() == Some(ERROR_LOCK_VIOLATION)
+    error.kind() == std::io::ErrorKind::WouldBlock || error.raw_os_error() == Some(VIOLATION)
 }
 
 #[cfg(target_os = "macos")]
@@ -200,7 +199,7 @@ impl Artifact<'_> {
         let mut file = Artifact(&temporary).create()?;
         file.write_all(bytes).map_err(|error| error.to_string())?;
         file.sync_all().map_err(|error| error.to_string())?;
-        replace_file(&temporary, self.0)?;
+        swap(&temporary, self.0)?;
         self.sync()
     }
 
@@ -239,12 +238,12 @@ impl Artifact<'_> {
 }
 
 #[cfg(unix)]
-fn replace_file(temporary: &Path, path: &Path) -> Result<(), String> {
+fn swap(temporary: &Path, path: &Path) -> Result<(), String> {
     fs::rename(temporary, path).map_err(|error| error.to_string())
 }
 
 #[cfg(target_os = "windows")]
-fn replace_file(temporary: &Path, path: &Path) -> Result<(), String> {
+fn swap(temporary: &Path, path: &Path) -> Result<(), String> {
     use std::os::windows::ffi::OsStrExt;
     use windows_sys::Win32::Storage::FileSystem::{
         MOVEFILE_REPLACE_EXISTING, MOVEFILE_WRITE_THROUGH, MoveFileExW,

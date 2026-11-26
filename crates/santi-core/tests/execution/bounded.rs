@@ -16,7 +16,7 @@ async fn ran(command: &str, shell: usize) -> Ran {
 async fn bounded(command: &str, shell: usize, timeout: u64) -> Ran {
     let temp = tempfile::tempdir().expect("temp dir");
     bootstrap(&temp).await;
-    let provider = Arc::new(BudgetedProvider {
+    let provider = Arc::new(Budgeted {
         rounds: 1,
         command: Some(command.to_string()),
         ..Default::default()
@@ -43,9 +43,9 @@ async fn bounded(command: &str, shell: usize, timeout: u64) -> Ran {
         output: 100_000,
         shell,
         lines: 8,
-        feedback_after_calls: None,
-        feedback_command: None,
-        feedback_cwd: None,
+        after: None,
+        command: None,
+        cwd: None,
     })
     .expect("bound service");
     let strand = service.weave().await.expect("create strand").strand;
@@ -60,7 +60,7 @@ async fn bounded(command: &str, shell: usize, timeout: u64) -> Ran {
         )
         .await
         .expect("send strand");
-    let turn = accepted_turn(&service, &posted).await;
+    let turn = accepted(&service, &posted).await;
     let runtime = tokio::time::timeout(
         Duration::from_secs(5),
         completion(&service, &strand.id, &turn.id),

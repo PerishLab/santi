@@ -73,26 +73,26 @@ impl<'a> Estate<'a> {
         }
     }
 
-    pub fn move_files(&self, dir: &Path, mut manifest: Manifest) -> Result<PathBuf, String> {
+    pub fn relocate(&self, dir: &Path, mut manifest: Manifest) -> Result<PathBuf, String> {
         if manifest.state == State::Moving {
             for name in &manifest.files {
                 let from = self.0.parent().unwrap_or_else(|| Path::new(".")).join(name);
                 let to = dir.join(name);
-                move_one(&from, &to, name)?;
+                transfer(&from, &to, name)?;
             }
             manifest.state = State::Ready;
             manifest.write(dir)?;
         }
-        let final_dir = Estate(dir).ready()?;
-        if final_dir.exists() {
+        let target = Estate(dir).ready()?;
+        if target.exists() {
             return Err(format!(
                 "legacy quarantine generation already exists: {}",
-                final_dir.display()
+                target.display()
             ));
         }
-        std::fs::rename(dir, &final_dir).map_err(|error| error.to_string())?;
-        sync(final_dir.parent().unwrap_or_else(|| Path::new(".")))?;
-        Ok(final_dir)
+        std::fs::rename(dir, &target).map_err(|error| error.to_string())?;
+        sync(target.parent().unwrap_or_else(|| Path::new(".")))?;
+        Ok(target)
     }
 
     pub fn files(&self) -> Result<Vec<String>, String> {
@@ -101,14 +101,14 @@ impl<'a> Estate<'a> {
         for suffix in ["-wal", "-shm", "-journal"] {
             let candidate = self.0.with_file_name(format!("{name}{suffix}"));
             if candidate.exists() {
-                Estate(&candidate).refuse_non_file()?;
+                Estate(&candidate).regular()?;
                 files.push(format!("{name}{suffix}"));
             }
         }
         Ok(files)
     }
 
-    pub fn refuse_orphans(&self) -> Result<(), String> {
+    pub fn orphans(&self) -> Result<(), String> {
         let name = self.filename()?;
         for suffix in ["-wal", "-shm", "-journal"] {
             let candidate = self.0.with_file_name(format!("{name}{suffix}"));
@@ -122,7 +122,7 @@ impl<'a> Estate<'a> {
         Ok(())
     }
 
-    pub fn refuse_non_file(&self) -> Result<(), String> {
+    pub fn regular(&self) -> Result<(), String> {
         let kind = std::fs::symlink_metadata(self.0)
             .map_err(|error| error.to_string())?
             .file_type();
@@ -177,10 +177,10 @@ impl<'a> Estate<'a> {
     }
 }
 
-fn move_one(from: &Path, to: &Path, name: &str) -> Result<(), String> {
+fn transfer(from: &Path, to: &Path, name: &str) -> Result<(), String> {
     match (from.exists(), to.exists()) {
         (true, false) => {
-            Estate(from).refuse_non_file()?;
+            Estate(from).regular()?;
             std::fs::rename(from, to).map_err(|error| {
                 format!("quarantine {} as {}: {error}", from.display(), to.display())
             })

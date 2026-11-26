@@ -47,7 +47,7 @@ impl Service {
         })
     }
 
-    pub(in crate::service) async fn admit_pending(
+    pub(in crate::service) async fn admit(
         &self,
         strand: &crate::strand::Strand,
         provider: &dyn santi_provider::Provider,

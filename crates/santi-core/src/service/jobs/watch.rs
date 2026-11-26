@@ -2,7 +2,7 @@ use super::{Service, attention, terminal};
 
 impl Service {
     pub(in crate::service) async fn sweep(&self) -> Result<(), String> {
-        for record in self.store.active_jobs().await? {
+        for record in self.store.live().await? {
             let id = record.job.id.clone();
             let result = match self.refresh(record).await {
                 Ok(record) => attention::capture(self, record).await,

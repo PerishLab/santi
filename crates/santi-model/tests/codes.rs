@@ -36,8 +36,8 @@ fn edges() -> Vec<Descriptor> {
 fn descriptors() -> Vec<Descriptor> {
     let mut held = vec![
         catalog::UNSAVED,
-        catalog::INVALID_ARGUMENT,
-        catalog::NOT_FOUND,
+        catalog::INVALID,
+        catalog::MISSING,
         catalog::UNAUTHORIZED,
         catalog::UNAVAILABLE,
         catalog::INTERNAL,

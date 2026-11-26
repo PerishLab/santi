@@ -6,18 +6,18 @@ use axum::{
 };
 use santi_core::{
     Fault,
-    job::{Query, QueryError, QueryRequest},
+    job::{self, Query, Request},
     service::Service,
 };
 
-use crate::server::ApiError;
+use crate::server::Problem;
 
 const SOUL: &str = "x-santi-soul-id";
 
 #[utoipa::path(
     post,
     path = "/api/v1/query",
-    request_body = QueryRequest,
+    request_body = Request,
     params(("x-santi-soul-id" = String, Header, description = "Soul scope supplied by the CLI from --soul/SANTI_SOUL_ID")),
     responses(
         (status = 200, body = Query),
@@ -30,21 +30,21 @@ pub fn query() -> MethodRouter<Service> {
     routing::post(
         |State(service): State<Service>,
          headers: HeaderMap,
-         payload: Result<Json<QueryRequest>, JsonRejection>| async move {
+         payload: Result<Json<Request>, JsonRejection>| async move {
             let Json(request) = payload.map_err(|rejection| {
-                ApiError::bad_request(format!("invalid query request: {}", rejection.body_text()))
+                Problem::invalid(format!("invalid query request: {}", rejection.body_text()))
             })?;
             let Some(soul) = headers
                 .get(SOUL)
                 .and_then(|value| value.to_str().ok())
                 .filter(|value| !value.is_empty())
             else {
-                return Err(ApiError::unauthorized("missing x-santi-soul-id header"));
+                return Err(Problem::unauthorized("missing x-santi-soul-id header"));
             };
-            match service.job_query(soul, request).await {
+            match service.query(soul, request).await {
                 Ok(query) => Ok(Json(query)),
-                Err(QueryError::Invalid(message)) => Err(ApiError::bad_request(message)),
-                Err(QueryError::Failed(message)) => Err(ApiError::internal(message)),
+                Err(job::Fault::Invalid(message)) => Err(Problem::invalid(message)),
+                Err(job::Fault::Failed(message)) => Err(Problem::internal(message)),
             }
         },
     )

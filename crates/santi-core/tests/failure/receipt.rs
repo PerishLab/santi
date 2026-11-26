@@ -30,10 +30,7 @@ pub(super) async fn turn(
     panic!("accepted receipt did not start processing");
 }
 
-pub(super) async fn open_service(
-    temp: &tempfile::TempDir,
-    provider: Arc<FailureProvider>,
-) -> Service {
+pub(super) async fn open(temp: &tempfile::TempDir, provider: Arc<Faulty>) -> Service {
     santi_core::Store::bootstrap(
         temp.path().join("santi.sqlite"),
         "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
@@ -56,7 +53,7 @@ pub(super) async fn open_service(
     .expect("open service")
 }
 
-pub(super) async fn send_text(
+pub(super) async fn send(
     service: &Service,
     strand: &str,
     text: &str,
@@ -74,7 +71,7 @@ pub(super) async fn send_text(
         .expect("send strand")
 }
 
-pub(super) async fn wait_for_turn(
+pub(super) async fn awaiting(
     service: &Service,
     strand: &str,
     turn: &str,

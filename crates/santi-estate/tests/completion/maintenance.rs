@@ -1,5 +1,5 @@
 use super::*;
-use santi_estate::{Attempt, InboxDraft, Invocation, Limits, Maintenance};
+use santi_estate::{Arrival, Attempt, Invocation, Limits, Maintenance};
 
 fn invocation(index: usize, request: santi_model::compact::Exec) -> Invocation {
     Invocation {
@@ -31,11 +31,11 @@ fn request(first: Option<&str>) -> santi_model::compact::Exec {
 
 async fn opened(store: &Store) -> String {
     store.seed("soul_test", FIRST).await.unwrap();
-    create_strand(store, "strand_research", None).await;
+    support::strand(store, "strand_research", None).await;
     let content = message::Content::text("work");
     store
-        .accept_inbox(
-            InboxDraft {
+        .accept(
+            Arrival {
                 tag: "inbox_work",
                 strand: "strand_research",
                 kind: message::Kind::Text,
@@ -48,7 +48,7 @@ async fn opened(store: &Store) -> String {
         .await
         .unwrap();
     let opening = store
-        .drain_turn(santi_estate::DrainDraft {
+        .drain(santi_estate::Drain {
             turn: "turn_research",
             strand: "strand_research",
             trigger: turn::Trigger::System,
@@ -61,11 +61,11 @@ async fn opened(store: &Store) -> String {
         panic!("not started")
     };
     store
-        .place(MessageDraft {
+        .place(Message {
             tag: "message_live",
             strand: "strand_research",
             actor: message::Role::Soul,
-            actor_id: "soul_test",
+            sender: "soul_test",
             kind: message::Kind::Text,
             content: &content,
             state: message::State::Fixed,
@@ -90,7 +90,7 @@ async fn maintain(
                 slots: 5,
                 settled: 90000,
             },
-            completion: CompletionDraft {
+            completion: Finish {
                 turn: "turn_research",
                 reply: Some("message_live"),
                 provider: "test",
@@ -98,10 +98,10 @@ async fn maintain(
                 response: None,
                 occurred: LATER,
             },
-            inbox: InboxDraft {
+            inbox: Arrival {
                 tag: inbox,
                 strand: "strand_research",
-                kind: message::Kind::SantiSystem,
+                kind: message::Kind::System,
                 content: &content,
                 source: None,
                 created: LATER,
@@ -119,7 +119,7 @@ async fn sequential() {
         let first = opened(&store).await;
         if absorb {
             store
-                .create_compact(santi_estate::CompactDraft {
+                .condense(santi_estate::Compact {
                     tag: "compact_old",
                     strand: "strand_research",
                     first: &first,
@@ -167,14 +167,14 @@ async fn sequential() {
         );
         assert_eq!(store.compacts("strand_research").await.unwrap().len(), 1);
         let stop = store
-            .request_stop("turn_research", turn::Cause::Operator, LATER)
+            .halt("turn_research", turn::Cause::Operator, LATER)
             .await
             .unwrap()
             .unwrap();
         assert!(stop.cause.is_none());
         drop(store);
         let store = Store::open(&path).await.unwrap();
-        assert_eq!(store.recover_turns("test.restart", LATER).await.unwrap(), 0);
+        assert_eq!(store.recover("test.restart", LATER).await.unwrap(), 0);
         assert_eq!(
             store.turn("turn_research").await.unwrap().unwrap().status,
             turn::Status::Completed
@@ -186,7 +186,7 @@ async fn sequential() {
         assert_eq!(store.inboxes("strand_research").await.unwrap().len(), 1);
         assert!(matches!(
             store
-                .drain_turn(santi_estate::DrainDraft {
+                .drain(santi_estate::Drain {
                     turn: "turn_next",
                     strand: "strand_research",
                     trigger: turn::Trigger::System,
@@ -215,10 +215,7 @@ async fn rollback() {
             invocation(1, request(Some(&first))),
         ];
         if let Some(cause) = cause {
-            store
-                .request_stop("turn_research", cause, LATER)
-                .await
-                .unwrap();
+            store.halt("turn_research", cause, LATER).await.unwrap();
         } else {
             calls[1].result = calls[0].result.clone();
         }
@@ -263,7 +260,7 @@ async fn stopped() {
     let store = bootstrap(temp.path().join("estate.sqlite")).await;
     opened(&store).await;
     store
-        .request_stop("turn_research", turn::Cause::Operator, LATER)
+        .halt("turn_research", turn::Cause::Operator, LATER)
         .await
         .unwrap();
     let mut request = request(None);

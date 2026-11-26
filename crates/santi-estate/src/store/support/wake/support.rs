@@ -1,6 +1,6 @@
 use keel::{Op, Row, form};
 
-use super::WakeLease;
+use super::Lease;
 use crate::store::read;
 
 pub(super) async fn lease(
@@ -41,16 +41,16 @@ pub(super) fn unsigned(row: &Row, field: &str) -> Result<u64, keel::adapt::Error
 pub(super) async fn decode(
     core: &keel::Core<keel::adapt::db::Sqlite>,
     row: &Row,
-) -> Result<WakeLease, String> {
-    Ok(WakeLease {
+) -> Result<Lease, String> {
+    Ok(Lease {
         soul: read::related(core, "Soul", read::int(row, "soul")?).await?,
         generation: unsigned(row, "generation").map_err(|error| error.to_string())?,
         state: read::text(row, "state")?.to_string(),
         remaining: u8::try_from(read::int(row, "remaining")?)
             .map_err(|_| "wake lease remaining rounds are out of range".to_string())?,
-        cadence_millis: unsigned(row, "cadence_millis").map_err(|error| error.to_string())?,
-        next_millis: row.int("next_millis"),
-        last_wake_millis: row.int("last_wake_millis"),
+        cadence: unsigned(row, "cadence_millis").map_err(|error| error.to_string())?,
+        next: row.int("next_millis"),
+        last: row.int("last_wake_millis"),
         created: read::text(row, "created")?.to_string(),
         updated: read::text(row, "updated")?.to_string(),
     })

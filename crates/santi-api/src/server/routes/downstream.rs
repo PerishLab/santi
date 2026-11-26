@@ -17,12 +17,12 @@ use santi_core::ingest;
 pub(super) async fn enroll(
     State(service): State<Service>,
     Json(request): Json<downstream::Draft>,
-) -> Result<Json<downstream::Credential>, ApiError> {
+) -> Result<Json<downstream::Credential>, Problem> {
     service
         .enroll(request)
         .await
         .map(Json)
-        .map_err(ApiError::from_service)
+        .map_err(Problem::service)
 }
 
 #[utoipa::path(
@@ -35,12 +35,12 @@ pub(super) async fn enroll(
 )]
 pub(super) async fn downstreams(
     State(service): State<Service>,
-) -> Result<Json<Vec<downstream::Credential>>, ApiError> {
+) -> Result<Json<Vec<downstream::Credential>>, Problem> {
     service
         .downstreams()
         .await
         .map(Json)
-        .map_err(ApiError::from_service)
+        .map_err(Problem::service)
 }
 
 #[utoipa::path(
@@ -61,19 +61,17 @@ pub(super) async fn ingest(
     State(service): State<Service>,
     headers: HeaderMap,
     Json(request): Json<ingest::Request>,
-) -> Result<Json<ingest::Receipt>, ApiError> {
+) -> Result<Json<ingest::Receipt>, Problem> {
     let token = bearer(&headers);
     match service
         .downstream(token, request)
         .await
-        .map_err(ApiError::from_service)?
+        .map_err(Problem::service)?
     {
         Admission::Accepted(ingest::Outcome::Accepted { receipt }) => Ok(Json(receipt)),
-        Admission::Accepted(ingest::Outcome::Rejected { error }) => {
-            Err(ApiError::from_santi(*error))
-        }
-        Admission::Denied => Err(ApiError::unauthorized("invalid or missing credential")),
-        Admission::Forbidden => Err(ApiError::forbidden(
+        Admission::Accepted(ingest::Outcome::Rejected { error }) => Err(Problem::santi(*error)),
+        Admission::Denied => Err(Problem::unauthorized("invalid or missing credential")),
+        Admission::Forbidden => Err(Problem::forbidden(
             "label outside the credential's authorized prefix",
         )),
     }

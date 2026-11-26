@@ -24,7 +24,7 @@ impl Service {
             .as_ref()
             .map(|issuer| issuer.issue(origin))
             .transpose()?;
-        let environment = self.resolved_environment(&origin).await?;
+        let environment = self.environment(&origin).await?;
         let mut command = shell::shell(&args.command);
         #[cfg(unix)]
         command.process_group(0);

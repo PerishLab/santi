@@ -2,9 +2,7 @@ mod ack;
 mod alarm;
 mod reply;
 
-use santi_estate::{
-    DownstreamDraft, DrainDraft, InboxDraft, Opening, ReplayDraft, Store, StrandDraft, WebhookDraft,
-};
+use santi_estate::{Arrival, Downstream, Drain, Opening, Replay, Store, Strand, Webhook};
 use santi_model::{message, turn};
 
 const SUDO: &str = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
@@ -19,7 +17,7 @@ async fn replay() {
     store.seed("soul_test", FIRST).await.expect("seed");
     store.seed("soul_other", FIRST).await.expect("other soul");
     let subscription = store
-        .subscribe(WebhookDraft {
+        .subscribe(Webhook {
             name: "github",
             adaptor: "github",
             soul: "soul_test",
@@ -31,7 +29,7 @@ async fn replay() {
         .expect("subscribe");
     assert_eq!(subscription.soul, "soul_test");
     store
-        .subscribe(WebhookDraft {
+        .subscribe(Webhook {
             name: "github",
             adaptor: "github",
             soul: "soul_test",
@@ -43,7 +41,7 @@ async fn replay() {
         .expect("resubscribe");
     assert!(
         store
-            .subscribe(WebhookDraft {
+            .subscribe(Webhook {
                 name: "github",
                 adaptor: "github",
                 soul: "soul_other",
@@ -57,7 +55,7 @@ async fn replay() {
     assert_eq!(store.webhooks().await.expect("webhooks").len(), 1);
 
     let credential = store
-        .enroll(DownstreamDraft {
+        .enroll(Downstream {
             tag: "worker",
             prefix: "worker/",
             digest: "credential_digest",
@@ -67,7 +65,7 @@ async fn replay() {
         .expect("enroll");
     assert_eq!(credential.prefix, "worker/");
     store
-        .enroll(DownstreamDraft {
+        .enroll(Downstream {
             tag: "worker",
             prefix: "worker/",
             digest: "credential_digest",
@@ -77,7 +75,7 @@ async fn replay() {
         .expect("reenroll");
     assert!(
         store
-            .enroll(DownstreamDraft {
+            .enroll(Downstream {
                 tag: "nested",
                 prefix: "worker/nested/",
                 digest: "nested_digest",
@@ -89,7 +87,7 @@ async fn replay() {
     assert_eq!(store.downstreams().await.expect("downstreams").len(), 1);
 
     let strand = store
-        .create_strand(StrandDraft {
+        .weave(Strand {
             tag: "strand_test",
             soul: "soul_test",
             label: Some("github/thread"),
@@ -100,17 +98,17 @@ async fn replay() {
         })
         .await
         .expect("strand");
-    let webhook = ReplayDraft::Webhook {
+    let webhook = Replay::Webhook {
         subscription: "github",
         delivery: "delivery_one",
         digest: "request_one",
     };
     let accepted = store
-        .accept_replay(
-            InboxDraft {
+        .replay(
+            Arrival {
                 tag: "inbox_webhook",
                 strand: &strand.id,
-                kind: message::Kind::SantiSystem,
+                kind: message::Kind::System,
                 content: &message::Content::text("webhook"),
                 source: None,
                 created: FIRST,
@@ -122,11 +120,11 @@ async fn replay() {
         .expect("webhook");
     assert!(accepted.inserted);
     let replayed = store
-        .accept_replay(
-            InboxDraft {
+        .replay(
+            Arrival {
                 tag: "inbox_ignored",
                 strand: &strand.id,
-                kind: message::Kind::SantiSystem,
+                kind: message::Kind::System,
                 content: &message::Content::text("ignored"),
                 source: None,
                 created: LATER,
@@ -140,16 +138,16 @@ async fn replay() {
     assert_eq!(replayed.receipt.inbox, "inbox_webhook");
     assert!(
         store
-            .accept_replay(
-                InboxDraft {
+            .replay(
+                Arrival {
                     tag: "inbox_conflict",
                     strand: &strand.id,
-                    kind: message::Kind::SantiSystem,
+                    kind: message::Kind::System,
                     content: &message::Content::text("conflict"),
                     source: None,
                     created: LATER,
                 },
-                ReplayDraft::Webhook {
+                Replay::Webhook {
                     subscription: "github",
                     delivery: "delivery_one",
                     digest: "request_conflict",
@@ -160,8 +158,8 @@ async fn replay() {
             .is_err()
     );
     store
-        .accept_replay(
-            InboxDraft {
+        .replay(
+            Arrival {
                 tag: "inbox_downstream",
                 strand: &strand.id,
                 kind: message::Kind::Text,
@@ -169,7 +167,7 @@ async fn replay() {
                 source: None,
                 created: FIRST,
             },
-            ReplayDraft::Downstream {
+            Replay::Downstream {
                 owner: "worker",
                 request: "request_one",
                 digest: "downstream_digest",
@@ -180,7 +178,7 @@ async fn replay() {
         .expect("downstream");
 
     let opened = store
-        .drain_turn(DrainDraft {
+        .drain(Drain {
             turn: "turn_test",
             strand: &strand.id,
             trigger: turn::Trigger::System,
@@ -191,16 +189,16 @@ async fn replay() {
         .expect("drain");
     assert!(matches!(opened, Opening::Started(_)));
     store
-        .complete_turn("turn_test", 2, LATER)
+        .complete("turn_test", 2, LATER)
         .await
         .expect("complete");
     assert!(store.inboxes(&strand.id).await.expect("empty").is_empty());
     let replayed = store
-        .accept_replay(
-            InboxDraft {
+        .replay(
+            Arrival {
                 tag: "inbox_after_drain",
                 strand: &strand.id,
-                kind: message::Kind::SantiSystem,
+                kind: message::Kind::System,
                 content: &message::Content::text("after"),
                 source: None,
                 created: LATER,

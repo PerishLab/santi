@@ -5,7 +5,7 @@ async fn outcomes() {
     let seat = Seat::new().await;
     let call = seat
         .store
-        .create_call(santi_estate::CallDraft {
+        .calling(santi_estate::Call {
             tag: "call_empty",
             turn: "turn_test",
             tool: "shell",

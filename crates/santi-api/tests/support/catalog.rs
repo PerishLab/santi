@@ -18,7 +18,7 @@ pub async fn qualify(store: &Store, endpoint: &str, scenarios: &[(&str, &str)]) 
         .register(Definition::Access {
             name: "operator".into(),
             provider: provider.id,
-            protocol: Protocol::OpenAiResponses,
+            protocol: Protocol::Responses,
             endpoint: endpoint.into(),
             credential: "custody://operator".into(),
         })

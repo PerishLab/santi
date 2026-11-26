@@ -1,5 +1,5 @@
 use clap::Parser;
-use santi::cli::{Cli, Command, StrandCommand};
+use santi::cli::{Cli, Command, Strand};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpListener;
 
@@ -13,7 +13,7 @@ fn explicit() {
     }
     let parsed = Cli::try_parse_from(["santi", "--strand", "ambient", "strand", "end", "target"])
         .expect("explicit target");
-    let Command::Strand(StrandCommand::End { id }) = parsed.command else {
+    let Command::Strand(Strand::End { id }) = parsed.command else {
         panic!("end command");
     };
     assert_eq!(id, "target");

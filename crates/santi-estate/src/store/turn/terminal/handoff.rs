@@ -1,11 +1,11 @@
-use super::success::{Completion, CompletionDraft};
+use super::success::{Completion, Finish};
 use super::{Store, read};
 
 impl Store {
     pub async fn handoff(
         &self,
-        draft: CompletionDraft<'_>,
-        inbox: crate::store::InboxDraft<'_>,
+        draft: Finish<'_>,
+        inbox: crate::store::Arrival<'_>,
     ) -> Result<Completion, String> {
         let tag = draft.turn.to_string();
         let event = self
@@ -23,8 +23,8 @@ impl Store {
 
 pub(in crate::store::turn) async fn complete(
     tx: &mut keel::Tx<'_, keel::adapt::db::Sqlite>,
-    draft: CompletionDraft<'_>,
-    inbox: &crate::store::InboxDraft<'_>,
+    draft: Finish<'_>,
+    inbox: &crate::store::Arrival<'_>,
 ) -> Result<Option<santi_model::event::Event>, keel::adapt::Error> {
     check(tx, draft.turn, inbox.strand).await?;
     let content = serde_json::to_string(inbox.content)

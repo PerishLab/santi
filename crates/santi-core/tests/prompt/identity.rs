@@ -2,7 +2,7 @@ use super::*;
 
 #[tokio::test]
 async fn identity() {
-    let mut harness = PromptHarness::open().await;
+    let mut harness = Harness::open().await;
     let other = harness
         .service
         .awaken(santi_core::soul::Draft {
@@ -40,17 +40,17 @@ async fn identity() {
         .unwrap()
         .strand;
     for strand in [&harness.strand, &second.id] {
-        let text = harness.system_prompt_for(strand).await.text;
+        let text = harness.render(strand).await.text;
         assert!(text.contains("name: \"Adam Santi\""));
         assert!(!text.contains("adam-example"));
         assert!(!text.contains("Other Individual"));
     }
-    harness.write_soul("learned experience");
-    let text = harness.system_prompt().await.text;
+    harness.soul("learned experience");
+    let text = harness.prompt().await.text;
     assert!(text.contains("name: \"Adam Santi\""));
     assert!(text.contains("learned experience"));
     let other = harness.service.seat(&other.id).await.unwrap().strand;
-    let text = harness.system_prompt_for(&other.id).await.text;
+    let text = harness.render(&other.id).await.text;
     assert!(text.contains("name: \"Other Individual\""));
     assert!(!text.contains("Adam Santi"));
     assert_eq!(
@@ -76,7 +76,7 @@ async fn identity() {
 
 #[tokio::test]
 async fn invalid() {
-    let harness = PromptHarness::open().await;
+    let harness = Harness::open().await;
     let identity = santi_core::soul::Identity {
         name: "Adam Santi".into(),
         channels: Default::default(),

@@ -37,7 +37,7 @@ impl Service {
             return Err("downstream digest must be 64 hexadecimal characters".to_string());
         }
         self.store
-            .enroll(santi_estate::DownstreamDraft {
+            .enroll(santi_estate::Downstream {
                 tag: id,
                 prefix,
                 digest: &digest,
@@ -74,7 +74,7 @@ impl Service {
         let source = request
             .source
             .clone()
-            .map(|reference| ingest::Source::new("downstream").with_ref(reference));
+            .map(|reference| ingest::Source::new("downstream").reference(reference));
         let digest = hex::encode(Sha256::digest(
             serde_json::to_vec(&request).map_err(|error| error.to_string())?,
         ));
@@ -87,7 +87,7 @@ impl Service {
                     text: request.text,
                     source,
                 },
-                replay: Some(santi_estate::ReplayDraft::Downstream {
+                replay: Some(santi_estate::Replay::Downstream {
                     owner: &downstream.id,
                     request: &request.request,
                     digest: &digest,

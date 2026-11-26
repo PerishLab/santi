@@ -53,7 +53,7 @@ impl Service {
             draft.round
         );
         let content = message::Content::text(&pause);
-        let source = crate::ingest::Source::new("execution_pause").with_ref(turn.to_string());
+        let source = crate::ingest::Source::new("execution_pause").reference(turn.to_string());
         let metadata = provider.metadata();
         let settlement = self
             .store
@@ -63,7 +63,7 @@ impl Service {
                     slots: policy.slots,
                     settled: policy.settled,
                 },
-                completion: santi_estate::CompletionDraft {
+                completion: santi_estate::Finish {
                     turn,
                     reply: draft.reply.map(|message| message.message.id.as_str()),
                     provider: &metadata.provider,
@@ -71,10 +71,10 @@ impl Service {
                     response: draft.response,
                     occurred: &crate::now(),
                 },
-                inbox: santi_estate::InboxDraft {
+                inbox: santi_estate::Arrival {
                     tag: &crate::tag("inbox"),
                     strand,
-                    kind: message::Kind::SantiSystem,
+                    kind: message::Kind::System,
                     content: &content,
                     source: Some(&source),
                     created: &crate::now(),

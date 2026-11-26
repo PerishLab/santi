@@ -34,48 +34,34 @@ async fn evidence() {
     );
 }
 
-mod predecessor {
-    use keel::atom::{int, string};
-    use keel::resource;
-    #[resource(frozen)]
-    pub struct Message {
-        #[field(string, unique)]
-        tag: string,
-    }
-    #[resource(frozen)]
-    pub struct MessageEvent {
-        #[field(string, unique)]
-        tag: string,
-        #[field(string, values = ["delete", "fix", "insert", "patch", "remove"])]
-        action: string,
-        #[field(string, values = ["soul", "system"])]
-        actor_type: string,
-        #[field(string)]
-        actor: string,
-        #[field(int, min = 1)]
-        base_version: int,
-        #[field(string)]
-        payload: string,
-        #[field(string)]
-        created: string,
-        #[relation(Message, many2one, root)]
-        message: Message,
-    }
+fn legacy() -> keel::spec::Spec {
+    use keel::atom::Kind as Atom;
+    use keel::bond::Kind as Bond;
+    use keel::spec::{Rule, Spec};
+    Spec::build("MessageEvent")
+        .sole("tag", Atom::Text)
+        .field("action", Atom::Text)
+        .rule(
+            "action",
+            Rule::new().values(&["delete", "fix", "insert", "patch", "remove"]),
+        )
+        .field("actor_type", Atom::Text)
+        .rule("actor_type", Rule::new().values(&["soul", "system"]))
+        .field("actor", Atom::Text)
+        .field("base_version", Atom::Int)
+        .rule("base_version", Rule::new().min(1))
+        .field("payload", Atom::Text)
+        .field("created", Atom::Text)
+        .root("message", Bond::Many2one, "Message")
+        .freeze()
+        .seal()
 }
 
 #[tokio::test]
 async fn upgrade() {
     let temp = tempfile::tempdir().unwrap();
     let path = temp.path().join("estate.sqlite");
-    let mut old = keel::Graph::new();
-    old.plug::<predecessor::Message>()
-        .plug::<predecessor::MessageEvent>();
-    let event = old
-        .nodes()
-        .values()
-        .find(|spec| spec.name() == "MessageEvent")
-        .unwrap()
-        .clone();
+    let event = legacy();
     let mut graph = keel::Graph::new();
     for spec in santi_estate::graph().nodes().values() {
         if spec.name() != "MessageEvent" {
@@ -135,7 +121,7 @@ async fn recovery() {
     queued(&store, "pending").await;
     drop(store);
     let store = Store::open(&path).await.unwrap();
-    assert_eq!(store.recover_turns("test", LATER).await.unwrap(), 1);
+    assert_eq!(store.recover("test", LATER).await.unwrap(), 1);
     let consumed = store.receipt("consumed").await.unwrap().unwrap();
     assert_eq!(consumed.state, receipt::State::Failed);
     assert_eq!(
@@ -154,6 +140,6 @@ async fn recovery() {
             .count(),
         1
     );
-    assert_eq!(store.recover_turns("test", LATER).await.unwrap(), 0);
+    assert_eq!(store.recover("test", LATER).await.unwrap(), 0);
     assert_eq!(store.turns("strand_test").await.unwrap().len(), 1);
 }

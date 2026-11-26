@@ -12,13 +12,13 @@ pub(in crate::store) async fn prepare(path: &Path) -> Result<Option<PathBuf>, St
     let estate = Estate::new(path);
     let _lock = estate.lock()?;
     if let Some((dir, held)) = estate.pending()? {
-        return estate.move_files(&dir, held).map(Some);
+        return estate.relocate(&dir, held).map(Some);
     }
     if !path.exists() {
-        estate.refuse_orphans()?;
+        estate.orphans()?;
         return Ok(None);
     }
-    estate.refuse_non_file()?;
+    estate.regular()?;
     let (version, objects) = database::probe(path).await?;
     if version == 0 {
         return Ok(None);
@@ -37,5 +37,5 @@ pub(in crate::store) async fn prepare(path: &Path) -> Result<Option<PathBuf>, St
     let manifest = Manifest::moving(estate.source()?, estate.files()?);
     std::fs::create_dir_all(&dir).map_err(|error| error.to_string())?;
     manifest.write(&dir)?;
-    estate.move_files(&dir, manifest).map(Some)
+    estate.relocate(&dir, manifest).map(Some)
 }

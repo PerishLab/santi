@@ -183,16 +183,16 @@ async fn retry() {
 
     gate.release.notify_one();
     Probe::new(&service)
-        .completed_turn(&strand.id, &maintenance)
+        .completed(&strand.id, &maintenance)
         .await;
 
-    let successor = accepted_turn(&service, &posted).await;
+    let successor = accepted(&service, &posted).await;
     assert_ne!(
         successor.id, maintenance,
         "the posted receipt drives a successor Turn"
     );
     Probe::new(&service)
-        .completed_turn(&strand.id, &successor.id)
+        .completed(&strand.id, &successor.id)
         .await;
 
     {

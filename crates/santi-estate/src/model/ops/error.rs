@@ -1,143 +1,61 @@
-use super::super::ledger::{Soul, Strand};
-use keel::atom::{int, string};
-use keel::resource;
+use keel::Graph;
+use keel::atom::Kind as Atom;
+use keel::bond::Kind as Bond;
+use keel::spec::{Only, Rule, Spec};
 
-#[resource]
-pub(crate) struct SoulIncident {
-    #[field(string, unique)]
-    tag: string,
-    #[field(string)]
-    code: string,
-    #[field(string, unique = soul, opt)]
-    active: string,
-    #[field(
-        string,
-        values = [
-            "exhausted",
-            "internal",
-            "invalid",
-            "missing",
-            "unauthorized",
-            "unavailable"
-        ]
-    )]
-    category: string,
-    #[field(string, values = ["error"])]
-    severity: string,
-    #[field(string, values = ["changed", "later", "never", "resolved"])]
-    retry: string,
-    #[field(string)]
-    exposure: string,
-    #[field(string)]
-    source_component: string,
-    #[field(string)]
-    source_operation: string,
-    #[field(string)]
-    latest_source_component: string,
-    #[field(string)]
-    latest_source_operation: string,
-    #[field(string)]
-    message: string,
-    #[field(string)]
-    latest_message: string,
-    #[field(string)]
-    context: string,
-    #[field(string)]
-    latest_context: string,
-    #[field(int, min = 1)]
-    occurrence_count: int,
-    #[field(int, min = 1)]
-    revision: int,
-    #[field(string)]
-    first_seen: string,
-    #[field(string)]
-    last_seen: string,
-    #[field(string, opt)]
-    resolved: string,
-    #[field(string, opt)]
-    resolved_by: string,
-    #[field(string, unique)]
-    opened_event: string,
-    #[field(string)]
-    opened_payload: string,
-    #[field(string, opt)]
-    opened_delivered: string,
-    #[field(string, unique, opt)]
-    resolved_event: string,
-    #[field(string, opt)]
-    resolved_payload: string,
-    #[field(string, opt)]
-    resolved_delivered: string,
-    #[relation(Soul, many2one, root)]
-    soul: Soul,
+pub(super) fn plug(graph: &mut Graph) {
+    graph
+        .add(incident("SoulIncident", "soul", "Soul"))
+        .add(incident("StrandIncident", "strand", "Strand"));
 }
 
-#[resource]
-pub(crate) struct StrandIncident {
-    #[field(string, unique)]
-    tag: string,
-    #[field(string)]
-    code: string,
-    #[field(string, unique = strand, opt)]
-    active: string,
-    #[field(
-        string,
-        values = [
-            "exhausted",
-            "internal",
-            "invalid",
-            "missing",
-            "unauthorized",
-            "unavailable"
-        ]
-    )]
-    category: string,
-    #[field(string, values = ["error"])]
-    severity: string,
-    #[field(string, values = ["changed", "later", "never", "resolved"])]
-    retry: string,
-    #[field(string)]
-    exposure: string,
-    #[field(string)]
-    source_component: string,
-    #[field(string)]
-    source_operation: string,
-    #[field(string)]
-    latest_source_component: string,
-    #[field(string)]
-    latest_source_operation: string,
-    #[field(string)]
-    message: string,
-    #[field(string)]
-    latest_message: string,
-    #[field(string)]
-    context: string,
-    #[field(string)]
-    latest_context: string,
-    #[field(int, min = 1)]
-    occurrence_count: int,
-    #[field(int, min = 1)]
-    revision: int,
-    #[field(string)]
-    first_seen: string,
-    #[field(string)]
-    last_seen: string,
-    #[field(string, opt)]
-    resolved: string,
-    #[field(string, opt)]
-    resolved_by: string,
-    #[field(string, unique)]
-    opened_event: string,
-    #[field(string)]
-    opened_payload: string,
-    #[field(string, opt)]
-    opened_delivered: string,
-    #[field(string, unique, opt)]
-    resolved_event: string,
-    #[field(string, opt)]
-    resolved_payload: string,
-    #[field(string, opt)]
-    resolved_delivered: string,
-    #[relation(Strand, many2one, root)]
-    strand: Strand,
+fn incident(name: &str, scope: &str, target: &str) -> Spec {
+    Spec::build(name)
+        .sole("tag", Atom::Text)
+        .field("code", Atom::Text)
+        .optional("active", Atom::Text, Only::Per(vec![scope.to_string()]))
+        .field("category", Atom::Text)
+        .rule(
+            "category",
+            Rule::new().values(&[
+                "exhausted",
+                "internal",
+                "invalid",
+                "missing",
+                "unauthorized",
+                "unavailable",
+            ]),
+        )
+        .field("severity", Atom::Text)
+        .rule("severity", Rule::new().values(&["error"]))
+        .field("retry", Atom::Text)
+        .rule(
+            "retry",
+            Rule::new().values(&["changed", "later", "never", "resolved"]),
+        )
+        .field("exposure", Atom::Text)
+        .field("source_component", Atom::Text)
+        .field("source_operation", Atom::Text)
+        .field("latest_source_component", Atom::Text)
+        .field("latest_source_operation", Atom::Text)
+        .field("message", Atom::Text)
+        .field("latest_message", Atom::Text)
+        .field("context", Atom::Text)
+        .field("latest_context", Atom::Text)
+        .field("occurrence_count", Atom::Int)
+        .rule("occurrence_count", Rule::new().min(1))
+        .field("revision", Atom::Int)
+        .rule("revision", Rule::new().min(1))
+        .field("first_seen", Atom::Text)
+        .field("last_seen", Atom::Text)
+        .optional("resolved", Atom::Text, Only::Free)
+        .optional("resolved_by", Atom::Text, Only::Free)
+        .sole("opened_event", Atom::Text)
+        .field("opened_payload", Atom::Text)
+        .optional("opened_delivered", Atom::Text, Only::Free)
+        .optional("resolved_event", Atom::Text, Only::All)
+        .optional("resolved_payload", Atom::Text, Only::Free)
+        .optional("resolved_delivered", Atom::Text, Only::Free)
+        .root(scope, Bond::Many2one, target)
+        .seal()
 }

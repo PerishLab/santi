@@ -1,9 +1,9 @@
 use axum::{Json, http::StatusCode, response::IntoResponse};
 use santi_core::{Category, Fault, Ruled, Signal, budget, catalog, engine};
 
-use crate::webhook::WebhookError;
+use crate::webhook::Error as Webhook;
 
-pub struct ApiError {
+pub struct Problem {
     status: StatusCode,
     error: Fault,
 }
@@ -155,7 +155,7 @@ fn kind(text: &str) -> Kind {
     Kind::Internal
 }
 
-impl ApiError {
+impl Problem {
     pub fn status(&self) -> StatusCode {
         self.status
     }
@@ -174,7 +174,7 @@ impl ApiError {
     }
 
     pub fn fault(message: impl Into<String>) -> Self {
-        Self::from_santi(engine().transient(Signal {
+        Self::santi(engine().transient(Signal {
             descriptor: catalog::INTERNAL,
             source: santi_core::Source::new("santi-api", "http_boundary"),
             scope: None,
@@ -183,9 +183,9 @@ impl ApiError {
         }))
     }
 
-    pub fn not_found(message: impl Into<String>) -> Self {
-        Self::from_santi(engine().transient(Signal {
-            descriptor: catalog::NOT_FOUND,
+    pub fn missing(message: impl Into<String>) -> Self {
+        Self::santi(engine().transient(Signal {
+            descriptor: catalog::MISSING,
             source: santi_core::Source::new("santi-api", "http_boundary"),
             scope: None,
             message: message.into(),
@@ -193,9 +193,9 @@ impl ApiError {
         }))
     }
 
-    pub fn bad_request(message: impl Into<String>) -> Self {
-        Self::from_santi(engine().transient(Signal {
-            descriptor: catalog::INVALID_ARGUMENT,
+    pub fn invalid(message: impl Into<String>) -> Self {
+        Self::santi(engine().transient(Signal {
+            descriptor: catalog::INVALID,
             source: santi_core::Source::new("santi-api", "http_boundary"),
             scope: None,
             message: message.into(),
@@ -204,7 +204,7 @@ impl ApiError {
     }
 
     pub fn unauthorized(message: impl Into<String>) -> Self {
-        Self::from_santi(engine().transient(Signal {
+        Self::santi(engine().transient(Signal {
             descriptor: catalog::UNAUTHORIZED,
             source: santi_core::Source::new("santi-api", "http_boundary"),
             scope: None,
@@ -220,7 +220,7 @@ impl ApiError {
     }
 
     pub fn unavailable(message: impl Into<String>) -> Self {
-        Self::from_santi(engine().transient(Signal {
+        Self::santi(engine().transient(Signal {
             descriptor: catalog::UNAVAILABLE,
             source: santi_core::Source::new("santi-api", "http_boundary"),
             scope: None,
@@ -230,12 +230,12 @@ impl ApiError {
     }
 
     pub fn conflict(message: impl Into<String>) -> Self {
-        let mut error = Self::bad_request(message);
+        let mut error = Self::invalid(message);
         error.status = StatusCode::CONFLICT;
         error
     }
 
-    pub fn from_santi(error: Fault) -> Self {
+    pub fn santi(error: Fault) -> Self {
         let status = if error.code == budget::Error::Context.descriptor().code {
             StatusCode::LOCKED
         } else {
@@ -251,15 +251,15 @@ impl ApiError {
         Self { status, error }
     }
 
-    pub fn from_webhook(error: WebhookError) -> Self {
+    pub fn webhook(error: Webhook) -> Self {
         match error {
-            WebhookError::Unauthorized(message) => Self::unauthorized(message),
-            WebhookError::BadRequest(message) => Self::bad_request(message),
-            WebhookError::Unavailable(message) => Self::unavailable(message),
+            Webhook::Unauthorized(message) => Self::unauthorized(message),
+            Webhook::Invalid(message) => Self::invalid(message),
+            Webhook::Unavailable(message) => Self::unavailable(message),
         }
     }
 
-    pub fn from_service(message: String) -> Self {
+    pub fn service(message: String) -> Self {
         let detail = message.strip_prefix("adapt: ").unwrap_or(&message);
         match kind(detail) {
             Kind::Down => Self::unavailable(detail),
@@ -267,23 +267,23 @@ impl ApiError {
             Kind::Fault => Self::fault(detail),
             Kind::Unauthorized => Self::unauthorized(detail),
             Kind::Unavailable => Self::unavailable(detail),
-            Kind::Missing => Self::not_found(detail),
+            Kind::Missing => Self::missing(detail),
             Kind::Conflict => Self::conflict(detail),
-            Kind::Invalid => Self::bad_request(detail),
+            Kind::Invalid => Self::invalid(detail),
             Kind::Internal => Self::internal(message),
         }
     }
 }
 
-impl IntoResponse for ApiError {
+impl IntoResponse for Problem {
     fn into_response(self) -> axum::response::Response {
-        let retry_after = self
+        let retry = self
             .error
             .context
             .get("retry_after_seconds")
             .and_then(serde_json::Value::as_u64);
         let mut response = (self.status, Json(self.error)).into_response();
-        if let Some(seconds) = retry_after
+        if let Some(seconds) = retry
             && let Ok(value) = axum::http::HeaderValue::from_str(&seconds.to_string())
         {
             response.headers_mut().insert("retry-after", value);

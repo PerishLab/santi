@@ -1,7 +1,7 @@
 use santi_model::ingest;
 
 #[derive(Clone, Copy)]
-pub struct WebhookDraft<'a> {
+pub struct Webhook<'a> {
     pub name: &'a str,
     pub adaptor: &'a str,
     pub soul: &'a str,
@@ -11,7 +11,7 @@ pub struct WebhookDraft<'a> {
 }
 
 #[derive(Clone, Copy)]
-pub struct DownstreamDraft<'a> {
+pub struct Downstream<'a> {
     pub tag: &'a str,
     pub prefix: &'a str,
     pub digest: &'a str,
@@ -19,7 +19,7 @@ pub struct DownstreamDraft<'a> {
 }
 
 #[derive(Clone, Copy)]
-pub enum ReplayDraft<'a> {
+pub enum Replay<'a> {
     Webhook {
         subscription: &'a str,
         delivery: &'a str,

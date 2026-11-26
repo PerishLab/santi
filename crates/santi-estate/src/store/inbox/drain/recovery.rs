@@ -104,12 +104,12 @@ async fn effects(
 pub(super) async fn bind(
     tx: &mut Tx<'_, Sqlite>,
     receipts: Vec<String>,
-    draft: &DrainDraft<'_>,
+    draft: &Drain<'_>,
 ) -> Result<(), keel::adapt::Error> {
     for inbox in receipts {
         receipt::shift(
             tx,
-            super::super::ReceiptDraft {
+            super::super::Receipt {
                 inbox: &inbox,
                 state: model::State::Driving,
                 turn: Some(draft.turn),

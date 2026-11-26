@@ -1,4 +1,4 @@
-use santi_estate::{Store, StrandDraft};
+use santi_estate::{Store, Strand};
 use santi_model::alarm::{Draft, Occurrence};
 
 const NOW: &str = "2026-10-19T06:00:00Z";
@@ -14,7 +14,7 @@ async fn estate(temp: &tempfile::TempDir) -> Store {
     let store = Store::open(&path).await.unwrap();
     store.seed("adam", NOW).await.unwrap();
     store
-        .create_strand(StrandDraft {
+        .weave(Strand {
             tag: "brain",
             soul: "adam",
             label: None,
@@ -44,24 +44,24 @@ async fn declaration() {
     let temp = tempfile::tempdir().unwrap();
     let store = estate(&temp).await;
     let mut input = draft();
-    let first = store.set_alarm(&input).await.unwrap();
-    let same = store.set_alarm(&input).await.unwrap();
+    let first = store.arm(&input).await.unwrap();
+    let same = store.arm(&input).await.unwrap();
     assert_eq!(
         (first.id.clone(), first.generation),
         (same.id, same.generation)
     );
     input.text = "new text".into();
-    assert!(store.set_alarm(&input).await.is_err());
+    assert!(store.arm(&input).await.is_err());
     input.generation = Some(1);
-    let changed = store.set_alarm(&input).await.unwrap();
+    let changed = store.arm(&input).await.unwrap();
     assert_eq!(changed.generation, 2);
     input.generation = Some(1);
     input.text = "stale text".into();
-    assert!(store.set_alarm(&input).await.is_err());
+    assert!(store.arm(&input).await.is_err());
     input.soul = "foreign".into();
-    assert!(store.set_alarm(&input).await.is_err());
-    assert!(store.end_alarm(&first.id, "foreign").await.is_err());
-    store.end_alarm(&first.id, "adam").await.unwrap();
+    assert!(store.arm(&input).await.is_err());
+    assert!(store.disarm(&first.id, "foreign").await.is_err());
+    store.disarm(&first.id, "adam").await.unwrap();
     assert!(store.alarms().await.unwrap().is_empty());
 }
 
@@ -70,13 +70,13 @@ async fn receipts() {
     let temp = tempfile::tempdir().unwrap();
     let store = estate(&temp).await;
     let input = draft();
-    let alarm = store.set_alarm(&input).await.unwrap();
+    let alarm = store.arm(&input).await.unwrap();
     let occurrence = Occurrence {
         generation: 1,
         minute: 29_000_000,
     };
-    let first = store.accept_alarm(&alarm.id, &occurrence).await.unwrap();
-    let replay = store.accept_alarm(&alarm.id, &occurrence).await.unwrap();
+    let first = store.fire(&alarm.id, &occurrence).await.unwrap();
+    let replay = store.fire(&alarm.id, &occurrence).await.unwrap();
     assert!(first.inserted);
     assert!(!replay.inserted);
     assert_eq!(first.receipt.inbox, replay.receipt.inbox);
@@ -86,16 +86,16 @@ async fn receipts() {
     assert_eq!(pending[0].source.as_ref().unwrap().kind, "alarm");
     let mut next = occurrence.clone();
     next.minute += 1;
-    let second = store.accept_alarm(&alarm.id, &next).await.unwrap();
+    let second = store.fire(&alarm.id, &next).await.unwrap();
     assert_ne!(first.receipt.inbox, second.receipt.inbox);
     assert_eq!(store.inboxes("brain").await.unwrap().len(), 2);
-    store.end_alarm(&alarm.id, "adam").await.unwrap();
+    store.disarm(&alarm.id, "adam").await.unwrap();
     assert!(store.receipt(&first.receipt.inbox).await.unwrap().is_some());
     drop(store);
     let store = Store::open(temp.path().join("estate")).await.unwrap();
-    assert!(store.accept_alarm(&alarm.id, &occurrence).await.is_err());
+    assert!(store.fire(&alarm.id, &occurrence).await.is_err());
     next.minute += 1;
-    assert!(store.accept_alarm(&alarm.id, &next).await.is_err());
+    assert!(store.fire(&alarm.id, &next).await.is_err());
     assert_eq!(store.inboxes("brain").await.unwrap().len(), 2);
 }
 
@@ -104,18 +104,18 @@ async fn generation() {
     let temp = tempfile::tempdir().unwrap();
     let store = estate(&temp).await;
     let mut input = draft();
-    let alarm = store.set_alarm(&input).await.unwrap();
+    let alarm = store.arm(&input).await.unwrap();
     input.text = "changed".into();
     input.generation = Some(1);
-    store.set_alarm(&input).await.unwrap();
+    store.arm(&input).await.unwrap();
     let mut occurrence = Occurrence {
         generation: 1,
         minute: 29_000_000,
     };
-    assert!(store.accept_alarm(&alarm.id, &occurrence).await.is_err());
+    assert!(store.fire(&alarm.id, &occurrence).await.is_err());
     assert!(store.inboxes("brain").await.unwrap().is_empty());
     occurrence.generation = 2;
-    store.accept_alarm(&alarm.id, &occurrence).await.unwrap();
+    store.fire(&alarm.id, &occurrence).await.unwrap();
     assert_eq!(
         store.inboxes("brain").await.unwrap()[0].content.rendered(),
         "changed"
@@ -126,14 +126,14 @@ async fn generation() {
 async fn concurrent() {
     let temp = tempfile::tempdir().unwrap();
     let store = estate(&temp).await;
-    let alarm = store.set_alarm(&draft()).await.unwrap();
+    let alarm = store.arm(&draft()).await.unwrap();
     let occurrence = Occurrence {
         generation: 1,
         minute: 29_000_000,
     };
     let (first, second) = tokio::join!(
-        store.accept_alarm(&alarm.id, &occurrence),
-        store.accept_alarm(&alarm.id, &occurrence)
+        store.fire(&alarm.id, &occurrence),
+        store.fire(&alarm.id, &occurrence)
     );
     let first = first.unwrap();
     let second = second.unwrap();

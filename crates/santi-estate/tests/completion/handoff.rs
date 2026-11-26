@@ -1,5 +1,5 @@
 use super::*;
-use santi_estate::InboxDraft;
+use santi_estate::Arrival;
 
 #[tokio::test]
 async fn atomic() {
@@ -7,11 +7,11 @@ async fn atomic() {
     let path = temp.path().join("estate.sqlite");
     let store = bootstrap(&path).await;
     store.seed("soul_test", FIRST).await.unwrap();
-    create_strand(&store, "strand_complete", None).await;
-    create_turn(&store, "turn_complete", "strand_complete").await;
+    support::strand(&store, "strand_complete", None).await;
+    support::turn(&store, "turn_complete", "strand_complete").await;
     let content = message::Content::text("kind: execution_pause\nturn: turn_complete");
-    let source = santi_model::ingest::Source::new("execution_pause").with_ref("turn_complete");
-    let draft = || CompletionDraft {
+    let source = santi_model::ingest::Source::new("execution_pause").reference("turn_complete");
+    let draft = || Finish {
         turn: "turn_complete",
         reply: None,
         provider: "test",
@@ -19,10 +19,10 @@ async fn atomic() {
         response: None,
         occurred: LATER,
     };
-    let inbox = InboxDraft {
+    let inbox = Arrival {
         tag: "inbox_pause",
         strand: "strand_complete",
-        kind: message::Kind::SantiSystem,
+        kind: message::Kind::System,
         content: &content,
         source: Some(&source),
         created: LATER,
@@ -35,10 +35,10 @@ async fn atomic() {
         turn::Status::Running
     );
     assert!(store.inboxes("strand_complete").await.unwrap().is_empty());
-    create_strand(&store, "strand_other", None).await;
+    support::strand(&store, "strand_other", None).await;
     let mut collision = inbox.clone();
     collision.strand = "strand_other";
-    store.accept_inbox(collision, 500).await.unwrap();
+    store.accept(collision, 500).await.unwrap();
     assert!(store.handoff(draft(), inbox.clone()).await.is_err());
     assert_eq!(
         store.turn("turn_complete").await.unwrap().unwrap().status,
@@ -65,16 +65,16 @@ async fn cancellation() {
     let temp = tempfile::tempdir().unwrap();
     let store = bootstrap(temp.path().join("estate.sqlite")).await;
     store.seed("soul_test", FIRST).await.unwrap();
-    create_strand(&store, "strand_complete", None).await;
-    create_turn(&store, "turn_complete", "strand_complete").await;
+    support::strand(&store, "strand_complete", None).await;
+    support::turn(&store, "turn_complete", "strand_complete").await;
     store
-        .request_stop("turn_complete", turn::Cause::Operator, LATER)
+        .halt("turn_complete", turn::Cause::Operator, LATER)
         .await
         .unwrap();
     let content = message::Content::text("paused");
     let result = store
         .handoff(
-            CompletionDraft {
+            Finish {
                 turn: "turn_complete",
                 reply: None,
                 provider: "test",
@@ -82,10 +82,10 @@ async fn cancellation() {
                 response: None,
                 occurred: LATER,
             },
-            InboxDraft {
+            Arrival {
                 tag: "inbox_pause",
                 strand: "strand_complete",
-                kind: message::Kind::SantiSystem,
+                kind: message::Kind::System,
                 content: &content,
                 source: None,
                 created: LATER,

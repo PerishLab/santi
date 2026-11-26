@@ -18,7 +18,7 @@ pub struct Limits {
     pub settled: usize,
 }
 
-pub struct CompactDraft<'a> {
+pub struct Compact<'a> {
     pub tag: &'a str,
     pub strand: &'a str,
     pub first: &'a str,
@@ -30,7 +30,7 @@ pub struct CompactDraft<'a> {
 }
 
 impl Store {
-    pub async fn preview_compact(
+    pub async fn preview(
         &self,
         tag: &str,
         strand: &str,
@@ -45,7 +45,7 @@ impl Store {
         Ok(plan.report(tag, true))
     }
 
-    pub async fn create_compact(&self, draft: CompactDraft<'_>) -> Result<compact::Report, String> {
+    pub async fn condense(&self, draft: Compact<'_>) -> Result<compact::Report, String> {
         if draft.summary.trim().is_empty() {
             return Err("compact summary must not be empty".to_string());
         }
@@ -66,7 +66,7 @@ impl Store {
         let Some(row) = read::one(&self.core, "Compact", "tag", tag).await? else {
             return Ok(None);
         };
-        self.decode_compact(&row).await.map(Some)
+        decode(self, &row).await.map(Some)
     }
 
     pub async fn compacts(&self, strand: &str) -> Result<Vec<compact::Compact>, String> {
@@ -85,7 +85,7 @@ impl Store {
             .map_err(read::error)?;
         let mut held = Vec::with_capacity(rows.rows().len());
         for row in rows.rows() {
-            held.push(self.decode_compact(row).await?);
+            held.push(decode(self, row).await?);
         }
         Ok(held)
     }
@@ -111,56 +111,56 @@ impl Store {
         Ok(Some(read::text(&message, "tag")?.to_string()))
     }
 
-    pub async fn compact_page(
+    pub async fn page(
         &self,
         tag: &str,
         keyword: Option<&str>,
-        page_index: i64,
-        page_size: i64,
+        index: i64,
+        size: i64,
     ) -> Result<Option<compact::Page>, String> {
         page::read(
             self,
             page::Query {
                 tag,
                 keyword,
-                index: page_index,
-                size: page_size,
+                index,
+                size,
             },
         )
         .await
     }
+}
 
-    async fn decode_compact(&self, row: &keel::Row) -> Result<compact::Compact, String> {
-        let (first, last) = self
-            .core
-            .batch(async |tx| {
-                let (head, tail) = boundary::Reader(tx).ends(row).await?;
-                Ok((
-                    boundary::Reader(tx).tag(&head).await?,
-                    boundary::Reader(tx).tag(&tail).await?,
-                ))
-            })
-            .await
-            .map_err(read::error)?;
-        Ok(compact::Compact {
-            id: read::text(row, "tag")?.to_string(),
-            strand: read::related(&self.core, "Strand", read::int(row, "strand")?).await?,
-            summary: read::text(row, "summary")?.to_string(),
-            first,
-            last,
-            created: row.text("created").map(str::to_string),
-            metadata: row
-                .text("metadata")
-                .map(serde_json::from_str)
-                .transpose()
-                .map_err(|error| error.to_string())?,
+async fn decode(store: &Store, row: &keel::Row) -> Result<compact::Compact, String> {
+    let (first, last) = store
+        .core
+        .batch(async |tx| {
+            let (head, tail) = boundary::Reader(tx).ends(row).await?;
+            Ok((
+                boundary::Reader(tx).tag(&head).await?,
+                boundary::Reader(tx).tag(&tail).await?,
+            ))
         })
-    }
+        .await
+        .map_err(read::error)?;
+    Ok(compact::Compact {
+        id: read::text(row, "tag")?.to_string(),
+        strand: read::related(&store.core, "Strand", read::int(row, "strand")?).await?,
+        summary: read::text(row, "summary")?.to_string(),
+        first,
+        last,
+        created: row.text("created").map(str::to_string),
+        metadata: row
+            .text("metadata")
+            .map(serde_json::from_str)
+            .transpose()
+            .map_err(|error| error.to_string())?,
+    })
 }
 
 pub(in crate::store) async fn create(
     tx: &mut keel::Tx<'_, keel::adapt::db::Sqlite>,
-    draft: &CompactDraft<'_>,
+    draft: &Compact<'_>,
     metadata: Option<&str>,
 ) -> Result<compact::Report, keel::adapt::Error> {
     let plan = plan::build(tx, draft.strand, draft.first, draft.last).await?;

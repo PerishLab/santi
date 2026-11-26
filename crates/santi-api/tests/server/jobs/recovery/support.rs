@@ -2,10 +2,7 @@ use super::super::*;
 use async_trait::async_trait;
 use futures_util::stream;
 use santi_core::{Store, message, strand};
-use santi_estate::{
-    AttentionDraft, CallDraft, CapabilityDraft, EffectDraft, JobDraft, NoticeDraft,
-    TransitionDraft, TurnDraft,
-};
+use santi_estate::{Attention, Call, Capability, Effect, Job, Notice, Transition, Turn};
 use santi_provider::{Event, Metadata, Provider, Request, Streaming};
 use sha2::{Digest, Sha256};
 use tokio::sync::Notify;
@@ -24,7 +21,7 @@ pub(super) fn config(temp: &tempfile::TempDir) -> service::Config {
 pub(super) async fn reopen(
     temp: &tempfile::TempDir,
     provider: Arc<dyn Provider>,
-    supervisor: Arc<dyn JobSupervisor>,
+    supervisor: Arc<dyn jobs::Supervisor>,
 ) -> (Service, Store) {
     let service = Service::supervised(
         "fixture/model/execution",
@@ -43,7 +40,7 @@ pub(super) async fn reopen(
 pub(super) async fn boot(
     temp: &tempfile::TempDir,
     provider: Arc<dyn Provider>,
-    supervisor: Arc<dyn JobSupervisor>,
+    supervisor: Arc<dyn jobs::Supervisor>,
 ) -> (Service, Store, strand::Strand) {
     crate::support::bootstrap(&temp.path().join("santi.sqlite")).await;
     let service = Service::supervised(
@@ -80,21 +77,21 @@ pub(super) async fn terminal(case: Terminal<'_>) -> String {
     let digest = format!("{:x}", Sha256::digest(fixture::CAPABILITY.as_bytes()));
     let now = santi_core::now();
     let created = store
-        .prepare_job(
+        .submit(
             &digest,
-            JobDraft {
+            Job {
                 environment: None,
                 tag: job,
                 description: "durable terminal notice",
                 command: "true",
                 cwd: None,
-                timeout_seconds: 30,
-                output_limit_bytes: 1024,
-                remind_every_seconds: None,
-                notify_on_terminal: true,
-                request_sha256: "request_terminal",
+                timeout: 30,
+                limit: 1024,
+                remind: None,
+                notify: true,
+                digest: "request_terminal",
                 generation: "stamp_terminal",
-                supervisor_ref: "santi-term.service",
+                supervisor: "santi-term.service",
                 created: &now,
             },
             0,
@@ -104,28 +101,25 @@ pub(super) async fn terminal(case: Terminal<'_>) -> String {
     let santi_estate::Prepared::New(record) = created else {
         panic!("new job");
     };
+    store.claim(&record.job.id, &now).await.expect("accept");
     store
-        .accept_job(&record.job.id, &now)
-        .await
-        .expect("accept");
-    store
-        .transition_job(
+        .transit(
             &record.job.id,
-            TransitionDraft {
+            Transition {
                 reason: Some("completed"),
-                exit_code: Some(0),
-                ..TransitionDraft::new(job::State::Succeeded, &now)
+                exit: Some(0),
+                ..Transition::new(job::State::Succeeded, &now)
             },
         )
         .await
         .expect("terminal");
-    let source = santi_core::ingest::Source::new("job").with_ref(job);
+    let source = santi_core::ingest::Source::new("job").reference(job);
     let causes = vec!["terminal".to_string()];
     let content = message::Content::text(text);
     let key = format!("job/{job}/stamp_terminal");
     store
-        .attend_job(
-            AttentionDraft {
+        .attend(
+            Attention {
                 job,
                 base: 0,
                 at: &now,
@@ -136,7 +130,7 @@ pub(super) async fn terminal(case: Terminal<'_>) -> String {
                 next: None,
                 terminal: true,
             },
-            NoticeDraft {
+            Notice {
                 tag: notice,
                 strand: &strand.id,
                 key: &key,
@@ -159,7 +153,7 @@ pub(super) async fn origin(store: &Store, strand: &strand::Strand, turn: &str) {
     let call = format!("{turn}_call");
     let effect = format!("{turn}_effect");
     store
-        .create_turn(TurnDraft {
+        .start(Turn {
             tag: turn,
             strand: &strand.id,
             trigger: santi_core::turn::Trigger::System,
@@ -169,7 +163,7 @@ pub(super) async fn origin(store: &Store, strand: &strand::Strand, turn: &str) {
         .await
         .expect("origin turn");
     store
-        .create_call(CallDraft {
+        .calling(Call {
             tag: &call,
             turn,
             tool: "shell",
@@ -179,7 +173,7 @@ pub(super) async fn origin(store: &Store, strand: &strand::Strand, turn: &str) {
         .await
         .expect("origin call");
     store
-        .prepare_effect(EffectDraft {
+        .stage(Effect {
             tag: &effect,
             turn,
             call: Some(&call),
@@ -191,7 +185,7 @@ pub(super) async fn origin(store: &Store, strand: &strand::Strand, turn: &str) {
         .expect("origin effect");
     let digest = format!("{:x}", Sha256::digest(fixture::CAPABILITY.as_bytes()));
     store
-        .create_capability(CapabilityDraft {
+        .grant(Capability {
             digest: &digest,
             expires: i64::MAX,
             soul: &strand.soul,
@@ -204,7 +198,7 @@ pub(super) async fn origin(store: &Store, strand: &strand::Strand, turn: &str) {
         .await
         .expect("origin capability");
     let done = store
-        .complete_turn(turn, 1, &now)
+        .complete(turn, 1, &now)
         .await
         .expect("finish origin turn");
     assert_eq!(done.status, santi_core::turn::Status::Completed);

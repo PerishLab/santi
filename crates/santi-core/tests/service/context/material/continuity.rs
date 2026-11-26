@@ -79,6 +79,6 @@ async fn fork() {
     let store = santi_core::Store::open(config(&fixture.temp).database)
         .await
         .unwrap();
-    store.end_strand(&child.id).await.unwrap();
-    store.end_strand(&fixture.strand).await.unwrap();
+    store.retire(&child.id).await.unwrap();
+    store.retire(&fixture.strand).await.unwrap();
 }

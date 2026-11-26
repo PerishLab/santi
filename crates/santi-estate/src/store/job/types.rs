@@ -12,7 +12,7 @@ impl std::fmt::Debug for Environment {
 }
 
 #[derive(Clone, Copy)]
-pub struct CapabilityDraft<'a> {
+pub struct Capability<'a> {
     pub digest: &'a str,
     pub expires: i64,
     pub soul: &'a str,
@@ -24,48 +24,48 @@ pub struct CapabilityDraft<'a> {
 }
 
 #[derive(Clone, Copy)]
-pub struct JobDraft<'a> {
+pub struct Job<'a> {
     pub environment: Option<&'a Environment>,
     pub tag: &'a str,
     pub description: &'a str,
     pub command: &'a str,
     pub cwd: Option<&'a str>,
-    pub timeout_seconds: u64,
-    pub output_limit_bytes: u64,
-    pub remind_every_seconds: Option<u64>,
-    pub notify_on_terminal: bool,
-    pub request_sha256: &'a str,
+    pub timeout: u64,
+    pub limit: u64,
+    pub remind: Option<u64>,
+    pub notify: bool,
+    pub digest: &'a str,
     pub generation: &'a str,
-    pub supervisor_ref: &'a str,
+    pub supervisor: &'a str,
     pub created: &'a str,
 }
 
-pub struct TransitionDraft<'a> {
+pub struct Transition<'a> {
     pub base: Option<&'a job::State>,
     pub state: job::State,
     pub reason: Option<&'a str>,
-    pub exit_code: Option<i32>,
+    pub exit: Option<i32>,
     pub occurred: &'a str,
-    pub started_millis: Option<i64>,
-    pub next_reminder: Option<&'a str>,
+    pub started: Option<i64>,
+    pub next: Option<&'a str>,
 }
 
-impl<'a> TransitionDraft<'a> {
+impl<'a> Transition<'a> {
     pub fn new(state: job::State, occurred: &'a str) -> Self {
         Self {
             base: None,
             state,
             reason: None,
-            exit_code: None,
+            exit: None,
             occurred,
-            started_millis: None,
-            next_reminder: None,
+            started: None,
+            next: None,
         }
     }
 }
 
 #[derive(Clone, Copy)]
-pub struct AttentionDraft<'a> {
+pub struct Attention<'a> {
     pub job: &'a str,
     pub base: u64,
     pub at: &'a str,
@@ -78,28 +78,28 @@ pub struct AttentionDraft<'a> {
 }
 
 #[derive(Debug, Clone)]
-pub struct JobRecord {
+pub struct Record {
     pub environment: Option<Environment>,
     pub job: job::Job,
     pub generation: String,
     pub supervisor: String,
-    pub started_millis: Option<i64>,
-    pub attention_revision: u64,
-    pub runtime_warned: bool,
-    pub output_warned: bool,
-    pub reminder_tick: u64,
-    pub notify_on_terminal: bool,
-    pub terminal_notified: Option<String>,
+    pub started: Option<i64>,
+    pub attention: u64,
+    pub runtime: bool,
+    pub output: bool,
+    pub tick: u64,
+    pub notify: bool,
+    pub notified: Option<String>,
 }
 
 #[derive(Debug, Clone)]
 pub enum Prepared {
-    New(JobRecord),
-    Existing(JobRecord),
+    New(Record),
+    Existing(Record),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ExpiredJob {
+pub struct Expired {
     pub id: String,
     pub key: String,
 }

@@ -4,9 +4,8 @@ use std::time::Duration;
 use anyhow::{Context, Result};
 use futures_util::StreamExt;
 
-use crate::cli::{ClientDefaults, Command, EffectCommand, Job, Turn, WatchFormat, Webhook};
-use crate::text::source::read_summary_file;
-use crate::watch::{next_sse_frame, render_watch_event};
+use crate::cli::{Command, Defaults, Effect, Format, Job, Turn, Webhook};
+use crate::watch::render;
 
 mod create;
 mod declarations;
@@ -37,23 +36,23 @@ struct Capsule<'a> {
 }
 
 pub(crate) struct Run<'a> {
-    pub base_url: &'a str,
+    pub base: &'a str,
     pub bearer: Option<&'a str>,
-    pub defaults: &'a ClientDefaults,
+    pub defaults: &'a Defaults,
     pub explicit: bool,
 }
 
 #[locus::trace(with = plumb::observation::view())]
 pub(crate) async fn run(run: Run<'_>, command: Command) -> Result<()> {
     let Run {
-        base_url,
+        base,
         bearer,
         defaults,
         explicit,
     } = run;
-    let client = build_client(bearer)?;
+    let client = build(bearer)?;
     let http = Http { client: &client };
-    let base = base_url.trim_end_matches('/').to_string();
+    let base = base.trim_end_matches('/').to_string();
     match command {
         Command::Skill(_) => {
             anyhow::bail!("skill commands must dispatch before HTTP configuration")
@@ -71,13 +70,13 @@ pub(crate) async fn run(run: Run<'_>, command: Command) -> Result<()> {
             .await
         }
         Command::Errors {
-            scope_kind,
-            scope_id,
+            kind,
+            id,
             limit,
             before,
         } => {
             http.get(&http::page(
-                format!("{base}/api/v1/errors/{scope_kind}/{scope_id}"),
+                format!("{base}/api/v1/errors/{kind}/{id}"),
                 limit,
                 before.as_deref(),
             )?)
@@ -95,10 +94,10 @@ pub(crate) async fn run(run: Run<'_>, command: Command) -> Result<()> {
             .await
         }
         Command::Receipt { inbox } => http.get(&format!("{base}/api/v1/receipts/{inbox}")).await,
-        Command::Effect(EffectCommand::Query { effect }) => {
+        Command::Effect(Effect::Query { effect }) => {
             http.get(&format!("{base}/api/v1/effects/{effect}")).await
         }
-        Command::Effect(EffectCommand::Resolve {
+        Command::Effect(Effect::Resolve {
             effect,
             outcome,
             evidence,
@@ -106,7 +105,7 @@ pub(crate) async fn run(run: Run<'_>, command: Command) -> Result<()> {
             http.post(
                 &format!("{base}/api/v1/effects/{effect}/resolve"),
                 Some(serde_json::json!({
-                    "outcome": outcome.as_api_str(),
+                    "outcome": outcome.encode(),
                     "evidence": evidence,
                 })),
             )
@@ -123,10 +122,10 @@ pub(crate) async fn run(run: Run<'_>, command: Command) -> Result<()> {
             description,
             command,
             cwd,
-            timeout_seconds,
-            output_limit_bytes,
-            remind_every_seconds,
-            notify_on_terminal,
+            timeout,
+            limit,
+            remind,
+            notify,
         }) => {
             let capability = crate::config::env("SANTI_JOB_CREATE_CAPABILITY").ok_or_else(|| {
                 anyhow::anyhow!(
@@ -140,10 +139,10 @@ pub(crate) async fn run(run: Run<'_>, command: Command) -> Result<()> {
                     "description": description,
                     "command": command,
                     "cwd": cwd,
-                    "timeout_seconds": timeout_seconds,
-                    "output_limit_bytes": output_limit_bytes,
-                    "remind_every_seconds": remind_every_seconds,
-                    "notify_on_terminal": notify_on_terminal,
+                    "timeout_seconds": timeout,
+                    "output_limit_bytes": limit,
+                    "remind_every_seconds": remind,
+                    "notify_on_terminal": notify,
                 }),
             )
             .await
@@ -182,7 +181,7 @@ pub(crate) async fn run(run: Run<'_>, command: Command) -> Result<()> {
             cursor,
             limit,
         }) => {
-            let cursor = urlencoding_encode(&cursor);
+            let cursor = encode(&cursor);
             http.owned(
                 &format!(
                     "{base}/api/v1/jobs/{id}/logs?stream={}&cursor={cursor}&limit={limit}",
@@ -211,7 +210,7 @@ pub(crate) async fn run(run: Run<'_>, command: Command) -> Result<()> {
                 .map(str::trim)
                 .filter(|strand| !strand.is_empty())
             {
-                url.push_str(&format!("?exclude={}", urlencoding_encode(strand)));
+                url.push_str(&format!("?exclude={}", encode(strand)));
             }
             http.get(&url).await
         }

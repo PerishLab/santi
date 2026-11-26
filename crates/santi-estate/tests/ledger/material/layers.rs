@@ -96,7 +96,7 @@ async fn forks() {
     fixture.bind(Scope::Strand, "local", &first).await.unwrap();
     let child = fixture
         .store
-        .fork(santi_estate::ForkDraft {
+        .fork(santi_estate::Fork {
             tag: "child",
             parent: "first",
             at: 0,
@@ -114,8 +114,8 @@ async fn forks() {
         fixture.selection(&child.id).await.packages,
         vec![first.clone()]
     );
-    fixture.store.end_strand(&child.id).await.unwrap();
-    fixture.store.end_strand("first").await.unwrap();
+    fixture.store.retire(&child.id).await.unwrap();
+    fixture.store.retire("first").await.unwrap();
     fixture
         .bind(Scope::Soul, "remaining", &first)
         .await

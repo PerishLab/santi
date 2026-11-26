@@ -5,7 +5,7 @@ use serde_json::Value;
 
 use super::http::Http;
 use super::tui::{Identity, Request};
-use crate::cli::{ClientDefaults, Job};
+use crate::cli::{Defaults, Job};
 
 const KEPT: usize = 24;
 const LIMIT: usize = 4096;
@@ -68,7 +68,7 @@ impl Reader<'_, '_> {
         let Some(id) = id else {
             bail!("run /jobs, then select a listed ordinal with /job N");
         };
-        let path = format!("/api/v1/jobs/{}", super::urlencoding_encode(id));
+        let path = format!("/api/v1/jobs/{}", super::encode(id));
         let job = self.get(&path).await?;
         owned(&job, self.identity)?;
         if text(&job, "/id")? != id || text(&job, "/origin/strand")? != self.identity.strand {
@@ -218,7 +218,7 @@ fn safe(text: &str, limit: usize) -> String {
 pub(super) struct Query<'a, 'b> {
     pub http: &'a Http<'b>,
     pub base: &'a str,
-    pub defaults: &'a ClientDefaults,
+    pub defaults: &'a Defaults,
     pub explicit: bool,
 }
 
@@ -230,7 +230,7 @@ pub(super) async fn query(query: Query<'_, '_>, command: Job) -> Result<()> {
         explicit,
     } = query;
     let Job::Query {
-        all_strands,
+        all,
         state,
         limit,
         count,
@@ -241,7 +241,7 @@ pub(super) async fn query(query: Query<'_, '_>, command: Job) -> Result<()> {
     if count && limit.is_some() {
         bail!("--limit and --count cannot be combined");
     }
-    let strand = if all_strands {
+    let strand = if all {
         if explicit {
             bail!("--strand conflicts with --all-strands");
         }
@@ -271,7 +271,7 @@ pub(super) async fn query(query: Query<'_, '_>, command: Job) -> Result<()> {
 pub(super) async fn raw(
     http: &Http<'_>,
     base: &str,
-    defaults: &ClientDefaults,
+    defaults: &Defaults,
     dsl: String,
 ) -> Result<()> {
     http.owner(

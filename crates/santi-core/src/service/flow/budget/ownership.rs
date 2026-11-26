@@ -58,14 +58,14 @@ async fn isolates() {
             output: 10000,
             shell: 1000,
             lines: 256,
-            feedback_after_calls: None,
-            feedback_command: None,
-            feedback_cwd: None,
+            after: None,
+            command: None,
+            cwd: None,
         })
         .unwrap();
         service
             .store
-            .create_strand(santi_estate::StrandDraft {
+            .weave(santi_estate::Strand {
                 tag: "strand_research",
                 soul: crate::GENESIS,
                 label: None,
@@ -78,7 +78,7 @@ async fn isolates() {
             .unwrap();
         service
             .store
-            .create_turn(santi_estate::TurnDraft {
+            .start(santi_estate::Turn {
                 tag: "turn_old",
                 strand: "strand_research",
                 trigger: crate::turn::Trigger::System,
@@ -96,7 +96,7 @@ async fn isolates() {
 
         service
             .store
-            .finish_turn(santi_estate::CompletionDraft {
+            .finish(santi_estate::Finish {
                 turn: "turn_old",
                 reply: None,
                 provider: "unused",
@@ -108,11 +108,11 @@ async fn isolates() {
             .unwrap();
         service
             .store
-            .accept_inbox(
-                santi_estate::InboxDraft {
+            .accept(
+                santi_estate::Arrival {
                     tag: "inbox_new",
                     strand: "strand_research",
-                    kind: crate::message::Kind::SantiSystem,
+                    kind: crate::message::Kind::System,
                     content: &crate::message::Content::text("next"),
                     source: None,
                     created: LATER,
@@ -124,18 +124,18 @@ async fn isolates() {
         let effective = Effective {
             selection: Selection::Scenario("fixture/model/execution".into()),
             model: "unused".into(),
-            reasoning_effort: None,
+            effort: None,
             source: Source {
                 route: None,
                 selection: Selection::Scenario(Origin::Service),
                 model: Origin::Default,
-                reasoning_effort: None,
+                effort: None,
             },
         };
         let opening = service
             .store
             .begin(
-                santi_estate::DrainDraft {
+                santi_estate::Drain {
                     turn: "turn_new",
                     strand: "strand_research",
                     trigger: crate::turn::Trigger::System,

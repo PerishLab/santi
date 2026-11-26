@@ -8,7 +8,7 @@ use santi_core::{service::Service, turn::activity::Snapshot};
 use std::{convert::Infallible, time::Duration};
 use tokio::sync::watch;
 
-use crate::server::ApiError;
+use crate::server::Problem;
 
 #[utoipa::path(
     get, path = "/api/v1/strands/{strand}/activity", params(("strand" = String, Path)),
@@ -18,7 +18,7 @@ use crate::server::ApiError;
 pub(in crate::server) async fn snapshot(
     State(service): State<Service>,
     Path(strand): Path<String>,
-) -> Result<Json<Snapshot>, ApiError> {
+) -> Result<Json<Snapshot>, Problem> {
     let receiver = observe(&service, &strand).await?;
     let snapshot = receiver.borrow().clone();
     Ok(Json(snapshot))
@@ -32,7 +32,7 @@ pub(in crate::server) async fn snapshot(
 pub(in crate::server) async fn events(
     State(service): State<Service>,
     Path(strand): Path<String>,
-) -> Result<Sse<impl Stream<Item = Result<Event, Infallible>>>, ApiError> {
+) -> Result<Sse<impl Stream<Item = Result<Event, Infallible>>>, Problem> {
     let mut receiver = observe(&service, &strand).await?;
     let stream = async_stream::stream! {
         let snapshot = receiver.borrow_and_update().clone();
@@ -50,12 +50,12 @@ pub(in crate::server) async fn events(
     Ok(Sse::new(stream).keep_alive(KeepAlive::default()))
 }
 
-async fn observe(service: &Service, strand: &str) -> Result<watch::Receiver<Snapshot>, ApiError> {
+async fn observe(service: &Service, strand: &str) -> Result<watch::Receiver<Snapshot>, Problem> {
     service.observe(strand).await.map_err(|error| {
         if error == "strand not found" {
-            ApiError::not_found(error)
+            Problem::missing(error)
         } else {
-            ApiError::from_service(error)
+            Problem::service(error)
         }
     })
 }
@@ -170,7 +170,7 @@ mod tests {
                 .unwrap();
             assert_eq!(app.clone().oneshot(request).await.unwrap().status(), 404);
         }
-        let text = crate::server::export_openapi_json().unwrap();
+        let text = crate::server::openapi().unwrap();
         let document: serde_json::Value = serde_json::from_str(&text).unwrap();
         assert!(
             document["paths"]

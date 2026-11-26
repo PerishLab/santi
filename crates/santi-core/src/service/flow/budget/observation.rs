@@ -41,7 +41,7 @@ pub(super) async fn observe(
                 "id": inbox.id,
                 "kind": inbox.kind,
                 "content": inbox.content,
-                "coalesce_revision": inbox.coalesce_revision,
+                "coalesce_revision": inbox.revision,
             })
         })
         .collect::<Vec<_>>();

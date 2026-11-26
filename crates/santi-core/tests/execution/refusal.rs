@@ -13,7 +13,7 @@ async fn batch() {
 async fn verify(work: usize, rounds: usize, calls: usize, batch: usize) {
     let temp = tempfile::tempdir().unwrap();
     bootstrap(&temp).await;
-    let provider = Arc::new(BudgetedProvider {
+    let provider = Arc::new(Budgeted {
         rounds: work,
         maintenance: true,
         batch,
@@ -41,9 +41,9 @@ async fn verify(work: usize, rounds: usize, calls: usize, batch: usize) {
         output: 10000,
         shell: 1000,
         lines: 256,
-        feedback_after_calls: None,
-        feedback_command: None,
-        feedback_cwd: None,
+        after: None,
+        command: None,
+        cwd: None,
     })
     .unwrap();
     let strand = service.weave().await.unwrap().strand;
@@ -59,7 +59,7 @@ async fn verify(work: usize, rounds: usize, calls: usize, batch: usize) {
         .await
         .unwrap();
     let runtime = Probe::new(&service)
-        .failed_turn(&strand.id, &accepted_turn(&service, &posted).await.id)
+        .failed(&strand.id, &accepted(&service, &posted).await.id)
         .await;
     assert_eq!(runtime.turns.len(), 1);
     assert!(runtime.compacts.is_empty());

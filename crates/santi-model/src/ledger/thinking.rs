@@ -30,7 +30,8 @@ pub struct Span {
     pub response: Option<String>,
     pub state: State,
     pub summary: Option<String>,
-    pub completion_reason: Option<Reason>,
+    #[serde(rename = "completion_reason")]
+    pub reason: Option<Reason>,
     pub error: Option<String>,
     pub created: Timestamp,
     pub updated: Timestamp,

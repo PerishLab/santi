@@ -22,9 +22,10 @@ pub struct Amendment {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum Protocol {
-    ChatCompletions,
+    #[serde(rename = "chat_completions")]
+    Chat,
     #[serde(rename = "openai_responses")]
-    OpenAiResponses,
+    Responses,
     #[serde(rename = "gemini_generate_content")]
     Gemini,
 }
@@ -33,8 +34,8 @@ impl Protocol {
     pub fn label(self) -> &'static str {
         match self {
             Self::Gemini => "gemini_generate_content",
-            Self::OpenAiResponses => "openai_responses",
-            Self::ChatCompletions => "chat_completions",
+            Self::Responses => "openai_responses",
+            Self::Chat => "chat_completions",
         }
     }
 }

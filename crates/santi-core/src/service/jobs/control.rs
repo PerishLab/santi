@@ -3,7 +3,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use super::handoff::Handoff;
 use super::{observe, terminal, *};
-use santi_estate::{JobRecord, Prepared};
+use santi_estate::{Prepared, Record};
 
 impl Service {
     pub(crate) async fn permit(
@@ -28,7 +28,7 @@ impl Service {
         let expires = i64::try_from(now.saturating_add(120_000))
             .map_err(|_| "job capability expiry is out of range".to_string())?;
         self.store
-            .create_capability(santi_estate::CapabilityDraft {
+            .grant(santi_estate::Capability {
                 digest: &digest,
                 expires,
                 soul: &soul,
@@ -53,7 +53,7 @@ impl Service {
             None
         } else {
             Some(santi_estate::Environment(
-                self.resolved_environment(&job::Origin {
+                self.environment(&job::Origin {
                     soul: origin.soul.as_str(),
                     strand: origin.strand.as_str(),
                     turn: origin.turn.as_str(),
@@ -70,21 +70,21 @@ impl Service {
         let preparing = Handoff::new(&self.handoffs, &generation);
         let prepared = self
             .store
-            .prepare_job(
+            .submit(
                 &capability,
-                santi_estate::JobDraft {
+                santi_estate::Job {
                     environment: environment.as_ref(),
                     tag: &tag,
                     description: &normalized.description,
                     command: &normalized.command,
                     cwd: normalized.cwd.as_deref(),
-                    timeout_seconds: normalized.timeout,
-                    output_limit_bytes: normalized.output,
-                    remind_every_seconds: normalized.remind,
-                    notify_on_terminal: normalized.notify.is_some(),
-                    request_sha256: &normalized.digest,
+                    timeout: normalized.timeout,
+                    limit: normalized.output,
+                    remind: normalized.remind,
+                    notify: normalized.notify.is_some(),
+                    digest: &normalized.digest,
                     generation: &generation,
-                    supervisor_ref: &supervisor,
+                    supervisor: &supervisor,
                     created: &now,
                 },
                 observe::epoch()?,
@@ -99,7 +99,7 @@ impl Service {
             self.detach(&record)?;
         }
         let record = if record.job.state == job::State::Submitting {
-            self.store.accept_job(&record.job.id, &crate::now()).await?
+            self.store.claim(&record.job.id, &crate::now()).await?
         } else {
             record
         };
@@ -107,7 +107,7 @@ impl Service {
     }
 
     pub async fn job(&self, soul: &str, id: &str) -> Result<Option<job::Job>, String> {
-        let Some(record) = self.store.job_record(id).await? else {
+        let Some(record) = self.store.tracked(id).await? else {
             return Ok(None);
         };
         if record.job.origin.soul != soul {
@@ -119,16 +119,12 @@ impl Service {
         self.refresh(record).await.map(|record| Some(record.job))
     }
 
-    pub async fn job_query(
-        &self,
-        soul: &str,
-        request: job::QueryRequest,
-    ) -> Result<job::Query, job::QueryError> {
-        self.store.job_query(soul, request).await
+    pub async fn query(&self, soul: &str, request: job::Request) -> Result<job::Query, job::Fault> {
+        self.store.query(soul, request).await
     }
 
     pub async fn jobs(&self, soul: &str) -> Result<Vec<job::Job>, String> {
-        let active = self.store.active_jobs().await?;
+        let active = self.store.live().await?;
         for record in active
             .into_iter()
             .filter(|record| record.job.origin.soul == soul)
@@ -144,7 +140,7 @@ impl Service {
     }
 
     pub async fn cancel(&self, soul: &str, id: &str) -> Result<Option<job::Job>, String> {
-        let Some(record) = self.store.job_record(id).await? else {
+        let Some(record) = self.store.tracked(id).await? else {
             return Ok(None);
         };
         if record.job.origin.soul != soul {
@@ -161,11 +157,11 @@ impl Service {
         }
         let record = self
             .store
-            .transition_job(
+            .transit(
                 id,
-                santi_estate::TransitionDraft {
+                santi_estate::Transition {
                     reason: Some("cancel_requested"),
-                    ..santi_estate::TransitionDraft::new(job::State::Cancelling, &crate::now())
+                    ..santi_estate::Transition::new(job::State::Cancelling, &crate::now())
                 },
             )
             .await?;
@@ -176,7 +172,7 @@ impl Service {
     }
 
     pub async fn ack(&self, soul: &str, id: &str) -> Result<Option<job::Job>, String> {
-        let Some(record) = self.store.job_record(id).await? else {
+        let Some(record) = self.store.tracked(id).await? else {
             return Ok(None);
         };
         if record.job.origin.soul != soul {
@@ -193,7 +189,7 @@ impl Service {
         if !record.job.state.terminal() {
             return Err("only a terminal job can be acknowledged".to_string());
         }
-        if record.notify_on_terminal && record.terminal_notified.is_none() {
+        if record.notify && record.notified.is_none() {
             if let Err(error) = terminal::finish(self, record.clone()).await {
                 return Err(format!(
                     "terminal job notification is not yet durably recorded; retry acknowledgement: {error}"
@@ -201,10 +197,10 @@ impl Service {
             }
             record = self
                 .store
-                .job_record(id)
+                .tracked(id)
                 .await?
                 .ok_or_else(|| "job not found".to_string())?;
-            if record.terminal_notified.is_none() {
+            if record.notified.is_none() {
                 return Err(
                     "terminal job notification is not yet durably recorded; retry acknowledgement"
                         .to_string(),
@@ -213,12 +209,12 @@ impl Service {
         }
         self.supervisor.acknowledge(&self.launch(&record)?)?;
         self.store
-            .acknowledge_job(id, &crate::now())
+            .ack(id, &crate::now())
             .await
             .map(|record| Some(record.job))
     }
 
-    fn detach(&self, record: &JobRecord) -> Result<(), String> {
+    fn detach(&self, record: &Record) -> Result<(), String> {
         self.launch(record)
             .and_then(|launch| self.supervisor.detach(&launch))
     }

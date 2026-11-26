@@ -29,9 +29,9 @@ impl Service {
             .await?
             .ok_or_else(|| "parent strand not found".to_string())?;
         let fork = at.unwrap_or(parent.next - 1);
-        let child_tag = crate::tag("ss");
-        let draft = santi_estate::ForkDraft {
-            tag: &child_tag,
+        let tag = crate::tag("ss");
+        let draft = santi_estate::Fork {
+            tag: &tag,
             parent: &parent.id,
             at: fork,
             inference,
@@ -55,7 +55,7 @@ impl Service {
             } else {
                 let _ = fs::remove_dir_all(&nursery);
             }
-            let _ = self.store.discard_fork(&child.id).await;
+            let _ = self.store.discard(&child.id).await;
             return Err(format!("fork workspace sync failed: {error}"));
         }
         Ok(strand::Forked {
@@ -103,13 +103,13 @@ fn copied(src: &Path, dst: &Path) -> Result<(), String> {
 }
 
 impl Service {
-    pub async fn end_strand(&self, tag: &str) -> Result<(), String> {
+    pub async fn retire(&self, tag: &str) -> Result<(), String> {
         let strand = self
             .store
             .strand(tag)
             .await?
             .ok_or_else(|| "strand not found".to_string())?;
-        let jobs = self.store.end_strand(tag).await?;
+        let jobs = self.store.retire(tag).await?;
         let bucket = object::Bucket::new(&strand.soul, tag)?;
         let mut faults = Vec::new();
         if let Some(home) = self.strandhome(tag).parent() {
@@ -153,7 +153,7 @@ impl Service {
             let Some(key) = named(&job).filter(|key| !key.starts_with('.')) else {
                 continue;
             };
-            if !self.store.retained_job(key).await? {
+            if !self.store.retained(key).await? {
                 remove(&job)?;
             }
         }

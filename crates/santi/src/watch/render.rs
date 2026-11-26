@@ -1,6 +1,6 @@
 use super::*;
 
-pub fn render_watch_event(event: &str, data: &str) -> Option<String> {
+pub fn render(event: &str, data: &str) -> Option<String> {
     let value = serde_json::from_str::<serde_json::Value>(data).ok()?;
     let beat = value
         .get("payload")
@@ -32,8 +32,8 @@ pub fn render_watch_event(event: &str, data: &str) -> Option<String> {
             let message = value.get("payload")?.get("message")?;
             Some(format!(
                 "message {} {}: {}",
-                message_seq(message),
-                message_actor_kind(message),
+                sequence(message),
+                speaker(message),
                 snippet(
                     message
                         .get("text")
@@ -73,7 +73,7 @@ pub fn render_watch_event(event: &str, data: &str) -> Option<String> {
         }
         ("tool", "replied") => {
             let result = value.get("payload")?.get("result")?;
-            let call_id = result
+            let call = result
                 .get("call")
                 .and_then(serde_json::Value::as_str)
                 .unwrap_or("unknown");
@@ -82,10 +82,10 @@ pub fn render_watch_event(event: &str, data: &str) -> Option<String> {
             } else {
                 "ok"
             };
-            Some(format!("tool result {call_id}: {status}"))
+            Some(format!("tool result {call}: {status}"))
         }
-        ("thinking", "created") => thinking_line(&value, "thinking started"),
-        ("thinking", "completed") => thinking_line(&value, "thinking completed"),
+        ("thinking", "created") => thinking(&value, "thinking started"),
+        ("thinking", "completed") => thinking(&value, "thinking completed"),
         ("material", "updated") => {
             let material = value.get("payload")?.get("material")?;
             let kind = material
@@ -95,15 +95,15 @@ pub fn render_watch_event(event: &str, data: &str) -> Option<String> {
             Some(format!("material updated {kind}"))
         }
         ("turn", "completed") => {
-            json_field(data, &["payload", "turn"]).map(|id| format!("turn completed {id}"))
+            field(data, &["payload", "turn"]).map(|id| format!("turn completed {id}"))
         }
-        ("turn", "failed") => render_turn_failure(value.get("payload")?),
-        ("transition", _) => render_error_transition(value.get("payload")?),
+        ("turn", "failed") => failed(value.get("payload")?),
+        ("transition", _) => transition(value.get("payload")?),
         _ => Some(format!("{event}: {}", snippet(data, 240))),
     }
 }
 
-fn render_turn_failure(payload: &serde_json::Value) -> Option<String> {
+fn failed(payload: &serde_json::Value) -> Option<String> {
     let id = payload
         .get("turn")
         .and_then(serde_json::Value::as_str)
@@ -128,7 +128,7 @@ fn render_turn_failure(payload: &serde_json::Value) -> Option<String> {
     ))
 }
 
-fn render_error_transition(payload: &serde_json::Value) -> Option<String> {
+fn transition(payload: &serde_json::Value) -> Option<String> {
     let transition = payload.get("transition")?;
     let kind = transition
         .get("kind")
@@ -146,7 +146,7 @@ fn render_error_transition(payload: &serde_json::Value) -> Option<String> {
     Some(format!("error {kind} {code} ({id})"))
 }
 
-fn thinking_line(value: &serde_json::Value, label: &str) -> Option<String> {
+fn thinking(value: &serde_json::Value, label: &str) -> Option<String> {
     let thinking = value.get("payload")?.get("thinking")?;
     let id = thinking
         .get("id")
@@ -159,7 +159,7 @@ fn thinking_line(value: &serde_json::Value, label: &str) -> Option<String> {
     Some(format!("{label} {id} ({turn})"))
 }
 
-fn message_seq(message: &serde_json::Value) -> String {
+fn sequence(message: &serde_json::Value) -> String {
     message
         .get("relation")
         .and_then(|relation| relation.get("seq"))
@@ -168,7 +168,7 @@ fn message_seq(message: &serde_json::Value) -> String {
         .unwrap_or_else(|| "#?".to_string())
 }
 
-fn message_actor_kind(message: &serde_json::Value) -> String {
+fn speaker(message: &serde_json::Value) -> String {
     let inner = message.get("message").unwrap_or(message);
     let actor = inner
         .get("role")

@@ -2,7 +2,7 @@ use super::*;
 
 fn invalid(query: &str) -> String {
     match native(query) {
-        Err(job::QueryError::Invalid(message)) => message,
+        Err(job::Fault::Invalid(message)) => message,
         other => panic!("expected invalid query for {query:?}, got {other:?}"),
     }
 }
@@ -39,17 +39,17 @@ fn only() {
     assert!(invalid("from Strand limit 5").contains("from Job"));
 }
 
-use crate::{CallDraft, CapabilityDraft, EffectDraft, JobDraft, Prepared, StrandDraft, TurnDraft};
+use crate::{Call, Capability, Effect, Job, Prepared, Strand, Turn};
 use santi_model::turn;
 
 const SUDO: &str = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
 const NOW: &str = "2026-11-09T00:00:00.000Z";
 
-fn count(strand: Option<&str>, all_strands: bool) -> job::QueryRequest {
-    job::QueryRequest {
+fn count(strand: Option<&str>, all: bool) -> job::Request {
+    job::Request {
         q: None,
         strand: strand.map(str::to_string),
-        all_strands,
+        all,
         state: Vec::new(),
         limit: None,
         count: true,
@@ -66,7 +66,7 @@ async fn fixture() -> (tempfile::TempDir, Store) {
     }
     for (soul, tag) in [("soul-a", "a1"), ("soul-a", "a2"), ("soul-b", "b1")] {
         let strand = store
-            .create_strand(StrandDraft {
+            .weave(Strand {
                 tag,
                 soul,
                 label: None,
@@ -78,7 +78,7 @@ async fn fixture() -> (tempfile::TempDir, Store) {
             .await
             .unwrap();
         let turn = store
-            .create_turn(TurnDraft {
+            .start(Turn {
                 tag: &format!("{tag}-turn"),
                 strand: &strand.id,
                 trigger: turn::Trigger::System,
@@ -88,7 +88,7 @@ async fn fixture() -> (tempfile::TempDir, Store) {
             .await
             .unwrap();
         let call = store
-            .create_call(CallDraft {
+            .calling(Call {
                 tag: &format!("{tag}-call"),
                 turn: &turn.id,
                 tool: "shell",
@@ -98,7 +98,7 @@ async fn fixture() -> (tempfile::TempDir, Store) {
             .await
             .unwrap();
         let effect = store
-            .prepare_effect(EffectDraft {
+            .stage(Effect {
                 tag: &format!("{tag}-effect"),
                 turn: &turn.id,
                 call: Some(&call.id),
@@ -110,7 +110,7 @@ async fn fixture() -> (tempfile::TempDir, Store) {
             .unwrap();
         let capability = format!("{tag}-cap");
         store
-            .create_capability(CapabilityDraft {
+            .grant(Capability {
                 digest: &capability,
                 expires: 1_000,
                 soul,
@@ -123,21 +123,21 @@ async fn fixture() -> (tempfile::TempDir, Store) {
             .await
             .unwrap();
         let prepared = store
-            .prepare_job(
+            .submit(
                 &capability,
-                JobDraft {
+                Job {
                     environment: None,
                     tag: &format!("{tag}-job"),
                     description: "test job",
                     command: "true",
                     cwd: None,
-                    timeout_seconds: 30,
-                    output_limit_bytes: 1024,
-                    remind_every_seconds: None,
-                    notify_on_terminal: false,
-                    request_sha256: &format!("{tag}-request"),
+                    timeout: 30,
+                    limit: 1024,
+                    remind: None,
+                    notify: false,
+                    digest: &format!("{tag}-request"),
                     generation: &format!("{tag}-generation"),
-                    supervisor_ref: &format!("santi-{tag}.service"),
+                    supervisor: &format!("santi-{tag}.service"),
                     created: NOW,
                 },
                 1_000,
@@ -152,34 +152,25 @@ async fn fixture() -> (tempfile::TempDir, Store) {
 #[tokio::test]
 async fn scope() {
     let (_temp, store) = fixture().await;
-    let all = store.job_query("soul-a", count(None, true)).await.unwrap();
-    assert!(matches!(
-        all,
-        job::Query::Count(job::QueryCount { count: 2 })
-    ));
+    let all = store.query("soul-a", count(None, true)).await.unwrap();
+    assert!(matches!(all, job::Query::Count(job::Count { count: 2 })));
 
     let one = store
-        .job_query("soul-a", count(Some("a1"), false))
+        .query("soul-a", count(Some("a1"), false))
         .await
         .unwrap();
-    assert!(matches!(
-        one,
-        job::Query::Count(job::QueryCount { count: 1 })
-    ));
+    assert!(matches!(one, job::Query::Count(job::Count { count: 1 })));
 
-    let other = store.job_query("soul-b", count(None, true)).await.unwrap();
-    assert!(matches!(
-        other,
-        job::Query::Count(job::QueryCount { count: 1 })
-    ));
+    let other = store.query("soul-b", count(None, true)).await.unwrap();
+    assert!(matches!(other, job::Query::Count(job::Count { count: 1 })));
 
     let filtered = store
-        .job_query(
+        .query(
             "soul-a",
-            job::QueryRequest {
+            job::Request {
                 q: None,
                 strand: None,
-                all_strands: true,
+                all: true,
                 state: vec!["submitting".to_string()],
                 limit: None,
                 count: true,
@@ -189,7 +180,7 @@ async fn scope() {
         .unwrap();
     assert!(matches!(
         filtered,
-        job::Query::Count(job::QueryCount { count: 2 })
+        job::Query::Count(job::Count { count: 2 })
     ));
 }
 
@@ -197,12 +188,12 @@ async fn scope() {
 async fn decoded() {
     let (_temp, store) = fixture().await;
     let rows = store
-        .job_query(
+        .query(
             "soul-a",
-            job::QueryRequest {
+            job::Request {
                 q: None,
                 strand: None,
-                all_strands: true,
+                all: true,
                 state: Vec::new(),
                 limit: Some(20),
                 count: false,
@@ -210,7 +201,7 @@ async fn decoded() {
         )
         .await
         .unwrap();
-    let job::Query::Rows(job::QueryRows { rows }) = rows else {
+    let job::Query::Rows(job::Rows { rows }) = rows else {
         panic!("expected rows");
     };
     assert_eq!(rows.len(), 2);
@@ -221,12 +212,12 @@ async fn decoded() {
 async fn empty() {
     let (_temp, store) = fixture().await;
     let rows = store
-        .job_query(
+        .query(
             "soul-empty",
-            job::QueryRequest {
+            job::Request {
                 q: None,
                 strand: None,
-                all_strands: true,
+                all: true,
                 state: Vec::new(),
                 limit: Some(20),
                 count: false,
@@ -234,24 +225,18 @@ async fn empty() {
         )
         .await
         .unwrap();
-    assert!(matches!(rows, job::Query::Rows(job::QueryRows { rows }) if rows.is_empty()));
+    assert!(matches!(rows, job::Query::Rows(job::Rows { rows }) if rows.is_empty()));
 
-    let count = store
-        .job_query("soul-empty", count(None, true))
-        .await
-        .unwrap();
-    assert!(matches!(
-        count,
-        job::Query::Count(job::QueryCount { count: 0 })
-    ));
+    let count = store.query("soul-empty", count(None, true)).await.unwrap();
+    assert!(matches!(count, job::Query::Count(job::Count { count: 0 })));
 }
 
 #[tokio::test]
 async fn belongs() {
     let (_temp, store) = fixture().await;
     let error = store
-        .job_query("soul-a", count(Some("b1"), false))
+        .query("soul-a", count(Some("b1"), false))
         .await
         .unwrap_err();
-    assert!(matches!(error, job::QueryError::Invalid(_)));
+    assert!(matches!(error, job::Fault::Invalid(_)));
 }

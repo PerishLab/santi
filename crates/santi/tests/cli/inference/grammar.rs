@@ -1,12 +1,12 @@
 use clap::Parser;
-use santi::cli::{Cli, Command, Delta, Edit, Field, Inference, Scope, StrandCommand};
+use santi::cli::{Cli, Command, Delta, Edit, Field, Inference, Scope, Strand};
 use santi::inference::{Declaration, Patch};
 use serde_json::json;
 
 fn held() -> Declaration {
     Declaration {
         scenario: Some("held/family/work".into()),
-        reasoning_effort: None,
+        effort: None,
     }
 }
 
@@ -47,7 +47,7 @@ fn sets() {
         edit.declaration(),
         Declaration {
             scenario: Some("edge/family/work".into()),
-            reasoning_effort: Some("high".into()),
+            effort: Some("high".into()),
         }
     );
 }
@@ -92,7 +92,7 @@ fn clears() {
 fn patch() {
     let edit = Edit {
         scenario: None,
-        reasoning_effort: None,
+        effort: None,
         clear: vec![Field::Scenario],
         ..Default::default()
     };
@@ -100,13 +100,13 @@ fn patch() {
         edit.patch(&held()).unwrap(),
         Patch {
             scenario: Some(None),
-            reasoning_effort: None,
+            effort: None,
         }
     );
 
     let edit = Edit {
         scenario: Some("cli/family/work".into()),
-        reasoning_effort: None,
+        effort: None,
         clear: vec![Field::Scenario],
         ..Default::default()
     };
@@ -202,7 +202,7 @@ fn bodies() {
 #[test]
 fn creates() {
     let parsed = Cli::try_parse_from(["santi", "strand", "create"]).unwrap();
-    let Command::Strand(StrandCommand::Create(delta)) = parsed.command else {
+    let Command::Strand(Strand::Create(delta)) = parsed.command else {
         panic!("expected strand create");
     };
     assert!(delta.body(&Declaration::default()).unwrap().is_none());
@@ -215,7 +215,7 @@ fn creates() {
         "edge/family/work",
     ])
     .unwrap();
-    let Command::Strand(StrandCommand::Create(delta)) = parsed.command else {
+    let Command::Strand(Strand::Create(delta)) = parsed.command else {
         panic!("expected strand create");
     };
     assert_eq!(
@@ -236,7 +236,7 @@ fn creates() {
     );
 
     let parsed = Cli::try_parse_from(["santi", "strand", "fork", "ss_parent"]).unwrap();
-    let Command::Strand(StrandCommand::Fork { id, delta, at }) = parsed.command else {
+    let Command::Strand(Strand::Fork { id, delta, at }) = parsed.command else {
         panic!("expected strand fork");
     };
     assert_eq!(id.as_deref(), Some("ss_parent"));
@@ -245,7 +245,7 @@ fn creates() {
 
     let parsed =
         Cli::try_parse_from(["santi", "strand", "fork", "--inherit", "ss_parent"]).unwrap();
-    let Command::Strand(StrandCommand::Fork { delta, .. }) = parsed.command else {
+    let Command::Strand(Strand::Fork { delta, .. }) = parsed.command else {
         panic!("expected strand fork");
     };
     assert_eq!(
@@ -269,7 +269,7 @@ fn send() {
 fn position() {
     let parsed = Cli::try_parse_from(["santi", "strand", "fork", "ss_parent", "--at", "0"])
         .expect("historical fork");
-    let Command::Strand(StrandCommand::Fork { at, .. }) = parsed.command else {
+    let Command::Strand(Strand::Fork { at, .. }) = parsed.command else {
         panic!("expected fork");
     };
     assert_eq!(at, Some(0));

@@ -1,5 +1,5 @@
 use super::{Store, read, terminal};
-use crate::store::{CompletionDraft, InboxDraft, Limits};
+use crate::store::{Arrival, Finish, Limits};
 use keel::{
     Tx,
     adapt::{Error, db::Sqlite},
@@ -22,8 +22,8 @@ pub struct Invocation {
 pub struct Maintenance<'a> {
     pub calls: &'a [Invocation],
     pub limits: Limits,
-    pub completion: CompletionDraft<'a>,
-    pub inbox: InboxDraft<'a>,
+    pub completion: Finish<'a>,
+    pub inbox: Arrival<'a>,
 }
 
 pub struct Settlement {
@@ -47,9 +47,9 @@ impl Store {
                     }
                     let arguments = serde_json::to_string(&invocation.call.arguments)
                         .map_err(|error| Error::Adapt(error.to_string()))?;
-                    crate::store::tool::put_call(
+                    crate::store::tool::call(
                         tx,
-                        crate::store::CallDraft {
+                        crate::store::Call {
                             tag: &invocation.call.id,
                             turn: &invocation.call.turn,
                             tool: &invocation.call.tool,
@@ -120,7 +120,7 @@ async fn applied(
     let tag = santi_model::tag("compact");
     let mut report = crate::store::timeline::compact::create(
         tx,
-        &crate::store::CompactDraft {
+        &crate::store::Compact {
             tag: &tag,
             strand,
             first: &choice.range.first,
@@ -153,9 +153,9 @@ async fn replied(
         .map(serde_json::to_string)
         .transpose()
         .map_err(|error| Error::Adapt(error.to_string()))?;
-    crate::store::tool::put_reply(
+    crate::store::tool::reply(
         tx,
-        crate::store::ReplyDraft {
+        crate::store::Reply {
             tag: &invocation.result,
             call: &invocation.call.id,
             output: output.as_ref(),

@@ -2,9 +2,7 @@ mod legacy;
 mod safety;
 mod selection;
 
-use santi_estate::{
-    CallDraft, CompactDraft, MessageDraft, ReplyDraft, Store, StrandDraft, TurnDraft,
-};
+use santi_estate::{Call, Compact, Message, Reply, Store, Strand, Turn};
 use santi_model::{message, turn};
 
 const FIRST: &str = "2026-07-28T00:00:00.000Z";
@@ -17,7 +15,7 @@ async fn compacts() {
     let store = super::support::bootstrap(&path).await;
     store.seed("soul_test", FIRST).await.expect("seed");
     store
-        .create_strand(StrandDraft {
+        .weave(Strand {
             tag: "strand_test",
             soul: "soul_test",
             label: None,
@@ -30,11 +28,11 @@ async fn compacts() {
         .expect("strand");
     let first = message::Content::text("first boundary");
     store
-        .place(MessageDraft {
+        .place(Message {
             tag: "message_first",
             strand: "strand_test",
             actor: message::Role::System,
-            actor_id: "santi",
+            sender: "santi",
             kind: message::Kind::Text,
             content: &first,
             state: message::State::Fixed,
@@ -44,7 +42,7 @@ async fn compacts() {
         .await
         .expect("first");
     store
-        .create_turn(TurnDraft {
+        .start(Turn {
             tag: "turn_test",
             strand: "strand_test",
             trigger: turn::Trigger::System,
@@ -54,7 +52,7 @@ async fn compacts() {
         .await
         .expect("turn");
     store
-        .create_call(CallDraft {
+        .calling(Call {
             tag: "call_test",
             turn: "turn_test",
             tool: "shell",
@@ -64,7 +62,7 @@ async fn compacts() {
         .await
         .expect("call");
     store
-        .create_reply(ReplyDraft {
+        .replying(Reply {
             tag: "result_test",
             call: "call_test",
             output: Some(&serde_json::json!({"stdout": "done"})),
@@ -75,11 +73,11 @@ async fn compacts() {
         .expect("result");
     let last = message::Content::text("last boundary");
     store
-        .place(MessageDraft {
+        .place(Message {
             tag: "message_last",
             strand: "strand_test",
             actor: message::Role::Soul,
-            actor_id: "soul_test",
+            sender: "soul_test",
             kind: message::Kind::Text,
             content: &last,
             state: message::State::Fixed,
@@ -90,7 +88,7 @@ async fn compacts() {
         .expect("last");
 
     let preview = store
-        .preview_compact(
+        .preview(
             "compact_preview",
             "strand_test",
             "message_first",
@@ -104,7 +102,7 @@ async fn compacts() {
     assert_eq!(preview.last, "message_last");
 
     store
-        .create_compact(CompactDraft {
+        .condense(Compact {
             tag: "compact_inner",
             strand: "strand_test",
             first: "message_first",
@@ -118,7 +116,7 @@ async fn compacts() {
         .expect("inner");
     let stale = serde_json::json!({"absorbed": preview.absorbed});
     let error = store
-        .create_compact(CompactDraft {
+        .condense(Compact {
             tag: "compact_stale",
             strand: "strand_test",
             first: "message_first",
@@ -141,7 +139,7 @@ async fn compacts() {
     assert_eq!(store.compacts("strand_test").await.expect("inner").len(), 1);
 
     let expected = store
-        .preview_compact(
+        .preview(
             "compact_outer",
             "strand_test",
             "message_first",
@@ -151,7 +149,7 @@ async fn compacts() {
         .expect("fresh preview");
     let metadata = serde_json::json!({"absorbed": expected.absorbed});
     let outer = store
-        .create_compact(CompactDraft {
+        .condense(Compact {
             tag: "compact_outer",
             strand: "strand_test",
             first: "message_first",
@@ -176,7 +174,7 @@ async fn compacts() {
     assert_eq!(held.metadata, Some(metadata));
     assert!(
         store
-            .create_compact(CompactDraft {
+            .condense(Compact {
                 tag: "compact_partial",
                 strand: "strand_test",
                 first: "message_last",
@@ -191,7 +189,7 @@ async fn compacts() {
     );
 
     let page = store
-        .compact_page("compact_outer", None, 0, 10)
+        .page("compact_outer", None, 0, 10)
         .await
         .expect("page")
         .expect("held");
@@ -202,7 +200,7 @@ async fn compacts() {
     assert_eq!(page.entries[3].text, "last boundary");
     assert_eq!(
         store
-            .compact_page("compact_outer", Some("done"), 0, 10)
+            .page("compact_outer", Some("done"), 0, 10)
             .await
             .expect("search")
             .expect("held")

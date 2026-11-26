@@ -101,7 +101,7 @@ async fn removal() {
     std::fs::create_dir_all(home.join("memory")).expect("strand home");
     std::fs::write(home.join("memory/MEMORY.md"), "notes").expect("memory");
 
-    service.end_strand(&strand.id).await.expect("end strand");
+    service.retire(&strand.id).await.expect("end strand");
 
     assert!(!home.exists());
     assert!(
@@ -181,18 +181,18 @@ async fn protected() {
     let child = service.fork(&strand.id).await.expect("fork").strand;
     assert!(
         service
-            .end_strand(&strand.id)
+            .retire(&strand.id)
             .await
             .expect_err("fork protects")
             .contains(&child.id)
     );
-    service.end_strand(&child.id).await.expect("end child");
+    service.retire(&child.id).await.expect("end child");
     let store = santi_core::Store::open(temp.path().join("santi.sqlite"))
         .await
         .expect("store");
     store
-        .accept_inbox(
-            santi_estate::InboxDraft {
+        .accept(
+            santi_estate::Arrival {
                 tag: "protected_input",
                 strand: &strand.id,
                 kind: santi_core::message::Kind::Text,
@@ -206,7 +206,7 @@ async fn protected() {
         .expect("accept");
     assert!(
         service
-            .end_strand(&strand.id)
+            .retire(&strand.id)
             .await
             .expect_err("pending protects")
             .contains("pending input")
@@ -241,7 +241,7 @@ async fn leftover() {
     std::fs::rename(&strands, &held).expect("hide directory");
     std::fs::write(&strands, "temporarily inaccessible directory").expect("block cleanup");
     service
-        .end_strand(&strand.id)
+        .retire(&strand.id)
         .await
         .expect("estate committed despite cleanup failure");
     let store = santi_core::Store::open(temp.path().join("santi.sqlite"))
@@ -273,7 +273,7 @@ async fn open(temp: &tempfile::TempDir) -> Service {
             constitution: None,
             environment: Default::default(),
         },
-        Arc::new(FakeProvider::default()),
+        Arc::new(Fake::default()),
     )
     .await
     .expect("open service")

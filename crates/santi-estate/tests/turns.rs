@@ -1,4 +1,4 @@
-use santi_estate::{OutboxDraft, Store, StrandDraft, TurnDraft};
+use santi_estate::{Outbox, Store, Strand, Turn};
 use santi_model::{event, turn};
 
 const SUDO: &str = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
@@ -13,7 +13,7 @@ async fn contracts() {
     let store = Store::bootstrap(&path, SUDO).await.expect("open");
     store.seed("soul_test", FIRST).await.expect("seed");
     let worker = store
-        .create_strand(StrandDraft {
+        .weave(Strand {
             tag: "strand_worker",
             soul: "soul_test",
             label: Some("worker/thread"),
@@ -25,7 +25,7 @@ async fn contracts() {
         .await
         .expect("worker");
     let other = store
-        .create_strand(StrandDraft {
+        .weave(Strand {
             tag: "strand_other",
             soul: "soul_test",
             label: Some("other/thread"),
@@ -37,19 +37,19 @@ async fn contracts() {
         .await
         .expect("other");
 
-    create_turn(&store, "turn_one", &worker.id).await;
+    start(&store, "turn_one", &worker.id).await;
     store
-        .complete_turn("turn_one", 0, FIRST)
+        .complete("turn_one", 0, FIRST)
         .await
         .expect("complete one");
-    create_turn(&store, "turn_two", &other.id).await;
+    start(&store, "turn_two", &other.id).await;
     store
-        .complete_turn("turn_two", 0, LATER)
+        .complete("turn_two", 0, LATER)
         .await
         .expect("complete two");
-    create_turn(&store, "turn_three", &worker.id).await;
+    start(&store, "turn_three", &worker.id).await;
     store
-        .complete_turn("turn_three", 0, LAST)
+        .complete("turn_three", 0, LAST)
         .await
         .expect("complete three");
 
@@ -76,7 +76,7 @@ async fn contracts() {
     });
     for event in [&one, &two, &three] {
         store
-            .queue_outbox(OutboxDraft {
+            .enqueue(Outbox {
                 stream: "turns",
                 event,
             })
@@ -84,7 +84,7 @@ async fn contracts() {
             .expect("queue");
     }
     store
-        .queue_outbox(OutboxDraft {
+        .enqueue(Outbox {
             stream: "turns",
             event: &one,
         })
@@ -99,7 +99,7 @@ async fn contracts() {
     });
     assert!(
         store
-            .queue_outbox(OutboxDraft {
+            .enqueue(Outbox {
                 stream: "turns",
                 event: &conflict,
             })
@@ -120,44 +120,41 @@ async fn contracts() {
     assert_eq!(empty.cursor, 3);
     assert!(empty.events.is_empty());
 
-    create_turn(&store, "turn_stop", &worker.id).await;
+    start(&store, "turn_stop", &worker.id).await;
     let stop = store
-        .request_stop("turn_stop", turn::Cause::Operator, FIRST)
+        .halt("turn_stop", turn::Cause::Operator, FIRST)
         .await
         .expect("request")
         .expect("turn");
     assert!(stop.accepted);
     assert_eq!(stop.cause, Some(turn::Cause::Operator));
     let repeated = store
-        .request_stop("turn_stop", turn::Cause::Shutdown, LATER)
+        .halt("turn_stop", turn::Cause::Shutdown, LATER)
         .await
         .expect("repeat")
         .expect("turn");
     assert_eq!(repeated.cause, Some(turn::Cause::Operator));
     assert_eq!(repeated.requested.as_deref(), Some(FIRST));
-    assert!(store.settle_stop("turn_stop", LATER).await.is_err());
-    assert!(store.complete_turn("turn_stop", 0, LATER).await.is_err());
+    assert!(store.halted("turn_stop", LATER).await.is_err());
+    assert!(store.complete("turn_stop", 0, LATER).await.is_err());
     store
-        .fail_turn("turn_stop", "interrupted by operator", LATER)
+        .fail("turn_stop", "interrupted by operator", LATER)
         .await
         .expect("fail");
-    let settled = store.settle_stop("turn_stop", LATER).await.expect("settle");
+    let settled = store.halted("turn_stop", LATER).await.expect("settle");
     assert_eq!(settled.settled.as_deref(), Some(LATER));
-    let settled = store
-        .settle_stop("turn_stop", LAST)
-        .await
-        .expect("settle twice");
+    let settled = store.halted("turn_stop", LAST).await.expect("settle twice");
     assert_eq!(settled.settled.as_deref(), Some(LATER));
 
     let terminal = store
-        .request_stop("turn_one", turn::Cause::Operator, LAST)
+        .halt("turn_one", turn::Cause::Operator, LAST)
         .await
         .expect("terminal")
         .expect("turn");
     assert!(!terminal.accepted);
     assert!(
         store
-            .request_stop("turn_missing", turn::Cause::Operator, LAST)
+            .halt("turn_missing", turn::Cause::Operator, LAST)
             .await
             .expect("missing")
             .is_none()
@@ -186,9 +183,9 @@ async fn contracts() {
     );
 }
 
-async fn create_turn(store: &Store, tag: &str, strand: &str) {
+async fn start(store: &Store, tag: &str, strand: &str) {
     store
-        .create_turn(TurnDraft {
+        .start(Turn {
             tag,
             strand,
             trigger: turn::Trigger::System,

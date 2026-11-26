@@ -1,4 +1,4 @@
-use super::{Value, json, scope::Relation, string_at};
+use super::{Value, field, json, scope::Relation};
 
 pub(super) struct Event<'a> {
     pub payload: &'a Value,
@@ -10,21 +10,21 @@ pub(super) struct Event<'a> {
 
 pub(super) fn rendered(request: Event<'_>) -> (String, Value) {
     let payload = request.payload;
-    let repo = string_at(payload, &["repository", "full_name"]).unwrap_or_default();
+    let repo = field(payload, &["repository", "full_name"]).unwrap_or_default();
     let number = payload
         .pointer("/issue/number")
         .and_then(Value::as_i64)
         .unwrap_or_default();
-    let title = string_at(payload, &["issue", "title"]).unwrap_or_default();
+    let title = field(payload, &["issue", "title"]).unwrap_or_default();
     let source = if request.event == "issue_comment" {
         "comment"
     } else {
         "issue"
     };
-    let body = string_at(payload, &[source, "body"]);
+    let body = field(payload, &[source, "body"]);
     let available = body.is_some();
     let body = body.unwrap_or_default();
-    let url = string_at(payload, &[source, "html_url"]).unwrap_or_default();
+    let url = field(payload, &[source, "html_url"]).unwrap_or_default();
     let visible = clipped(&body, 8192);
     let mut text = format!(
         "[GitHub · {}#{number}]\n{}\n\nTitle: {}\nReference: {}\n\n{} body:\n{visible}",
@@ -38,7 +38,7 @@ pub(super) fn rendered(request: Event<'_>) -> (String, Value) {
             "Issue"
         },
     );
-    if let Some(updated) = string_at(payload, &[source, "updated_at"]) {
+    if let Some(updated) = field(payload, &[source, "updated_at"]) {
         text.push_str(&format!("\n\nUpdated: {}", clipped(&updated, 64)));
     }
     if !available {
@@ -51,7 +51,7 @@ pub(super) fn rendered(request: Event<'_>) -> (String, Value) {
     }
     let metadata = json!({
         "source": source,
-        "updated": string_at(payload, &[source, "updated_at"]),
+        "updated": field(payload, &[source, "updated_at"]),
         "available": available,
         "bytes": body.len(),
         "visible_bytes": visible.len(),

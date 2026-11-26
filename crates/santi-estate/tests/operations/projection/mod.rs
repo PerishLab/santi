@@ -7,8 +7,7 @@ mod lifetime;
 mod support;
 
 use santi_estate::{
-    CallDraft, DrainDraft, EffectDraft, InboxDraft, MessageDraft, Opening, ReplyDraft, Store,
-    StrandDraft, ThinkingDraft,
+    Arrival, Call, Drain, Effect, Message, Opening, Reply, Store, Strand, Thinking,
 };
 use santi_model::{message, strand, thinking, turn};
 
@@ -22,7 +21,7 @@ async fn timeline() {
     let store = super::support::bootstrap(&path).await;
     store.seed("soul_test", FIRST).await.expect("seed");
     let strand = store
-        .create_strand(StrandDraft {
+        .weave(Strand {
             tag: "strand_test",
             soul: "soul_test",
             label: None,
@@ -34,8 +33,8 @@ async fn timeline() {
         .await
         .expect("strand");
     store
-        .accept_inbox(
-            InboxDraft {
+        .accept(
+            Arrival {
                 tag: "inbox_test",
                 strand: &strand.id,
                 kind: message::Kind::Text,
@@ -48,7 +47,7 @@ async fn timeline() {
         .await
         .expect("inbox");
     let Opening::Started(opened) = store
-        .drain_turn(DrainDraft {
+        .drain(Drain {
             turn: "turn_test",
             strand: &strand.id,
             trigger: turn::Trigger::System,
@@ -61,7 +60,7 @@ async fn timeline() {
         panic!("expected started turn");
     };
     let span = store
-        .create_thinking(ThinkingDraft {
+        .ponder(Thinking {
             tag: "thinking_test",
             turn: &opened.turn.id,
             response: Some("response_test"),
@@ -70,11 +69,11 @@ async fn timeline() {
         .await
         .expect("thinking");
     store
-        .complete_thinking(&span.id, thinking::Reason::Called, LATER)
+        .conclude(&span.id, thinking::Reason::Called, LATER)
         .await
         .expect("finish thinking");
     let call = store
-        .create_call(CallDraft {
+        .calling(Call {
             tag: "call_test",
             turn: &opened.turn.id,
             tool: "shell",
@@ -84,7 +83,7 @@ async fn timeline() {
         .await
         .expect("call");
     store
-        .prepare_effect(EffectDraft {
+        .stage(Effect {
             tag: "effect_test",
             turn: &opened.turn.id,
             call: Some(&call.id),
@@ -95,7 +94,7 @@ async fn timeline() {
         .await
         .expect("effect");
     store
-        .create_reply(ReplyDraft {
+        .replying(Reply {
             tag: "result_test",
             call: &call.id,
             output: Some(&serde_json::json!({"stdout": "done"})),
@@ -129,8 +128,8 @@ async fn timeline() {
     assert_eq!(entries.len(), 4);
     assert_eq!(entries[0].kind, strand::Target::Message);
     assert_eq!(entries[1].kind, strand::Target::Thinking);
-    assert_eq!(entries[2].kind, strand::Target::ToolCall);
-    assert_eq!(entries[3].kind, strand::Target::ToolResult);
+    assert_eq!(entries[2].kind, strand::Target::Call);
+    assert_eq!(entries[3].kind, strand::Target::Result);
     assert_eq!(entries[3].seq, 4);
 
     let snapshot = store
@@ -167,11 +166,11 @@ async fn timeline() {
             _ => "repeated activity: bounded preflight",
         };
         store
-            .place(MessageDraft {
+            .place(Message {
                 tag: &format!("message_tail_{index}"),
                 strand: &strand.id,
                 actor: message::Role::System,
-                actor_id: "clock",
+                sender: "clock",
                 kind: message::Kind::Text,
                 content: &message::Content::text(text),
                 state: message::State::Fixed,
@@ -183,12 +182,12 @@ async fn timeline() {
     }
 
     let tail = store
-        .execution_tail(&strand.id)
+        .tail(&strand.id)
         .await
         .expect("execution tail")
         .expect("held");
     assert_eq!(tail.records.len(), 16);
-    assert!(tail.older_omitted);
+    assert!(tail.omitted);
     assert!(
         tail.records
             .windows(2)
@@ -213,12 +212,6 @@ async fn timeline() {
             .count(),
         14
     );
-    assert!(tail.records.iter().all(|record| !record.detail_truncated));
-    assert!(
-        store
-            .execution_tail("missing")
-            .await
-            .expect("missing tail")
-            .is_none()
-    );
+    assert!(tail.records.iter().all(|record| !record.truncated));
+    assert!(store.tail("missing").await.expect("missing tail").is_none());
 }

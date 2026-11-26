@@ -65,9 +65,9 @@ async fn continues() {
     .unwrap();
     let service = open(&temp, provider.clone()).await;
     let strand = service.weave().await.unwrap().strand;
-    let original = send_text(&service, &strand.id, "perform one external action").await;
+    let original = send(&service, &strand.id, "perform one external action").await;
     let prior = turn(&service, &original).await.id;
-    let failed = wait_for_turn(&service, &strand.id, &prior, turn::Status::Failed).await;
+    let failed = awaiting(&service, &strand.id, &prior, turn::Status::Failed).await;
     assert_eq!(failed.calls.len(), 1);
     assert_eq!(failed.effects.len(), 1);
     assert_eq!(
@@ -89,9 +89,9 @@ async fn continues() {
     let service = open(&temp, provider.clone()).await;
     service.resume().await.unwrap();
     assert_eq!(provider.requests.lock().unwrap().len(), 2);
-    let fresh = send_text(&service, &strand.id, "continue from the retained result").await;
+    let fresh = send(&service, &strand.id, "continue from the retained result").await;
     let resumed = turn(&service, &fresh).await.id;
-    let completed = wait_for_turn(&service, &strand.id, &resumed, turn::Status::Completed).await;
+    let completed = awaiting(&service, &strand.id, &resumed, turn::Status::Completed).await;
     assert_eq!(std::fs::read_to_string(marker).unwrap(), "applied");
     assert_eq!(completed.calls.len(), 1);
     assert_eq!(completed.effects.len(), 1);
@@ -117,7 +117,7 @@ async fn continues() {
             .any(|item| { matches!(item, Item::Call { .. }) })
     );
     assert!(requests[2].input.iter().any(|item| {
-        as_text(item).is_some_and(|(_, text)| text.contains("continue from the retained result"))
+        textual(item).is_some_and(|(_, text)| text.contains("continue from the retained result"))
     }));
     assert!(requests[2].input.iter().any(|item| {
         matches!(item, Item::Output { output, .. } if output.contains("retained"))

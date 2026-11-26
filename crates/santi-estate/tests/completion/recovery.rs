@@ -1,12 +1,12 @@
 use super::{FIRST, LATER, bootstrap};
-use santi_estate::{DrainDraft, EffectDraft, InboxDraft, Opening, Store, StrandDraft};
+use santi_estate::{Arrival, Drain, Effect, Opening, Store, Strand};
 use santi_model::{effect, message, receipt, turn};
 
-fn draft(tag: &str) -> DrainDraft<'_> {
-    DrainDraft {
+fn draft(tag: &str) -> Drain<'_> {
+    Drain {
         turn: tag,
         strand: "strand_retry",
-        trigger: turn::Trigger::StrandSend,
+        trigger: turn::Trigger::Send,
         actor: "santi",
         created: LATER,
     }
@@ -16,7 +16,7 @@ async fn failed(path: &std::path::Path) -> Store {
     let store = bootstrap(path).await;
     store.seed("soul_test", FIRST).await.expect("seed");
     store
-        .create_strand(StrandDraft {
+        .weave(Strand {
             tag: "strand_retry",
             soul: "soul_test",
             label: None,
@@ -28,8 +28,8 @@ async fn failed(path: &std::path::Path) -> Store {
         .await
         .expect("strand");
     store
-        .accept_inbox(
-            InboxDraft {
+        .accept(
+            Arrival {
                 tag: "inbox_retry",
                 strand: "strand_retry",
                 kind: message::Kind::Text,
@@ -42,11 +42,11 @@ async fn failed(path: &std::path::Path) -> Store {
         .await
         .expect("accept");
     assert!(matches!(
-        store.drain_turn(draft("turn_failed")).await.expect("open"),
+        store.drain(draft("turn_failed")).await.expect("open"),
         Opening::Started(_)
     ));
     store
-        .fail_turn("turn_failed", "provider failed", LATER)
+        .fail("turn_failed", "provider failed", LATER)
         .await
         .expect("fail");
     store
@@ -59,7 +59,7 @@ async fn retains() {
     let store = failed(&path).await;
     assert!(matches!(
         store
-            .drain_turn(draft("turn_automatic"))
+            .drain(draft("turn_automatic"))
             .await
             .expect("automatic"),
         Opening::Idle
@@ -106,7 +106,7 @@ async fn retains() {
         Some(started.turn.id.as_str())
     );
     store
-        .complete_turn(&started.turn.id, 1, LATER)
+        .complete(&started.turn.id, 1, LATER)
         .await
         .expect("complete");
     let status = store
@@ -132,7 +132,7 @@ async fn refuses() {
         let temp = tempfile::tempdir().expect("temp");
         let store = failed(&temp.path().join("db")).await;
         store
-            .prepare_effect(EffectDraft {
+            .stage(Effect {
                 tag: "effect_retry",
                 turn: "turn_failed",
                 call: None,
@@ -143,24 +143,24 @@ async fn refuses() {
             .await
             .expect("effect");
         store
-            .dispatch_effect("effect_retry", LATER)
+            .dispatching("effect_retry", LATER)
             .await
             .expect("dispatch");
         match state {
             effect::State::Unknown => {
                 store
-                    .unknown_effect("effect_retry", "unknown", LATER)
+                    .suspect("effect_retry", "unknown", LATER)
                     .await
                     .expect("unknown");
             }
             effect::State::Dispatching => {}
             effect::State::Settled(effect::Outcome::Applied) => {
                 store
-                    .unknown_effect("effect_retry", "unknown", LATER)
+                    .suspect("effect_retry", "unknown", LATER)
                     .await
                     .expect("unknown");
                 store
-                    .settle_effect(
+                    .settle(
                         "effect_retry",
                         effect::Outcome::Applied,
                         "operator confirmed execution",
@@ -203,7 +203,7 @@ async fn unapplied() {
     let temp = tempfile::tempdir().expect("temp");
     let store = failed(&temp.path().join("db")).await;
     store
-        .prepare_effect(EffectDraft {
+        .stage(Effect {
             tag: "effect_retry",
             turn: "turn_failed",
             call: None,
@@ -214,7 +214,7 @@ async fn unapplied() {
         .await
         .expect("effect");
     store
-        .reconcile_effects("turn_failed", LATER)
+        .reconcile("turn_failed", LATER)
         .await
         .expect("not dispatched");
     assert!(matches!(

@@ -3,7 +3,7 @@ use std::sync::Arc;
 use radicula_trace::{Engine, Record};
 use tokio::sync::mpsc;
 
-use santi_estate::{Store, TraceDraft};
+use santi_estate::{Store, Trace};
 
 pub(super) struct Writer {
     sender: mpsc::UnboundedSender<Record>,
@@ -29,7 +29,7 @@ impl Writer {
                     })
                     .collect::<Vec<_>>();
                 if let Err(error) = store
-                    .record_trace(TraceDraft {
+                    .trace(Trace {
                         tag: &crate::tag("trace"),
                         boot: &boot,
                         span: record.id as i64,

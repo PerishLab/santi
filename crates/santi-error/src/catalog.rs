@@ -5,23 +5,23 @@ pub const UNSAVED: Descriptor = Descriptor {
     category: Category::Internal,
     severity: Severity::Error,
     retry: Retry::Later,
-    exposure: Exposure::OPERATOR_ONLY,
+    exposure: Exposure::OPERATOR,
 };
 
-pub const INVALID_ARGUMENT: Descriptor = Descriptor {
+pub const INVALID: Descriptor = Descriptor {
     code: "request.invalid_argument",
     category: Category::Invalid,
     severity: Severity::Error,
     retry: Retry::Changed,
-    exposure: Exposure::CALLER_AND_OPERATOR,
+    exposure: Exposure::CALLER,
 };
 
-pub const NOT_FOUND: Descriptor = Descriptor {
+pub const MISSING: Descriptor = Descriptor {
     code: "resource.not_found",
     category: Category::Missing,
     severity: Severity::Error,
     retry: Retry::Changed,
-    exposure: Exposure::CALLER_AND_OPERATOR,
+    exposure: Exposure::CALLER,
 };
 
 pub const UNAUTHORIZED: Descriptor = Descriptor {
@@ -29,7 +29,7 @@ pub const UNAUTHORIZED: Descriptor = Descriptor {
     category: Category::Unauthorized,
     severity: Severity::Error,
     retry: Retry::Changed,
-    exposure: Exposure::CALLER_AND_OPERATOR,
+    exposure: Exposure::CALLER,
 };
 
 pub const UNAVAILABLE: Descriptor = Descriptor {
@@ -37,7 +37,7 @@ pub const UNAVAILABLE: Descriptor = Descriptor {
     category: Category::Unavailable,
     severity: Severity::Error,
     retry: Retry::Later,
-    exposure: Exposure::CALLER_AND_OPERATOR,
+    exposure: Exposure::CALLER,
 };
 
 pub const INTERNAL: Descriptor = Descriptor {
@@ -45,5 +45,5 @@ pub const INTERNAL: Descriptor = Descriptor {
     category: Category::Internal,
     severity: Severity::Error,
     retry: Retry::Later,
-    exposure: Exposure::OPERATOR_ONLY,
+    exposure: Exposure::OPERATOR,
 };

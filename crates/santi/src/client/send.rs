@@ -2,7 +2,7 @@ use anyhow::Result;
 use std::io::Write;
 
 use super::TIMEOUT;
-use crate::cli::WatchFormat;
+use crate::cli::Format;
 use crate::watch::{Bytes, Emit, Presentation};
 
 pub struct Request<'a> {
@@ -15,7 +15,7 @@ mod fault;
 pub(crate) mod guidance;
 mod outcome;
 mod proof;
-pub(crate) use fault::{accepted_warning, accepted_warning_error, uncertain, unknown};
+pub(crate) use fault::{uncertain, unknown, warned, warning};
 pub(crate) use outcome::{Failed, Unsettled, pending};
 pub(crate) use proof::prove;
 
@@ -41,7 +41,7 @@ impl<'a> Target<'a> {
         client: &'a reqwest::Client,
         base: &'a str,
         strand: &'a str,
-        format: WatchFormat,
+        format: Format,
     ) -> Self {
         Self {
             client,
@@ -147,16 +147,16 @@ pub(crate) async fn emission(
             };
             return Err(unknown(request.target, detail));
         }
-        print_response(output, accepted.as_ref(), &text)?;
+        print(output, accepted.as_ref(), &text)?;
         anyhow::bail!("request failed with status {status}");
     }
-    if let Some(warning) = accepted_warning(accepted.as_ref()) {
+    if let Some(warning) = warning(accepted.as_ref()) {
         let proof = acceptance(accepted.as_ref(), request.target)?;
-        print_response(output, accepted.as_ref(), &text)?;
-        return Err(accepted_warning_error(request.target, warning, &proof.0));
+        print(output, accepted.as_ref(), &text)?;
+        return Err(warned(request.target, warning, &proof.0));
     }
     if !request.watch {
-        print_response(output, accepted.as_ref(), &text)?;
+        print(output, accepted.as_ref(), &text)?;
         return Ok(None);
     }
     let accepted = acceptance(accepted.as_ref(), request.target)?;
@@ -165,7 +165,7 @@ pub(crate) async fn emission(
     crate::watch::follow(watch, receipt.clone(), output).await?;
     if matches!(
         request.target.presentation,
-        Presentation::Watch(WatchFormat::Filtered)
+        Presentation::Watch(Format::Filtered)
     ) {
         writeln!(
             output,
@@ -230,11 +230,7 @@ fn exact(value: &serde_json::Value, path: &str) -> Option<String> {
         .map(str::to_string)
 }
 
-fn print_response(
-    output: &mut impl Emit,
-    accepted: Option<&serde_json::Value>,
-    text: &str,
-) -> Result<()> {
+fn print(output: &mut impl Emit, accepted: Option<&serde_json::Value>, text: &str) -> Result<()> {
     match accepted {
         Some(value) => writeln!(output, "{}", serde_json::to_string_pretty(value)?)?,
         None => writeln!(output, "{text}")?,

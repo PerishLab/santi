@@ -29,8 +29,10 @@ pub enum Target {
     Message,
     Compact,
     Thinking,
-    ToolCall,
-    ToolResult,
+    #[serde(rename = "tool_call")]
+    Call,
+    #[serde(rename = "tool_result")]
+    Result,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
@@ -107,6 +109,6 @@ pub struct Posted {
 
 #[derive(Debug, Clone)]
 pub enum Selector {
-    ById(String),
-    ByLabel { soul: String, label: String },
+    Id(String),
+    Label { soul: String, label: String },
 }

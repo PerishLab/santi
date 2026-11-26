@@ -5,7 +5,7 @@ impl crate::effect::State {
             Self::Dispatching => "dispatching",
             Self::Unknown => "unknown",
             Self::Settled(crate::effect::Outcome::Applied) => "settled_applied",
-            Self::Settled(crate::effect::Outcome::NotApplied) => "settled_not_applied",
+            Self::Settled(crate::effect::Outcome::Unapplied) => "settled_not_applied",
         }
     }
 
@@ -14,7 +14,7 @@ impl crate::effect::State {
             "prepared" => Self::Prepared,
             "dispatching" => Self::Dispatching,
             "settled_applied" => Self::Settled(crate::effect::Outcome::Applied),
-            "settled_not_applied" => Self::Settled(crate::effect::Outcome::NotApplied),
+            "settled_not_applied" => Self::Settled(crate::effect::Outcome::Unapplied),
             _ => Self::Unknown,
         }
     }
@@ -29,7 +29,7 @@ impl crate::job::State {
             Self::Cancelling => "cancelling",
             Self::Succeeded => "succeeded",
             Self::Failed => "failed",
-            Self::TimedOut => "timed_out",
+            Self::Timeout => "timed_out",
             Self::Cancelled => "cancelled",
             Self::Unknown => "unknown",
         }
@@ -43,7 +43,7 @@ impl crate::job::State {
             "cancelling" => Ok(Self::Cancelling),
             "succeeded" => Ok(Self::Succeeded),
             "failed" => Ok(Self::Failed),
-            "timed_out" => Ok(Self::TimedOut),
+            "timed_out" => Ok(Self::Timeout),
             "cancelled" => Ok(Self::Cancelled),
             "unknown" => Ok(Self::Unknown),
             other => Err(format!("unknown job state {other}")),
@@ -90,14 +90,14 @@ impl crate::message::Kind {
     pub fn encode(&self) -> &'static str {
         match self {
             Self::Text => "text",
-            Self::SantiSystem => "santi_system",
+            Self::System => "santi_system",
         }
     }
 
     pub fn decode(value: &str) -> Self {
         match value {
             "text" => Self::Text,
-            "santi_system" => Self::SantiSystem,
+            "santi_system" => Self::System,
             _ => Self::Text,
         }
     }
@@ -106,7 +106,7 @@ impl crate::message::Kind {
 impl crate::turn::Trigger {
     pub fn decode(value: &str) -> Self {
         match value {
-            "strand_send" => Self::StrandSend,
+            "strand_send" => Self::Send,
             "system" => Self::System,
             _ => Self::System,
         }
@@ -168,8 +168,8 @@ impl crate::strand::Target {
             Self::Message => "message",
             Self::Compact => "compact",
             Self::Thinking => "thinking",
-            Self::ToolCall => "tool_call",
-            Self::ToolResult => "tool_result",
+            Self::Call => "tool_call",
+            Self::Result => "tool_result",
         }
     }
 }

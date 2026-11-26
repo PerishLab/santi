@@ -148,9 +148,9 @@ async fn barrier() {
         output: 1024,
         shell: 256,
         lines: 256,
-        feedback_after_calls: Some(2),
-        feedback_command: None,
-        feedback_cwd: None,
+        after: Some(2),
+        command: None,
+        cwd: None,
     })
     .expect("bound service");
     let strand = service.weave().await.expect("create strand").strand;
@@ -166,7 +166,7 @@ async fn barrier() {
         .await
         .expect("send strand");
     let runtime = Probe::new(&service)
-        .completed_turn(&strand.id, &accepted_turn(&service, &posted).await.id)
+        .completed(&strand.id, &accepted(&service, &posted).await.id)
         .await;
 
     assert_eq!(
@@ -224,5 +224,5 @@ async fn barrier() {
         .await
         .expect("read budget")
         .expect("budget snapshot");
-    assert_eq!(snapshot.execution.unwrap().feedback_after_calls, Some(2));
+    assert_eq!(snapshot.execution.unwrap().after, Some(2));
 }

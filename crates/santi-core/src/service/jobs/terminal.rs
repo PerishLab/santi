@@ -3,26 +3,23 @@ use sha2::{Digest, Sha256};
 
 use super::Service;
 use crate::{ingest, message, now};
-use santi_estate::JobRecord;
+use santi_estate::Record;
 
-pub(super) async fn finish(service: &Service, record: JobRecord) -> Result<(), String> {
-    if !record.notify_on_terminal || record.terminal_notified.is_some() {
+pub(super) async fn finish(service: &Service, record: Record) -> Result<(), String> {
+    if !record.notify || record.notified.is_some() {
         return Ok(());
     }
-    let Some(mut record) = service.store.job_record(&record.job.id).await? else {
+    let Some(mut record) = service.store.tracked(&record.job.id).await? else {
         return Ok(());
     };
-    if !record.job.state.terminal()
-        || !record.notify_on_terminal
-        || record.terminal_notified.is_some()
-    {
+    if !record.job.state.terminal() || !record.notify || record.notified.is_some() {
         return Ok(());
     }
     let (stdout, stderr) = output(service, &record)?;
     for _ in 0..2 {
         let observed = now();
         let revision = record
-            .attention_revision
+            .attention
             .checked_add(1)
             .ok_or_else(|| "job attention revision is out of range".to_string())?;
         let key = format!("job/{}/{}", record.job.id, record.generation);
@@ -30,8 +27,8 @@ pub(super) async fn finish(service: &Service, record: JobRecord) -> Result<(), S
         let encoded = serde_json::to_vec(&content).map_err(|error| error.to_string())?;
         let digest = format!("{:x}", Sha256::digest(encoded));
         let source = ingest::Source::new("job")
-            .with_ref(record.job.id.clone())
-            .with_metadata(json!({
+            .reference(record.job.id.clone())
+            .metadata(json!({
                 "schema": "santi.job.attention.v1",
                 "stamp": record.generation,
                 "revision": revision,
@@ -41,18 +38,18 @@ pub(super) async fn finish(service: &Service, record: JobRecord) -> Result<(), S
         let inbox = crate::tag("inbox");
         service
             .notify(
-                santi_estate::AttentionDraft {
+                santi_estate::Attention {
                     job: &record.job.id,
-                    base: record.attention_revision,
+                    base: record.attention,
                     at: &observed,
                     runtime: false,
                     output: false,
                     reminded: false,
-                    tick: record.reminder_tick,
+                    tick: record.tick,
                     next: None,
                     terminal: true,
                 },
-                santi_estate::NoticeDraft {
+                santi_estate::Notice {
                     tag: &inbox,
                     strand: &record.job.origin.strand,
                     key: &key,
@@ -66,10 +63,10 @@ pub(super) async fn finish(service: &Service, record: JobRecord) -> Result<(), S
                 },
             )
             .await?;
-        let Some(after) = service.store.job_record(&record.job.id).await? else {
+        let Some(after) = service.store.tracked(&record.job.id).await? else {
             return Ok(());
         };
-        if after.terminal_notified.is_some() {
+        if after.notified.is_some() {
             return Ok(());
         }
         record = after;
@@ -80,7 +77,7 @@ pub(super) async fn finish(service: &Service, record: JobRecord) -> Result<(), S
     Err("terminal job notification could not be recorded".to_string())
 }
 
-pub(super) async fn report(service: &Service, record: &JobRecord) {
+pub(super) async fn report(service: &Service, record: &Record) {
     if let Err(error) = finish(service, record.clone()).await {
         eprintln!(
             "santi: terminal job notification failed job={} detail={error}",
@@ -89,7 +86,7 @@ pub(super) async fn report(service: &Service, record: &JobRecord) {
     }
 }
 
-fn fact(record: &JobRecord, observed: &str, stdout: u64, stderr: u64) -> message::Content {
+fn fact(record: &Record, observed: &str, stdout: u64, stderr: u64) -> message::Content {
     let job = &record.job;
     message::Content::text(
         [
@@ -101,7 +98,7 @@ fn fact(record: &JobRecord, observed: &str, stdout: u64, stderr: u64) -> message
             format!("reason: {}", job.reason.as_deref().unwrap_or("none")),
             format!(
                 "exit_code: {}",
-                job.exit_code
+                job.exit
                     .map_or_else(|| "none".to_string(), |exit| exit.to_string())
             ),
             format!("finished_at: {}", job.finished.as_deref().unwrap_or("none")),
@@ -117,7 +114,7 @@ fn fact(record: &JobRecord, observed: &str, stdout: u64, stderr: u64) -> message
     )
 }
 
-pub(super) fn output(service: &Service, record: &JobRecord) -> Result<(u64, u64), String> {
+pub(super) fn output(service: &Service, record: &Record) -> Result<(u64, u64), String> {
     let directory = service.jobhome(record);
     Ok((
         size(&directory.join("stdout.log"))?,

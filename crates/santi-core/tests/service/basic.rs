@@ -16,7 +16,7 @@ async fn seats() {
             constitution: None,
             environment: Default::default(),
         },
-        Arc::new(FakeProvider::default()),
+        Arc::new(Fake::default()),
     )
     .await
     .expect("open service");
@@ -64,7 +64,7 @@ async fn publication() {
             constitution: None,
             environment: Default::default(),
         },
-        Arc::new(FakeProvider::default()),
+        Arc::new(Fake::default()),
     )
     .await
     .expect("open service");
@@ -109,7 +109,7 @@ async fn visibility() {
             constitution: None,
             environment: Default::default(),
         },
-        Arc::new(FakeProvider::default()),
+        Arc::new(Fake::default()),
     )
     .await
     .expect("open service");
@@ -131,7 +131,7 @@ async fn visibility() {
 async fn sends() {
     let temp = tempfile::tempdir().expect("temp dir");
     bootstrap(&temp).await;
-    let provider = Arc::new(FakeProvider::default());
+    let provider = Arc::new(Fake::default());
     let service = Service::open(
         crate::SCENARIO,
         service::Config {
@@ -171,7 +171,7 @@ async fn sends() {
     assert!(response.message.is_none());
     assert!(response.turn.is_none());
     let runtime = Probe::new(&service)
-        .completed_turn(&strand.id, &accepted_turn(&service, &response).await.id)
+        .completed(&strand.id, &accepted(&service, &response).await.id)
         .await;
     let reply = runtime
         .messages
@@ -230,14 +230,14 @@ async fn sends() {
     assert!(!instructions.contains("<santi-runtime>"));
     assert!(!instructions.contains("<santi-tools>"));
     let tools = requests[0].tools.as_ref().expect("tools");
-    let tool_names = tools
+    let names = tools
         .iter()
         .map(|tool| match tool {
             santi_provider::Tool::Function(tool) => tool.name.as_str(),
         })
         .collect::<Vec<_>>();
-    assert_eq!(tool_names, vec!["shell", "query"]);
-    let tool_descriptions = tools
+    assert_eq!(names, vec!["shell", "query"]);
+    let descriptions = tools
         .iter()
         .map(|tool| match tool {
             santi_provider::Tool::Function(tool) => {
@@ -246,13 +246,13 @@ async fn sends() {
         })
         .collect::<Vec<_>>()
         .join("\n");
-    assert!(tool_descriptions.contains("fresh shell process"));
-    assert!(tool_descriptions.contains("santi job create <DESCRIPTION> <COMMAND>"));
-    assert!(tool_descriptions.contains("one-use capability"));
-    assert!(tool_descriptions.contains(SOULSPACE));
-    assert!(tool_descriptions.contains(STRANDSPACE));
-    assert!(!tool_descriptions.contains("@soul"));
-    assert!(!tool_descriptions.contains("@strand"));
+    assert!(descriptions.contains("fresh shell process"));
+    assert!(descriptions.contains("santi job create <DESCRIPTION> <COMMAND>"));
+    assert!(descriptions.contains("one-use capability"));
+    assert!(descriptions.contains(SOULSPACE));
+    assert!(descriptions.contains(STRANDSPACE));
+    assert!(!descriptions.contains("@soul"));
+    assert!(!descriptions.contains("@strand"));
 
     let detail = service
         .strand(&strand.id)
@@ -268,7 +268,7 @@ async fn sends() {
     let mut traces = Vec::new();
     for _ in 0..50 {
         traces = store
-            .traces("turn", &accepted_turn(&service, &response).await.id)
+            .traces("turn", &accepted(&service, &response).await.id)
             .await
             .expect("turn traces");
         if !traces.is_empty() {

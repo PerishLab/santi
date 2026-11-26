@@ -6,17 +6,17 @@ mod continuation;
 #[tokio::test]
 async fn recovers() {
     let temp = tempfile::tempdir().expect("temp");
-    let provider = Arc::new(FailureProvider {
-        fail_with: Some("temporary provider outage".to_string()),
-        fail_for_requests: Some(1),
-        ..FailureProvider::default()
+    let provider = Arc::new(Faulty {
+        failing: Some("temporary provider outage".to_string()),
+        limit: Some(1),
+        ..Faulty::default()
     });
-    let service = open_service(&temp, provider.clone()).await;
+    let service = open(&temp, provider.clone()).await;
     let strand = service.weave().await.expect("strand").strand;
-    let accepted = send_text(&service, &strand.id, "recover original accepted text").await;
+    let accepted = send(&service, &strand.id, "recover original accepted text").await;
     assert!(accepted.turn.is_none());
     let original = turn(&service, &accepted).await.id;
-    wait_for_turn(&service, &strand.id, &original, turn::Status::Failed).await;
+    awaiting(&service, &strand.id, &original, turn::Status::Failed).await;
     let prior = service
         .receipt(&accepted.receipt.inbox)
         .await
@@ -28,7 +28,7 @@ async fn recovers() {
     assert_eq!(driven.state, santi_core::drive::State::Started);
     let retried = driven.turn.expect("new turn");
     assert_ne!(retried.id, original);
-    let runtime = wait_for_turn(&service, &strand.id, &retried.id, turn::Status::Completed).await;
+    let runtime = awaiting(&service, &strand.id, &retried.id, turn::Status::Completed).await;
     let status = service
         .receipt(&accepted.receipt.inbox)
         .await
@@ -59,31 +59,31 @@ async fn recovers() {
 #[tokio::test]
 async fn refuses() {
     let temp = tempfile::tempdir().expect("temp");
-    let provider = Arc::new(FailureProvider {
-        fail_with: Some("interrupted".to_string()),
-        fail_for_requests: Some(1),
-        ..FailureProvider::default()
+    let provider = Arc::new(Faulty {
+        failing: Some("interrupted".to_string()),
+        limit: Some(1),
+        ..Faulty::default()
     });
-    let service = open_service(&temp, provider.clone()).await;
+    let service = open(&temp, provider.clone()).await;
     let strand = service.weave().await.expect("strand").strand;
-    let accepted = send_text(&service, &strand.id, "external effect").await;
+    let accepted = send(&service, &strand.id, "external effect").await;
     assert!(accepted.turn.is_none());
     let original = turn(&service, &accepted).await.id;
-    wait_for_turn(&service, &strand.id, &original, turn::Status::Failed).await;
+    awaiting(&service, &strand.id, &original, turn::Status::Failed).await;
     drop(service);
     let store = santi_core::Store::open(temp.path().join("santi.sqlite"))
         .await
         .expect("store");
     store
-        .prepare_invocation(
-            santi_estate::CallDraft {
+        .invoke(
+            santi_estate::Call {
                 tag: "call_refusal",
                 turn: &original,
                 tool: "shell",
                 arguments: &serde_json::json!({"command": "external effect"}),
                 created: &santi_core::now(),
             },
-            Some(santi_estate::EffectDraft {
+            Some(santi_estate::Effect {
                 tag: "effect_refusal",
                 turn: &original,
                 call: Some("call_refusal"),
@@ -95,11 +95,11 @@ async fn refuses() {
         .await
         .expect("effect invocation");
     store
-        .dispatch_effect("effect_refusal", &santi_core::now())
+        .dispatching("effect_refusal", &santi_core::now())
         .await
         .expect("dispatch");
     store
-        .unknown_effect("effect_refusal", "capture interrupted", &santi_core::now())
+        .suspect("effect_refusal", "capture interrupted", &santi_core::now())
         .await
         .expect("unknown");
     drop(store);
@@ -183,9 +183,9 @@ async fn refuses() {
         .await
         .expect_err("retained refusal");
     guidance(&refusal, &accepted.receipt.inbox, "settled_applied");
-    let fresh = send_text(&reopened, &strand.id, "continue from current knowledge").await;
+    let fresh = send(&reopened, &strand.id, "continue from current knowledge").await;
     let resumed = turn(&reopened, &fresh).await.id;
-    let after = wait_for_turn(&reopened, &strand.id, &resumed, turn::Status::Completed).await;
+    let after = awaiting(&reopened, &strand.id, &resumed, turn::Status::Completed).await;
     assert_eq!(after.turns.len(), 2);
     assert_eq!(after.calls.len(), 1);
     assert_eq!(after.effects.len(), 1);
@@ -208,7 +208,7 @@ async fn refuses() {
             requests[1]
                 .input
                 .iter()
-                .any(|item| { as_text(item).is_some_and(|(_, content)| content.contains(text)) })
+                .any(|item| { textual(item).is_some_and(|(_, content)| content.contains(text)) })
         );
     }
 }
@@ -239,7 +239,7 @@ fn guidance(error: &santi_core::Fault, inbox: &str, state: &str) {
     }
 }
 
-async fn reopened(temp: &tempfile::TempDir, provider: Arc<FailureProvider>) -> Service {
+async fn reopened(temp: &tempfile::TempDir, provider: Arc<Faulty>) -> Service {
     Service::open(
         crate::SCENARIO,
         service::Config {

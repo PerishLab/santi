@@ -30,7 +30,8 @@ pub enum State {
     Unsent,
     Unknown,
     Observed,
-    NotApplied,
+    #[serde(rename = "not_applied")]
+    Unapplied,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema, PartialEq)]

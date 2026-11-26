@@ -93,11 +93,11 @@ async fn pending() {
     for index in 0..5 {
         let tag = format!("msg_slot_{index}");
         store
-            .place(santi_estate::MessageDraft {
+            .place(santi_estate::Message {
                 tag: &tag,
                 strand: &strand.id,
                 actor: message::Role::System,
-                actor_id: santi_core::SYSTEM,
+                sender: santi_core::SYSTEM,
                 kind: message::Kind::Text,
                 content: &message::Content::text("prior memory"),
                 state: message::State::Fixed,
@@ -107,7 +107,7 @@ async fn pending() {
             .await
             .unwrap();
         store
-            .create_compact(santi_estate::CompactDraft {
+            .condense(santi_estate::Compact {
                 tag: &format!("compact_slot_{index}"),
                 strand: &strand.id,
                 first: &tag,
@@ -125,11 +125,11 @@ async fn pending() {
         ("msg_recent", "issue #96 acceptance; job_kept".into()),
     ] {
         store
-            .place(santi_estate::MessageDraft {
+            .place(santi_estate::Message {
                 tag,
                 strand: &strand.id,
                 actor: message::Role::System,
-                actor_id: santi_core::SYSTEM,
+                sender: santi_core::SYSTEM,
                 kind: message::Kind::Text,
                 content: &message::Content::text(text),
                 state: message::State::Fixed,

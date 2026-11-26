@@ -1,4 +1,4 @@
-use santi_estate::{EnvironDraft, StrandDraft};
+use santi_estate::{Environ, Strand};
 use santi_model::environ;
 
 #[tokio::test]
@@ -10,7 +10,7 @@ async fn ownership() {
         .await
         .expect("seed soul");
     store
-        .create_strand(StrandDraft {
+        .weave(Strand {
             tag: "ss_env",
             soul: "soul_default",
             label: None,
@@ -23,7 +23,7 @@ async fn ownership() {
         .expect("create strand");
 
     let soul = store
-        .set_environ(EnvironDraft {
+        .export(Environ {
             scope: environ::Scope::Soul,
             owner: "soul_default",
             name: "SHARED",
@@ -36,7 +36,7 @@ async fn ownership() {
     assert_eq!(soul.created, soul.updated);
 
     let strand = store
-        .set_environ(EnvironDraft {
+        .export(Environ {
             scope: environ::Scope::Strand,
             owner: "ss_env",
             name: "SHARED",
@@ -48,7 +48,7 @@ async fn ownership() {
     assert_eq!(strand.value, "strand");
 
     let updated = store
-        .set_environ(EnvironDraft {
+        .export(Environ {
             scope: environ::Scope::Soul,
             owner: "soul_default",
             name: "SHARED",
@@ -69,13 +69,13 @@ async fn ownership() {
 
     assert!(
         store
-            .end_environ(environ::Scope::Soul, "soul_default", "SHARED")
+            .unset(environ::Scope::Soul, "soul_default", "SHARED")
             .await
             .expect("end environment")
     );
     assert!(
         !store
-            .end_environ(environ::Scope::Soul, "soul_default", "SHARED")
+            .unset(environ::Scope::Soul, "soul_default", "SHARED")
             .await
             .expect("repeat end")
     );

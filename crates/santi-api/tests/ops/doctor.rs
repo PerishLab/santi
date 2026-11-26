@@ -10,7 +10,7 @@ use santi_api::runtime::Runtime;
 #[tokio::test]
 async fn reports() {
     let temp = tempfile::tempdir().expect("temp dir");
-    let paths = paths_under(temp.path());
+    let paths = layout(temp.path());
     let store = super::support::bootstrap(&paths.database).await;
     store
         .seed(santi_core::GENESIS, &santi_core::now())
@@ -22,7 +22,7 @@ async fn reports() {
         &[("review", "gpt-5.5")],
     )
     .await;
-    let held = runtime_under(temp.path(), Some(120000));
+    let held = runtime(temp.path(), Some(120000));
 
     let report = paths.configured(&held).await.expect("doctor");
     assert!(report.ok, "expected healthy: {report:?}");
@@ -39,7 +39,7 @@ async fn reports() {
 #[tokio::test]
 async fn rebase() {
     let temp = tempfile::tempdir().expect("temp dir");
-    let paths = paths_under(temp.path());
+    let paths = layout(temp.path());
     let store = super::support::bootstrap(&paths.database).await;
     store
         .seed(santi_core::GENESIS, &santi_core::now())
@@ -51,8 +51,8 @@ async fn rebase() {
         &[("review", "gpt-5.5")],
     )
     .await;
-    let mut held = runtime_under(temp.path(), Some(120000));
-    held.inference.reasoning_effort = Some("high".into());
+    let mut held = runtime(temp.path(), Some(120000));
+    held.inference.effort = Some("high".into());
 
     let report = paths.configured(&held).await.expect("doctor");
     assert!(report.ok, "expected healthy: {report:?}");
@@ -66,7 +66,7 @@ async fn rebase() {
 #[tokio::test]
 async fn rejects() {
     let temp = tempfile::tempdir().expect("temp dir");
-    let paths = paths_under(temp.path());
+    let paths = layout(temp.path());
     let store = super::support::bootstrap(&paths.database).await;
     store
         .seed(santi_core::GENESIS, &santi_core::now())
@@ -78,7 +78,7 @@ async fn rejects() {
         &[("review", "gpt-5.5")],
     )
     .await;
-    let held = runtime_under(temp.path(), None);
+    let held = runtime(temp.path(), None);
 
     let report = paths.configured(&held).await.expect("doctor");
     assert!(!report.ok);
@@ -91,7 +91,7 @@ async fn rejects() {
     );
 }
 
-fn paths_under(root: &Path) -> Layout {
+fn layout(root: &Path) -> Layout {
     Layout {
         database: root.join("runtime").join("db"),
         runtime: root.join("runtime"),
@@ -99,7 +99,7 @@ fn paths_under(root: &Path) -> Layout {
     }
 }
 
-fn runtime_under(root: &Path, budget: Option<usize>) -> Runtime {
+fn runtime(root: &Path, budget: Option<usize>) -> Runtime {
     #[derive(serde::Deserialize)]
     struct File {
         custody: BTreeMap<String, Profile>,
@@ -123,11 +123,11 @@ fn runtime_under(root: &Path, budget: Option<usize>) -> Runtime {
         port: 0,
         inference: santi_core::inference::Declaration {
             scenario: Some("gateway/family/review".to_string()),
-            reasoning_effort: None,
+            effort: None,
         },
         custody: file.custody,
         environment: Default::default(),
-        paths: paths_under(root),
+        paths: layout(root),
         grace: Duration::from_secs(600),
         retention: Duration::from_secs(santi_api::RETENTION),
         github: Default::default(),
@@ -141,9 +141,9 @@ fn runtime_under(root: &Path, budget: Option<usize>) -> Runtime {
             output: 1024,
             shell: 512,
             lines: 256,
-            feedback_after_calls: None,
-            feedback_command: None,
-            feedback_cwd: None,
+            after: None,
+            command: None,
+            cwd: None,
         },
         constitution: None,
         souls: Default::default(),
@@ -201,8 +201,8 @@ fn headers() {
         let resolved = profile
             .resolve("test", "wire-model")
             .map(|resolved| match resolved {
-                santi_api::config::Resolved::OpenAiResponses(config) => config.headers,
-                santi_api::config::Resolved::ChatCompletions(config) => config.headers,
+                santi_api::config::Resolved::Responses(config) => config.headers,
+                santi_api::config::Resolved::Completions(config) => config.headers,
                 santi_api::config::Resolved::Gemini(config) => config.headers,
             });
         assert_eq!(

@@ -5,10 +5,10 @@ use axum::{
 use santi_core::service::Service;
 use santi_core::{Fault, History, Incident, Scope};
 
-use super::ApiError;
+use super::Problem;
 
 #[derive(serde::Deserialize)]
-pub struct ErrorQueryParams {
+pub struct Window {
     pub limit: Option<i64>,
     pub before: Option<String>,
 }
@@ -32,8 +32,8 @@ pub struct ErrorQueryParams {
 pub async fn stranded(
     State(service): State<Service>,
     Path(strand): Path<String>,
-    Query(params): Query<ErrorQueryParams>,
-) -> Result<Json<Vec<Incident>>, ApiError> {
+    Query(params): Query<Window>,
+) -> Result<Json<Vec<Incident>>, Problem> {
     service
         .history(
             &Scope::new("strand", &strand),
@@ -41,9 +41,9 @@ pub async fn stranded(
             params.before.as_deref(),
         )
         .await
-        .map_err(ApiError::from_service)?
+        .map_err(Problem::service)?
         .map(Json)
-        .ok_or_else(|| ApiError::not_found("strand not found"))
+        .ok_or_else(|| Problem::missing("strand not found"))
 }
 
 #[utoipa::path(
@@ -65,8 +65,8 @@ pub async fn stranded(
 pub async fn errors(
     State(service): State<Service>,
     Path((scope_kind, scope_id)): Path<(String, String)>,
-    Query(params): Query<ErrorQueryParams>,
-) -> Result<Json<Vec<Incident>>, ApiError> {
+    Query(params): Query<Window>,
+) -> Result<Json<Vec<Incident>>, Problem> {
     service
         .history(
             &Scope::new(scope_kind, scope_id),
@@ -75,7 +75,7 @@ pub async fn errors(
         )
         .await
         .map(|rows| Json(rows.unwrap_or_default()))
-        .map_err(ApiError::from_service)
+        .map_err(Problem::service)
 }
 
 #[utoipa::path(
@@ -88,11 +88,11 @@ pub async fn errors(
 pub async fn incident(
     State(service): State<Service>,
     Path(incident): Path<String>,
-) -> Result<Json<History>, ApiError> {
+) -> Result<Json<History>, Problem> {
     service
         .incident(&incident)
         .await
-        .map_err(ApiError::from_service)?
+        .map_err(Problem::service)?
         .map(Json)
-        .ok_or_else(|| ApiError::not_found("incident not found"))
+        .ok_or_else(|| Problem::missing("incident not found"))
 }

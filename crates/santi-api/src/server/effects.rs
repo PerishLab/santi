@@ -5,11 +5,12 @@ use axum::{
 use santi_core::Fault;
 use santi_core::service::Service;
 
-use super::ApiError;
+use super::Problem;
 use santi_core::{effect, trace};
 
 #[derive(Debug, serde::Deserialize, utoipa::ToSchema)]
-pub struct ResolveEffectRequest {
+#[schema(as = ResolveEffectRequest)]
+pub struct Resolution {
     pub outcome: effect::Outcome,
     pub evidence: String,
 }
@@ -27,13 +28,13 @@ pub struct ResolveEffectRequest {
 pub async fn effect(
     State(service): State<Service>,
     Path(effect): Path<String>,
-) -> Result<Json<effect::Status>, ApiError> {
+) -> Result<Json<effect::Status>, Problem> {
     service
         .effect(&effect)
         .await
-        .map_err(ApiError::from_service)?
+        .map_err(Problem::service)?
         .map(Json)
-        .ok_or_else(|| ApiError::not_found("effect not found"))
+        .ok_or_else(|| Problem::missing("effect not found"))
 }
 
 #[utoipa::path(
@@ -48,19 +49,19 @@ pub async fn effect(
 pub async fn trail(
     State(service): State<Service>,
     Path(effect): Path<String>,
-) -> Result<Json<Vec<trace::Record>>, ApiError> {
+) -> Result<Json<Vec<trace::Record>>, Problem> {
     service
         .trail(&effect)
         .await
         .map(Json)
-        .map_err(ApiError::from_service)
+        .map_err(Problem::service)
 }
 
 #[utoipa::path(
     post,
     path = "/api/v1/effects/{effect}/resolve",
     params(("effect_id" = String, Path)),
-    request_body = ResolveEffectRequest,
+    request_body = Resolution,
     responses(
         (status = 200, body = effect::Status),
         (status = 400, body = Fault),
@@ -71,12 +72,12 @@ pub async fn trail(
 pub async fn settle(
     State(service): State<Service>,
     Path(effect): Path<String>,
-    Json(request): Json<ResolveEffectRequest>,
-) -> Result<Json<effect::Status>, ApiError> {
+    Json(request): Json<Resolution>,
+) -> Result<Json<effect::Status>, Problem> {
     service
         .settle(&effect, request.outcome, &request.evidence)
         .await
-        .map_err(ApiError::from_service)?
+        .map_err(Problem::service)?
         .map(Json)
-        .ok_or_else(|| ApiError::not_found("effect not found"))
+        .ok_or_else(|| Problem::missing("effect not found"))
 }

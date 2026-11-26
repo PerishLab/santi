@@ -1,5 +1,5 @@
 use super::super::{NOW, SUDO};
-use santi_estate::{Begun, DrainDraft, InboxDraft, Opening, Store, StrandDraft, Target, TurnDraft};
+use santi_estate::{Arrival, Begun, Drain, Opening, Store, Strand, Target, Turn};
 use santi_model::inference::{Effective, Origin, Patch, Selection, Source};
 use santi_model::{message, receipt, turn};
 
@@ -11,18 +11,18 @@ pub(super) fn choice(scenario: &str, model: &str, effort: Option<&str>) -> Effec
     Effective {
         selection: Selection::Scenario(scenario.into()),
         model: model.to_string(),
-        reasoning_effort: effort.map(str::to_string),
+        effort: effort.map(str::to_string),
         source: Source {
             route: None,
             selection: Selection::Scenario(Origin::Strand),
             model: Origin::Strand,
-            reasoning_effort: effort.map(|_| Origin::Strand),
+            effort: effort.map(|_| Origin::Strand),
         },
     }
 }
 
-pub(super) fn draft(turn: &str) -> DrainDraft<'_> {
-    DrainDraft {
+pub(super) fn draft(turn: &str) -> Drain<'_> {
+    Drain {
         turn,
         strand: STRAND,
         trigger: turn::Trigger::System,
@@ -37,7 +37,7 @@ pub(super) async fn start() -> (tempfile::TempDir, std::path::PathBuf, Store) {
     let store = Store::bootstrap(&path, SUDO).await.expect("open");
     store.seed(SOUL, NOW).await.expect("seed");
     store
-        .create_strand(StrandDraft {
+        .weave(Strand {
             tag: STRAND,
             soul: SOUL,
             label: None,
@@ -54,8 +54,8 @@ pub(super) async fn start() -> (tempfile::TempDir, std::path::PathBuf, Store) {
 
 async fn accept(store: &Store, tag: &str, text: &str) {
     store
-        .accept_inbox(
-            InboxDraft {
+        .accept(
+            Arrival {
                 tag,
                 strand: STRAND,
                 kind: message::Kind::Text,
@@ -110,7 +110,7 @@ async fn started() {
         Selection::Scenario("fixture/family/a".into())
     );
     assert_eq!(read.model, "model_a");
-    assert_eq!(read.reasoning_effort.as_deref(), Some("high"));
+    assert_eq!(read.effort.as_deref(), Some("high"));
 
     assert!(store.inboxes(STRAND).await.expect("inbox").is_empty());
     let status = store
@@ -128,7 +128,7 @@ async fn rollback() {
     let original = choice("fixture/family/a", "model_a", Some("low"));
     let one = drain(&store, "turn_one", &original).await;
     store
-        .complete_turn("turn_one", one.turn.from, LATER)
+        .complete("turn_one", one.turn.from, LATER)
         .await
         .expect("complete");
     accept(&store, "inbox_retry", "retry").await;
@@ -170,7 +170,7 @@ async fn legacy() {
     let (_temp, path, store) = start().await;
     let patch = Patch {
         scenario: Some(Some("gateway/family/next".into())),
-        reasoning_effort: Some(Some("high".to_string())),
+        effort: Some(Some("high".to_string())),
     };
     store
         .declare(Target::Strand, STRAND, &patch, LATER)
@@ -178,10 +178,10 @@ async fn legacy() {
         .expect("declare");
 
     let legacy = store
-        .create_turn(TurnDraft {
+        .start(Turn {
             tag: "turn_legacy",
             strand: STRAND,
-            trigger: turn::Trigger::StrandSend,
+            trigger: turn::Trigger::Send,
             from: 0,
             created: LATER,
         })

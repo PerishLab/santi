@@ -2,7 +2,7 @@ use std::{sync::Arc, time::Duration};
 
 use santi_core::{
     job,
-    service::{self, JobDraft, JobRead, Service},
+    service::{self, Service, jobs},
 };
 
 use super::support::{Silent, Unit, bootstrap, seed, service, stamp};
@@ -38,7 +38,7 @@ async fn vertical() {
     .expect("open service");
     let strand = service.weave().await.expect("create strand").strand;
     service
-        .set_environ(
+        .export(
             santi_core::environ::Scope::Soul,
             &strand.soul,
             santi_core::environ::Draft {
@@ -49,7 +49,7 @@ async fn vertical() {
         .await
         .expect("soul declaration");
     service
-        .set_environ(
+        .export(
             santi_core::environ::Scope::Soul,
             &strand.soul,
             santi_core::environ::Draft {
@@ -60,7 +60,7 @@ async fn vertical() {
         .await
         .expect("soul-only declaration");
     service
-        .set_environ(
+        .export(
             santi_core::environ::Scope::Strand,
             &strand.id,
             santi_core::environ::Draft {
@@ -76,20 +76,20 @@ async fn vertical() {
     let accepted = service
         .spawn(
             capability,
-            JobDraft {
+            jobs::Draft {
                 description: "vertical slice probe".to_string(),
-                command: vertical_command().to_string(),
+                command: probe().to_string(),
                 cwd: None,
                 timeout: Some(30),
                 output: Some(4096),
                 remind: None,
-                notify_on_terminal: false,
+                notify: false,
             },
         )
         .await
         .expect("accept job");
     service
-        .set_environ(
+        .export(
             santi_core::environ::Scope::Strand,
             &strand.id,
             santi_core::environ::Draft {
@@ -102,14 +102,14 @@ async fn vertical() {
     let replayed = service
         .spawn(
             capability,
-            JobDraft {
+            jobs::Draft {
                 description: "vertical slice probe".to_string(),
-                command: vertical_command().to_string(),
+                command: probe().to_string(),
                 cwd: None,
                 timeout: Some(30),
                 output: Some(4096),
                 remind: None,
-                notify_on_terminal: false,
+                notify: false,
             },
         )
         .await
@@ -164,7 +164,7 @@ async fn vertical() {
     let completed = completed.expect("job completion");
     assert_eq!(completed.state, job::State::Succeeded);
     let log = service
-        .logs(JobRead {
+        .logs(jobs::Read {
             soul: &strand.soul,
             id: &accepted.job.id,
             stream: job::Stream::Stdout,
@@ -202,14 +202,14 @@ async fn restarts() {
     let accepted = runtime
         .spawn(
             capability,
-            JobDraft {
+            jobs::Draft {
                 description: "restart reconciliation probe".to_string(),
-                command: restart_command().to_string(),
+                command: restart().to_string(),
                 cwd: None,
                 timeout: Some(30),
                 output: Some(4096),
                 remind: None,
-                notify_on_terminal: false,
+                notify: false,
             },
         )
         .await
@@ -241,7 +241,7 @@ async fn restarts() {
     let completed = completed.expect("reconciled completion");
     assert_eq!(completed.state, job::State::Succeeded);
     let log = restarted
-        .logs(JobRead {
+        .logs(jobs::Read {
             soul: &strand.soul,
             id: &accepted.job.id,
             stream: job::Stream::Stdout,
@@ -264,21 +264,21 @@ async fn restarts() {
 }
 
 #[cfg(unix)]
-fn vertical_command() -> &'static str {
+fn probe() -> &'static str {
     r#"test "$JOB_SCOPE_PROBE" = strand && test "$JOB_GLOBAL_PROBE" = global && test "$JOB_SOUL_PROBE" = soul && test "$JOB_REFERENCE_PROBE" = "$HOME" && test "$SANTI_BASE_URL" = "http://127.0.0.1:0" && test -n "$SANTI_JOB_ID" && test -z "${SANTI_JOB_CREATE_CAPABILITY-}" && printf 'vertical-ok\n'"#
 }
 
 #[cfg(target_os = "windows")]
-fn vertical_command() -> &'static str {
+fn probe() -> &'static str {
     r#"if ($env:JOB_SCOPE_PROBE -ne 'strand' -or $env:JOB_GLOBAL_PROBE -ne 'global' -or $env:JOB_SOUL_PROBE -ne 'soul' -or $env:JOB_REFERENCE_PROBE -ne $env:HOME -or $env:SANTI_BASE_URL -ne 'http://127.0.0.1:0' -or !$env:SANTI_JOB_ID -or $env:SANTI_JOB_CREATE_CAPABILITY) { exit 9 }; Write-Output "vertical-ok""#
 }
 
 #[cfg(unix)]
-fn restart_command() -> &'static str {
+fn restart() -> &'static str {
     "sleep 0.2; printf 'after-restart\\n'"
 }
 
 #[cfg(target_os = "windows")]
-fn restart_command() -> &'static str {
+fn restart() -> &'static str {
     r#"Start-Sleep -Milliseconds 200; Write-Output "after-restart""#
 }

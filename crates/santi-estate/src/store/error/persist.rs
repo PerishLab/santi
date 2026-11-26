@@ -88,8 +88,8 @@ impl Writer<'_, '_> {
         transition: &Transition,
     ) -> Result<(), keel::adapt::Error> {
         let exposure = json(&incident.exposure)?;
-        let first_context = json(&incident.first.context)?;
-        let latest_context = json(&incident.latest.context)?;
+        let first = json(&incident.first.context)?;
+        let latest = json(&incident.latest.context)?;
         let payload = json(transition)?;
         let occurrences = incident.occurrences.to_string();
         let revision = incident.revision.to_string();
@@ -117,8 +117,8 @@ impl Writer<'_, '_> {
                     ),
                     ("message", incident.first.message.as_str()),
                     ("latest_message", incident.latest.message.as_str()),
-                    ("context", first_context.as_str()),
-                    ("latest_context", latest_context.as_str()),
+                    ("context", first.as_str()),
+                    ("latest_context", latest.as_str()),
                     ("occurrence_count", occurrences.as_str()),
                     ("revision", revision.as_str()),
                     ("first_seen", incident.first.seen.as_str()),

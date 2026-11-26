@@ -1,4 +1,4 @@
-use santi_estate::{CompactDraft, ForkDraft, MessageDraft, Store, StrandDraft, TurnDraft};
+use santi_estate::{Compact, Fork, Message, Store, Strand, Turn};
 use santi_model::{message, turn};
 
 const FIRST: &str = "2026-07-28T00:00:00.000Z";
@@ -14,7 +14,7 @@ async fn occurrences() {
     let store = super::support::bootstrap(&path).await;
     store.seed("soul_test", FIRST).await.expect("seed");
     store
-        .create_strand(StrandDraft {
+        .weave(Strand {
             tag: "strand_parent",
             soul: "soul_test",
             label: Some("primary"),
@@ -32,11 +32,11 @@ async fn occurrences() {
         ("message_four", "four"),
     ] {
         store
-            .place(MessageDraft {
+            .place(Message {
                 tag,
                 strand: "strand_parent",
                 actor: message::Role::System,
-                actor_id: "santi",
+                sender: "santi",
                 kind: message::Kind::Text,
                 content: &message::Content::text(text),
                 state: message::State::Fixed,
@@ -47,7 +47,7 @@ async fn occurrences() {
             .expect("message");
     }
     let inside = store
-        .create_compact(CompactDraft {
+        .condense(Compact {
             tag: "compact_inside",
             strand: "strand_parent",
             first: "message_one",
@@ -60,7 +60,7 @@ async fn occurrences() {
         .await
         .expect("inside");
     store
-        .create_compact(CompactDraft {
+        .condense(Compact {
             tag: "compact_crossing",
             strand: "strand_parent",
             first: "message_three",
@@ -74,7 +74,7 @@ async fn occurrences() {
         .expect("crossing");
 
     let child = store
-        .fork(ForkDraft {
+        .fork(Fork {
             tag: "strand_child",
             parent: "strand_parent",
             at: 3,
@@ -114,11 +114,11 @@ async fn occurrences() {
             .len(),
         3
     );
-    assert!(store.discard_fork("strand_child").await.expect("discard"));
+    assert!(store.discard("strand_child").await.expect("discard"));
     assert!(store.strand("strand_child").await.expect("child").is_none());
 
     let child = store
-        .fork(ForkDraft {
+        .fork(Fork {
             tag: "strand_driven",
             parent: "strand_parent",
             at: 3,
@@ -128,7 +128,7 @@ async fn occurrences() {
         .await
         .expect("fork driven");
     store
-        .create_turn(TurnDraft {
+        .start(Turn {
             tag: "turn_child",
             strand: &child.id,
             trigger: turn::Trigger::System,
@@ -137,7 +137,7 @@ async fn occurrences() {
         })
         .await
         .expect("turn");
-    assert!(store.discard_fork(&child.id).await.is_err());
-    assert!(store.discard_fork("strand_parent").await.is_err());
-    assert!(!store.discard_fork("missing").await.expect("missing"));
+    assert!(store.discard(&child.id).await.is_err());
+    assert!(store.discard("strand_parent").await.is_err());
+    assert!(!store.discard("missing").await.expect("missing"));
 }

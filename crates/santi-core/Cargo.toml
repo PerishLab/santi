@@ -37,5 +37,5 @@ serde_json.workspace = true
 tempfile = "3.27.0"
 
 [[test]]
-name = "estate_assembly"
-path = "tests/estate_assembly/main.rs"
+name = "assembly"
+path = "tests/assembly/main.rs"

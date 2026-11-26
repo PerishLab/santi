@@ -1,8 +1,8 @@
 use super::server::{Scenario, spawn};
-use santi::cli::WatchFormat;
+use santi::cli::Format;
 use santi::client::{Request, Target, emit};
 
-async fn rendered(base: &str, format: WatchFormat) -> (anyhow::Result<()>, String) {
+async fn rendered(base: &str, format: Format) -> (anyhow::Result<()>, String) {
     let client = reqwest::Client::new();
     let mut output = Vec::new();
     let result = emit(
@@ -21,7 +21,7 @@ async fn rendered(base: &str, format: WatchFormat) -> (anyhow::Result<()>, Strin
 async fn filtered() {
     for scenario in [Scenario::Fast, Scenario::Queued] {
         let server = spawn(scenario).await;
-        let (result, output) = rendered(&server.base, WatchFormat::Filtered).await;
+        let (result, output) = rendered(&server.base, Format::Filtered).await;
         result.unwrap();
         let summary = output.lines().last().unwrap();
         assert!(
@@ -42,7 +42,7 @@ async fn filtered() {
 #[tokio::test]
 async fn raw() {
     let server = spawn(Scenario::Fast).await;
-    let (result, output) = rendered(&server.base, WatchFormat::Raw).await;
+    let (result, output) = rendered(&server.base, Format::Raw).await;
     result.unwrap();
     assert_eq!(
         output,
@@ -64,7 +64,7 @@ async fn failure() {
         Scenario::Strand,
     ] {
         let server = spawn(scenario).await;
-        let (result, output) = rendered(&server.base, WatchFormat::Filtered).await;
+        let (result, output) = rendered(&server.base, Format::Filtered).await;
         let error = result.unwrap_err().to_string();
         let command = format!("santi --base-url '{}'", server.base);
         assert!(error.contains(&command), "{error}");
@@ -86,7 +86,7 @@ async fn subscription() {
         } else {
             server.base.clone()
         };
-        let (result, output) = rendered(&base, WatchFormat::Filtered).await;
+        let (result, output) = rendered(&base, Format::Filtered).await;
         let error = format!("{:#}", result.unwrap_err());
         assert!(!error.contains("private-token"));
         if credentials {

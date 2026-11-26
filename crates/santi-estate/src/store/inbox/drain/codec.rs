@@ -7,10 +7,10 @@ pub(super) struct Pending {
     pub(super) tag: String,
     pub(super) kind: String,
     pub(super) content: String,
-    pub(super) source_type: Option<String>,
-    pub(super) source_ref: Option<String>,
-    pub(super) source_metadata: Option<String>,
-    pub(super) coalesce_key: Option<String>,
+    pub(super) origin: Option<String>,
+    pub(super) reference: Option<String>,
+    pub(super) metadata: Option<String>,
+    pub(super) slot: Option<String>,
     pub(super) revision: Option<i64>,
     pub(super) causes: Option<String>,
     pub(super) created: String,
@@ -22,10 +22,10 @@ pub(super) fn decode(row: &Row) -> Result<Pending, keel::adapt::Error> {
         tag: text(row, "tag")?,
         kind: text(row, "kind")?,
         content: text(row, "content")?,
-        source_type: row.text("source_type").map(str::to_string),
-        source_ref: row.text("source_ref").map(str::to_string),
-        source_metadata: row.text("source_metadata").map(str::to_string),
-        coalesce_key: row.text("coalesce_key").map(str::to_string),
+        origin: row.text("source_type").map(str::to_string),
+        reference: row.text("source_ref").map(str::to_string),
+        metadata: row.text("source_metadata").map(str::to_string),
+        slot: row.text("coalesce_key").map(str::to_string),
         revision: row.int("coalesce_revision"),
         causes: row.text("coalesce_causes").map(str::to_string),
         created: text(row, "created")?,
@@ -58,7 +58,7 @@ pub(super) fn aggregate(pending: &[Pending], now: &str) -> Result<String, keel::
 
 pub(super) fn trigger(trigger: &turn::Trigger) -> &'static str {
     match trigger {
-        turn::Trigger::StrandSend => "strand_send",
+        turn::Trigger::Send => "strand_send",
         turn::Trigger::System => "system",
     }
 }

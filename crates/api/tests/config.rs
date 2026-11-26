@@ -72,12 +72,12 @@ feedback_cwd = "strand://product"
     assert_eq!(budget.output, 1048576);
     assert_eq!(budget.shell, 32768);
     assert_eq!(budget.lines, 64);
-    assert_eq!(budget.feedback_after_calls, Some(6));
+    assert_eq!(budget.after, Some(6));
     assert_eq!(
-        budget.feedback_command.as_deref(),
+        budget.command.as_deref(),
         Some("cargo test --locked --workspace")
     );
-    assert_eq!(budget.feedback_cwd.as_deref(), Some("strand://product"));
+    assert_eq!(budget.cwd.as_deref(), Some("strand://product"));
 }
 
 #[test]
@@ -169,7 +169,7 @@ ttl_seconds = 120
     );
     assert_eq!(held.capability.issuer, "santi.example");
     assert_eq!(held.capability.audience, "stim.reply");
-    assert_eq!(held.capability.key_id, "key-2026");
+    assert_eq!(held.capability.kid, "key-2026");
     let shown = format!("{:?}", held.capability);
     assert!(shown.contains("[redacted]"));
     assert!(!shown.contains("private-material"));

@@ -7,7 +7,7 @@ pub mod text;
 use anyhow::Result;
 use clap::Parser;
 
-use cli::{Capability, Cli, Command, InboxCommand, Job};
+use cli::{Capability, Cli, Command, Inbox, Job};
 
 pub async fn run() -> Result<()> {
     let Cli {
@@ -31,14 +31,14 @@ pub async fn run() -> Result<()> {
             Ok(())
         }
         Command::Export => {
-            let document = santi_api::export_openapi_json().map_err(anyhow::Error::msg)?;
+            let document = santi_api::openapi().map_err(anyhow::Error::msg)?;
             println!("{document}");
             Ok(())
         }
-        Command::Doctor { storage_only, jobs } => {
+        Command::Doctor { storage, jobs } => {
             let origin = config::origin(config.as_deref()).map_err(anyhow::Error::msg)?;
             config::boot(config.as_deref(), over.partial()).map_err(anyhow::Error::msg)?;
-            let (report, jobs) = doctor::inspect(storage_only, jobs)
+            let (report, jobs) = doctor::inspect(storage, jobs)
                 .await
                 .map_err(anyhow::Error::msg)?;
             let ok = report.ok && jobs.as_ref().is_none_or(|jobs| jobs.ok);
@@ -74,14 +74,14 @@ pub async fn run() -> Result<()> {
             println!("{}", serde_json::to_string(&rows)?);
             Ok(())
         }
-        Command::Inbox(InboxCommand::Seed { text, file, stdin }) => {
+        Command::Inbox(Inbox::Seed { text, file, stdin }) => {
             let strand = strand
                 .map(|id| id.trim().to_string())
                 .filter(|id| !id.is_empty())
                 .ok_or_else(|| anyhow::anyhow!("no strand id: set --strand / SANTI_STRAND_ID"))?;
             let text = text::read(text, file, stdin)?;
             config::boot(config.as_deref(), over.partial()).map_err(anyhow::Error::msg)?;
-            let report = santi_api::ops::inbox_seed(&strand, &text)
+            let report = santi_api::ops::seed(&strand, &text)
                 .await
                 .map_err(anyhow::Error::msg)?;
             println!("{}", serde_json::to_string_pretty(&report)?);

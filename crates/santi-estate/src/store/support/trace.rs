@@ -2,7 +2,7 @@ use crate::store::{Store, read};
 use keel::{Rank, form};
 use santi_model::trace;
 
-pub struct TraceDraft<'a> {
+pub struct Trace<'a> {
     pub tag: &'a str,
     pub boot: &'a str,
     pub span: i64,
@@ -14,7 +14,7 @@ pub struct TraceDraft<'a> {
 }
 
 impl Store {
-    pub async fn record_trace(&self, draft: TraceDraft<'_>) -> Result<(), String> {
+    pub async fn trace(&self, draft: Trace<'_>) -> Result<(), String> {
         let tags = serde_json::to_string(draft.tags).map_err(|error| error.to_string())?;
         let span = draft.span.to_string();
         let parent = draft.parent.map(|parent| parent.to_string());

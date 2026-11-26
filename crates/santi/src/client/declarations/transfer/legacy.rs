@@ -29,13 +29,15 @@ struct Declaration {
 #[derive(Deserialize)]
 struct Profile {
     kind: String,
-    base_url: Option<String>,
+    #[serde(rename = "base_url")]
+    endpoint: Option<String>,
     model: Option<String>,
 }
 #[derive(Deserialize)]
 struct Binding {
     kind: String,
-    base_url: Option<String>,
+    #[serde(rename = "base_url")]
+    endpoint: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -108,7 +110,7 @@ pub(super) fn convert(source: &str, mapping: &str) -> Result<(Graph, Value)> {
         if !m.private {
             covered(&profiles, old, p.model.as_deref())?;
         }
-        let url = endpoint(&p.kind, p.base_url.as_deref())?;
+        let url = endpoint(&p.kind, p.endpoint.as_deref())?;
         let bind = (p.kind.as_str(), url);
         ensure!(
             bindings
@@ -118,7 +120,7 @@ pub(super) fn convert(source: &str, mapping: &str) -> Result<(Graph, Value)> {
         );
         if let Some(c) = legacy.custody.get(&m.custody) {
             ensure!(
-                (c.kind.as_str(), endpoint(&c.kind, c.base_url.as_deref())?) == bind,
+                (c.kind.as_str(), endpoint(&c.kind, c.endpoint.as_deref())?) == bind,
                 "profile {old}: local custody binding mismatch"
             );
         }

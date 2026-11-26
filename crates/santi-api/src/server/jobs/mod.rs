@@ -6,10 +6,10 @@ use axum::{
 };
 use santi_core::{
     Fault, job,
-    service::{JobDraft, JobRead, Service},
+    service::{Service, jobs},
 };
 
-use super::ApiError;
+use super::Problem;
 
 pub(super) mod query;
 
@@ -17,14 +17,19 @@ const CAPABILITY: &str = "x-santi-job-capability";
 const SOUL: &str = "x-santi-soul-id";
 
 #[derive(Debug, serde::Deserialize, utoipa::ToSchema)]
-pub struct CreateJobRequest {
+#[schema(as = CreateJobRequest)]
+pub struct Creation {
     pub description: String,
     pub command: String,
     pub cwd: Option<String>,
-    pub timeout_seconds: Option<u64>,
-    pub output_limit_bytes: Option<u64>,
-    pub remind_every_seconds: Option<u64>,
-    pub notify_on_terminal: Option<bool>,
+    #[serde(rename = "timeout_seconds")]
+    pub timeout: Option<u64>,
+    #[serde(rename = "output_limit_bytes")]
+    pub limit: Option<u64>,
+    #[serde(rename = "remind_every_seconds")]
+    pub remind: Option<u64>,
+    #[serde(rename = "notify_on_terminal")]
+    pub notify: Option<bool>,
 }
 
 #[derive(Debug, serde::Deserialize)]
@@ -37,7 +42,7 @@ pub struct Params {
 #[utoipa::path(
     post,
     path = "/api/v1/jobs",
-    request_body = CreateJobRequest,
+    request_body = Creation,
     params(("x-santi-job-capability" = String, Header, description = "One-use capability from the current shell invocation")),
     responses(
         (status = 202, body = job::Accepted),
@@ -49,9 +54,7 @@ pub struct Params {
 )]
 pub fn create() -> MethodRouter<Service> {
     routing::post(
-        |State(service): State<Service>,
-         headers: HeaderMap,
-         Json(request): Json<CreateJobRequest>| async move {
+        |State(service): State<Service>, headers: HeaderMap, Json(request): Json<Creation>| async move {
             Jobs(service).create(headers, request).await
         },
     )
@@ -176,73 +179,69 @@ impl Jobs {
     pub async fn create(
         &self,
         headers: HeaderMap,
-        request: CreateJobRequest,
-    ) -> Result<(StatusCode, Json<job::Accepted>), ApiError> {
+        request: Creation,
+    ) -> Result<(StatusCode, Json<job::Accepted>), Problem> {
         let capability = header(&headers, CAPABILITY)
-            .ok_or_else(|| ApiError::unauthorized("missing job create capability"))?;
+            .ok_or_else(|| Problem::unauthorized("missing job create capability"))?;
         self.0
             .spawn(
                 capability,
-                JobDraft {
+                jobs::Draft {
                     description: request.description,
                     command: request.command,
                     cwd: request.cwd,
-                    timeout: request.timeout_seconds,
-                    output: request.output_limit_bytes,
-                    remind: request.remind_every_seconds,
-                    notify_on_terminal: request.notify_on_terminal.unwrap_or(false),
+                    timeout: request.timeout,
+                    output: request.limit,
+                    remind: request.remind,
+                    notify: request.notify.unwrap_or(false),
                 },
             )
             .await
             .map(|accepted| (StatusCode::ACCEPTED, Json(accepted)))
-            .map_err(ApiError::from_service)
+            .map_err(Problem::service)
     }
 
-    pub async fn list(&self, headers: HeaderMap) -> Result<Json<Vec<job::Job>>, ApiError> {
+    pub async fn list(&self, headers: HeaderMap) -> Result<Json<Vec<job::Job>>, Problem> {
         let soul =
-            header(&headers, SOUL).ok_or_else(|| ApiError::unauthorized("missing soul id"))?;
-        self.0
-            .jobs(soul)
-            .await
-            .map(Json)
-            .map_err(ApiError::from_service)
+            header(&headers, SOUL).ok_or_else(|| Problem::unauthorized("missing soul id"))?;
+        self.0.jobs(soul).await.map(Json).map_err(Problem::service)
     }
 
-    pub async fn get(&self, headers: HeaderMap, id: String) -> Result<Json<job::Job>, ApiError> {
+    pub async fn get(&self, headers: HeaderMap, id: String) -> Result<Json<job::Job>, Problem> {
         let soul =
-            header(&headers, SOUL).ok_or_else(|| ApiError::unauthorized("missing soul id"))?;
+            header(&headers, SOUL).ok_or_else(|| Problem::unauthorized("missing soul id"))?;
         self.0
             .job(soul, &id)
             .await
-            .map_err(ApiError::from_service)?
+            .map_err(Problem::service)?
             .map(Json)
-            .ok_or_else(|| ApiError::not_found("job not found"))
+            .ok_or_else(|| Problem::missing("job not found"))
     }
 
-    pub async fn cancel(&self, headers: HeaderMap, id: String) -> Result<Json<job::Job>, ApiError> {
+    pub async fn cancel(&self, headers: HeaderMap, id: String) -> Result<Json<job::Job>, Problem> {
         let soul =
-            header(&headers, SOUL).ok_or_else(|| ApiError::unauthorized("missing soul id"))?;
+            header(&headers, SOUL).ok_or_else(|| Problem::unauthorized("missing soul id"))?;
         self.0
             .cancel(soul, &id)
             .await
-            .map_err(ApiError::from_service)?
+            .map_err(Problem::service)?
             .map(Json)
-            .ok_or_else(|| ApiError::not_found("job not found"))
+            .ok_or_else(|| Problem::missing("job not found"))
     }
 
     pub async fn acknowledge(
         &self,
         headers: HeaderMap,
         id: String,
-    ) -> Result<Json<job::Job>, ApiError> {
+    ) -> Result<Json<job::Job>, Problem> {
         let soul =
-            header(&headers, SOUL).ok_or_else(|| ApiError::unauthorized("missing soul id"))?;
+            header(&headers, SOUL).ok_or_else(|| Problem::unauthorized("missing soul id"))?;
         self.0
             .ack(soul, &id)
             .await
-            .map_err(ApiError::from_service)?
+            .map_err(Problem::service)?
             .map(Json)
-            .ok_or_else(|| ApiError::not_found("job not found"))
+            .ok_or_else(|| Problem::missing("job not found"))
     }
 
     pub async fn logs(
@@ -250,11 +249,11 @@ impl Jobs {
         headers: HeaderMap,
         id: String,
         query: Params,
-    ) -> Result<Json<job::Log>, ApiError> {
+    ) -> Result<Json<job::Log>, Problem> {
         let soul =
-            header(&headers, SOUL).ok_or_else(|| ApiError::unauthorized("missing soul id"))?;
+            header(&headers, SOUL).ok_or_else(|| Problem::unauthorized("missing soul id"))?;
         self.0
-            .logs(JobRead {
+            .logs(jobs::Read {
                 soul,
                 id: &id,
                 stream: query.stream.unwrap_or(job::Stream::Stdout),
@@ -262,8 +261,8 @@ impl Jobs {
                 limit: query.limit.unwrap_or(64 * 1024),
             })
             .await
-            .map_err(ApiError::from_service)?
+            .map_err(Problem::service)?
             .map(Json)
-            .ok_or_else(|| ApiError::not_found("job not found"))
+            .ok_or_else(|| Problem::missing("job not found"))
     }
 }

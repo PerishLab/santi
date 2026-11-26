@@ -1,5 +1,5 @@
 use super::super::*;
-use santi_estate::CompactDraft;
+use santi_estate::Compact;
 
 #[tokio::test]
 async fn projection() {
@@ -23,7 +23,7 @@ async fn projection() {
     let messages = store.messages(&parent.id).await.expect("messages");
     let offset = messages.len();
     let inside = store
-        .create_compact(CompactDraft {
+        .condense(Compact {
             tag: "compact_inside",
             strand: &parent.id,
             first: &messages.first().expect("first").message.id,
@@ -43,13 +43,13 @@ async fn projection() {
         .expect("held")
         .next
         - 1;
-    let expected = santi_core::provider_input(&store, &parent.id)
+    let expected = santi_core::assemble(&store, &parent.id)
         .await
         .expect("prefix");
     send(&service, &parent.id).await;
     let messages = store.messages(&parent.id).await.expect("messages");
     store
-        .create_compact(CompactDraft {
+        .condense(Compact {
             tag: "compact_crossing",
             strand: &parent.id,
             first: &messages[offset].message.id,
@@ -73,7 +73,7 @@ async fn projection() {
     assert_eq!(child.strand.fork, Some(at));
     assert_eq!(child.strand.next, at + 1);
     assert_eq!(child.strand.inference, parent.inference);
-    let actual = santi_core::provider_input(&store, &child.strand.id)
+    let actual = santi_core::assemble(&store, &child.strand.id)
         .await
         .expect("child projection");
     let inherited = store.compacts(&child.strand.id).await.expect("compacts");

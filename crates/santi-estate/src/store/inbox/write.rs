@@ -1,21 +1,21 @@
-use super::{InboxDraft, NoticeDraft, Offer, json, kind};
+use super::{Arrival, Notice, Offer, json, kind};
 use keel::adapt::db::Sqlite;
 use keel::{Row, Tx};
 use std::collections::BTreeSet;
 
 mod support;
-use support::{adapt, held, inbox_tag, linked, merged, optional_source};
+use support::{adapt, held, linked, merged, source, tag};
 
 pub(in crate::store) struct Acceptance<'a, 'draft> {
-    pub draft: &'a InboxDraft<'draft>,
+    pub draft: &'a Arrival<'draft>,
     pub gate: usize,
     pub content: &'a str,
     pub metadata: Option<&'a str>,
 }
 
 #[derive(Clone, Copy)]
-struct Notice<'a, 'draft> {
-    draft: NoticeDraft<'draft>,
+struct Entry<'a, 'draft> {
+    draft: Notice<'draft>,
     content: &'a str,
     metadata: Option<&'a str>,
 }
@@ -55,7 +55,7 @@ pub(in crate::store) async fn accept(
 
 pub(in crate::store) async fn offer(
     tx: &mut Tx<'_, Sqlite>,
-    draft: NoticeDraft<'_>,
+    draft: Notice<'_>,
     gate: usize,
 ) -> Result<Offer, keel::adapt::Error> {
     let mut writer = Writer { tx };
@@ -72,12 +72,12 @@ pub(in crate::store) async fn offer(
         .map_err(adapt)?;
     let causes = draft.causes.iter().cloned().collect::<BTreeSet<_>>();
     let strand = crate::store::read::need(writer.tx, "Strand", "tag", draft.strand).await?;
-    let strand_key = strand.to_string();
+    let key = strand.to_string();
     let slot = writer
         .tx
         .one(
             &keel::form("InboxSlot")
-                .when("strand", keel::Op::Eq, &strand_key)
+                .when("strand", keel::Op::Eq, &key)
                 .when("key", keel::Op::Eq, draft.key),
         )
         .await?;
@@ -85,7 +85,7 @@ pub(in crate::store) async fn offer(
         && let Some(offer) = writer
             .settle(
                 slot,
-                Notice {
+                Entry {
                     draft,
                     content: &content,
                     metadata: metadata.as_deref(),
@@ -98,16 +98,16 @@ pub(in crate::store) async fn offer(
     }
     writer.capacity(strand, gate).await?;
     let causes = json(&causes).map_err(adapt)?;
-    let notice = Notice {
+    let notice = Entry {
         draft,
         content: &content,
         metadata: metadata.as_deref(),
     };
-    let inbox = writer.put_notice(&strand_key, notice, &causes).await?;
-    super::receipt::accept(writer.tx, draft.tag, &strand_key, draft.created).await?;
+    let inbox = writer.insert(&key, notice, &causes).await?;
+    super::receipt::accept(writer.tx, draft.tag, &key, draft.created).await?;
     match slot {
-        Some(slot) => writer.update_slot(&slot, draft, inbox).await?,
-        None => writer.put_slot(draft, &strand_key, inbox).await?,
+        Some(slot) => writer.update(&slot, draft, inbox).await?,
+        None => writer.create(draft, &key, inbox).await?,
     }
     Ok(Offer {
         inbox: Some(draft.tag.to_string()),
@@ -135,7 +135,7 @@ impl Writer<'_, '_> {
     async fn settle(
         &mut self,
         slot: &Row,
-        notice: Notice<'_, '_>,
+        notice: Entry<'_, '_>,
         incoming: &BTreeSet<String>,
     ) -> Result<Option<Offer>, keel::adapt::Error> {
         let draft = notice.draft;
@@ -158,18 +158,18 @@ impl Writer<'_, '_> {
             return Ok(None);
         };
         let causes = merged(&inbox, incoming)?;
-        self.update_notice(&inbox, notice, &causes).await?;
-        self.update_slot(slot, draft, inbox.key()).await?;
+        self.replace(&inbox, notice, &causes).await?;
+        self.update(slot, draft, inbox.key()).await?;
         Ok(Some(Offer {
-            inbox: Some(inbox_tag(&inbox)?),
+            inbox: Some(tag(&inbox)?),
             inserted: false,
         }))
     }
 
-    async fn put_notice(
+    async fn insert(
         &mut self,
         strand: &str,
-        notice: Notice<'_, '_>,
+        notice: Entry<'_, '_>,
         causes: &str,
     ) -> Result<i64, keel::adapt::Error> {
         let draft = notice.draft;
@@ -185,14 +185,14 @@ impl Writer<'_, '_> {
             ("created", draft.created),
             ("strand", strand),
         ];
-        optional_source(&mut fields, draft.source.source.as_deref(), notice.metadata);
+        source(&mut fields, draft.source.source.as_deref(), notice.metadata);
         self.tx.put("StrandInbox", &fields).await
     }
 
-    async fn update_notice(
+    async fn replace(
         &mut self,
         inbox: &Row,
-        notice: Notice<'_, '_>,
+        notice: Entry<'_, '_>,
         causes: &BTreeSet<String>,
     ) -> Result<(), keel::adapt::Error> {
         let draft = notice.draft;
@@ -209,7 +209,7 @@ impl Writer<'_, '_> {
             ("coalesce_revision", revision.as_str()),
             ("coalesce_causes", causes.as_str()),
         ];
-        optional_source(&mut fields, draft.source.source.as_deref(), notice.metadata);
+        source(&mut fields, draft.source.source.as_deref(), notice.metadata);
         self.tx.set("StrandInbox", inbox.key(), &fields).await?;
         let mut absent = Vec::new();
         if draft.source.source.is_none() {
@@ -224,9 +224,9 @@ impl Writer<'_, '_> {
         Ok(())
     }
 
-    async fn put_slot(
+    async fn create(
         &mut self,
-        draft: NoticeDraft<'_>,
+        draft: Notice<'_>,
         strand: &str,
         inbox: i64,
     ) -> Result<(), keel::adapt::Error> {
@@ -246,10 +246,10 @@ impl Writer<'_, '_> {
         Ok(())
     }
 
-    async fn update_slot(
+    async fn update(
         &mut self,
         slot: &Row,
-        draft: NoticeDraft<'_>,
+        draft: Notice<'_>,
         inbox: i64,
     ) -> Result<(), keel::adapt::Error> {
         self.tx

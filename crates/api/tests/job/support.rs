@@ -11,9 +11,12 @@ use async_trait::async_trait;
 use futures_util::stream;
 use santi_core::{
     job,
-    service::{self, JobLaunch, JobObservation, JobSupervisor, JobTerminal, Service},
+    service::{
+        self, Service,
+        jobs::{self, Supervisor as _},
+    },
 };
-use santi_estate::{CallDraft, CapabilityDraft, EffectDraft, TurnDraft};
+use santi_estate::{Call, Capability, Effect, Turn};
 use santi_provider::{Event, Metadata, Provider, Request, Streaming};
 use sha2::{Digest, Sha256};
 
@@ -42,7 +45,7 @@ impl Provider for Silent {
 
 pub struct Guard<'a> {
     pub supervisor: &'a santi_api::jobs::Native,
-    pub launch: &'a JobLaunch,
+    pub launch: &'a jobs::Launch,
 }
 
 pub struct Unit {
@@ -81,15 +84,15 @@ pub fn launch(
     description: &str,
     command: &str,
     output: u64,
-) -> (santi_api::jobs::Native, JobLaunch) {
+) -> (santi_api::jobs::Native, jobs::Launch) {
     let id = format!("job_{}", uuid::Uuid::new_v4().simple());
     let stamp = format!("stamp_{}", uuid::Uuid::new_v4().simple());
     let supervisor = format!("santi-{}.service", stamp.replace('_', "-"));
     (
         santi_api::jobs::Native::new(env!("CARGO_BIN_EXE_santi-api")),
-        JobLaunch {
+        jobs::Launch {
             environment: None,
-            base_url: None,
+            endpoint: None,
             job: job::Job {
                 id: id.clone(),
                 origin: job::Origin {
@@ -102,12 +105,12 @@ pub fn launch(
                 description: description.to_string(),
                 command: command.to_string(),
                 cwd: None,
-                timeout_seconds: 30,
-                output_limit_bytes: output,
+                timeout: 30,
+                limit: output,
                 remind: None,
                 state: job::State::Accepted,
                 reason: None,
-                exit_code: None,
+                exit: None,
                 created: "2026-07-27T00:00:00.000Z".to_string(),
                 updated: "2026-07-27T00:00:00.000Z".to_string(),
                 accepted: Some("2026-07-27T00:00:00.000Z".to_string()),
@@ -125,11 +128,11 @@ pub fn launch(
     )
 }
 
-pub fn terminal(supervisor: &santi_api::jobs::Native, launch: &JobLaunch) -> JobTerminal {
+pub fn terminal(supervisor: &santi_api::jobs::Native, launch: &jobs::Launch) -> jobs::Terminal {
     (0..100)
         .find_map(|_| {
             let observed = supervisor.observe(launch).expect("observe job");
-            if let JobObservation::Terminal(terminal) = observed {
+            if let jobs::Observation::Terminal(terminal) = observed {
                 Some(terminal)
             } else {
                 thread::sleep(Duration::from_millis(50));
@@ -150,7 +153,7 @@ pub async fn seed(database: &std::path::Path, token: &str, soul: &str, strand: &
         .await
         .expect("open estate");
     store
-        .create_turn(TurnDraft {
+        .start(Turn {
             tag: "turn_vertical",
             strand,
             trigger: santi_core::turn::Trigger::System,
@@ -160,7 +163,7 @@ pub async fn seed(database: &std::path::Path, token: &str, soul: &str, strand: &
         .await
         .expect("turn");
     store
-        .create_call(CallDraft {
+        .calling(Call {
             tag: "call_vertical",
             turn: "turn_vertical",
             tool: "shell",
@@ -170,7 +173,7 @@ pub async fn seed(database: &std::path::Path, token: &str, soul: &str, strand: &
         .await
         .expect("call");
     store
-        .prepare_effect(EffectDraft {
+        .stage(Effect {
             tag: "effect_vertical",
             turn: "turn_vertical",
             call: Some("call_vertical"),
@@ -181,7 +184,7 @@ pub async fn seed(database: &std::path::Path, token: &str, soul: &str, strand: &
         .await
         .expect("effect");
     store
-        .create_capability(CapabilityDraft {
+        .grant(Capability {
             digest: &digest,
             expires: expiry,
             soul,
@@ -199,7 +202,7 @@ pub async fn stamp(database: &std::path::Path, job: &str) -> String {
     santi_core::Store::open(database)
         .await
         .expect("open estate")
-        .job_record(job)
+        .tracked(job)
         .await
         .expect("job query")
         .expect("job")
@@ -236,7 +239,7 @@ pub async fn service(temp: &tempfile::TempDir, database: &std::path::Path) -> Se
     .expect("open service")
 }
 
-pub fn path(launch: &JobLaunch) -> PathBuf {
+pub fn path(launch: &jobs::Launch) -> PathBuf {
     PathBuf::from(&launch.directory)
 }
 

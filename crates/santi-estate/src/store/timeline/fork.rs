@@ -7,7 +7,7 @@ mod checkpoint;
 mod copy;
 
 #[derive(Clone, Copy)]
-pub struct ForkDraft<'a> {
+pub struct Fork<'a> {
     pub tag: &'a str,
     pub parent: &'a str,
     pub at: i64,
@@ -18,10 +18,7 @@ pub struct ForkDraft<'a> {
 struct Writer<'a, 'tx>(&'a mut Tx<'tx, Sqlite>);
 
 impl Store {
-    pub async fn branch(
-        &self,
-        draft: ForkDraft<'_>,
-    ) -> Result<santi_model::strand::Strand, String> {
+    pub async fn branch(&self, draft: Fork<'_>) -> Result<santi_model::strand::Strand, String> {
         self.branching(draft, |_, _, _, _| Ok(()))
             .await
             .map(|(strand, _)| strand)
@@ -29,7 +26,7 @@ impl Store {
 
     pub async fn branching<V>(
         &self,
-        draft: ForkDraft<'_>,
+        draft: Fork<'_>,
         validate: impl Fn(
             crate::Target,
             &santi_model::inference::Declaration,
@@ -43,7 +40,7 @@ impl Store {
             .batch(async |tx| {
                 let parent = Writer(tx).need("Strand", draft.parent).await?;
                 let at = checkpoint::Reader(tx).selected(&parent, draft.at).await?;
-                creating(tx, ForkDraft { at, ..draft }, &validate).await
+                creating(tx, Fork { at, ..draft }, &validate).await
             })
             .await
             .map_err(read::error)?;
@@ -56,7 +53,7 @@ impl Store {
 
     pub async fn positioning<V>(
         &self,
-        draft: ForkDraft<'_>,
+        draft: Fork<'_>,
         validate: impl Fn(
             crate::Target,
             &santi_model::inference::Declaration,
@@ -70,7 +67,7 @@ impl Store {
             .batch(async |tx| {
                 let parent = Writer(tx).need("Strand", draft.parent).await?;
                 let at = checkpoint::Reader(tx).position(&parent, draft.at).await?;
-                creating(tx, ForkDraft { at, ..draft }, &validate).await
+                creating(tx, Fork { at, ..draft }, &validate).await
             })
             .await
             .map_err(read::error)?;
@@ -81,7 +78,7 @@ impl Store {
         Ok((strand, checked))
     }
 
-    pub async fn fork(&self, draft: ForkDraft<'_>) -> Result<santi_model::strand::Strand, String> {
+    pub async fn fork(&self, draft: Fork<'_>) -> Result<santi_model::strand::Strand, String> {
         self.forking(draft, |_, _, _, _| Ok(()))
             .await
             .map(|(strand, _)| strand)
@@ -89,7 +86,7 @@ impl Store {
 
     pub async fn forking<V>(
         &self,
-        draft: ForkDraft<'_>,
+        draft: Fork<'_>,
         validate: impl Fn(
             crate::Target,
             &santi_model::inference::Declaration,
@@ -113,7 +110,7 @@ impl Store {
         Ok((strand, checked))
     }
 
-    pub async fn discard_fork(&self, tag: &str) -> Result<bool, String> {
+    pub async fn discard(&self, tag: &str) -> Result<bool, String> {
         self.core
             .batch(async |tx| Writer(tx).discard(tag).await)
             .await
@@ -123,7 +120,7 @@ impl Store {
 
 async fn creating<V>(
     tx: &mut Tx<'_, Sqlite>,
-    draft: ForkDraft<'_>,
+    draft: Fork<'_>,
     validate: &impl Fn(
         crate::Target,
         &santi_model::inference::Declaration,
@@ -164,7 +161,7 @@ async fn creating<V>(
     let next = (draft.at + 1).to_string();
     let seen = int(&parent, "seen")?.min(draft.at).to_string();
     let fork = draft.at.to_string();
-    let parent_key = parent.key().to_string();
+    let origin = parent.key().to_string();
     let mut fields = vec![
         ("tag", draft.tag),
         ("next", next.as_str()),
@@ -173,7 +170,7 @@ async fn creating<V>(
         ("created", draft.created),
         ("updated", draft.created),
         ("soul", soul.as_str()),
-        ("parent", parent_key.as_str()),
+        ("parent", origin.as_str()),
     ];
     crate::store::support::inference::fields(selected, &mut fields);
     let child = tx.put("Strand", &fields).await?;

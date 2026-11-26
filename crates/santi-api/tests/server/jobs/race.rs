@@ -1,5 +1,5 @@
 use super::*;
-use santi_estate::JobDraft;
+use santi_estate::Job;
 use sha2::{Digest, Sha256};
 use std::{sync::mpsc, time::Duration};
 
@@ -8,26 +8,26 @@ struct Paused {
     resume: Mutex<mpsc::Receiver<()>>,
 }
 
-impl JobSupervisor for Paused {
-    fn detach(&self, _: &JobLaunch) -> Result<(), String> {
+impl jobs::Supervisor for Paused {
+    fn detach(&self, _: &jobs::Launch) -> Result<(), String> {
         Ok(())
     }
 
-    fn observe(&self, _: &JobLaunch) -> Result<JobObservation, String> {
+    fn observe(&self, _: &jobs::Launch) -> Result<jobs::Observation, String> {
         self.captured.send(()).expect("capture missing observation");
         self.resume
             .lock()
             .unwrap()
             .recv_timeout(Duration::from_secs(5))
             .expect("release observation");
-        Ok(JobObservation::Missing)
+        Ok(jobs::Observation::Missing)
     }
 
-    fn stop(&self, _: &JobLaunch) -> Result<(), String> {
+    fn stop(&self, _: &jobs::Launch) -> Result<(), String> {
         Ok(())
     }
 
-    fn acknowledge(&self, _: &JobLaunch) -> Result<(), String> {
+    fn acknowledge(&self, _: &jobs::Launch) -> Result<(), String> {
         Ok(())
     }
 }
@@ -48,7 +48,7 @@ async fn stale() {
         .recv_timeout(Duration::from_secs(5))
         .expect("observer captured pre-handoff absence");
     store
-        .accept_job("job_race", &santi_core::now())
+        .claim("job_race", &santi_core::now())
         .await
         .expect("handoff accepted before observer returns");
     resume.send(()).expect("release stale observation");
@@ -64,21 +64,21 @@ async fn stale() {
 async fn prepare(store: &santi_core::Store) {
     let digest = format!("{:x}", Sha256::digest(fixture::CAPABILITY.as_bytes()));
     store
-        .prepare_job(
+        .submit(
             &digest,
-            JobDraft {
+            Job {
                 tag: "job_race",
                 description: "stale observer",
                 command: "true",
                 environment: None,
                 cwd: None,
-                timeout_seconds: 30,
-                output_limit_bytes: 4096,
-                remind_every_seconds: None,
-                notify_on_terminal: false,
-                request_sha256: "request_digest",
+                timeout: 30,
+                limit: 4096,
+                remind: None,
+                notify: false,
+                digest: "request_digest",
                 generation: "stamp_race",
-                supervisor_ref: "sidecar_race",
+                supervisor: "sidecar_race",
                 created: &santi_core::now(),
             },
             0,
@@ -87,22 +87,22 @@ async fn prepare(store: &santi_core::Store) {
         .expect("prepare job");
 }
 
-struct Evidence(JobObservation);
+struct Evidence(jobs::Observation);
 
-impl JobSupervisor for Evidence {
-    fn detach(&self, _: &JobLaunch) -> Result<(), String> {
+impl jobs::Supervisor for Evidence {
+    fn detach(&self, _: &jobs::Launch) -> Result<(), String> {
         Err("submission probe refusal".to_string())
     }
 
-    fn observe(&self, _: &JobLaunch) -> Result<JobObservation, String> {
+    fn observe(&self, _: &jobs::Launch) -> Result<jobs::Observation, String> {
         Ok(self.0.clone())
     }
 
-    fn stop(&self, _: &JobLaunch) -> Result<(), String> {
+    fn stop(&self, _: &jobs::Launch) -> Result<(), String> {
         Ok(())
     }
 
-    fn acknowledge(&self, _: &JobLaunch) -> Result<(), String> {
+    fn acknowledge(&self, _: &jobs::Launch) -> Result<(), String> {
         Ok(())
     }
 }
@@ -110,11 +110,11 @@ impl JobSupervisor for Evidence {
 #[tokio::test]
 async fn evidence() {
     for (observation, expected) in [
-        (JobObservation::Missing, job::State::Unknown),
-        (JobObservation::Aborted, job::State::Failed),
-        (JobObservation::Claimed, job::State::Accepted),
+        (jobs::Observation::Missing, job::State::Unknown),
+        (jobs::Observation::Aborted, job::State::Failed),
+        (jobs::Observation::Claimed, job::State::Accepted),
         (
-            JobObservation::Terminal(service::JobTerminal {
+            jobs::Observation::Terminal(service::jobs::Terminal {
                 state: job::State::Succeeded,
                 reason: None,
                 exit: Some(0),
@@ -143,19 +143,19 @@ async fn evidence() {
 async fn releases() {
     let temp = tempfile::tempdir().expect("temp dir");
     let (service, strand, _) =
-        fixture::prepare(&temp, Arc::new(Evidence(JobObservation::Missing))).await;
+        fixture::prepare(&temp, Arc::new(Evidence(jobs::Observation::Missing))).await;
     assert!(
         service
             .spawn(
                 fixture::CAPABILITY,
-                service::JobDraft {
+                service::jobs::Draft {
                     description: "refused handoff".to_string(),
                     command: "true".to_string(),
                     cwd: None,
                     timeout: Some(30),
                     output: Some(4096),
                     remind: None,
-                    notify_on_terminal: false,
+                    notify: false,
                 }
             )
             .await

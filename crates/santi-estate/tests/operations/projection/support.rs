@@ -1,5 +1,5 @@
 use keel::{Core, Op, adapt::db::Sqlite, form};
-use santi_estate::{CallDraft, ReplyDraft, Store, StrandDraft, TurnDraft};
+use santi_estate::{Call, Reply, Store, Strand, Turn};
 use santi_model::turn;
 use serde_json::json;
 use sqlx::{
@@ -23,7 +23,7 @@ impl Seat {
         let store = Store::bootstrap(&path, SUDO).await.unwrap();
         store.seed("soul_test", NOW).await.unwrap();
         store
-            .create_strand(StrandDraft {
+            .weave(Strand {
                 tag: "strand_test",
                 soul: "soul_test",
                 label: None,
@@ -35,10 +35,10 @@ impl Seat {
             .await
             .unwrap();
         store
-            .create_turn(TurnDraft {
+            .start(Turn {
                 tag: "turn_test",
                 strand: "strand_test",
-                trigger: turn::Trigger::StrandSend,
+                trigger: turn::Trigger::Send,
                 from: 0,
                 created: NOW,
             })
@@ -53,7 +53,7 @@ impl Seat {
     pub async fn pair(&self, index: usize) {
         let call = format!("call_{:04}", 1000 - index);
         self.store
-            .create_call(CallDraft {
+            .calling(Call {
                 tag: &call,
                 turn: "turn_test",
                 tool: "shell",
@@ -63,7 +63,7 @@ impl Seat {
             .await
             .unwrap();
         self.store
-            .create_reply(ReplyDraft {
+            .replying(Reply {
                 tag: &format!("result_{:04}", 1000 - index),
                 call: &call,
                 output: (index.is_multiple_of(2)).then_some(&json!({"sequence": index})),

@@ -1,4 +1,4 @@
-use super::{InboxDraft, Store, read, write as inbox};
+use super::{Arrival, Store, read, write as inbox};
 use keel::{Op, Rank, form};
 use santi_model::{downstream, ingest, webhook};
 
@@ -8,13 +8,10 @@ mod types;
 pub use accept::Acceptance;
 pub(in crate::store) use support::receipt;
 use support::{conflict, exact};
-pub use types::{Accepted, DownstreamDraft, ReplayDraft, WebhookDraft};
+pub use types::{Accepted, Downstream, Replay, Webhook};
 
 impl Store {
-    pub async fn subscribe(
-        &self,
-        draft: WebhookDraft<'_>,
-    ) -> Result<webhook::Subscription, String> {
+    pub async fn subscribe(&self, draft: Webhook<'_>) -> Result<webhook::Subscription, String> {
         self.core
             .batch(async |tx| {
                 let soul = read::need(tx, "Soul", "tag", draft.soul).await?;
@@ -89,10 +86,7 @@ impl Store {
         Ok(subscriptions)
     }
 
-    pub async fn enroll(
-        &self,
-        draft: DownstreamDraft<'_>,
-    ) -> Result<downstream::Credential, String> {
+    pub async fn enroll(&self, draft: Downstream<'_>) -> Result<downstream::Credential, String> {
         self.core
             .batch(async |tx| {
                 let rows = tx.live("Downstream").await?;
@@ -179,12 +173,12 @@ struct Shape<'a> {
     digest: &'a str,
 }
 
-async fn replay_shape<'a>(
+async fn shape<'a>(
     tx: &mut keel::Tx<'_, keel::adapt::db::Sqlite>,
-    replay: ReplayDraft<'a>,
+    replay: Replay<'a>,
 ) -> Result<Shape<'a>, keel::adapt::Error> {
     match replay {
-        ReplayDraft::Webhook {
+        Replay::Webhook {
             subscription,
             delivery,
             digest,
@@ -200,7 +194,7 @@ async fn replay_shape<'a>(
             value: delivery,
             digest,
         }),
-        ReplayDraft::Downstream {
+        Replay::Downstream {
             owner,
             request,
             digest,

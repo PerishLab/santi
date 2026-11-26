@@ -41,11 +41,8 @@ impl Service {
             .await?;
         let (from, to) = (&choice.range.first, &choice.range.last);
         let before = self.estimate(provider.as_ref(), &strand.id).await?;
-        let compact_tag = crate::tag("compact");
-        let mut preview = self
-            .store
-            .preview_compact(&compact_tag, &strand.id, from, to)
-            .await?;
+        let tag = crate::tag("compact");
+        let mut preview = self.store.preview(&tag, &strand.id, from, to).await?;
         preview.before = Some(before.clone());
         preview.requested = choice.requested.clone();
         let (metadata, after, ratio) = self
@@ -66,8 +63,8 @@ impl Service {
         }
         let mut response = self
             .store
-            .create_compact(santi_estate::CompactDraft {
-                tag: &compact_tag,
+            .condense(santi_estate::Compact {
+                tag: &tag,
                 strand: &strand.id,
                 first: from,
                 last: to,
@@ -89,10 +86,10 @@ impl Service {
             .absolve(provider.as_ref(), &strand.id, "compact_exec")
             .await
         {
-            Ok(resolved) => response.active_incident_resolved = resolved,
+            Ok(resolved) => response.resolved = resolved,
             Err(error) => eprintln!("santi: committed compact resolution failed: {error}"),
         }
-        if response.active_incident_resolved {
+        if response.resolved {
             self.poked(&strand.id, "strand_send", None, "compact_recovery_poke")
                 .await;
         }
@@ -150,10 +147,10 @@ impl Service {
         brief: &Brief<'_>,
         metadata: serde_json::Value,
     ) -> Result<budget::Estimate, String> {
-        let input = crate::provider_preview(
+        let input = crate::preview(
             &self.store,
             strand,
-            crate::ProviderPreview {
+            crate::Preview {
                 report: brief.response,
                 summary: brief.summary,
                 metadata: &metadata,
@@ -172,12 +169,10 @@ impl Service {
         &self,
         compact: &str,
         keyword: Option<&str>,
-        page_index: i64,
-        page_size: i64,
+        index: i64,
+        size: i64,
     ) -> Result<Option<compact::Page>, String> {
-        self.store
-            .compact_page(compact, keyword, page_index, page_size)
-            .await
+        self.store.page(compact, keyword, index, size).await
     }
 }
 

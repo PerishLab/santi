@@ -15,50 +15,48 @@ mod types;
 pub(in crate::store) mod write;
 
 pub(in crate::store) use edge::receipt;
-pub use edge::{Acceptance, Accepted, DownstreamDraft, ReplayDraft, WebhookDraft};
-pub use types::{
-    Begun, DrainDraft, Inbox, InboxDraft, NoticeDraft, Offer, Opening, ReceiptDraft, Refusal,
-};
+pub use edge::{Acceptance, Accepted, Downstream, Replay, Webhook};
+pub use types::{Arrival, Begun, Drain, Inbox, Notice, Offer, Opening, Receipt, Refusal};
 pub(in crate::store) use write::offer;
 
 impl Store {
-    pub async fn drain_turn(&self, draft: DrainDraft<'_>) -> Result<Opening, String> {
+    pub async fn drain(&self, draft: Drain<'_>) -> Result<Opening, String> {
         drain::open(self, draft, drain::Mode::Drain, None).await
     }
 
     pub async fn begin(
         &self,
-        draft: DrainDraft<'_>,
+        draft: Drain<'_>,
         effective: &santi_model::inference::Effective,
     ) -> Result<Opening, String> {
         drain::open(self, draft, drain::Mode::Drain, Some(effective)).await
     }
 
-    pub async fn pause(&self, draft: DrainDraft<'_>) -> Result<Opening, String> {
+    pub async fn pause(&self, draft: Drain<'_>) -> Result<Opening, String> {
         drain::open(self, draft, drain::Mode::Maintenance, None).await
     }
 
     pub async fn hold(
         &self,
-        draft: DrainDraft<'_>,
+        draft: Drain<'_>,
         effective: &santi_model::inference::Effective,
     ) -> Result<Opening, String> {
         drain::open(self, draft, drain::Mode::Maintenance, Some(effective)).await
     }
 
-    pub async fn redrive(&self, draft: DrainDraft<'_>) -> Result<Opening, String> {
+    pub async fn redrive(&self, draft: Drain<'_>) -> Result<Opening, String> {
         drain::open(self, draft, drain::Mode::Redrive, None).await
     }
 
     pub async fn resume(
         &self,
-        draft: DrainDraft<'_>,
+        draft: Drain<'_>,
         effective: &santi_model::inference::Effective,
     ) -> Result<Opening, String> {
         drain::open(self, draft, drain::Mode::Redrive, Some(effective)).await
     }
 
-    pub async fn accept_inbox(&self, draft: InboxDraft<'_>, gate: usize) -> Result<Inbox, String> {
+    pub async fn accept(&self, draft: Arrival<'_>, gate: usize) -> Result<Inbox, String> {
         let content = json(draft.content)?;
         let metadata = draft
             .source
@@ -86,14 +84,14 @@ impl Store {
             kind: draft.kind.clone(),
             content: draft.content.clone(),
             source: draft.source.cloned(),
-            coalesce_key: None,
-            coalesce_revision: None,
-            coalesce_causes: Vec::new(),
+            key: None,
+            revision: None,
+            causes: Vec::new(),
             created: draft.created.to_string(),
         })
     }
 
-    pub async fn offer_notice(&self, draft: NoticeDraft<'_>, gate: usize) -> Result<Offer, String> {
+    pub async fn notice(&self, draft: Notice<'_>, gate: usize) -> Result<Offer, String> {
         self.core
             .batch(async |tx| write::offer(tx, draft, gate).await)
             .await
@@ -135,13 +133,13 @@ impl Store {
         let Some(mut status) = receipt::status(&self.core, inbox).await? else {
             return Ok(None);
         };
-        status.effects = self.effects_for_receipt(inbox).await?;
+        status.effects = self.receipted(inbox).await?;
         Ok(Some(status))
     }
 
-    pub async fn advance_receipt(
+    pub async fn advance(
         &self,
-        draft: ReceiptDraft<'_>,
+        draft: Receipt<'_>,
     ) -> Result<santi_model::receipt::Status, String> {
         let inbox = draft.inbox;
         receipt::advance(&self.core, draft).await?;
@@ -175,13 +173,13 @@ async fn decode(core: &Core<Sqlite>, row: &Row) -> Result<Inbox, String> {
     Ok(Inbox {
         id: read::text(row, "tag")?.to_string(),
         strand: read::related(core, "Strand", read::int(row, "strand")?).await?,
-        kind: decode_kind(read::text(row, "kind")?)?,
+        kind: parse(read::text(row, "kind")?)?,
         content: serde_json::from_str(read::text(row, "content")?)
             .map_err(|error| error.to_string())?,
         source,
-        coalesce_key: row.text("coalesce_key").map(str::to_string),
-        coalesce_revision: row.int("coalesce_revision"),
-        coalesce_causes: causes,
+        key: row.text("coalesce_key").map(str::to_string),
+        revision: row.int("coalesce_revision"),
+        causes,
         created: read::text(row, "created")?.to_string(),
     })
 }
@@ -189,14 +187,14 @@ async fn decode(core: &Core<Sqlite>, row: &Row) -> Result<Inbox, String> {
 fn kind(kind: &message::Kind) -> &'static str {
     match kind {
         message::Kind::Text => "text",
-        message::Kind::SantiSystem => "santi_system",
+        message::Kind::System => "santi_system",
     }
 }
 
-fn decode_kind(value: &str) -> Result<message::Kind, String> {
+fn parse(value: &str) -> Result<message::Kind, String> {
     match value {
         "text" => Ok(message::Kind::Text),
-        "santi_system" => Ok(message::Kind::SantiSystem),
+        "santi_system" => Ok(message::Kind::System),
         value => Err(format!("unknown inbox kind {value}")),
     }
 }

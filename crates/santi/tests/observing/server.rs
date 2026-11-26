@@ -4,7 +4,7 @@ use std::sync::{
 };
 use std::time::Duration;
 
-use santi::cli::WatchFormat;
+use santi::cli::Format;
 use santi::client::{Request, Target, emit};
 use tokio::{
     io::AsyncWriteExt,
@@ -89,7 +89,7 @@ pub(crate) async fn invoke(base: &str) -> (anyhow::Result<()>, Vec<u8>) {
     let mut output = Vec::new();
     let result = emit(
         Request {
-            target: Target::new(&client, base, "ss_cli", WatchFormat::Raw),
+            target: Target::new(&client, base, "ss_cli", Format::Raw),
             body: serde_json::json!({"content":[{"type":"text","text":"hello"}]}),
             watch: true,
         },

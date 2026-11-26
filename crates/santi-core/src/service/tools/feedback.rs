@@ -136,7 +136,7 @@ impl Service {
         let Some(budget) = self.rationed(strand) else {
             return Ok(None);
         };
-        let Some(limit) = budget.feedback_after_calls else {
+        let Some(limit) = budget.after else {
             return Ok(None);
         };
         let calls = self.store.calls(strand).await?;
@@ -158,8 +158,8 @@ impl Service {
         Ok(Some(Barrier {
             limit,
             observed,
-            command: budget.feedback_command,
-            cwd: budget.feedback_cwd,
+            command: budget.command,
+            cwd: budget.cwd,
         }))
     }
 }

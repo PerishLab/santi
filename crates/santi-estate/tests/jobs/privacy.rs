@@ -1,6 +1,6 @@
-use santi_estate::{Environment, JobRecord, Store};
+use santi_estate::{Environment, Record, Store};
 
-pub async fn verify(path: &std::path::Path, replayed: &JobRecord, environment: &Environment) {
+pub async fn verify(path: &std::path::Path, replayed: &Record, environment: &Environment) {
     assert_eq!(replayed.environment.as_ref(), Some(environment));
     assert!(!format!("{replayed:?}").contains("frozen-secret-probe"));
     assert!(
@@ -11,7 +11,7 @@ pub async fn verify(path: &std::path::Path, replayed: &JobRecord, environment: &
     let retained = Store::bootstrap(path, super::SUDO).await.expect("reopen");
     assert_eq!(
         retained
-            .job_record("job_test")
+            .tracked("job_test")
             .await
             .expect("read")
             .expect("record")
@@ -23,7 +23,7 @@ pub async fn verify(path: &std::path::Path, replayed: &JobRecord, environment: &
 pub async fn expire(store: &Store, origin: [&str; 4]) {
     let [strand, turn, call, effect] = origin;
     store
-        .create_capability(santi_estate::CapabilityDraft {
+        .grant(santi_estate::Capability {
             digest: "expired_capability",
             expires: 10,
             soul: "soul_test",
@@ -35,11 +35,5 @@ pub async fn expire(store: &Store, origin: [&str; 4]) {
         })
         .await
         .expect("expiring capability");
-    assert_eq!(
-        store
-            .expire_capabilities(11)
-            .await
-            .expect("expire capabilities"),
-        1
-    );
+    assert_eq!(store.sweep(11).await.expect("expire capabilities"), 1);
 }

@@ -16,14 +16,14 @@ async fn roundtrips() {
             constitution: None,
             environment: Default::default(),
         },
-        Arc::new(DriverProvider),
+        Arc::new(Driver),
     )
     .await
     .expect("open service");
 
     let Json(written) = okay(
         Environs(service.clone())
-            .set_soul_environ(
+            .declare(
                 santi_core::GENESIS.to_string(),
                 environ::Draft {
                     name: "STIM_BASE_URL".to_string(),
@@ -37,13 +37,13 @@ async fn roundtrips() {
 
     let Json(listed) = okay(
         Environs(service.clone())
-            .soul_environs(santi_core::GENESIS.to_string())
+            .owned(santi_core::GENESIS.to_string())
             .await,
     );
     assert_eq!(listed, vec![written]);
 
     let error = Environs(service.clone())
-        .set_soul_environ(
+        .declare(
             santi_core::GENESIS.to_string(),
             environ::Draft {
                 name: "SANTI_TURN_ID".to_string(),
@@ -56,20 +56,20 @@ async fn roundtrips() {
 
     let status = okay(
         Environs(service.clone())
-            .end_soul_environ(santi_core::GENESIS.to_string(), "STIM_BASE_URL".to_string())
+            .revoke(santi_core::GENESIS.to_string(), "STIM_BASE_URL".to_string())
             .await,
     );
     assert_eq!(status, StatusCode::NO_CONTENT);
 
     let Json(listed) = okay(
         Environs(service)
-            .soul_environs(santi_core::GENESIS.to_string())
+            .owned(santi_core::GENESIS.to_string())
             .await,
     );
     assert!(listed.is_empty());
 }
 
-fn okay<T>(result: Result<T, santi_api::ApiError>) -> T {
+fn okay<T>(result: Result<T, santi_api::Problem>) -> T {
     match result {
         Ok(value) => value,
         Err(error) => panic!(

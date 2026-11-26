@@ -6,7 +6,7 @@ use std::{
 
 use super::Service;
 use crate::stamped;
-use santi_estate::ExpiredJob;
+use santi_estate::Expired;
 
 const BATCH: usize = 128;
 const TRASH: &str = ".gc";
@@ -29,7 +29,7 @@ impl Service {
                 .checked_sub(self.retention)
                 .unwrap_or(UNIX_EPOCH),
         )?;
-        let expired = self.store.expired_jobs(&cutoff, BATCH).await?;
+        let expired = self.store.stale(&cutoff, BATCH).await?;
         let full = expired.len() == BATCH;
         for job in expired {
             if let Err(error) = self.collect(&job, &cutoff).await {
@@ -72,7 +72,7 @@ impl Service {
                 .into_string()
                 .map_err(|_| "job collection key is not valid UTF-8".to_string())?;
             let archived = entry.path();
-            if self.store.retained_job(&key).await? {
+            if self.store.retained(&key).await? {
                 let canonical = self.jobroot().join(&key);
                 if canonical.exists() {
                     return Err(format!(
@@ -88,7 +88,7 @@ impl Service {
         Ok(full)
     }
 
-    async fn collect(&self, job: &ExpiredJob, cutoff: &str) -> Result<(), String> {
+    async fn collect(&self, job: &Expired, cutoff: &str) -> Result<(), String> {
         let canonical = self.jobroot().join(&job.key);
         let archived = self.trash().join(&job.key);
         let moved = if canonical.exists() {
@@ -104,7 +104,7 @@ impl Service {
         } else {
             false
         };
-        let removed = match self.store.purge_job(&job.id, cutoff).await {
+        let removed = match self.store.purge(&job.id, cutoff).await {
             Ok(removed) => removed,
             Err(error) => {
                 if moved {

@@ -47,47 +47,49 @@ pub struct Snapshot {
     pub errors: Vec<Incident>,
 }
 
-pub const EXECUTION_TAIL_RECORD_LIMIT: usize = 16;
-pub const EXECUTION_TAIL_DETAIL_LIMIT_BYTES: usize = 2_048;
-pub const EXECUTION_TAIL_RESPONSE_LIMIT_BYTES: usize = 36_864;
+pub const RECORDS: usize = 16;
+pub const DETAIL: usize = 2_048;
+pub const RESPONSE: usize = 36_864;
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 #[schema(as = stream::ExecutionOrder)]
-pub enum ExecutionOrder {
-    NewestFirst,
+pub enum Order {
+    #[serde(rename = "newest_first")]
+    Newest,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 #[schema(as = stream::ExecutionTail)]
-pub struct ExecutionTail {
-    pub order: ExecutionOrder,
-    pub record_limit: usize,
-    pub detail_limit_bytes: usize,
-    pub older_omitted: bool,
-    pub records: Vec<ExecutionRecord>,
+pub struct Tail {
+    pub order: Order,
+    #[serde(rename = "record_limit")]
+    pub limit: usize,
+    #[serde(rename = "detail_limit_bytes")]
+    pub detail: usize,
+    #[serde(rename = "older_omitted")]
+    pub omitted: bool,
+    pub records: Vec<Record>,
 }
 
-impl ExecutionTail {
-    pub fn newest(records: Vec<ExecutionRecord>, older_omitted: bool) -> Self {
-        debug_assert!(records.len() <= EXECUTION_TAIL_RECORD_LIMIT);
+impl Tail {
+    pub fn newest(records: Vec<Record>, omitted: bool) -> Self {
+        debug_assert!(records.len() <= RECORDS);
         Self {
-            order: ExecutionOrder::NewestFirst,
-            record_limit: EXECUTION_TAIL_RECORD_LIMIT,
-            detail_limit_bytes: EXECUTION_TAIL_DETAIL_LIMIT_BYTES,
-            older_omitted,
+            order: Order::Newest,
+            limit: RECORDS,
+            detail: DETAIL,
+            omitted,
             records,
         }
     }
 
-    pub fn ensure_response_bound(&self) -> Result<(), String> {
+    pub fn bounded(&self) -> Result<(), String> {
         let bytes = serde_json::to_vec(self)
             .map_err(|error| format!("execution tail serialization failed: {error}"))?
             .len();
-        if bytes > EXECUTION_TAIL_RESPONSE_LIMIT_BYTES {
-            return Err(format!(
-                "execution tail response exceeded {EXECUTION_TAIL_RESPONSE_LIMIT_BYTES} bytes"
-            ));
+        if bytes > RESPONSE {
+            return Err(format!("execution tail response exceeded {RESPONSE} bytes"));
         }
         Ok(())
     }
@@ -95,16 +97,18 @@ impl ExecutionTail {
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 #[schema(as = stream::ExecutionRecord)]
-pub struct ExecutionRecord {
+pub struct Record {
     pub sequence: i64,
     pub created: Timestamp,
     pub kind: crate::strand::Target,
     pub detail: String,
-    pub detail_bytes: u64,
-    pub detail_truncated: bool,
+    #[serde(rename = "detail_bytes")]
+    pub bytes: u64,
+    #[serde(rename = "detail_truncated")]
+    pub truncated: bool,
 }
 
-impl ExecutionRecord {
+impl Record {
     pub fn project<T: Serialize>(
         sequence: i64,
         created: Timestamp,
@@ -112,40 +116,38 @@ impl ExecutionRecord {
         record: &T,
     ) -> Result<Self, serde_json::Error> {
         let serialized = serde_json::to_string(record)?;
-        let detail_bytes = u64::try_from(serialized.len()).unwrap_or(u64::MAX);
-        let detail = bounded_detail(&serialized);
-        let detail_truncated = detail.len() < serialized.len();
+        let bytes = u64::try_from(serialized.len()).unwrap_or(u64::MAX);
+        let detail = clip(&serialized);
+        let truncated = detail.len() < serialized.len();
         Ok(Self {
             sequence,
             created,
             kind,
             detail,
-            detail_bytes,
-            detail_truncated,
+            bytes,
+            truncated,
         })
     }
 }
 
-fn bounded_detail(serialized: &str) -> String {
-    let mut raw_bytes = 0;
-    let mut transferred_bytes = 0;
+fn clip(serialized: &str) -> String {
+    let mut raw = 0;
+    let mut wire = 0;
     let mut end = 0;
     for (offset, character) in serialized.char_indices() {
-        let raw = character.len_utf8();
+        let size = character.len_utf8();
         let transferred = match character {
             '"' | '\\' => 2,
             '\u{0008}' | '\u{000c}' | '\n' | '\r' | '\t' => 2,
             character if character <= '\u{001f}' => 6,
             character => character.len_utf8(),
         };
-        if raw_bytes + raw > EXECUTION_TAIL_DETAIL_LIMIT_BYTES
-            || transferred_bytes + transferred > EXECUTION_TAIL_DETAIL_LIMIT_BYTES
-        {
+        if raw + size > DETAIL || wire + transferred > DETAIL {
             break;
         }
-        raw_bytes += raw;
-        transferred_bytes += transferred;
-        end = offset + raw;
+        raw += size;
+        wire += transferred;
+        end = offset + size;
     }
     serialized[..end].to_string()
 }

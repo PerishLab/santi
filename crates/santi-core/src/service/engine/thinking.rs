@@ -16,7 +16,7 @@ impl Service {
                 && thinking.response != progress.response
                 && let Some(updated) = self
                     .store
-                    .update_thinking(
+                    .refine(
                         &thinking.id,
                         progress.response.as_deref(),
                         None,
@@ -36,7 +36,7 @@ impl Service {
 
         let thinking = self
             .store
-            .create_thinking(santi_estate::ThinkingDraft {
+            .ponder(santi_estate::Thinking {
                 tag: &crate::tag("thinking"),
                 turn: progress.turn,
                 response: progress.response.as_deref(),
@@ -69,7 +69,7 @@ impl Service {
         };
         if let Some(updated) = self
             .store
-            .update_thinking(&thinking.id, None, Some(&summary), &crate::now())
+            .refine(&thinking.id, None, Some(&summary), &crate::now())
             .await?
         {
             *thinking = updated.clone();
@@ -92,7 +92,7 @@ impl Service {
         };
         if let Some(completed) = self
             .store
-            .complete_thinking(&thinking.id, completion_reason, &crate::now())
+            .conclude(&thinking.id, completion_reason, &crate::now())
             .await?
         {
             self.publish(
@@ -131,7 +131,7 @@ impl Service {
         };
         if let Some(failed) = self
             .store
-            .fail_thinking(&thinking.id, &error, &crate::now())
+            .falter(&thinking.id, &error, &crate::now())
             .await?
         {
             self.publish(

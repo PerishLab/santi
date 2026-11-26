@@ -16,7 +16,7 @@ async fn capsule() {
             constitution: None,
             environment: Default::default(),
         },
-        Arc::new(FakeProvider::default()),
+        Arc::new(Fake::default()),
     )
     .await
     .expect("open service");
@@ -33,7 +33,7 @@ async fn capsule() {
         .await
         .expect("send strand");
     Probe::new(&service)
-        .completed_turn(&strand.id, &accepted_turn(&service, &posted).await.id)
+        .completed(&strand.id, &accepted(&service, &posted).await.id)
         .await;
     let detail = service
         .strand(&strand.id)
@@ -103,7 +103,7 @@ async fn overlaps() {
             constitution: None,
             environment: Default::default(),
         },
-        Arc::new(FakeProvider::default()),
+        Arc::new(Fake::default()),
     )
     .await
     .expect("open service");
@@ -121,7 +121,7 @@ async fn overlaps() {
             .await
             .expect("send strand");
         Probe::new(&service)
-            .completed_turn(&strand.id, &accepted_turn(&service, &posted).await.id)
+            .completed(&strand.id, &accepted(&service, &posted).await.id)
             .await;
     }
     let messages = service

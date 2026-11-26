@@ -3,7 +3,7 @@ use serde_json::{Value, json};
 
 #[test]
 fn schema() {
-    let text = santi_api::export_openapi_json().expect("schema");
+    let text = santi_api::openapi().expect("schema");
     let doc: Value = serde_json::from_str(&text).expect("document");
     let request = &doc["components"]["schemas"]["strand.Fork"];
     assert_eq!(request["properties"]["at"]["minimum"], 0);

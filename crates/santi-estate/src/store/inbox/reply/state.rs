@@ -156,7 +156,7 @@ impl Machine<'_> {
             self.0.message = Some(message.into());
             attempt.state = State::Observed;
         } else {
-            attempt.state = State::NotApplied;
+            attempt.state = State::Unapplied;
         }
         attempt.resolution = Some(serde_json::to_value(resolution).map_err(|e| e.to_string())?);
         Ok(())

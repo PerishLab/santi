@@ -1,7 +1,7 @@
 use super::*;
 
 #[tokio::test]
-async fn partial_message() {
+async fn fragment() {
     let held = run(
         vec![vec![
             received(),
@@ -26,7 +26,7 @@ async fn partial_message() {
 }
 
 #[tokio::test]
-async fn partial_recorded() {
+async fn partial() {
     let held = run(
         vec![vec![
             received(),
@@ -49,7 +49,7 @@ async fn partial_recorded() {
 }
 
 #[tokio::test]
-async fn request_stop() {
+async fn stopped() {
     let held = run(
         vec![vec![
             received(),
@@ -73,7 +73,7 @@ async fn request_stop() {
 }
 
 #[tokio::test]
-async fn output_limit_bytes() {
+async fn bounded() {
     let dir = tempfile::tempdir().expect("tempdir");
     let effect = dir.path().join("effect");
     let arguments = json!({"command": format!("printf x >> '{}'", effect.display())});
@@ -122,7 +122,7 @@ async fn output_limit_bytes() {
 }
 
 #[tokio::test]
-async fn completed_turn() {
+async fn gated() {
     let gate = Arc::new(Notify::new());
     let held = run(
         vec![vec![
@@ -143,7 +143,7 @@ async fn completed_turn() {
 }
 
 #[tokio::test]
-async fn replay_shape() {
+async fn shape() {
     let arguments = json!({"command": "true"});
     let held = run(
         vec![

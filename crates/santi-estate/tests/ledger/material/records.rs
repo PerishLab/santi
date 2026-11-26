@@ -1,5 +1,5 @@
 use super::*;
-use santi_estate::{Capture, ThinkingDraft, TurnDraft};
+use santi_estate::{Capture, Thinking, Turn};
 
 #[tokio::test]
 async fn retained() {
@@ -8,7 +8,7 @@ async fn retained() {
     fixture.bind(Scope::Strand, "load", &package).await.unwrap();
     fixture
         .store
-        .create_turn(TurnDraft {
+        .start(Turn {
             tag: "turn",
             strand: "first",
             trigger: santi_model::turn::Trigger::System,
@@ -45,7 +45,7 @@ async fn retained() {
     assert!(capture.thinking.is_none());
     fixture
         .store
-        .create_thinking(ThinkingDraft {
+        .ponder(Thinking {
             tag: "thinking",
             turn: "turn",
             response: None,

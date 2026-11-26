@@ -85,9 +85,9 @@ async fn holds() {
             output: 16,
             shell: 16,
             lines: 256,
-            feedback_after_calls: None,
-            feedback_command: None,
-            feedback_cwd: None,
+            after: None,
+            command: None,
+            cwd: None,
         })
         .unwrap();
     let strand = service.weave().await.unwrap().strand;
@@ -97,11 +97,11 @@ async fn holds() {
         ("msg_recent", "recent".into()),
     ] {
         store
-            .place(santi_estate::MessageDraft {
+            .place(santi_estate::Message {
                 tag,
                 strand: &strand.id,
                 actor: message::Role::System,
-                actor_id: santi_core::SYSTEM,
+                sender: santi_core::SYSTEM,
                 kind: message::Kind::Text,
                 content: &message::Content::text(text),
                 state: message::State::Fixed,
@@ -189,7 +189,7 @@ async fn holds() {
     service.resume().await.unwrap();
     assert_eq!(provider.requests.lock().unwrap().len(), count);
     service.drive(&strand.id).await.unwrap();
-    Probe::new(&service).any_completed(&strand.id).await;
+    Probe::new(&service).settled(&strand.id).await;
     assert_eq!(provider.requests.lock().unwrap().len(), count + 1);
     assert!(store.message("msg_history").await.unwrap().is_some());
 }

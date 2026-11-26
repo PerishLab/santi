@@ -15,7 +15,7 @@ impl Writer<'_, '_> {
         tag: &str,
     ) -> Result<Written, keel::adapt::Error> {
         let tag = tag.to_string();
-        let strand_key = message.strand.key().to_string();
+        let owner = message.strand.key().to_string();
         let key = self
             .0
             .put(
@@ -30,7 +30,7 @@ impl Writer<'_, '_> {
                     ("request", "true"),
                     ("created", message.draft.created),
                     ("updated", message.draft.created),
-                    ("strand", strand_key.as_str()),
+                    ("strand", owner.as_str()),
                 ],
             )
             .await?;
@@ -52,10 +52,10 @@ impl Writer<'_, '_> {
         Ok(Written { key, tag, sequence })
     }
 
-    pub(super) async fn put_turn(
+    pub(super) async fn turn(
         &mut self,
         strand: &Row,
-        draft: &DrainDraft<'_>,
+        draft: &Drain<'_>,
         from: i64,
     ) -> Result<(), keel::adapt::Error> {
         let strand = strand.key().to_string();
@@ -75,12 +75,12 @@ impl Writer<'_, '_> {
     pub(super) async fn consume(
         &mut self,
         item: Assigned,
-        draft: &DrainDraft<'_>,
+        draft: &Drain<'_>,
     ) -> Result<(), keel::adapt::Error> {
         super::super::reply::attach(self.0, &item.pending.tag, item.message.key).await?;
         let metadata = item
             .pending
-            .source_metadata
+            .metadata
             .as_deref()
             .map(serde_json::from_str::<Value>)
             .transpose()
@@ -94,8 +94,8 @@ impl Writer<'_, '_> {
             "message": item.message.tag,
             "seq": item.message.sequence,
             "source": {
-                "type": item.pending.source_type,
-                "ref": item.pending.source_ref,
+                "type": item.pending.origin,
+                "ref": item.pending.reference,
                 "metadata": metadata,
             }
         })
@@ -127,7 +127,7 @@ impl Writer<'_, '_> {
         }
         receipt::shift(
             self.0,
-            super::super::ReceiptDraft {
+            super::super::Receipt {
                 inbox: &item.pending.tag,
                 state: model::State::Driving,
                 turn: Some(draft.turn),

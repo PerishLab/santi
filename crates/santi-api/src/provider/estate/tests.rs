@@ -89,7 +89,7 @@ fn continuity() {
         ..Default::default()
     };
     let strand = Declaration {
-        reasoning_effort: Some("low".into()),
+        effort: Some("low".into()),
         ..Default::default()
     };
     let layers = [
@@ -103,7 +103,7 @@ fn continuity() {
         santi_core::inference::Selection::Scenario(Origin::Soul)
     );
     assert_eq!(selected.source.model, Origin::Offering);
-    assert_eq!(selected.source.reasoning_effort, Some(Origin::Strand));
+    assert_eq!(selected.source.effort, Some(Origin::Strand));
     let route = selected.source.route.as_ref().unwrap();
     assert_eq!(route.candidate, Some(6));
     assert_eq!(route.offering, Some(5));
@@ -196,7 +196,7 @@ fn explicit() {
         };
         match change {
             "endpoint" => *endpoint = "https://elsewhere.invalid/v1".into(),
-            "protocol" => *protocol = Protocol::ChatCompletions,
+            "protocol" => *protocol = Protocol::Chat,
             "handle" => *credential = "env://NOT_ALLOWED".into(),
             _ => *credential = "custody://missing".into(),
         }
