@@ -82,7 +82,9 @@ async fn projection() {
     assert_ne!(inherited[0].id, inside.compact);
     assert_eq!(
         format!("{actual:?}"),
-        format!("{expected:?}").replace(&inside.compact, &inherited[0].id)
+        format!("{expected:?}")
+            .replace(&inside.compact, &inherited[0].id)
+            .replace(&parent.id, &child.strand.id)
     );
     assert_eq!(
         std::fs::read_to_string(home.join(&child.strand.id).join("memory/marker"))

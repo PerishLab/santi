@@ -76,7 +76,7 @@ pub(super) async fn compacts(
         if let Some(metadata) = compact.text("metadata") {
             fields.push(("metadata", metadata));
         }
-        tx.put("Compact", &fields).await?;
+        crate::store::write::compact(tx, &tag, &fields).await?;
     }
     Ok(())
 }

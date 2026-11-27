@@ -90,19 +90,37 @@ async fn record(
     let jobs =
         serde_json::to_string(&retirement.jobs).map_err(|error| Error::Adapt(error.to_string()))?;
     let soul = read::int(strand, "soul").map_err(Error::Adapt)?;
-    tx.put(
-        "Retirement",
-        &[
-            ("tag", &retirement.id),
-            ("ended", &retirement.ended),
-            ("jobs", &jobs),
-            ("messages", &messages.to_string()),
-            ("turns", &turns.to_string()),
-            ("soul", &soul.to_string()),
-        ],
-    )
-    .await?;
+    let key = tx
+        .put(
+            "Retirement",
+            &[
+                ("tag", &retirement.id),
+                ("ended", &retirement.ended),
+                ("jobs", &jobs),
+                ("messages", &messages.to_string()),
+                ("turns", &turns.to_string()),
+                ("soul", &soul.to_string()),
+            ],
+        )
+        .await?;
+    compacts(tx, strand.key(), key).await?;
     Ok(retirement)
+}
+
+async fn compacts(tx: &mut Tx<'_, Sqlite>, strand: i64, retirement: i64) -> Result<(), Error> {
+    let compacts = tx
+        .ask(&form("Compact").when("strand", Op::Eq, &strand.to_string()))
+        .await?;
+    let retirement = retirement.to_string();
+    for compact in compacts.rows() {
+        let tag = read::text(compact, "tag").map_err(Error::Adapt)?;
+        tx.put(
+            "RetiredCompact",
+            &[("tag", tag), ("retirement", &retirement)],
+        )
+        .await?;
+    }
+    Ok(())
 }
 
 struct Gate<'a, 'tx>(&'a mut Tx<'tx, Sqlite>);

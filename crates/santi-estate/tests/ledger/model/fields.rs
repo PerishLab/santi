@@ -4,6 +4,7 @@ pub(super) const TEXT: &[(&str, &str, Class)] = &[
     ("soul:retirement", "tag", Own),
     ("soul:retirement", "ended", Time),
     ("soul:retirement", "jobs", Provenance),
+    ("retirement:retiredcompact", "tag", Own),
     ("provider", "name", Own),
     ("family", "name", Own),
     ("scenario", "name", Own),

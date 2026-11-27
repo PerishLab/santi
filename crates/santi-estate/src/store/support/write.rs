@@ -18,6 +18,23 @@ pub(in crate::store) async fn strand(
     tx.put("Strand", fields).await
 }
 
+pub(in crate::store) async fn compact(
+    tx: &mut Tx<'_, Sqlite>,
+    tag: &str,
+    fields: &[(&str, &str)],
+) -> Result<i64, keel::adapt::Error> {
+    if tx
+        .one(&form("RetiredCompact").when("tag", Op::Eq, tag))
+        .await?
+        .is_some()
+    {
+        return Err(keel::adapt::Error::Adapt(format!(
+            "compact {tag} has already retired"
+        )));
+    }
+    tx.put("Compact", fields).await
+}
+
 pub(in crate::store) struct Entry<'a> {
     pub strand: &'a keel::Row,
     pub kind: &'a str,
