@@ -1,14 +1,10 @@
 use santi_core::render;
 use santi_core::{Fault, Health, environ, job, soul::Soul, strand::Strand, webhook};
-use utoipa::{
-    OpenApi,
-    openapi::{RefOr, schema::Schema},
-};
+use utoipa::OpenApi;
 
 mod descriptions;
 mod inference;
 mod security;
-use descriptions::{COMPONENTS, PROPERTIES};
 use santi_core::{material, soul, strand, stream};
 use security::Security;
 
@@ -225,61 +221,16 @@ use security::Security;
 )]
 struct Document;
 
-pub(super) fn document() -> utoipa::openapi::OpenApi {
+fn base() -> utoipa::openapi::OpenApi {
     let mut document = Document::openapi();
     if let Some(components) = document.components.as_mut() {
         inference::snapshots(components);
     }
-    for (schema, description) in COMPONENTS {
-        component(&mut document, schema, description);
-    }
-    for (schema, name, description) in PROPERTIES {
-        property(&mut document, schema, name, description);
-    }
     document
 }
 
-fn component(document: &mut utoipa::openapi::OpenApi, name: &str, description: &str) {
-    let Some(schema) = document
-        .components
-        .as_mut()
-        .and_then(|components| components.schemas.get_mut(name))
-    else {
-        return;
-    };
-    describe(schema, description);
-}
-
-fn property(document: &mut utoipa::openapi::OpenApi, schema: &str, name: &str, description: &str) {
-    let Some(RefOr::T(Schema::Object(schema))) = document
-        .components
-        .as_mut()
-        .and_then(|components| components.schemas.get_mut(schema))
-    else {
-        return;
-    };
-    let Some(property) = schema.properties.get_mut(name) else {
-        return;
-    };
-    describe(property, description);
-}
-
-fn describe(schema: &mut RefOr<Schema>, description: &str) {
-    match schema {
-        RefOr::Ref(reference) => reference.description = description.into(),
-        RefOr::T(Schema::Object(object)) => object.description = Some(description.into()),
-        RefOr::T(Schema::Array(array)) => array.description = Some(description.into()),
-        RefOr::T(Schema::OneOf(one_of)) => {
-            if let Some(item) = one_of
-                .items
-                .iter_mut()
-                .find(|item| matches!(item, RefOr::Ref(_)))
-            {
-                describe(item, description);
-            }
-        }
-        RefOr::T(Schema::AllOf(all_of)) => all_of.description = Some(description.into()),
-        RefOr::T(Schema::AnyOf(any_of)) => any_of.description = Some(description.into()),
-        _ => {}
-    }
+pub(super) fn document() -> utoipa::openapi::OpenApi {
+    let mut document = base();
+    descriptions::apply(&mut document);
+    document
 }
