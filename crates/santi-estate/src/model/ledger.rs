@@ -11,6 +11,7 @@ pub(super) fn plug(graph: &mut Graph) {
         .add(soul())
         .add(strand())
         .add(retirement())
+        .add(compact())
         .add(turn())
         .add(completion())
         .add(failure())
@@ -66,6 +67,14 @@ fn retirement() -> Spec {
         .field("turns", Atom::Int)
         .rule("turns", Rule::new().min(0))
         .root("soul", Bond::Many2one, "Soul")
+        .freeze()
+        .seal()
+}
+
+fn compact() -> Spec {
+    Spec::build("RetiredCompact")
+        .sole("tag", Atom::Text)
+        .root("retirement", Bond::Many2one, "Retirement")
         .freeze()
         .seal()
 }

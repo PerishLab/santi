@@ -24,6 +24,14 @@ pub const MISSING: Descriptor = Descriptor {
     exposure: Exposure::CALLER,
 };
 
+pub const RETIRED: Descriptor = Descriptor {
+    code: "compact.retired",
+    category: Category::Missing,
+    severity: Severity::Error,
+    retry: Retry::Never,
+    exposure: Exposure::CALLER,
+};
+
 pub const UNAUTHORIZED: Descriptor = Descriptor {
     code: "request.unauthorized",
     category: Category::Unauthorized,

@@ -28,7 +28,7 @@ impl Provider for Driver {
     }
 }
 
-pub(super) async fn open(temp: &tempfile::TempDir) -> (Store, Service) {
+pub(in crate::server::routes) async fn open(temp: &tempfile::TempDir) -> (Store, Service) {
     let database = temp.path().join("santi.sqlite");
     let store = Store::bootstrap(
         &database,

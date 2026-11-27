@@ -98,6 +98,7 @@ pub struct Entry {
 #[schema(as = compact::Page)]
 pub struct Page {
     pub compact: String,
+    pub strand: String,
     pub first: String,
     pub last: String,
     pub total: i64,
@@ -106,4 +107,11 @@ pub struct Page {
     #[serde(rename = "page_size")]
     pub size: i64,
     pub entries: Vec<Entry>,
+}
+
+#[derive(Debug, Clone)]
+pub enum Lookup {
+    Live(Page),
+    Retired { strand: String },
+    Missing,
 }

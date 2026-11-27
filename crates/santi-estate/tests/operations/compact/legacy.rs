@@ -1,6 +1,7 @@
 use super::*;
 use keel::adapt::db::Sqlite;
 use keel::{Core, Op, form};
+use std::path::Path;
 
 const SUDO: &str = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
 
@@ -12,7 +13,7 @@ fn graph() -> keel::Graph {
     };
     let mut graph = keel::Graph::new();
     for spec in santi_estate::graph().nodes().values() {
-        if spec.name() != "Compact" {
+        if !matches!(spec.name(), "Compact" | "RetiredCompact") {
             graph.add(spec.clone());
         }
     }
@@ -97,11 +98,8 @@ async fn seed(core: &Core<Sqlite>) -> i64 {
     .unwrap()
 }
 
-#[tokio::test]
-async fn preserves() {
-    let temp = tempfile::tempdir().expect("temp");
-    let path = temp.path().join("estate.sqlite");
-    let wire = Sqlite::file(&path).await.unwrap();
+async fn opened(path: &Path) -> (Store, i64) {
+    let wire = Sqlite::file(path).await.unwrap();
     let core = keel::bootstrap(graph(), wire)
         .unwrap()
         .seal(SUDO)
@@ -110,9 +108,17 @@ async fn preserves() {
         .share();
     let key = seed(&core).await;
     drop(core);
-    let store = Store::open(&path)
+    let store = Store::open(path)
         .await
         .expect("Keel evolves old estate without replacing Compact identity");
+    (store, key)
+}
+
+#[tokio::test]
+async fn preserves() {
+    let temp = tempfile::tempdir().expect("temp");
+    let path = temp.path().join("estate.sqlite");
+    let (store, key) = opened(&path).await;
     let check = keel::bind(santi_estate::graph(), Sqlite::file(&path).await.unwrap())
         .await
         .unwrap()
@@ -131,6 +137,7 @@ async fn preserves() {
         ("message_legacy", "message_legacy")
     );
     let page = store.page(&compact.id, None, 0, 10).await.unwrap().unwrap();
+    assert_eq!(page.strand, "strand_test");
     assert_eq!(page.entries.len(), 1);
     assert_eq!(page.entries[0].text, "original legacy content");
     let child = store
@@ -175,4 +182,19 @@ async fn preserves() {
         .unwrap()
         .unwrap();
     assert_eq!(page.entries[0].text, "original legacy content");
+}
+
+#[tokio::test]
+async fn retires() {
+    let temp = tempfile::tempdir().expect("temp");
+    let path = temp.path().join("estate.sqlite");
+    let (store, _) = opened(&path).await;
+    store.retire("strand_test").await.expect("retire");
+    drop(store);
+
+    let reopened = Store::open(&path).await.expect("reopen");
+    assert!(matches!(
+        reopened.lookup("compact_legacy", None, 0, 10).await.expect("lookup"),
+        santi_model::compact::Lookup::Retired { strand } if strand == "strand_test"
+    ));
 }

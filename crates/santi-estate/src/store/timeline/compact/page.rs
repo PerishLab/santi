@@ -1,5 +1,6 @@
 use super::super::target;
-use super::{Store, read};
+use super::boundary;
+use keel::adapt::Error;
 use keel::adapt::db::Sqlite;
 use keel::{Op, Rank, Row, Tx, form};
 use santi_model::compact;
@@ -11,142 +12,157 @@ pub(super) struct Query<'a> {
     pub size: i64,
 }
 
-struct Reader<'a, 'tx>(&'a mut Tx<'tx, Sqlite>);
-
-pub(super) async fn read(store: &Store, query: Query<'_>) -> Result<Option<compact::Page>, String> {
-    let Some(compact) = store.compact(query.tag).await? else {
-        return Ok(None);
-    };
-    let entries = store
-        .core
-        .batch(async |tx| entries(tx, &compact).await)
-        .await
-        .map_err(read::error)?;
-    let needle = query
-        .keyword
-        .map(str::trim)
-        .filter(|keyword| !keyword.is_empty())
-        .map(str::to_lowercase);
-    let entries = entries
-        .into_iter()
-        .filter(|entry| {
-            needle
-                .as_ref()
-                .is_none_or(|needle| entry.text.to_lowercase().contains(needle))
-        })
-        .collect::<Vec<_>>();
-    let total = entries.len() as i64;
-    let skip = query.index.max(0).saturating_mul(query.size.max(0)) as usize;
-    let take = query.size.max(0) as usize;
-    Ok(Some(compact::Page {
-        compact: compact.id,
-        first: compact.first,
-        last: compact.last,
-        total,
-        index: query.index,
-        size: query.size,
-        entries: entries.into_iter().skip(skip).take(take).collect(),
-    }))
-}
-
-async fn entries(
-    tx: &mut Tx<'_, Sqlite>,
-    compact: &compact::Compact,
-) -> Result<Vec<compact::Entry>, keel::adapt::Error> {
-    let strand = Reader(tx).need("Strand", &compact.strand).await?;
-    let row = Reader(tx).need("Compact", &compact.id).await?;
-    let (first, last) = super::boundary::Reader(tx).ends(&row).await?;
-    let from = super::boundary::number(&first, "sequence")?;
-    let to = super::boundary::number(&last, "sequence")?;
-    let rows = tx
-        .ask(
-            &form("StrandEntry")
-                .when("strand", Op::Eq, &strand.key().to_string())
-                .when("sequence", Op::Ge, &from.to_string())
-                .when("sequence", Op::Le, &to.to_string())
-                .order("sequence", Rank::Asc),
-        )
-        .await?
-        .rows()
-        .to_vec();
-    let mut entries = Vec::with_capacity(rows.len());
-    for row in rows {
-        let kind = text(&row, "target_type")?;
-        let aimed = crate::store::entry::aim(tx, &row).await?;
-        let target = text(&aimed, "tag")?;
-        entries.push(compact::Entry {
-            seq: row
-                .int("sequence")
-                .ok_or_else(|| keel::adapt::Error::Adapt("entry sequence missing".into()))?,
-            kind: target::decode(kind).map_err(keel::adapt::Error::Adapt)?,
-            target: target.to_string(),
-            text: render(tx, kind, target).await?,
-        });
-    }
-    Ok(entries)
-}
-
-async fn render(
-    tx: &mut Tx<'_, Sqlite>,
-    kind: &str,
-    tag: &str,
-) -> Result<String, keel::adapt::Error> {
-    match kind {
-        "message" => {
-            let row = Reader(tx).need("Message", tag).await?;
-            let content = text(&row, "content")?;
-            serde_json::from_str::<santi_model::message::Content>(content)
-                .map(|content| content.rendered())
-                .map_err(|error| keel::adapt::Error::Adapt(error.to_string()))
-        }
-        "tool_call" => {
-            let row = Reader(tx).need("ToolCall", tag).await?;
-            let arguments = json(text(&row, "arguments")?)?;
-            Ok(format!(
-                "[tool_call {}] {}",
-                text(&row, "tool")?,
-                rendered(&arguments)
-            ))
-        }
-        "tool_result" => result(tx, tag).await,
-        "thinking" => {
-            let row = Reader(tx).need("ThinkingSpan", tag).await?;
-            Ok(row
-                .text("summary")
-                .map(|summary| format!("[thinking] {summary}"))
-                .unwrap_or_default())
-        }
-        _ => Ok(String::new()),
-    }
-}
-
-async fn result(tx: &mut Tx<'_, Sqlite>, tag: &str) -> Result<String, keel::adapt::Error> {
-    let result = Reader(tx).need("ToolResult", tag).await?;
-    let key = result.key().to_string();
-    if let Some(output) = tx
-        .one(&form("ToolOutput").when("result", Op::Eq, &key))
-        .await?
-    {
-        return Ok(format!(
-            "[tool_result] {}",
-            rendered(&json(text(&output, "output")?)?)
-        ));
-    }
-    if let Some(failure) = tx
-        .one(&form("ToolFailure").when("result", Op::Eq, &key))
-        .await?
-    {
-        return Ok(format!("[tool_result error] {}", text(&failure, "error")?));
-    }
-    Ok("[tool_result]".to_string())
-}
+pub(super) struct Reader<'a, 'tx>(pub(super) &'a mut Tx<'tx, Sqlite>);
 
 impl Reader<'_, '_> {
-    async fn need(&mut self, unit: &str, tag: &str) -> Result<Row, keel::adapt::Error> {
-        self.0
-            .one(&form(unit).when("tag", Op::Eq, tag))
+    pub(super) async fn read(&mut self, query: Query<'_>) -> Result<compact::Lookup, Error> {
+        let Some(row) = self
+            .0
+            .one(&form("Compact").when("tag", Op::Eq, query.tag))
             .await?
-            .ok_or_else(|| keel::adapt::Error::Missing(format!("{unit} {tag}")))
+        else {
+            let Some(retired) = self
+                .0
+                .one(&form("RetiredCompact").when("tag", Op::Eq, query.tag))
+                .await?
+            else {
+                return Ok(compact::Lookup::Missing);
+            };
+            let key = boundary::number(&retired, "retirement")?.to_string();
+            let retirement = self.need("Retirement", "id", &key).await?;
+            return Ok(compact::Lookup::Retired {
+                strand: text(&retirement, "tag")?.into(),
+            });
+        };
+        let key = boundary::number(&row, "strand")?.to_string();
+        let strand = self.need("Strand", "id", &key).await?;
+        let (head, tail) = boundary::Reader(self.0).ends(&row).await?;
+        let first = boundary::Reader(self.0).tag(&head).await?;
+        let last = boundary::Reader(self.0).tag(&tail).await?;
+        let from = boundary::number(&head, "sequence")?;
+        let to = boundary::number(&tail, "sequence")?;
+        let entries = self.entries(&key, from, to).await?;
+        let needle = query
+            .keyword
+            .map(str::trim)
+            .filter(|keyword| !keyword.is_empty())
+            .map(str::to_lowercase);
+        let entries = entries
+            .into_iter()
+            .filter(|entry| {
+                needle
+                    .as_ref()
+                    .is_none_or(|needle| entry.text.to_lowercase().contains(needle))
+            })
+            .collect::<Vec<_>>();
+        let total = entries.len() as i64;
+        let skip = query.index.max(0).saturating_mul(query.size.max(0)) as usize;
+        let take = query.size.max(0) as usize;
+        Ok(compact::Lookup::Live(compact::Page {
+            compact: text(&row, "tag")?.into(),
+            strand: text(&strand, "tag")?.into(),
+            first,
+            last,
+            total,
+            index: query.index,
+            size: query.size,
+            entries: entries.into_iter().skip(skip).take(take).collect(),
+        }))
+    }
+
+    async fn entries(
+        &mut self,
+        strand: &str,
+        from: i64,
+        to: i64,
+    ) -> Result<Vec<compact::Entry>, Error> {
+        let rows = self
+            .0
+            .ask(
+                &form("StrandEntry")
+                    .when("strand", Op::Eq, strand)
+                    .when("sequence", Op::Ge, &from.to_string())
+                    .when("sequence", Op::Le, &to.to_string())
+                    .order("sequence", Rank::Asc),
+            )
+            .await?
+            .rows()
+            .to_vec();
+        let mut entries = Vec::with_capacity(rows.len());
+        for row in rows {
+            let kind = text(&row, "target_type")?;
+            let aimed = crate::store::entry::aim(self.0, &row).await?;
+            let target = text(&aimed, "tag")?;
+            entries.push(compact::Entry {
+                seq: row
+                    .int("sequence")
+                    .ok_or_else(|| Error::Adapt("entry sequence missing".into()))?,
+                kind: target::decode(kind).map_err(Error::Adapt)?,
+                target: target.to_string(),
+                text: self.render(kind, target).await?,
+            });
+        }
+        Ok(entries)
+    }
+
+    async fn render(&mut self, kind: &str, tag: &str) -> Result<String, Error> {
+        match kind {
+            "message" => {
+                let row = self.need("Message", "tag", tag).await?;
+                let content = text(&row, "content")?;
+                serde_json::from_str::<santi_model::message::Content>(content)
+                    .map(|content| content.rendered())
+                    .map_err(|error| Error::Adapt(error.to_string()))
+            }
+            "tool_call" => {
+                let row = self.need("ToolCall", "tag", tag).await?;
+                let arguments = json(text(&row, "arguments")?)?;
+                Ok(format!(
+                    "[tool_call {}] {}",
+                    text(&row, "tool")?,
+                    rendered(&arguments)
+                ))
+            }
+            "tool_result" => self.result(tag).await,
+            "thinking" => {
+                let row = self.need("ThinkingSpan", "tag", tag).await?;
+                Ok(row
+                    .text("summary")
+                    .map(|summary| format!("[thinking] {summary}"))
+                    .unwrap_or_default())
+            }
+            _ => Ok(String::new()),
+        }
+    }
+
+    async fn result(&mut self, tag: &str) -> Result<String, Error> {
+        let result = self.need("ToolResult", "tag", tag).await?;
+        let key = result.key().to_string();
+        if let Some(output) = self
+            .0
+            .one(&form("ToolOutput").when("result", Op::Eq, &key))
+            .await?
+        {
+            return Ok(format!(
+                "[tool_result] {}",
+                rendered(&json(text(&output, "output")?)?)
+            ));
+        }
+        if let Some(failure) = self
+            .0
+            .one(&form("ToolFailure").when("result", Op::Eq, &key))
+            .await?
+        {
+            return Ok(format!("[tool_result error] {}", text(&failure, "error")?));
+        }
+        Ok("[tool_result]".to_string())
+    }
+
+    async fn need(&mut self, unit: &str, field: &str, value: &str) -> Result<Row, Error> {
+        self.0
+            .one(&form(unit).when(field, Op::Eq, value))
+            .await?
+            .ok_or_else(|| Error::Missing(format!("{unit} {value}")))
     }
 }
 
@@ -163,5 +179,5 @@ fn rendered(value: &serde_json::Value) -> String {
 
 fn text<'a>(row: &'a Row, field: &str) -> Result<&'a str, keel::adapt::Error> {
     row.text(field)
-        .ok_or_else(|| keel::adapt::Error::Adapt(format!("compact entry {field} missing")))
+        .ok_or_else(|| Error::Adapt(format!("compact page {field} missing")))
 }

@@ -238,6 +238,8 @@ impl Problem {
     pub fn santi(error: Fault) -> Self {
         let status = if error.code == budget::Error::Context.descriptor().code {
             StatusCode::LOCKED
+        } else if error.code == catalog::RETIRED.code {
+            StatusCode::GONE
         } else {
             match error.category {
                 Category::Internal => StatusCode::INTERNAL_SERVER_ERROR,
