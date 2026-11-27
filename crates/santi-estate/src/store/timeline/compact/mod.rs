@@ -118,16 +118,32 @@ impl Store {
         index: i64,
         size: i64,
     ) -> Result<Option<compact::Page>, String> {
-        page::read(
-            self,
-            page::Query {
-                tag,
-                keyword,
-                index,
-                size,
-            },
-        )
-        .await
+        match self.lookup(tag, keyword, index, size).await? {
+            compact::Lookup::Live(page) => Ok(Some(page)),
+            compact::Lookup::Retired { .. } | compact::Lookup::Missing => Ok(None),
+        }
+    }
+
+    pub async fn lookup(
+        &self,
+        tag: &str,
+        keyword: Option<&str>,
+        index: i64,
+        size: i64,
+    ) -> Result<compact::Lookup, String> {
+        self.core
+            .batch(async |tx| {
+                page::Reader(tx)
+                    .read(page::Query {
+                        tag,
+                        keyword,
+                        index,
+                        size,
+                    })
+                    .await
+            })
+            .await
+            .map_err(read::error)
     }
 }
 
@@ -188,7 +204,7 @@ pub(in crate::store) async fn create(
     if let Some(metadata) = metadata {
         fields.push(("metadata", metadata));
     }
-    tx.put("Compact", &fields).await?;
+    crate::store::write::compact(tx, draft.tag, &fields).await?;
     Ok(plan.report(draft.tag, false))
 }
 

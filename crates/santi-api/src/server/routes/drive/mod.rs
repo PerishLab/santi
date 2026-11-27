@@ -1,8 +1,10 @@
 use super::*;
-use santi_core::{budget, compact, strand, stream};
+use santi_core::{Signal, Source, budget, catalog, compact, engine, strand, stream};
 
 mod retire;
 pub use retire::*;
+#[cfg(test)]
+mod tests;
 
 #[utoipa::path(
     post,
@@ -105,6 +107,7 @@ pub(super) fn exec() -> MethodRouter<Service> {
 #[utoipa::path(
     get,
     path = "/api/v1/compacts/{compact}",
+    summary = "Page a compact's covered entries and identify its owning strand.",
     params(
         ("compact" = String, Path),
         ("keyword" = Option<String>, Query),
@@ -114,6 +117,7 @@ pub(super) fn exec() -> MethodRouter<Service> {
     responses(
         (status = 200, body = compact::Page),
         (status = 404, body = Fault),
+        (status = 410, description = "The compact belonged to a retired strand. Code compact.retired identifies this response. Context includes the compact and strand IDs.", body = Fault),
         (status = 500, body = Fault)
     )
 )]
@@ -221,8 +225,9 @@ impl Drive {
     }
 
     async fn page(&self, compact: String, params: Paging) -> Result<Json<compact::Page>, Problem> {
-        self.0
-            .page(
+        match self
+            .0
+            .lookup(
                 &compact,
                 params.keyword.as_deref(),
                 params.index.unwrap_or(0),
@@ -230,8 +235,11 @@ impl Drive {
             )
             .await
             .map_err(Problem::service)?
-            .map(Json)
-            .ok_or_else(|| Problem::missing("compact not found"))
+        {
+            compact::Lookup::Live(page) => Ok(Json(page)),
+            compact::Lookup::Retired { strand } => Err(retired(&compact, &strand)),
+            compact::Lookup::Missing => Err(Problem::missing("compact not found")),
+        }
     }
 
     async fn snapshot(&self, strand: String) -> Result<Json<stream::Snapshot>, Problem> {
@@ -260,4 +268,16 @@ impl Drive {
             .map(Json)
             .ok_or_else(|| Problem::missing("strand not found"))
     }
+}
+
+fn retired(compact: &str, strand: &str) -> Problem {
+    Problem::santi(engine().transient(Signal {
+        descriptor: catalog::RETIRED,
+        source: Source::new("santi-api", "http_boundary"),
+        scope: None,
+        message: format!(
+            "Compact {compact} belonged to retired strand {strand}. Run `santi strand retirement {strand}` for retirement evidence."
+        ),
+        context: serde_json::json!({"compact": compact, "strand": strand}),
+    }))
 }

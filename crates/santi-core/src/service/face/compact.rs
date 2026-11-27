@@ -174,6 +174,16 @@ impl Service {
     ) -> Result<Option<compact::Page>, String> {
         self.store.page(compact, keyword, index, size).await
     }
+
+    pub async fn lookup(
+        &self,
+        compact: &str,
+        keyword: Option<&str>,
+        index: i64,
+        size: i64,
+    ) -> Result<compact::Lookup, String> {
+        self.store.lookup(compact, keyword, index, size).await
+    }
 }
 
 struct Forecast<'a> {

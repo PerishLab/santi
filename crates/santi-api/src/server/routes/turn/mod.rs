@@ -87,6 +87,6 @@ pub async fn show(
 }
 
 #[cfg(test)]
-mod support;
+pub(super) mod support;
 #[cfg(test)]
 mod tests;

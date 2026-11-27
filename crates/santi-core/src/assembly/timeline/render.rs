@@ -20,6 +20,7 @@ pub(super) fn condensed(compact: &compact::Compact, fallback: Range) -> String {
     let header = json!({
         "schema": "santi.compact_projection.visible_header.v1",
         "compact": compact.id,
+        "strand": compact.strand,
         "operation": noted(metadata, "operation")
             .unwrap_or(if capsuled { "manual_capsule" } else { "compact_projection" }),
         "declared_source": noted(metadata, "declared_source").unwrap_or("not_declared"),
@@ -199,6 +200,7 @@ mod tests {
             header["originals_query"],
             "santi compact query --compact compact_current"
         );
+        assert_eq!(header["strand"], compact.strand);
         assert_eq!(header["covered_strand_seq"]["end_seq"], 5);
         assert!(rendered.contains("<compact_summary>\nretained summary"));
         assert_eq!(
