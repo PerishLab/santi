@@ -97,6 +97,7 @@ fn custody(bytes: &[u8]) -> Result<String, String> {
     Ok(sudo.to_string())
 }
 
+#[cfg(unix)]
 fn sync(path: &Path) -> Result<(), String> {
     let parent = path
         .parent()
@@ -109,4 +110,9 @@ fn sync(path: &Path) -> Result<(), String> {
                 parent.display()
             )
         })
+}
+
+#[cfg(not(unix))]
+fn sync(_: &Path) -> Result<(), String> {
+    Ok(())
 }

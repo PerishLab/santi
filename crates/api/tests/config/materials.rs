@@ -3,8 +3,14 @@ use super::read;
 #[test]
 fn sources() {
     assert!(read("").materials.is_empty());
-    let value = read("[materials.perish]\nroot='/some/skills'\nformat='skill'\n");
-    assert_eq!(value.materials["perish"].root, "/some/skills");
+    let root = if cfg!(windows) {
+        r"C:\some\skills"
+    } else {
+        "/some/skills"
+    };
+    let text = format!("[materials.perish]\nroot='{root}'\nformat='skill'\n");
+    let value = read(&text);
+    assert_eq!(value.materials["perish"].root, root);
     assert_eq!(
         value.materials["perish"].format,
         santi_core::material::Format::Skill

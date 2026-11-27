@@ -21,6 +21,7 @@ fn accept(listener: &TcpListener) -> TcpStream {
     let until = Instant::now() + Duration::from_secs(5);
     loop {
         if let Ok((stream, _)) = listener.accept() {
+            stream.set_nonblocking(false).unwrap();
             return stream;
         }
         assert!(Instant::now() < until, "client request missing");

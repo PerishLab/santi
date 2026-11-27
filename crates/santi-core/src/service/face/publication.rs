@@ -1,4 +1,6 @@
-use std::fs::{self, File, OpenOptions};
+#[cfg(unix)]
+use std::fs::File;
+use std::fs::{self, OpenOptions};
 use std::io::Write;
 use std::path::Path;
 
@@ -46,10 +48,16 @@ fn stage(path: &Path, bytes: &[u8]) -> Result<(), String> {
     file.sync_all().map_err(|error| error.to_string())
 }
 
+#[cfg(unix)]
 fn sync(directory: &Path) -> Result<(), String> {
     File::open(directory)
         .and_then(|file| file.sync_all())
         .map_err(|error| error.to_string())
+}
+
+#[cfg(not(unix))]
+fn sync(_: &Path) -> Result<(), String> {
+    Ok(())
 }
 
 #[cfg(test)]

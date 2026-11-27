@@ -1,20 +1,30 @@
+#[cfg(any(unix, test))]
 use std::path::PathBuf;
 use std::process::Command;
 
-use anyhow::{Context, Result};
+#[cfg(unix)]
+use anyhow::Context;
+use anyhow::Result;
 
 use super::{Identity, Request};
+#[cfg(any(unix, test))]
 use crate::config::{self, Resume};
 
 pub(super) struct Plan {
+    #[cfg(any(unix, test))]
     pub(super) executable: PathBuf,
+    #[cfg(any(unix, test))]
     pub(super) base: String,
+    #[cfg(any(unix, test))]
     pub(super) soul: String,
+    #[cfg(any(unix, test))]
     pub(super) strand: String,
+    #[cfg(any(unix, test))]
     pub(super) bearer: Option<String>,
 }
 
 impl Plan {
+    #[cfg(any(unix, test))]
     pub(super) fn new(request: &Request<'_>, identity: &Identity) -> Result<Self> {
         Ok(Self {
             executable: config::executable()?,
@@ -25,6 +35,12 @@ impl Plan {
         })
     }
 
+    #[cfg(not(any(unix, test)))]
+    pub(super) fn new(_: &Request<'_>, _: &Identity) -> Result<Self> {
+        Ok(Self {})
+    }
+
+    #[cfg(any(unix, test))]
     pub(super) fn command(&self) -> Command {
         let mut command = Command::new(&self.executable);
         command.arg("tui");
@@ -76,13 +92,17 @@ impl Plan {
 
 #[cfg(test)]
 mod tests {
+    #[cfg(unix)]
     use std::fs;
     use std::path::PathBuf;
+    #[cfg(unix)]
     use std::process::Command;
 
     use super::Plan;
+    #[cfg(unix)]
     use crate::config;
 
+    #[cfg(unix)]
     #[test]
     fn sealed() {
         let plan = Plan {
@@ -98,6 +118,7 @@ mod tests {
         assert!(format!("{error:#}").contains("restore terminal before reload"));
     }
 
+    #[cfg(unix)]
     #[test]
     fn refuses() {
         if config::env("SANTI_RELOAD_REFUSAL_PROBE").is_none() {
@@ -139,6 +160,7 @@ mod tests {
         assert!(!detail.contains("secret bearer"), "{detail}");
     }
 
+    #[cfg(unix)]
     #[test]
     fn replaces() {
         if config::env("SANTI_RELOAD_EXEC_PROBE_OUTPUT").is_some() {
@@ -187,5 +209,35 @@ mod tests {
         assert!(report.contains("soul=soul_luna"), "{report}");
         assert!(report.contains("strand=ss_direct"), "{report}");
         assert!(report.contains("bearer=secret bearer"), "{report}");
+    }
+
+    #[cfg(not(unix))]
+    #[test]
+    fn unsupported() {
+        let plan = Plan {
+            executable: PathBuf::from("santi.exe"),
+            base: "http://runtime.example".to_string(),
+            soul: "soul_luna".to_string(),
+            strand: "ss_direct".to_string(),
+            bearer: Some("secret bearer".to_string()),
+        };
+        let prepare = format!(
+            "{:#}",
+            plan.prepare()
+                .expect_err("non-Unix prepare must refuse reload")
+        );
+        assert!(
+            prepare.contains("/reload is currently supported only on Unix"),
+            "{prepare}"
+        );
+        assert!(!prepare.contains("secret bearer"), "{prepare}");
+
+        let exec = format!("{:#}", plan.exec(plan.command()));
+        assert!(
+            exec.contains("/reload is currently supported only on Unix"),
+            "{exec}"
+        );
+        assert!(exec.contains("santi.exe"), "{exec}");
+        assert!(!exec.contains("secret bearer"), "{exec}");
     }
 }
