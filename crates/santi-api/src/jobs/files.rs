@@ -199,6 +199,7 @@ impl Artifact<'_> {
         let mut file = Artifact(&temporary).create()?;
         file.write_all(bytes).map_err(|error| error.to_string())?;
         file.sync_all().map_err(|error| error.to_string())?;
+        drop(file);
         swap(&temporary, self.0)?;
         self.sync()
     }
@@ -213,6 +214,7 @@ impl Artifact<'_> {
         let mut file = Artifact(&temporary).create()?;
         file.write_all(bytes).map_err(|error| error.to_string())?;
         file.sync_all().map_err(|error| error.to_string())?;
+        drop(file);
         match fs::hard_link(&temporary, self.0) {
             Ok(()) => {}
             Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {}
